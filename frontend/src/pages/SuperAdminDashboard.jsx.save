@@ -1,0 +1,915 @@
+import { useState, useMemo } from "react";
+
+/* ─── Design tokens ─────────────────────────────────────────────── */
+const C = {
+  navy:    "#0B2545",
+  navy2:   "#1E4976",
+  blue:    "#0EA5E9",
+  purple:  "#7C3AED",
+  green:   "#059669",
+  amber:   "#D97706",
+  red:     "#DC2626",
+  bg:      "#EBF6FD",
+  card:    "#ffffff",
+  muted:   "#4A7FA5",
+  subtle:  "#88B4CC",
+  border:  "#BFDBEE",
+  row0:    "#ffffff",
+  row1:    "#F0F9FF",
+};
+
+const SHADOW = "0 2px 8px rgba(11,37,69,.08), 0 8px 24px rgba(11,37,69,.07)";
+const SHADOW_LG = "0 4px 16px rgba(11,37,69,.12), 0 16px 40px rgba(11,37,69,.1)";
+
+const CARD = {
+  background: C.card,
+  borderRadius: 18,
+  padding: 24,
+  boxShadow: SHADOW,
+};
+
+const LABEL = {
+  fontSize: 11,
+  fontWeight: 700,
+  letterSpacing: ".09em",
+  textTransform: "uppercase",
+  color: C.muted,
+  marginBottom: 14,
+};
+
+/* ─── Helpers ────────────────────────────────────────────────────── */
+const inr = v => "₹" + Number(v).toLocaleString("en-IN");
+const bc  = loc => loc === "laxmi" ? C.blue : C.purple;
+const branchLabel = loc => loc === "laxmi" ? "Laxmi Nagar" : "Raya";
+
+/* ─── Sub-components ─────────────────────────────────────────────── */
+
+function Badge({ children, color }) {
+  return (
+    <span style={{
+      background: color + "22", color, borderRadius: 7,
+      padding: "3px 10px", fontSize: 11, fontWeight: 700,
+      display: "inline-block", whiteSpace: "nowrap",
+    }}>
+      {children}
+    </span>
+  );
+}
+
+function StatCard({ label, value, sub, color = C.blue, icon }) {
+  return (
+    <div style={{
+      ...CARD,
+      borderTop: `4px solid ${color}`,
+      flex: 1, minWidth: 170,
+      position: "relative", overflow: "hidden",
+    }}>
+      {/* ghost icon */}
+      <div style={{
+        position: "absolute", right: 14, top: 14,
+        fontSize: 36, opacity: .07, userSelect: "none",
+      }}>{icon}</div>
+      <div style={{ fontSize: 30, fontWeight: 900, color: C.navy, letterSpacing: "-.5px" }}>{value}</div>
+      <div style={{ fontSize: 13, fontWeight: 700, color: C.navy2, marginTop: 4 }}>{label}</div>
+      {sub && <div style={{ fontSize: 11, color: C.muted, marginTop: 3 }}>{sub}</div>}
+    </div>
+  );
+}
+
+/* Improved bar chart with labels, hover highlight, grid lines */
+function BarChart({ data, colors }) {
+  const [hov, setHov] = useState(null);
+  const max = Math.max(...data.map(d => Math.max(d.laxmi || 0, d.raya || 0)), 1);
+  const gridLines = [0.25, 0.5, 0.75, 1].map(f => Math.round(f * max));
+
+  return (
+    <div style={{ position: "relative", paddingTop: 8 }}>
+      {/* Y grid lines */}
+      <div style={{ position: "absolute", inset: 0, paddingBottom: 24, pointerEvents: "none" }}>
+        {gridLines.map(v => (
+          <div key={v} style={{
+            position: "absolute",
+            bottom: 24 + ((v / max) * 100) + "%",
+            left: 0, right: 0,
+            borderTop: `1px dashed ${C.border}`,
+          }}>
+            <span style={{ fontSize: 9, color: C.subtle, position: "absolute", left: 0, top: -8 }}>{v}</span>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display: "flex", alignItems: "flex-end", gap: 8, height: 120, paddingBottom: 0 }}>
+        {data.map((d, i) => (
+          <div
+            key={i}
+            onMouseEnter={() => setHov(i)}
+            onMouseLeave={() => setHov(null)}
+            style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 2, cursor: "default" }}
+          >
+            <div style={{ width: "100%", display: "flex", gap: 2, alignItems: "flex-end", height: 96 }}>
+              {["laxmi", "raya"].map(loc => {
+                const val = d[loc] || 0;
+                const h = Math.max(4, (val / max) * 90);
+                return (
+                  <div key={loc} style={{ flex: 1, position: "relative" }}>
+                    {hov === i && (
+                      <div style={{
+                        position: "absolute", bottom: h + 4, left: "50%", transform: "translateX(-50%)",
+                        background: C.navy, color: "#fff", borderRadius: 5,
+                        padding: "2px 6px", fontSize: 10, fontWeight: 700, whiteSpace: "nowrap", zIndex: 10,
+                      }}>{val}</div>
+                    )}
+                    <div style={{
+                      width: "100%", height: h,
+                      background: colors[loc],
+                      borderRadius: "4px 4px 0 0",
+                      opacity: hov === null || hov === i ? .9 : .35,
+                      transition: "all .2s",
+                      position: "absolute", bottom: 0,
+                    }} />
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{ fontSize: 9, color: C.subtle, fontWeight: 700, marginTop: 4 }}>{d.l}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Legend */}
+      <div style={{ display: "flex", gap: 16, marginTop: 12, justifyContent: "center" }}>
+        {[["laxmi", "Laxmi Nagar"], ["raya", "Raya"]].map(([loc, name]) => (
+          <div key={loc} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+            <div style={{ width: 10, height: 10, borderRadius: 3, background: colors[loc] }} />
+            <span style={{ fontSize: 10, color: C.muted, fontWeight: 600 }}>{name}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* Donut chart for branch split */
+function DonutChart({ laxmi, raya }) {
+  const total = laxmi + raya || 1;
+  const lPct = (laxmi / total) * 100;
+  const rPct = (raya / total) * 100;
+  const r = 48, cx = 60, cy = 60;
+  const circ = 2 * Math.PI * r;
+  const lDash = (lPct / 100) * circ;
+  const rDash = (rPct / 100) * circ;
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
+      <svg width={120} height={120}>
+        <circle cx={cx} cy={cy} r={r} fill="none" stroke={C.border} strokeWidth={14} />
+        <circle cx={cx} cy={cy} r={r} fill="none"
+          stroke={C.blue} strokeWidth={14}
+          strokeDasharray={`${lDash} ${circ - lDash}`}
+          strokeDashoffset={circ / 4}
+          strokeLinecap="round" />
+        <circle cx={cx} cy={cy} r={r} fill="none"
+          stroke={C.purple} strokeWidth={14}
+          strokeDasharray={`${rDash} ${circ - rDash}`}
+          strokeDashoffset={circ / 4 - lDash}
+          strokeLinecap="round" />
+        <text x={cx} y={cy - 5} textAnchor="middle" fontSize={11} fontWeight={700} fill={C.navy}>{total}</text>
+        <text x={cx} y={cy + 10} textAnchor="middle" fontSize={9} fill={C.muted}>Total</text>
+      </svg>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {[["laxmi", "Laxmi Nagar", laxmi, lPct], ["raya", "Raya", raya, rPct]].map(([loc, name, v, pct]) => (
+          <div key={loc}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <div style={{ width: 10, height: 10, borderRadius: 3, background: bc(loc) }} />
+              <span style={{ fontSize: 11, fontWeight: 700, color: C.navy2 }}>{name}</span>
+            </div>
+            <div style={{ fontSize: 18, fontWeight: 900, color: C.navy, marginLeft: 16 }}>{v}</div>
+            <div style={{ fontSize: 10, color: C.muted, marginLeft: 16 }}>{pct.toFixed(1)}%</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* Patient detail modal */
+function PatientModal({ patient, onClose }) {
+  if (!patient) return null;
+  const lastAdm = patient.admissions?.[patient.admissions.length - 1];
+  const isActive = lastAdm && !lastAdm.discharge?.dod && !lastAdm.discharge?.actualDod;
+  return (
+    <div style={{
+      position: "fixed", inset: 0, background: "rgba(11,37,69,.55)",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      zIndex: 1000, backdropFilter: "blur(4px)",
+    }} onClick={onClose}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background: "#fff", borderRadius: 20, padding: 32, width: 520, maxWidth: "95vw",
+        boxShadow: SHADOW_LG, maxHeight: "85vh", overflowY: "auto",
+      }}>
+        {/* Header */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
+          <div>
+            <div style={{ fontSize: 20, fontWeight: 900, color: C.navy }}>{patient.patientName || "—"}</div>
+            <div style={{ fontSize: 12, color: C.muted, marginTop: 3 }}>
+              UHID: <strong style={{ color: C.navy2 }}>{patient.uhid}</strong>
+              &nbsp;·&nbsp;
+              <Badge color={bc(patient._branch)}>{branchLabel(patient._branch)}</Badge>
+            </div>
+          </div>
+          <button onClick={onClose} style={{
+            border: "none", background: C.border, borderRadius: 10,
+            width: 32, height: 32, cursor: "pointer", fontSize: 16, color: C.muted,
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}>✕</button>
+        </div>
+
+        {/* Info grid */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 20 }}>
+          {[
+            ["Phone", patient.phone || "—"],
+            ["Gender", patient.gender || "—"],
+            ["Age", patient.age ? patient.age + " yrs" : "—"],
+            ["Blood Group", patient.bloodGroup || "—"],
+            ["Total Admissions", patient.admissions?.length || 0],
+            ["Status", isActive ? "🟢 Currently Admitted" : "⚫ Discharged"],
+          ].map(([l, v]) => (
+            <div key={l} style={{ background: C.bg, borderRadius: 10, padding: "10px 14px" }}>
+              <div style={{ fontSize: 10, color: C.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".07em" }}>{l}</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: C.navy, marginTop: 3 }}>{v}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Admissions timeline */}
+        <div style={{ ...LABEL }}>Admission History</div>
+        {patient.admissions?.length === 0 && (
+          <div style={{ color: C.muted, fontSize: 13, textAlign: "center", padding: 24 }}>No admissions</div>
+        )}
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {(patient.admissions || []).map((adm, i) => {
+            const discharged = adm.discharge?.dod || adm.discharge?.actualDod;
+            return (
+              <div key={i} style={{
+                borderLeft: `3px solid ${discharged ? C.subtle : C.green}`,
+                paddingLeft: 14, paddingTop: 4, paddingBottom: 4,
+              }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: C.navy }}>
+                  Adm #{i + 1} — {adm.dateTime ? new Date(adm.dateTime).toLocaleDateString("en-IN") : adm.date || "—"}
+                </div>
+                <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>
+                  {discharged ? `Discharged: ${new Date(discharged).toLocaleDateString("en-IN")}` : "Active"}
+                  {adm.billing?.grandTotal ? ` · Billed: ${inr(adm.billing.grandTotal)}` : ""}
+                </div>
+                {adm.doctor && <div style={{ fontSize: 11, color: C.muted }}>Doctor: {adm.doctor}</div>}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Excel export helper ───────────────────────────────────────── */
+function exportToExcel(patients, filename = "patients_export.csv") {
+  // Build rich CSV (opens perfectly in Excel)
+  const headers = ["UHID","Patient Name","Phone","Gender","Age","Blood Group","Branch","Total Admissions","Last Visit","Status","Total Billed (₹)"];
+  const rows = patients.map(p => {
+    const lastAdm = p.admissions?.[p.admissions.length - 1];
+    const isActive = lastAdm && !lastAdm.discharge?.dod && !lastAdm.discharge?.actualDod;
+    const revenue = (p.admissions || []).reduce((s, a) => s + (Number(a.billing?.grandTotal) || Number(a.billing?.paidNow) || 0), 0);
+    return [
+      p.uhid || "",
+      p.patientName || "",
+      p.phone || "",
+      p.gender || "",
+      p.age || "",
+      p.bloodGroup || "",
+      branchLabel(p._branch),
+      p.admissions?.length || 0,
+      lastAdm?.dateTime ? new Date(lastAdm.dateTime).toLocaleDateString("en-IN") : lastAdm?.date || "",
+      isActive ? "Admitted" : "Discharged",
+      revenue,
+    ];
+  });
+  const csv = [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+  const BOM = "\uFEFF"; // UTF-8 BOM so Excel reads ₹ correctly
+  const blob = new Blob([BOM + csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* ─── Main Component ─────────────────────────────────────────────── */
+export default function SuperAdminPage({ db, onLogout, onApprovePrint, printRequests = [] }) {
+  const [tab, setTab] = useState("overview");
+  const [branch, setBranch] = useState("all");
+  const [q, setQ] = useState("");
+  const [selectedPatient, setSelectedPatient] = useState(null);
+
+  /* ── Stats ── */
+  const stats = useMemo(() => {
+    const calc = (pts) => {
+      const totalPatients = pts.length;
+      const totalAdmissions = pts.reduce((s, p) => s + (p.admissions?.length || 0), 0);
+      const admitted = pts.filter(p => {
+        const l = p.admissions?.[p.admissions.length - 1];
+        return l && !l.discharge?.actualDod && !l.discharge?.dod;
+      }).length;
+      const revenue = pts.reduce((s, p) =>
+        s + p.admissions.reduce((a, adm) =>
+          a + (Number(adm.billing?.grandTotal) || Number(adm.billing?.paidNow) || 0), 0), 0);
+      const discharged = totalAdmissions - admitted;
+      return { totalPatients, totalAdmissions, admitted, discharged, revenue };
+    };
+
+    const lx = calc(db.laxmi || []);
+    const ry = calc(db.raya || []);
+
+    const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    const now = new Date();
+    const monthly = Array.from({ length: 6 }, (_, i) => {
+      const d = new Date(now.getFullYear(), now.getMonth() - 5 + i, 1);
+      return { l: months[d.getMonth()], m: d.getMonth(), y: d.getFullYear(), laxmi: 0, raya: 0 };
+    });
+    ["laxmi", "raya"].forEach(loc => {
+      (db[loc] || []).forEach(p => {
+        p.admissions?.forEach(a => {
+          const d = new Date(a.dateTime || a.date);
+          const slot = monthly.find(m => m.m === d.getMonth() && m.y === d.getFullYear());
+          if (slot) slot[loc]++;
+        });
+      });
+    });
+
+    // Revenue by month
+    const revMonthly = Array.from({ length: 6 }, (_, i) => {
+      const d = new Date(now.getFullYear(), now.getMonth() - 5 + i, 1);
+      return { l: months[d.getMonth()], m: d.getMonth(), y: d.getFullYear(), laxmi: 0, raya: 0 };
+    });
+    ["laxmi", "raya"].forEach(loc => {
+      (db[loc] || []).forEach(p => {
+        p.admissions?.forEach(a => {
+          const d = new Date(a.dateTime || a.date);
+          const slot = revMonthly.find(m => m.m === d.getMonth() && m.y === d.getFullYear());
+          if (slot) slot[loc] += (Number(a.billing?.grandTotal) || Number(a.billing?.paidNow) || 0);
+        });
+      });
+    });
+
+    // Discharge summaries
+    const discharges = [];
+    ["laxmi", "raya"].forEach(loc => {
+      (db[loc] || []).forEach(p => {
+        p.admissions?.forEach((adm, i) => {
+          const dod = adm.discharge?.dod || adm.discharge?.actualDod;
+          if (dod) {
+            discharges.push({
+              uhid: p.uhid, patientName: p.patientName,
+              admDate: adm.dateTime || adm.date,
+              dischargeDate: dod,
+              doctor: adm.doctor || "—",
+              diagnosis: adm.diagnosis || adm.discharge?.diagnosis || "—",
+              billing: adm.billing,
+              _branch: loc, admNo: i + 1,
+            });
+          }
+        });
+      });
+    });
+    discharges.sort((a, b) => new Date(b.dischargeDate) - new Date(a.dischargeDate));
+
+    return {
+      lx, ry, monthly, revMonthly, discharges,
+      total: {
+        patients: lx.totalPatients + ry.totalPatients,
+        admissions: lx.totalAdmissions + ry.totalAdmissions,
+        admitted: lx.admitted + ry.admitted,
+        discharged: lx.discharged + ry.discharged,
+        revenue: lx.revenue + ry.revenue,
+      },
+    };
+  }, [db]);
+
+  /* ── Filtered patients ── */
+  const allPatients = useMemo(() => {
+    const res = [];
+    ["laxmi", "raya"].forEach(loc => {
+      if (branch !== "all" && branch !== loc) return;
+      (db[loc] || []).forEach(p => {
+        if (q && !p.patientName?.toLowerCase().includes(q.toLowerCase())
+               && !p.uhid?.toLowerCase().includes(q.toLowerCase())) return;
+        res.push({ ...p, _branch: loc });
+      });
+    });
+    return res;
+  }, [db, branch, q]);
+
+  /* ── Beds (derived from active admissions) ── */
+  const bedData = useMemo(() => {
+    return ["laxmi", "raya"].map(loc => {
+      const pts = db[loc] || [];
+      const totalBeds = loc === "laxmi" ? 50 : 30; // customize per branch
+      const occupied = pts.filter(p => {
+        const l = p.admissions?.[p.admissions.length - 1];
+        return l && !l.discharge?.dod && !l.discharge?.actualDod;
+      }).length;
+      return { loc, occupied, available: Math.max(0, totalBeds - occupied), total: totalBeds };
+    });
+  }, [db]);
+
+  /* ── Tab styles ── */
+  const tabBtn = t => ({
+    padding: "9px 18px", borderRadius: 10, fontSize: 12, fontWeight: 700,
+    cursor: "pointer", border: "none",
+    background: tab === t ? C.navy : "transparent",
+    color: tab === t ? "#fff" : C.muted,
+    transition: "all .15s",
+    whiteSpace: "nowrap",
+  });
+
+  const TABS = [
+    ["overview",  "📊 Overview"],
+    ["patients",  "🏥 Patients"],
+    ["revenue",   "💰 Revenue"],
+    ["discharge", "📋 Discharge"],
+    ["beds",      "🛏 Beds"],
+    ["staff",     "👩‍⚕️ Staff"],
+    ["invoices",  "🧾 Invoices"],
+  ];
+
+  return (
+    <div style={{ minHeight: "100vh", background: C.bg, fontFamily: "'Segoe UI', system-ui, sans-serif" }}>
+
+      {/* ── Header ── */}
+      <header style={{
+        background: C.navy, padding: "0 28px", height: 60,
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        boxShadow: "0 4px 20px rgba(0,0,0,.22)",
+        position: "sticky", top: 0, zIndex: 100,
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{
+            width: 36, height: 36, borderRadius: 10,
+            background: "linear-gradient(135deg, #0EA5E9, #7C3AED)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 18, fontWeight: 900, color: "#fff",
+          }}>S</div>
+          <div>
+            <div style={{ color: "#fff", fontWeight: 800, fontSize: 16 }}>Sangi Hospital</div>
+            <div style={{ color: "rgba(255,255,255,.4)", fontSize: 11 }}>Super Admin · Both Branches</div>
+          </div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {printRequests.length > 0 && (
+            <button
+              onClick={() => setTab("invoices")}
+              style={{
+                background: C.red, color: "#fff", borderRadius: 20,
+                padding: "5px 14px", fontSize: 12, fontWeight: 700,
+                border: "none", cursor: "pointer",
+              }}>
+              🖨 {printRequests.length} Pending
+            </button>
+          )}
+          <button onClick={onLogout} style={{
+            padding: "7px 16px", borderRadius: 8,
+            background: "rgba(255,255,255,.1)", border: "1px solid rgba(255,255,255,.15)",
+            color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer",
+          }}>Logout</button>
+        </div>
+      </header>
+
+      {/* ── Tab bar ── */}
+      <div style={{
+        background: "#fff", borderBottom: `1px solid ${C.border}`,
+        padding: "0 28px", display: "flex", gap: 2, overflowX: "auto",
+      }}>
+        {TABS.map(([t, l]) => (
+          <button key={t} style={{
+            ...tabBtn(t),
+            borderRadius: 0,
+            borderBottom: tab === t ? `3px solid ${C.blue}` : "3px solid transparent",
+            background: "transparent",
+            color: tab === t ? C.navy : C.muted,
+            padding: "14px 16px",
+          }} onClick={() => setTab(t)}>{l}</button>
+        ))}
+      </div>
+
+      <div style={{ padding: "28px", maxWidth: 1280, margin: "0 auto" }}>
+
+        {/* ══════════ OVERVIEW ══════════ */}
+        {tab === "overview" && <>
+          <div style={{ ...LABEL }}>Combined — Both Branches</div>
+          <div style={{ display: "flex", gap: 14, marginBottom: 28, flexWrap: "wrap" }}>
+            <StatCard icon="👤" label="Total Patients"    value={stats.total.patients}   sub="Registered across both" color={C.blue} />
+            <StatCard icon="🏥" label="Total Admissions"  value={stats.total.admissions}  sub="All time"               color={C.purple} />
+            <StatCard icon="💚" label="Currently Admitted" value={stats.total.admitted}   sub="Active right now"       color={C.green} />
+            <StatCard icon="📤" label="Discharged"        value={stats.total.discharged}  sub="All time"               color={C.muted} />
+            <StatCard icon="💰" label="Total Revenue"     value={inr(stats.total.revenue)} sub="Collected billing"     color={C.amber} />
+          </div>
+
+          {/* Branch comparison cards */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 24 }}>
+            {[["laxmi", stats.lx], ["raya", stats.ry]].map(([loc, s]) => (
+              <div key={loc} style={{ ...CARD, borderLeft: `5px solid ${bc(loc)}` }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+                  <div style={{ width: 10, height: 10, borderRadius: "50%", background: bc(loc) }} />
+                  <div style={{ fontWeight: 800, color: C.navy, fontSize: 15 }}>{branchLabel(loc)} Branch</div>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  {[["Patients", s.totalPatients], ["Admissions", s.totalAdmissions], ["Active", s.admitted], ["Revenue", inr(s.revenue)]].map(([l, v]) => (
+                    <div key={l} style={{ background: C.bg, borderRadius: 10, padding: "10px 14px" }}>
+                      <div style={{ fontSize: 20, fontWeight: 900, color: C.navy }}>{v}</div>
+                      <div style={{ fontSize: 10, color: C.muted, fontWeight: 700, marginTop: 2, textTransform: "uppercase", letterSpacing: ".07em" }}>{l}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Charts row */}
+          <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 20 }}>
+            <div style={{ ...CARD }}>
+              <div style={{ ...LABEL }}>Monthly Admissions — Last 6 Months</div>
+              <BarChart data={stats.monthly} colors={{ laxmi: C.blue, raya: C.purple }} />
+            </div>
+            <div style={{ ...CARD }}>
+              <div style={{ ...LABEL }}>Patient Split by Branch</div>
+              <DonutChart laxmi={stats.lx.totalPatients} raya={stats.ry.totalPatients} />
+            </div>
+          </div>
+        </>}
+
+        {/* ══════════ ALL PATIENTS ══════════ */}
+        {tab === "patients" && <>
+          <div style={{ display: "flex", gap: 10, marginBottom: 18, alignItems: "center", flexWrap: "wrap" }}>
+            <input
+              placeholder="Search name or UHID…"
+              value={q} onChange={e => setQ(e.target.value)}
+              style={{
+                padding: "10px 14px", borderRadius: 10,
+                border: `1.5px solid ${C.border}`, fontSize: 13,
+                color: C.navy, outline: "none", width: 240, background: "#fff",
+              }}
+            />
+            <div style={{ display: "flex", gap: 6 }}>
+              {[["all", "All Branches"], ["laxmi", "Laxmi Nagar"], ["raya", "Raya"]].map(([v, l]) => (
+                <button key={v} onClick={() => setBranch(v)} style={{
+                  padding: "8px 14px", borderRadius: 8, fontSize: 12, fontWeight: 700,
+                  cursor: "pointer", border: "none",
+                  background: branch === v ? C.navy : "#fff",
+                  color: branch === v ? "#fff" : C.muted,
+                  boxShadow: "0 1px 4px rgba(11,37,69,.07)",
+                }}>{l}</button>
+              ))}
+            </div>
+            <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ fontSize: 13, color: C.muted, fontWeight: 600 }}>{allPatients.length} patients</span>
+              <button
+                onClick={() => exportToExcel(allPatients, "patients_export.csv")}
+                style={{
+                  padding: "8px 16px", borderRadius: 9, border: "none",
+                  background: C.green, color: "#fff", fontWeight: 700,
+                  fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 6,
+                }}>
+                ⬇ Export Excel
+              </button>
+            </div>
+          </div>
+
+          <div style={{ ...CARD, padding: 0, overflow: "hidden" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr style={{ background: C.navy }}>
+                  {["UHID", "Patient Name", "Phone", "Branch", "Admissions", "Last Visit", "Status", ""].map(h => (
+                    <th key={h} style={{
+                      padding: "13px 16px", textAlign: "left",
+                      fontSize: 10, fontWeight: 700,
+                      color: "rgba(255,255,255,.55)", letterSpacing: ".08em", textTransform: "uppercase",
+                    }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {allPatients.length === 0 && (
+                  <tr><td colSpan={8} style={{ padding: 56, textAlign: "center", color: C.subtle, fontSize: 14 }}>No patients found</td></tr>
+                )}
+                {allPatients.map((p, i) => {
+                  const lastAdm = p.admissions?.[p.admissions.length - 1];
+                  const isActive = lastAdm && !lastAdm.discharge?.dod && !lastAdm.discharge?.actualDod;
+                  return (
+                    <tr key={p.uhid + i} style={{
+                      borderBottom: `1px solid ${C.border}`,
+                      background: i % 2 === 0 ? C.row0 : C.row1,
+                    }}>
+                      <td style={{ padding: "11px 16px", fontSize: 12, fontWeight: 700, color: C.navy }}>{p.uhid}</td>
+                      <td style={{ padding: "11px 16px", fontSize: 13, fontWeight: 600, color: C.navy2 }}>{p.patientName || "—"}</td>
+                      <td style={{ padding: "11px 16px", fontSize: 12, color: C.muted }}>{p.phone || "—"}</td>
+                      <td style={{ padding: "11px 16px" }}><Badge color={bc(p._branch)}>{branchLabel(p._branch)}</Badge></td>
+                      <td style={{ padding: "11px 16px", fontSize: 13, color: C.navy2, fontWeight: 700 }}>{p.admissions?.length || 0}</td>
+                      <td style={{ padding: "11px 16px", fontSize: 12, color: C.muted }}>
+                        {lastAdm?.dateTime ? new Date(lastAdm.dateTime).toLocaleDateString("en-IN") : lastAdm?.date || "—"}
+                      </td>
+                      <td style={{ padding: "11px 16px" }}>
+                        <Badge color={isActive ? C.green : C.subtle}>{isActive ? "Admitted" : "Discharged"}</Badge>
+                      </td>
+                      <td style={{ padding: "11px 16px" }}>
+                        <button onClick={() => setSelectedPatient(p)} style={{
+                          padding: "5px 12px", borderRadius: 7, border: `1.5px solid ${C.border}`,
+                          background: "#fff", color: C.muted, fontSize: 11, fontWeight: 700,
+                          cursor: "pointer",
+                        }}>View →</button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>}
+
+        {/* ══════════ REVENUE & FINANCE ══════════ */}
+        {tab === "revenue" && <>
+          <div style={{ ...LABEL }}>Revenue & Finance Overview</div>
+          <div style={{ display: "flex", gap: 14, marginBottom: 28, flexWrap: "wrap" }}>
+            <StatCard icon="💰" label="Total Revenue"        value={inr(stats.total.revenue)}    sub="All time, both branches"    color={C.amber} />
+            <StatCard icon="🏥" label="Laxmi Nagar Revenue" value={inr(stats.lx.revenue)}        sub="All time"                   color={C.blue} />
+            <StatCard icon="🏥" label="Raya Revenue"        value={inr(stats.ry.revenue)}        sub="All time"                   color={C.purple} />
+            <StatCard icon="📋" label="Avg per Admission"   value={inr(Math.round(stats.total.revenue / (stats.total.admissions || 1)))} sub="Revenue / admission" color={C.green} />
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 20 }}>
+            <div style={{ ...CARD }}>
+              <div style={{ ...LABEL }}>Monthly Revenue — Last 6 Months</div>
+              <BarChart data={stats.revMonthly.map(m => ({ l: m.l, laxmi: m.laxmi, raya: m.raya }))} colors={{ laxmi: C.blue, raya: C.purple }} />
+              <div style={{ fontSize: 10, color: C.subtle, marginTop: 8, textAlign: "right" }}>Values in ₹</div>
+            </div>
+            <div style={{ ...CARD }}>
+              <div style={{ ...LABEL }}>Revenue Split by Branch</div>
+              <DonutChart laxmi={stats.lx.revenue} raya={stats.ry.revenue} />
+            </div>
+          </div>
+
+          {/* Revenue per admission table */}
+          <div style={{ ...CARD, marginTop: 20 }}>
+            <div style={{ ...LABEL }}>Branch Revenue Breakdown</div>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr style={{ borderBottom: `2px solid ${C.border}` }}>
+                  {["Branch", "Patients", "Admissions", "Total Revenue", "Avg/Patient", "Avg/Admission"].map(h => (
+                    <th key={h} style={{ padding: "10px 14px", textAlign: "left", fontSize: 10, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: ".07em" }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {[["laxmi", stats.lx], ["raya", stats.ry]].map(([loc, s]) => (
+                  <tr key={loc} style={{ borderBottom: `1px solid ${C.border}` }}>
+                    <td style={{ padding: "13px 14px" }}><Badge color={bc(loc)}>{branchLabel(loc)}</Badge></td>
+                    <td style={{ padding: "13px 14px", fontWeight: 700, color: C.navy }}>{s.totalPatients}</td>
+                    <td style={{ padding: "13px 14px", fontWeight: 700, color: C.navy }}>{s.totalAdmissions}</td>
+                    <td style={{ padding: "13px 14px", fontWeight: 800, color: C.amber, fontSize: 15 }}>{inr(s.revenue)}</td>
+                    <td style={{ padding: "13px 14px", color: C.navy2, fontWeight: 600 }}>{inr(Math.round(s.revenue / (s.totalPatients || 1)))}</td>
+                    <td style={{ padding: "13px 14px", color: C.navy2, fontWeight: 600 }}>{inr(Math.round(s.revenue / (s.totalAdmissions || 1)))}</td>
+                  </tr>
+                ))}
+                <tr style={{ background: C.bg }}>
+                  <td style={{ padding: "13px 14px", fontWeight: 800, color: C.navy }}>TOTAL</td>
+                  <td style={{ padding: "13px 14px", fontWeight: 800, color: C.navy }}>{stats.total.patients}</td>
+                  <td style={{ padding: "13px 14px", fontWeight: 800, color: C.navy }}>{stats.total.admissions}</td>
+                  <td style={{ padding: "13px 14px", fontWeight: 900, color: C.amber, fontSize: 16 }}>{inr(stats.total.revenue)}</td>
+                  <td style={{ padding: "13px 14px", fontWeight: 700, color: C.navy2 }}>{inr(Math.round(stats.total.revenue / (stats.total.patients || 1)))}</td>
+                  <td style={{ padding: "13px 14px", fontWeight: 700, color: C.navy2 }}>{inr(Math.round(stats.total.revenue / (stats.total.admissions || 1)))}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </>}
+
+        {/* ══════════ DISCHARGE SUMMARY ══════════ */}
+        {tab === "discharge" && <>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
+            <div style={{ ...LABEL, marginBottom: 0 }}>Discharge Summary — All Time</div>
+            <button
+              onClick={() => {
+                const rows = stats.discharges.map(d => ({
+                  ...d, admDate: d.admDate, dischargeDate: d.dischargeDate,
+                  _branch: d._branch, admissions: [{ dateTime: d.admDate, discharge: { dod: d.dischargeDate }, billing: d.billing, doctor: d.doctor }],
+                }));
+                exportToExcel(rows, "discharge_summary.csv");
+              }}
+              style={{
+                padding: "8px 16px", borderRadius: 9, border: "none",
+                background: C.green, color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer",
+              }}>
+              ⬇ Export Excel
+            </button>
+          </div>
+
+          <div style={{ ...CARD, padding: 0, overflow: "hidden" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr style={{ background: C.navy }}>
+                  {["UHID", "Patient Name", "Branch", "Adm Date", "Discharge Date", "Doctor", "Diagnosis", "Billed"].map(h => (
+                    <th key={h} style={{ padding: "13px 14px", textAlign: "left", fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,.55)", letterSpacing: ".08em", textTransform: "uppercase" }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {stats.discharges.length === 0 && (
+                  <tr><td colSpan={8} style={{ padding: 56, textAlign: "center", color: C.subtle, fontSize: 14 }}>No discharged patients yet</td></tr>
+                )}
+                {stats.discharges.map((d, i) => (
+                  <tr key={i} style={{ borderBottom: `1px solid ${C.border}`, background: i % 2 === 0 ? C.row0 : C.row1 }}>
+                    <td style={{ padding: "10px 14px", fontSize: 12, fontWeight: 700, color: C.navy }}>{d.uhid}</td>
+                    <td style={{ padding: "10px 14px", fontSize: 13, fontWeight: 600, color: C.navy2 }}>{d.patientName || "—"}</td>
+                    <td style={{ padding: "10px 14px" }}><Badge color={bc(d._branch)}>{branchLabel(d._branch)}</Badge></td>
+                    <td style={{ padding: "10px 14px", fontSize: 12, color: C.muted }}>{d.admDate ? new Date(d.admDate).toLocaleDateString("en-IN") : "—"}</td>
+                    <td style={{ padding: "10px 14px", fontSize: 12, color: C.muted }}>{d.dischargeDate ? new Date(d.dischargeDate).toLocaleDateString("en-IN") : "—"}</td>
+                    <td style={{ padding: "10px 14px", fontSize: 12, color: C.navy2 }}>{d.doctor}</td>
+                    <td style={{ padding: "10px 14px", fontSize: 12, color: C.muted, maxWidth: 160 }}>{d.diagnosis}</td>
+                    <td style={{ padding: "10px 14px", fontSize: 13, fontWeight: 700, color: C.amber }}>
+                      {inr(Number(d.billing?.grandTotal) || Number(d.billing?.paidNow) || 0)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>}
+
+        {/* ══════════ BED OCCUPANCY ══════════ */}
+        {tab === "beds" && <>
+          <div style={{ ...LABEL }}>Bed Occupancy — Live Status</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 28 }}>
+            {bedData.map(({ loc, occupied, available, total }) => {
+              const pct = Math.round((occupied / total) * 100);
+              const color = pct > 85 ? C.red : pct > 60 ? C.amber : C.green;
+              return (
+                <div key={loc} style={{ ...CARD, borderLeft: `5px solid ${bc(loc)}` }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
+                    <div>
+                      <div style={{ fontWeight: 800, color: C.navy, fontSize: 16 }}>{branchLabel(loc)} Branch</div>
+                      <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Total capacity: {total} beds</div>
+                    </div>
+                    <div style={{
+                      fontSize: 28, fontWeight: 900, color,
+                    }}>{pct}%</div>
+                  </div>
+
+                  {/* Progress bar */}
+                  <div style={{ background: C.border, borderRadius: 8, height: 12, marginBottom: 14, overflow: "hidden" }}>
+                    <div style={{
+                      height: "100%", width: pct + "%",
+                      background: `linear-gradient(90deg, ${bc(loc)}, ${color})`,
+                      borderRadius: 8, transition: "width .4s",
+                    }} />
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+                    {[["Occupied", occupied, color], ["Available", available, C.green], ["Total", total, C.muted]].map(([l, v, c]) => (
+                      <div key={l} style={{ background: C.bg, borderRadius: 10, padding: "10px 14px", textAlign: "center" }}>
+                        <div style={{ fontSize: 24, fontWeight: 900, color: c }}>{v}</div>
+                        <div style={{ fontSize: 10, color: C.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".07em" }}>{l}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Combined summary */}
+          <div style={{ ...CARD }}>
+            <div style={{ ...LABEL }}>Combined Bed Status</div>
+            <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
+              {(() => {
+                const totalOcc = bedData.reduce((s, b) => s + b.occupied, 0);
+                const totalAvail = bedData.reduce((s, b) => s + b.available, 0);
+                const totalBeds = bedData.reduce((s, b) => s + b.total, 0);
+                const pct = Math.round((totalOcc / totalBeds) * 100);
+                const color = pct > 85 ? C.red : pct > 60 ? C.amber : C.green;
+                return (
+                  <>
+                    <StatCard icon="🛏" label="Total Capacity" value={totalBeds}  sub="Both branches"   color={C.muted} />
+                    <StatCard icon="🔴" label="Occupied"       value={totalOcc}   sub={pct + "% full"}  color={color} />
+                    <StatCard icon="🟢" label="Available"      value={totalAvail} sub="Ready to admit"  color={C.green} />
+                  </>
+                );
+              })()}
+            </div>
+          </div>
+        </>}
+
+        {/* ══════════ STAFF / DOCTOR MANAGEMENT ══════════ */}
+        {tab === "staff" && (() => {
+          // Derive doctor stats from admissions data
+          const doctorMap = {};
+          ["laxmi", "raya"].forEach(loc => {
+            (db[loc] || []).forEach(p => {
+              p.admissions?.forEach(adm => {
+                if (!adm.doctor) return;
+                const key = adm.doctor + "__" + loc;
+                if (!doctorMap[key]) doctorMap[key] = { name: adm.doctor, loc, admissions: 0, revenue: 0 };
+                doctorMap[key].admissions++;
+                doctorMap[key].revenue += Number(adm.billing?.grandTotal) || Number(adm.billing?.paidNow) || 0;
+              });
+            });
+          });
+          const doctors = Object.values(doctorMap).sort((a, b) => b.admissions - a.admissions);
+
+          return <>
+            <div style={{ ...LABEL }}>Doctor / Staff Management</div>
+            <div style={{ display: "flex", gap: 14, marginBottom: 28, flexWrap: "wrap" }}>
+              <StatCard icon="👨‍⚕️" label="Total Doctors on Record" value={doctors.length}                                        sub="With admissions"  color={C.blue} />
+              <StatCard icon="🏥" label="Laxmi Nagar Doctors"      value={doctors.filter(d => d.loc === "laxmi").length}        sub="Active doctors"   color={C.blue} />
+              <StatCard icon="🏥" label="Raya Doctors"             value={doctors.filter(d => d.loc === "raya").length}         sub="Active doctors"   color={C.purple} />
+              <StatCard icon="📋" label="Avg Admissions/Doctor"    value={Math.round(stats.total.admissions / (doctors.length || 1))} sub="All branches" color={C.green} />
+            </div>
+
+            {doctors.length === 0 ? (
+              <div style={{ ...CARD, textAlign: "center", padding: 64 }}>
+                <div style={{ fontSize: 40, marginBottom: 12 }}>👩‍⚕️</div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: C.navy2 }}>No doctor data found</div>
+                <div style={{ fontSize: 13, color: C.muted, marginTop: 6 }}>Add a "doctor" field to admission records to see doctor stats here</div>
+              </div>
+            ) : (
+              <div style={{ ...CARD, padding: 0, overflow: "hidden" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead>
+                    <tr style={{ background: C.navy }}>
+                      {["#", "Doctor Name", "Branch", "Total Admissions", "Total Revenue", "Avg Revenue/Adm"].map(h => (
+                        <th key={h} style={{ padding: "13px 16px", textAlign: "left", fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,.55)", letterSpacing: ".08em", textTransform: "uppercase" }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {doctors.map((d, i) => (
+                      <tr key={i} style={{ borderBottom: `1px solid ${C.border}`, background: i % 2 === 0 ? C.row0 : C.row1 }}>
+                        <td style={{ padding: "11px 16px", fontSize: 12, color: C.subtle, fontWeight: 700 }}>#{i + 1}</td>
+                        <td style={{ padding: "11px 16px", fontSize: 14, fontWeight: 700, color: C.navy }}>{d.name}</td>
+                        <td style={{ padding: "11px 16px" }}><Badge color={bc(d.loc)}>{branchLabel(d.loc)}</Badge></td>
+                        <td style={{ padding: "11px 16px", fontSize: 15, fontWeight: 800, color: C.navy2 }}>{d.admissions}</td>
+                        <td style={{ padding: "11px 16px", fontSize: 14, fontWeight: 800, color: C.amber }}>{inr(d.revenue)}</td>
+                        <td style={{ padding: "11px 16px", fontSize: 13, color: C.navy2, fontWeight: 600 }}>{inr(Math.round(d.revenue / d.admissions))}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </>;
+        })()}
+
+        {/* ══════════ INVOICE APPROVALS ══════════ */}
+        {tab === "invoices" && <>
+          <div style={{ ...LABEL }}>Pending Print Approvals</div>
+          {printRequests.length === 0 ? (
+            <div style={{ ...CARD, textAlign: "center", padding: 72 }}>
+              <div style={{ fontSize: 52, marginBottom: 14 }}>✅</div>
+              <div style={{ fontSize: 18, fontWeight: 800, color: C.navy2 }}>No pending approvals</div>
+              <div style={{ fontSize: 13, color: C.muted, marginTop: 6 }}>All invoices are cleared</div>
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              {printRequests.map((req, i) => (
+                <div key={i} style={{ ...CARD, display: "flex", alignItems: "center", justifyContent: "space-between", borderLeft: `5px solid ${bc(req.locId)}` }}>
+                  <div>
+                    <div style={{ fontWeight: 800, color: C.navy, fontSize: 16 }}>{req.patientName}</div>
+                    <div style={{ fontSize: 12, color: C.muted, marginTop: 5 }}>
+                      UHID: <strong>{req.uhid}</strong> &nbsp;·&nbsp; Adm #{req.admNo} &nbsp;·&nbsp;
+                      <Badge color={bc(req.locId)}>{branchLabel(req.locId)}</Badge>
+                    </div>
+                    <div style={{ fontSize: 12, color: C.muted, marginTop: 4 }}>
+                      Amount: <strong style={{ color: C.navy, fontSize: 15 }}>{inr(Number(req.billing?.grandTotal) || Number(req.billing?.paidNow) || 0)}</strong>
+                      &nbsp;·&nbsp; Requested: {new Date(req.requestedAt).toLocaleString("en-IN")}
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: 10, flexShrink: 0, marginLeft: 24 }}>
+                    <button onClick={() => onApprovePrint(req, "reject")} style={{
+                      padding: "9px 20px", borderRadius: 9,
+                      background: "#FEF2F2", color: C.red,
+                      border: `1px solid #FECACA`, fontWeight: 700, fontSize: 13, cursor: "pointer",
+                    }}>✕ Reject</button>
+                    <button onClick={() => onApprovePrint(req, "approve")} style={{
+                      padding: "9px 20px", borderRadius: 9,
+                      background: C.green, color: "#fff",
+                      border: "none", fontWeight: 700, fontSize: 13, cursor: "pointer",
+                    }}>✓ Approve & Print</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>}
+
+      </div>
+
+      {/* Patient detail modal */}
+      <PatientModal patient={selectedPatient} onClose={() => setSelectedPatient(null)} />
+    </div>
+  );
+}
