@@ -180,6 +180,16 @@ export default function App() {
     setPrintRequests(prev => [...prev, { ...req, requestedAt: new Date().toISOString() }]);
   };
 
+  const handleViewBill = (req) => {
+    setShowPrint(true);
+    setUhid(req.uhid);
+    setPatient(req.patient || patient);
+    setDischarge(req.discharge || discharge);
+    setSvcs(req.svcs || svcs);
+    setBilling(req.billing || billing);
+    setLocId(req.locId);
+    setAdmNo(req.admNo);
+  };
   const handleApprovePrint = (req, action) => {
     setPrintRequests(prev => prev.filter(r => !(r.uhid === req.uhid && r.admNo === req.admNo && r.locId === req.locId)));
     if (action === "approve") {
@@ -211,7 +221,7 @@ export default function App() {
         <SuperAdminDashboard
           db={db}
           printRequests={printRequests}
-          onApprovePrint={handleApprovePrint}
+          onApprovePrint={handleApprovePrint} onViewBill={handleViewBill}
           onLogout={() => { setLoggedIn(false); setCurrentUser(null); resetAll(); setPrintRequests([]); sessionStorage.clear(); }}
         />
       </>

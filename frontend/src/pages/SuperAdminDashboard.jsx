@@ -80,7 +80,8 @@ function computeStats(db, locId) {
   return { patients, admissions, discharges, revenue, pendingBills, topServices, recentPatients: recentPatients.slice(0, 8) };
 }
 
-export default function SuperAdminDashboard({ db, onBack, onLogout, printRequests = [], onApprovePrint }) {
+export default function SuperAdminDashboard({ db, onBack, onLogout, printRequests = [], onApprovePrint, onViewBill }) {
+  const [viewedReqs, setViewedReqs] = useState(new Set());
   const [viewLoc, setViewLoc] = useState("all");
   const [dropOpen, setDropOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("dashboard"); // "dashboard" | "requests"
@@ -309,15 +310,25 @@ export default function SuperAdminDashboard({ db, onBack, onLogout, printRequest
                       </div>
 
                       {/* Action buttons */}
-                      <div style={{ display: "flex", gap: 8 }}>
-                        <button onClick={() => onApprovePrint && onApprovePrint(req, "reject")}
-                          style={{ padding: "8px 18px", borderRadius: 8, border: "1px solid #E24B4A44", background: "rgba(226,75,74,.12)", color: "#E24B4A", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>
-                          ✕ Reject
+                      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                        <button onClick={() => { onViewBill && onViewBill(req); setViewedReqs(prev => new Set([...prev, req.uhid + req.admNo])); }}
+                          style={{ padding: "8px 18px", borderRadius: 8, border: "1px solid #4A90D944", background: "rgba(74,144,217,.12)", color: "#4A90D9", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>
+                          👁 View Bill
                         </button>
-                        <button onClick={() => onApprovePrint && onApprovePrint(req, "approve")}
-                          style={{ padding: "8px 18px", borderRadius: 8, border: "none", background: "#1D9E75", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
-                          ✓ Approve & Print
-                        </button>
+                        {viewedReqs.has(req.uhid + req.admNo) ? (
+                          <>
+                            <button onClick={() => onApprovePrint && onApprovePrint(req, "reject")}
+                              style={{ padding: "8px 18px", borderRadius: 8, border: "1px solid #E24B4A44", background: "rgba(226,75,74,.12)", color: "#E24B4A", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>
+                              ✕ Reject
+                            </button>
+                            <button onClick={() => onApprovePrint && onApprovePrint(req, "approve")}
+                              style={{ padding: "8px 18px", borderRadius: 8, border: "none", background: "#1D9E75", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+                              ✓ Approve & Print
+                            </button>
+                          </>
+                        ) : (
+                          <span style={{ fontSize: 11, color: "rgba(255,255,255,.3)", fontStyle: "italic" }}>View bill first to approve</span>
+                        )}
                       </div>
                     </div>
                   </div>

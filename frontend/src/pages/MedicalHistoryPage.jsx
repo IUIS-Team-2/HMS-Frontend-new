@@ -78,7 +78,7 @@ export function AdmissionNotePrint({data, patient, discharge, locId}){
       {/* Header */}
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",borderBottom:"2px solid #000",paddingBottom:10,marginBottom:10}}>
         <div style={{display:"flex",alignItems:"center",gap:12}}>
-          <img src="/logo192.png" alt="logo" style={{width:60,height:60,objectFit:"contain"}}/>
+          <img src="/logo512.png" alt="Sangi Hospital" style={{width:64,height:64,objectFit:"contain",borderRadius:12}}/>
           <div>
             <div style={{fontSize:28,fontWeight:900,color:"#1a5b8c",letterSpacing:2,lineHeight:1}}>SANGi</div>
             <div style={{fontSize:13,fontWeight:700,color:"#d93838",letterSpacing:4}}>HOSPITAL</div>
@@ -191,6 +191,7 @@ export function downloadAdmissionNote(data, patient, discharge, locId){
     </style></head><body>
     <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #000;padding-bottom:10px;margin-bottom:10px">
       <div style="display:flex;align-items:center;gap:12px">
+        <img src="/sangi-logo.png" onerror="this.src='/logo512.png'" alt="Sangi Hospital" style="width:64px;height:64px;object-fit:contain;border-radius:12px"/>
         <div>
           <div style="font-size:28px;font-weight:900;color:#1a5b8c;letter-spacing:2px;line-height:1">SANGi</div>
           <div style="font-size:13px;font-weight:700;color:#d93838;letter-spacing:4px">HOSPITAL</div>

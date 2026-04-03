@@ -55,7 +55,7 @@ export default function PrintModal({uhid,patient,discharge,svcs,billing,locId,ad
             </div>
             <div style={{textAlign:"right"}}>
               <div style={{display:"flex",alignItems:"center",justifyContent:"flex-end",gap:10,marginBottom:4}}>
-                <img src="/logo192.png" alt="logo" style={{width:60,height:60,objectFit:"contain"}}/>
+                <img src="/logo512.png" alt="Sangi Hospital" style={{width:64,height:64,objectFit:"contain",borderRadius:12}}/>
                 <div>
                   <div style={{fontSize:32,fontWeight:900,color:"#1a5b8c",letterSpacing:2,lineHeight:1,fontFamily:"Arial Black"}}>SANGi</div>
                   <div style={{fontSize:14,fontWeight:700,color:"#d93838",letterSpacing:4,lineHeight:1}}>HOSPITAL</div>
