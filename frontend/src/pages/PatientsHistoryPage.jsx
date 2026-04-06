@@ -7,7 +7,7 @@ import { statusBadge } from "../components/ui/SharedUI";
 import { apiService } from '../services/apiService';
 import { downloadAdmissionNote } from './MedicalHistoryPage';
 
-export default function PatientsHistoryPage({db, locId, onBack, onDischarge, onGenerateBill, onSetExpectedDod, onViewPatient, onSaveMedHistory, onFillMedHistory}){
+export default function PatientsHistoryPage({ db, locId, onBack, onDischarge, onGenerateBill, onSetExpectedDod, onViewPatient, onSaveMedHistory, onViewMedical }) {
   const loc = LOCATIONS.find(l => l.id === locId);
   const [filterDate, setFilterDate] = useState(""); const [filterMonth, setFilterMonth] = useState(""); const [filterYear, setFilterYear] = useState("");
   const [expDodModal, setExpDodModal] = useState(null);
@@ -15,27 +15,8 @@ export default function PatientsHistoryPage({db, locId, onBack, onDischarge, onG
   const [fillMedModal, setFillMedModal] = useState(null);
   const [fillMedData, setFillMedData] = useState({ previousDiagnosis: "", pastSurgeries: "", currentMedications: "", treatingDoctor: "", knownAllergies: "", chronicConditions: "", familyHistory: "", smokingStatus: "", alcoholUse: "", notes: "" });
 
-  // 🌟 NEW: State to hold our live Django data
-  const [livePatients, setLivePatients] = useState(db || []);
+  const allRows = db.flatMap(p => p.admissions?.map(adm => ({ patientName: p.patientName, uhid: p.uhid, admNo: adm.admNo, doa: adm.discharge?.doa || adm.dateTime || "", dod: adm.discharge?.dod || "", status: adm.discharge?.dischargeStatus || "", billing: adm.billing || {}, patientObj: p, admObj: adm })) || []).sort((a, b) => new Date(b.doa) - new Date(a.doa));
 
-  // 🌟 NEW: Fetching real data when the component loads
-  useEffect(() => {
-    const fetchRealData = async () => {
-        try {
-            const data = await apiService.getPatients();
-            console.log("Fetched patients from Django:", data);
-            // Replace the fake db data with the real Django data
-            setLivePatients(data);
-        } catch (error) {
-            console.error("Failed to load real patient records:", error);
-        }
-    };
-    fetchRealData();
-  }, []);
-
-  // 🌟 NEW: Changed 'db.flatMap' to 'livePatients.flatMap'
-  const allRows = livePatients.flatMap(p => p.admissions?.map(adm => ({ patientName: p.patientName, uhid: p.uhid, admNo: adm.admNo, doa: adm.discharge?.doa || adm.dateTime || "", dod: adm.discharge?.dod || "", status: adm.discharge?.dischargeStatus || "", billing: adm.billing || {}, patientObj: p, admObj: adm })) || []).sort((a, b) => new Date(b.doa) - new Date(a.doa));
-  
   const years = [...new Set(allRows.map(r => r.doa ? new Date(r.doa).getFullYear() : "").filter(Boolean))].sort((a, b) => b - a);
   const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
@@ -62,21 +43,21 @@ export default function PatientsHistoryPage({db, locId, onBack, onDischarge, onG
     ws.mergeCells("A1:P1");
     const title = ws.getCell("A1");
     title.value = `🏥  ${locName} — IPD RECORDS  |  ${new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" })}`;
-    title.font      = { bold: true, color: { argb: "FFFFFFFF" }, size: 14, name: "Arial" };
-    title.fill      = { type: "pattern", pattern: "solid", fgColor: { argb: "FF0D2B55" } };
+    title.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 14, name: "Arial" };
+    title.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF0D2B55" } };
     title.alignment = { horizontal: "center", vertical: "middle" };
     ws.getRow(1).height = 32;
 
     // Header row
-    const headers = ["SR.NO","PATIENT NAME","AGE/G","IPD NO","CARD NO","ROOM","DOA & TIME","DOD & TIME","STAY","TYPE","TYPE REF/EMERGENCY","CONSULTANT NAME","NUMBER","ADDRESS","DISCHARGE STATUS","BILL STATUS"];
+    const headers = ["SR.NO", "PATIENT NAME", "AGE/G", "IPD NO", "CARD NO", "ROOM", "DOA & TIME", "DOD & TIME", "STAY", "TYPE", "TYPE REF/EMERGENCY", "CONSULTANT NAME", "NUMBER", "ADDRESS", "DISCHARGE STATUS", "BILL STATUS"];
     const headerRow = ws.addRow(headers);
     headerRow.height = 36;
-    const bs = (style="thin") => ({ style, color: { argb: "FFBFCFDE" } });
+    const bs = (style = "thin") => ({ style, color: { argb: "FFBFCFDE" } });
     headerRow.eachCell(cell => {
-      cell.font      = { bold: true, color: { argb: "FFFFFFFF" }, size: 9, name: "Arial" };
-      cell.fill      = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1A3C6E" } };
+      cell.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 9, name: "Arial" };
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1A3C6E" } };
       cell.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
-      cell.border    = { top: bs("medium"), bottom: bs("medium"), left: bs("medium"), right: bs("medium") };
+      cell.border = { top: bs("medium"), bottom: bs("medium"), left: bs("medium"), right: bs("medium") };
     });
 
     // Data rows
@@ -87,12 +68,12 @@ export default function PatientsHistoryPage({db, locId, onBack, onDischarge, onG
         i + 1,
         r.patientName,
         (r.patientObj?.ageYY ? r.patientObj.ageYY + " Yrs" : "") + (r.patientObj?.gender ? " / " + r.patientObj.gender.charAt(0).toUpperCase() : ""),
-        "SH/" + (r.patientObj?.tpa ? r.patientObj.tpa.substring(0,4).toUpperCase() : "GEN") + "/26/" + (1900 + r.admNo),
+        "SH/" + (r.patientObj?.tpa ? r.patientObj.tpa.substring(0, 4).toUpperCase() : "GEN") + "/26/" + (1900 + r.admNo),
         r.patientObj?.tpaCard || r.patientObj?.tpaPanelCardNo || "—",
         r.admObj?.discharge?.wardName || "—",
         r.doa ? fmtDT(r.doa) : "",
         r.dod ? fmtDT(r.dod) : "",
-        r.doa && r.dod ? Math.ceil((new Date(r.dod) - new Date(r.doa)) / (1000*60*60*24)) + " Days" : "—",
+        r.doa && r.dod ? Math.ceil((new Date(r.dod) - new Date(r.doa)) / (1000 * 60 * 60 * 24)) + " Days" : "—",
         r.admObj?.admissionType || "IPD",
         r.admObj?.discharge?.admissionType || "—",
         r.admObj?.discharge?.doctorName || "—",
@@ -103,11 +84,11 @@ export default function PatientsHistoryPage({db, locId, onBack, onDischarge, onG
       ]);
       row.height = 24;
       row.eachCell((cell, colNum) => {
-        cell.border    = { top: bs(), bottom: bs(), left: bs(), right: bs() };
+        cell.border = { top: bs(), bottom: bs(), left: bs(), right: bs() };
         cell.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
-        cell.font      = { size: 9, name: "Arial" };
+        cell.font = { size: 9, name: "Arial" };
         if (colNum === 15) {
-          const ok = ["Recovered","Discharged"].includes(cell.value);
+          const ok = ["Recovered", "Discharged"].includes(cell.value);
           cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: ok ? "FFE6F4EA" : "FFFFF3CD" } };
           cell.font = { bold: true, color: { argb: ok ? "FF1E7E34" : "FF856404" }, size: 9, name: "Arial" };
         } else if (colNum === 16) {
@@ -122,7 +103,7 @@ export default function PatientsHistoryPage({db, locId, onBack, onDischarge, onG
     });
 
     // Column widths & freeze
-    [6,18,13,14,10,14,18,18,8,6,12,18,13,22,16,12].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
+    [6, 18, 13, 14, 10, 14, 18, 18, 8, 6, 12, 18, 13, 22, 16, 12].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
     ws.views = [{ state: "frozen", ySplit: 2 }];
 
     const buffer = await wb.xlsx.writeBuffer();
@@ -160,10 +141,13 @@ export default function PatientsHistoryPage({db, locId, onBack, onDischarge, onG
             <tbody>
               {filtered.map((r, i) => {
                 const isDischarge = r.dod && r.status;
-                const hasBill = r.billing && (r.billing.paidNow || r.billing.paymentMode);
+                
+                const hasBill = r.billing && r.billing.printStatus === 'APPROVED';
+                
                 const expDod = r.admObj.discharge?.expectedDod;
 
-                return (<tr key={i} onClick={() => onViewPatient(r.patientObj)}>
+                // 🌟 FIX 2: Trick the modal into only seeing THIS specific admission!
+                return (<tr key={i} onClick={() => onViewPatient({ ...r.patientObj, admissions: [r.admObj] })}>
                   <td style={{ color: T.textMuted, fontSize: 12, width: 40 }}>{i + 1}</td>
                   <td>
                     <div className="hist-pt-name">{r.patientName}</div>
@@ -183,16 +167,27 @@ export default function PatientsHistoryPage({db, locId, onBack, onDischarge, onG
                   {/* Medical History Column */}
                   <td onClick={e => e.stopPropagation()}>
                     {r.admObj.medicalHistory && (r.admObj.medicalHistory.previousDiagnosis || r.admObj.medicalHistory.currentMedications || r.admObj.medicalHistory.knownAllergies) ? (
-                      <button onClick={e => { e.stopPropagation(); setMedHistModal(r.admObj.medicalHistory); }} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, padding: "4px 11px", borderRadius: 20, background: "#ECFDF5", color: "#059669", border: "1px solid #A7F3D0", cursor: "pointer" }}>
+                      <button
+                        onClick={e => {
+                          e.stopPropagation();
+                          onViewMedical(r.patientObj, r.admObj);
+                        }}
+                        style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, padding: "4px 11px", borderRadius: 20, background: "#ECFDF5", color: "#059669", border: "1px solid #A7F3D0", cursor: "pointer" }}
+                      >
                         ✓ View History
                       </button>
                     ) : (
-                      <button onClick={e => { e.stopPropagation(); onFillMedHistory(r.patientObj, r.admObj); }} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, padding: "4px 11px", borderRadius: 20, background: "#FEF3C7", color: "#D97706", border: "1px solid #FDE68A", cursor: "pointer" }}>
+                      <button
+                        onClick={e => {
+                          e.stopPropagation();
+                          onViewMedical(r.patientObj, r.admObj);
+                        }}
+                        style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, padding: "4px 11px", borderRadius: 20, background: "#FEF3C7", color: "#D97706", border: "1px solid #FDE68A", cursor: "pointer" }}
+                      >
                         ⚠ Not Filled — Click to Fill
                       </button>
                     )}
                   </td>
-                  {/* Discharge Status Column */}
                   <td>
                     {isDischarge ? (
                       <div>

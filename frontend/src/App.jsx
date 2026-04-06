@@ -1,11 +1,15 @@
 import { useState, useEffect } from "react";
 import { T, NAV_PAGES } from "./data/constants";
-import { LOCATION_DB } from "./data/mockDb";
 import { blankPatient, blankDischarge, blankBilling, blankSvc } from "./utils/helpers";
 import { Ico, IC, PAGE_ICONS } from "./components/ui/Icons";
 
+// 🌟 NEW: Toast notifications added by frontend dev
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+
 // Core Components
 import LiveDate from "./components/layout/LiveDate";
+import { apiService } from "./services/apiService"; // 🌟 Connected to Backend
 
 // Pages
 import SearchPage from "./pages/SearchPage";
@@ -44,13 +48,61 @@ export default function App() {
   const [medicalHistory, setMedicalHistory] = useState({ previousDiagnosis: "", pastSurgeries: "", currentMedications: "", treatingDoctor: "", knownAllergies: "", chronicConditions: "", familyHistory: "", smokingStatus: "", alcoholUse: "", notes: "" });
   const [medicalDone, setMedicalDone] = useState(false);
   const [discharge, setDischarge] = useState(blankDischarge());
-  const [svcs, setSvcs] = useState([blankSvc()]);
+  const [svcs, setSvcs] = useState([]);
   const [billing, setBilling] = useState(blankBilling());
   const [errs, setErrs] = useState({});
 
-  const [db, setDb] = useState(JSON.parse(JSON.stringify(LOCATION_DB)));
+  // 🌟 Database States
+  const [db, setDb] = useState({ laxmi: [], raya: [] });
+  const [masterServices, setMasterServices] = useState([]); 
 
-  const currentDb = db[locId];
+  // ==========================================
+  // 🌟 THE MASTER DATA LOADER
+  // ==========================================
+  const loadDashboardData = async (userRole) => {
+    try {
+      const livePatients = await apiService.getPatients();
+      const liveServices = await apiService.getServiceMaster();
+      
+      setMasterServices(liveServices); 
+
+      const laxmiPatients = livePatients.filter(p => p.branch_location === 'LNM' || !p.branch_location);
+      const rayaPatients = livePatients.filter(p => p.branch_location === 'RYM');
+      setDb({ laxmi: laxmiPatients, raya: rayaPatients });
+
+      if (userRole === "superadmin") {
+        const pendingPatients = await apiService.getPendingPrints();
+        const formattedRequests = [];
+
+        pendingPatients.forEach(p => {
+          p.admissions.forEach(adm => {
+            if (adm.billing && adm.billing.printStatus === 'PENDING') {
+              formattedRequests.push({
+                uhid: p.uhid,
+                admNo: adm.admNo,
+                locId: p.branch_location === 'LNM' ? 'laxmi' : 'raya',
+                patient: p,
+                adm: adm,
+                svcs: adm.services || [],
+                requestedAt: adm.billing.printRequestedAt || new Date().toISOString()
+              });
+            }
+          });
+        });
+        setPrintRequests(formattedRequests);
+      }
+    } catch (error) {
+      console.error("Failed to load live backend data:", error);
+    }
+  };
+
+  useEffect(() => {
+    if (loggedIn && currentUser) {
+      loadDashboardData(currentUser.role);
+    }
+  }, [loggedIn, currentUser]);
+
+  const currentDb = db[locId] || [];
 
   const resetAll = () => {
     setPage("patient");
@@ -75,6 +127,12 @@ export default function App() {
     setCurrentUser(user);
     setLocId(loc || "laxmi");
     setLoggedIn(true);
+    sessionStorage.setItem("loggedIn", "true");
+    sessionStorage.setItem("currentUser", JSON.stringify(user));
+    sessionStorage.setItem("locId", loc || "laxmi");
+    
+    loadDashboardData(user.role);
+
     if (user.role === "superadmin") {
       setPage("superadmin");
     } else {
@@ -98,21 +156,51 @@ export default function App() {
     });
   };
 
-  const handleNewAdmission = existing => {
-    const { admissions, ...pd } = existing; setPatient(pd); setUhid(existing.uhid);
-    const newAdmNo = existing.admissions.length + 1; setAdmNo(newAdmNo); setIsReturning(true); setShowUHID(true);
-    setDb(prev => {
-      const nextDb = JSON.parse(JSON.stringify(prev));
-      const p = nextDb[locId].find(x => x.uhid === existing.uhid);
-      p.admissions.push({ admNo: newAdmNo, dateTime: new Date().toISOString(), discharge: blankDischarge(), services: [], billing: blankBilling() });
-      return nextDb;
-    });
+  const handleNewAdmission = (existing) => {
+    const { admissions, ...pd } = existing; 
+    setDischarge(prev => ({ ...prev, doa: new Date().toISOString().slice(0, 16) }));
+    setPatient(pd); 
+    setUhid(existing.uhid);
+    setIsReturning(true); 
+    setSubPage("form");
   };
 
   const handleDischargeFromHistory = (patientObj, admObj) => {
-    const { admissions, ...pd } = patientObj; setPatient(pd); setUhid(patientObj.uhid); setAdmNo(admObj.admNo); setIsReturning(true);
-    setDischarge({ ...blankDischarge(), ...(admObj.discharge || {}) }); setSvcs(admObj.services && admObj.services.length ? admObj.services : []); setBilling({ ...blankBilling(), ...(admObj.billing || {}) });
-    setPatientDone(true); setDischargeDone(false); setServicesDone(false); setShowPatientDetail(null); setShowUHID(false); setPage("discharge");
+    const { admissions, ...pd } = patientObj; 
+    setPatient(pd); 
+    setUhid(patientObj.uhid); 
+    setAdmNo(admObj.admNo); 
+    setIsReturning(true);
+    
+    // 🌟 This ensures DOA never disappears, even if Discharge hasn't been saved yet!
+    const doaValue = admObj.discharge?.doa || admObj.dateTime || "";
+    
+    setDischarge({ ...blankDischarge(), ...(admObj.discharge || {}), doa: doaValue }); 
+    setSvcs(admObj.services && admObj.services.length ? admObj.services : []); 
+    setBilling({ ...blankBilling(), ...(admObj.billing || {}) });
+    
+    setPatientDone(true); 
+    setDischargeDone(false); 
+    setServicesDone(false); 
+    setShowPatientDetail(null); 
+    setShowUHID(false); 
+    setPage("discharge");
+  };
+  
+  const handleMedicalFromHistory = (patientObj, admObj) => {
+    const { admissions, ...pd } = patientObj; 
+    setPatient(pd); 
+    setUhid(patientObj.uhid); 
+    setAdmNo(admObj.admNo); 
+    setIsReturning(true);
+
+    // Load the existing history into the state so the page isn't blank
+    setMedicalHistory(admObj.medicalHistory || { previousDiagnosis: "", pastSurgeries: "", currentMedications: "", treatingDoctor: "", knownAllergies: "", chronicConditions: "", familyHistory: "", smokingStatus: "", alcoholUse: "", notes: "" });
+    
+    setPatientDone(true); 
+    setMedicalDone(false); // Set to false so they can edit/save again
+    setShowPatientDetail(null); 
+    setPage("medical"); // 🚀 The Redirect!
   };
 
   const handleGenerateBillFromHistory = (patientObj, admObj) => {
@@ -121,56 +209,171 @@ export default function App() {
     setPatientDone(true); setDischargeDone(true); setServicesDone(false); setShowPatientDetail(null); setShowUHID(false); setPage("services");
   };
 
-  const handleSetExpectedDod = (uhidToUpdate, admNoToUpdate, date) => {
-    setDb(prev => {
-      const nextDb = JSON.parse(JSON.stringify(prev));
-      nextDb[locId].forEach(p => { if (p.uhid === uhidToUpdate) p.admissions.forEach(a => { if (a.admNo === admNoToUpdate) { if (!a.discharge) a.discharge = {}; a.discharge.expectedDod = date; } }); });
-      return nextDb;
-    });
+  const handleSetExpectedDod = async (uhidToUpdate, admNoToUpdate, date) => {
+    try {
+      await apiService.setExpectedDod(uhidToUpdate, admNoToUpdate, date);
+      setDb(prev => {
+        const nextDb = JSON.parse(JSON.stringify(prev));
+        nextDb[locId].forEach(p => { 
+          if (p.uhid === uhidToUpdate) {
+            p.admissions.forEach(a => { 
+              if (a.admNo === admNoToUpdate) { 
+                if (!a.discharge) a.discharge = {}; 
+                a.discharge.expectedDod = date; 
+              } 
+            }); 
+          }
+        });
+        return nextDb;
+      });
+      toast.success("Expected Discharge Date saved!");
+    } catch (error) {
+      toast.error("Failed to set Expected Discharge Date on server.");
+    }
   };
 
   const validatePatient = () => {
     const e = {}; if (!patient.patientName.trim()) e.patientName = "Required"; if (!patient.guardianName.trim()) e.guardianName = "Required"; if (!patient.gender) e.gender = "Required"; if (!patient.phone || patient.phone.replace(/\D/g, "").length !== 10) e.phone = "Must be 10 digits"; if (!patient.email || !patient.email.includes("@")) e.email = "Valid email required"; if (!patient.nationalId.trim()) e.nationalId = "Required"; if (!patient.address.trim()) e.address = "Required"; setErrs(e); return !Object.keys(e).length;
   };
 
-  const handleRegister = () => {
+  const handleRegister = async () => {
     if (!validatePatient()) return;
-    const newUhid = "UHID-" + Math.floor(1000000 + Math.random() * 9000000);
-    setUhid(newUhid); setAdmNo(1); setIsReturning(false); setShowUHID(true);
-    const newPat = { ...patient, uhid: newUhid, admissions: [{ admNo: 1, dateTime: new Date().toISOString(), discharge: blankDischarge(), services: [], billing: blankBilling() }] };
-    setDb(prev => ({ ...prev, [locId]: [newPat, ...prev[locId]] }));
+
+    // 🧹 THE SANITIZER
+    const sanitizedPayload = { ...patient };
+    if (sanitizedPayload.dob === "") sanitizedPayload.dob = null;
+    if (sanitizedPayload.tpaValidity === "") sanitizedPayload.tpaValidity = null;
+    if (sanitizedPayload.tpaPanelValidity === "") sanitizedPayload.tpaPanelValidity = null;
+
+    try {
+      if (isReturning && uhid) {
+        // --- RETURNING PATIENT LOGIC ---
+        await apiService.updatePatient(uhid, sanitizedPayload);
+        const admResponse = await apiService.newAdmission(uhid);
+        const livePatients = await apiService.getPatients();
+        setDb(prev => ({ ...prev, [locId]: livePatients }));
+        
+        setAdmNo(admResponse.admNo);
+        setShowUHID(true);
+        setSubPage("search");
+        
+        // Pre-fill the UI Date of Admission for Returning Patients
+        const localNow = new Date();
+        localNow.setMinutes(localNow.getMinutes() - localNow.getTimezoneOffset());
+        setDischarge(prev => ({ ...prev, doa: localNow.toISOString().slice(0, 16) }));
+
+      } else {
+        // --- NEW PATIENT LOGIC ---
+        // 🌟 Here are your missing variables safely inside the block!
+        const savedPatient = await apiService.registerPatient({ ...sanitizedPayload, locId });
+        const newUhid = savedPatient.uhid;
+        
+        setUhid(newUhid);
+        setAdmNo(1);
+        setIsReturning(false);
+        setShowUHID(true);
+        setDb(prev => ({ ...prev, [locId]: [savedPatient, ...prev[locId]] }));
+        
+        // Pre-fill the UI Date of Admission for New Patients
+        const localNow = new Date();
+        localNow.setMinutes(localNow.getMinutes() - localNow.getTimezoneOffset());
+        setDischarge(prev => ({ ...prev, doa: localNow.toISOString().slice(0, 16) }));
+      }
+      
+      toast.success("Patient registered successfully!");
+    } catch (error) {
+      toast.error("Error registering patient. Check console.");
+    }
   };
 
   const handleUHIDContinue   = () => { setPatientDone(true); setShowUHID(false); setPage("medical"); };
   const handleUHIDDashboard  = () => { setPatientDone(true); setShowUHID(false); setPage("patient"); setSubPage("search"); };
   const handleUHIDNewPatient = () => { endSession(); setSubPage("form"); };
 
-  const handleSaveMedical = () => { syncDb(uhid, admNo, "medicalHistory", medicalHistory); setMedicalDone(true); setPage("discharge"); };
-  const handleSaveMedHistoryFromHistory = (uhidVal, admNoVal, data) => { setDb(prev => { const next = JSON.parse(JSON.stringify(prev)); const p = next[locId].find(x => x.uhid === uhidVal); if (p) { const a = p.admissions.find(x => x.admNo === admNoVal); if (a) a.medicalHistory = data; } return next; }); };
-  const handleSaveDischarge  = () => { syncDb(uhid, admNo, 'discharge', discharge); setDischargeDone(true); setPage("services"); };
-  const handleSaveServices   = (updatedSvcs, updatedBilling) => {
-    setSvcs(updatedSvcs); setBilling(updatedBilling);
-    syncDb(uhid, admNo, 'services', updatedSvcs); syncDb(uhid, admNo, 'billing', updatedBilling);
-    setServicesDone(true); setPage("summary");
+  // ==========================================
+  // 🌟 RESTORED: Backend Save Functions
+  // ==========================================
+  const handleSaveMedical = async () => { 
+    try {
+      await apiService.updateMedicalHistory(uhid, admNo, medicalHistory);
+      syncDb(uhid, admNo, "medicalHistory", medicalHistory); 
+      setMedicalDone(true); 
+      setPage("discharge"); 
+      toast.success("Medical History saved!");
+    } catch (error) { toast.error("Failed to save Medical History."); }
   };
 
-  // Invoice print request: branch staff requests → super admin approves
-  const handleRequestPrint = (req) => {
-    setPrintRequests(prev => [...prev, { ...req, requestedAt: new Date().toISOString() }]);
+  const handleSaveMedHistoryFromHistory = async (uhidVal, admNoVal, data) => { 
+    try {
+      await apiService.updateMedicalHistory(uhidVal, admNoVal, data);
+      setDb(prev => { 
+        const next = JSON.parse(JSON.stringify(prev)); 
+        const p = next[locId].find(x => x.uhid === uhidVal); 
+        if (p) { const a = p.admissions.find(x => x.admNo === admNoVal); if (a) a.medicalHistory = data; } 
+        return next; 
+      }); 
+      toast.success("Medical History updated!");
+    } catch (error) { toast.error("Failed to update Medical History."); }
   };
 
-  const handleApprovePrint = (req, action) => {
-    setPrintRequests(prev => prev.filter(r => !(r.uhid === req.uhid && r.admNo === req.admNo && r.locId === req.locId)));
-    if (action === "approve") {
-      setShowPrint(true);
-      setUhid(req.uhid);
-      setPatient(req.patient || patient);
-      setDischarge(req.discharge || discharge);
-      setSvcs(req.svcs || svcs);
-      setBilling(req.billing || billing);
-      setLocId(req.locId);
-      setAdmNo(req.admNo);
-    }
+  const handleSaveDischarge = async () => { 
+    try {
+      await apiService.dischargePatient(uhid, admNo, discharge);
+      syncDb(uhid, admNo, 'discharge', discharge); 
+      setDischargeDone(true); 
+      setPage("services"); 
+      toast.success("Discharge details saved!");
+    } catch (error) { toast.error("Failed to save Discharge."); }
+  };
+
+  const handleSaveServices = async (updatedSvcs, updatedBilling) => {
+    try {
+      for (const svc of updatedSvcs) await apiService.addService(uhid, admNo, svc);
+      await apiService.updateBilling(uhid, admNo, updatedBilling);
+      setSvcs(updatedSvcs); setBilling(updatedBilling);
+      syncDb(uhid, admNo, 'services', updatedSvcs); syncDb(uhid, admNo, 'billing', updatedBilling);
+      setServicesDone(true); setPage("summary");
+      toast.success("Services and Billing saved!");
+    } catch (error) { toast.error("Failed to save Services/Billing."); }
+  };
+
+  
+  const handleViewBill = (req) => {
+    setShowPrint(true);
+    setUhid(req.uhid);
+    setPatient(req.patient || patient);
+    setDischarge(req.adm?.discharge || discharge);
+    setSvcs(req.svcs || svcs);
+    setBilling(req.adm?.billing || billing);
+    setLocId(req.locId);
+    setAdmNo(req.admNo);
+  };
+
+  const handleRequestPrint = async (req) => {
+    try {
+      await apiService.requestPrint(uhid, admNo);
+      toast.success("Print request sent securely to Super Admin!");
+    } catch (error) { toast.error("Failed to send print request."); }
+  };
+
+  const handleApprovePrint = async (req, action) => {
+    try {
+      const backendAction = action === "approve" ? "APPROVED" : "REJECTED";
+      await apiService.resolvePrint(req.uhid, req.admNo, backendAction);
+      setPrintRequests(prev => prev.filter(r => !(r.uhid === req.uhid && r.admNo === req.admNo && r.locId === req.locId)));
+      
+      if (action === "approve") {
+        setShowPrint(true);
+        setUhid(req.uhid);
+        setPatient(req.patient || patient);
+        setDischarge(req.adm?.discharge || discharge);
+        setSvcs(req.svcs || svcs);
+        setBilling(req.adm?.billing || billing);
+        setLocId(req.locId);
+        setAdmNo(req.admNo);
+      }
+      toast.success(`Bill ${backendAction.toLowerCase()} successfully!`);
+    } catch (error) { toast.error("Failed to process approval."); }
   };
 
   const canNav = id => ({ patient: true, medical: patientDone, discharge: patientDone && medicalDone, services: patientDone && medicalDone && dischargeDone, summary: patientDone && medicalDone && dischargeDone && servicesDone }[id] || false);
@@ -191,9 +394,11 @@ export default function App() {
         <SuperAdminDashboard
           db={db}
           printRequests={printRequests}
-          onApprovePrint={handleApprovePrint}
-          onLogout={() => { setLoggedIn(false); setCurrentUser(null); resetAll(); setPrintRequests([]); }}
+          onApprovePrint={handleApprovePrint} 
+          onViewBill={handleViewBill} // 🌟 Added the missing prop here
+          onLogout={() => { setLoggedIn(false); setCurrentUser(null); resetAll(); setPrintRequests([]); sessionStorage.clear(); }}
         />
+        <ToastContainer position="bottom-right" />
       </>
     );
   }
@@ -228,7 +433,6 @@ export default function App() {
           <LiveDate />
           {currentUser && (
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginLeft: 12 }}>
-
               <div style={{ fontSize: 12, lineHeight: 1.4, textAlign: "right" }}>
                 <div style={{ fontWeight: 700, color: "#fff" }}>{currentUser.name}</div>
                 <div style={{ color: "rgba(255,255,255,.5)" }}>
@@ -236,7 +440,7 @@ export default function App() {
                 </div>
               </div>
               <button
-                onClick={() => { setLoggedIn(false); setCurrentUser(null); resetAll(); }}
+                onClick={() => { setLoggedIn(false); setCurrentUser(null); resetAll(); sessionStorage.clear(); }}
                 style={{ padding: "6px 14px", borderRadius: 8, background: "rgba(255,255,255,.1)", border: "1px solid rgba(255,255,255,.2)", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
                 Logout
               </button>
@@ -291,10 +495,11 @@ export default function App() {
           {page === "medical"  && <MedicalHistoryPage data={medicalHistory} setData={setMedicalHistory} onSave={handleSaveMedical} onSkip={handleSaveMedical} patient={patient} discharge={discharge} locId={locId} />}
           {page === "discharge"&& <DischargePage data={discharge} setData={setDischarge} onSave={handleSaveDischarge} />}
           {page === "services" && <ServicesPage svcs={svcs} setSvcs={setSvcs} billing={billing} setBilling={setBilling} onSave={handleSaveServices} />}
-          {page === "summary"  && <SummaryPage uhid={uhid} patient={patient} discharge={discharge} svcs={svcs} billing={billing} locId={locId} admNo={admNo} onPrint={() => setShowPrint(true)} />}
-          {page === "history"  && <PatientsHistoryPage db={currentDb} locId={locId} onBack={() => setPage("patient")} onDischarge={handleDischargeFromHistory} onGenerateBill={handleGenerateBillFromHistory} onSetExpectedDod={handleSetExpectedDod} onViewPatient={p => setShowPatientDetail(p)} onSaveMedHistory={handleSaveMedHistoryFromHistory} />}
+          {page === "summary"  && <SummaryPage uhid={uhid} patient={patient} discharge={discharge} svcs={svcs} billing={billing} locId={locId} admNo={admNo} onPrint={() => setShowPrint(true)} onRequestPrint={handleRequestPrint} />}
+          {page === "history"  && <PatientsHistoryPage db={currentDb} locId={locId} onBack={() => setPage("patient")} onDischarge={handleDischargeFromHistory} onGenerateBill={handleGenerateBillFromHistory} onSetExpectedDod={handleSetExpectedDod} onViewPatient={p => setShowPatientDetail(p)} onSaveMedHistory={handleSaveMedHistoryFromHistory} onViewMedical={handleMedicalFromHistory} />}
         </main>
       </div>
+      <ToastContainer position="bottom-right" />
     </>
   );
 }

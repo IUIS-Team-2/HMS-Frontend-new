@@ -1,23 +1,88 @@
 import axios from 'axios';
 
-const BASE_URL = 'http://localhost:8000/api';
+const BASE_URL = 'http://localhost:8000/api'; 
 
 export const apiService = {
-  // 1. Core Patient Setup
-  getPatients: async () => (await axios.get(`${BASE_URL}/patients/`)).data,
-  registerPatient: async (data) => (await axios.post(`${BASE_URL}/patients/`, data)).data,
-  newAdmission: async (uhid) => (await axios.post(`${BASE_URL}/patients/${uhid}/new_admission/`)).data,
+    
+    getPatients: async () => {
+        try {
+            const response = await axios.get(`${BASE_URL}/patients/`);
+            return response.data;
+        } catch (error) {
+            console.error("Error fetching patient records:", error);
+            throw error; 
+        }
+    },
 
-  // 2. Fetch Master Data for Dropdowns
-  getServiceMaster: async () => (await axios.get(`${BASE_URL}/service-master/`)).data,
+    registerPatient: async (patientData) => {
+        try {
+            const response = await axios.post(`${BASE_URL}/patients/`, patientData);
+            return response.data;
+        } catch (error) {
+            if (error.response && error.response.data) {
+                console.error("Django rejected the data because:", error.response.data);
+            } else {
+                console.error("Error registering new patient:", error);
+            }
+            throw error;
+        }
+    },
 
-  // 3. Clinical Actions (Requires admNo in body)
-  updateMedicalHistory: async (uhid, admNo, medicalData) =>
-    (await axios.patch(`${BASE_URL}/patients/${uhid}/update_medical/`, { admNo, medicalData })).data,
-  addService: async (uhid, admNo, serviceData) =>
-    (await axios.post(`${BASE_URL}/patients/${uhid}/add_service/`, { admNo, serviceData })).data,
-  dischargePatient: async (uhid, admNo, dischargeData) =>
-    (await axios.patch(`${BASE_URL}/patients/${uhid}/discharge/`, { admNo, dischargeData })).data,
-  updateBilling: async (uhid, admNo, billingData) =>
-    (await axios.patch(`${BASE_URL}/patients/${uhid}/update_billing/`, { admNo, billingData })).data,
+    newAdmission: async (uhid) => {
+        const response = await axios.post(`${BASE_URL}/patients/${uhid}/new_admission/`);
+        return response.data;
+    },
+
+    
+    getServiceMaster: async () => {
+        const response = await axios.get(`${BASE_URL}/service-master/`);
+        return response.data;
+    },
+
+    
+    updateMedicalHistory: async (uhid, admNo, medicalData) => {
+        const response = await axios.patch(`${BASE_URL}/patients/${uhid}/update_medical/`, { admNo, medicalData });
+        return response.data;
+    },
+
+    addService: async (uhid, admNo, serviceData) => {
+        const response = await axios.post(`${BASE_URL}/patients/${uhid}/add_service/`, { admNo, serviceData });
+        return response.data;
+    },
+
+    dischargePatient: async (uhid, admNo, dischargeData) => {
+        const response = await axios.patch(`${BASE_URL}/patients/${uhid}/discharge/`, { admNo, dischargeData });
+        return response.data;
+    },
+
+    updateBilling: async (uhid, admNo, billingData) => {
+        const response = await axios.patch(`${BASE_URL}/patients/${uhid}/update_billing/`, { admNo, billingData });
+        return response.data;
+    },
+    
+    setExpectedDod: async (uhid, admNo, expectedDod) => {
+        const response = await axios.patch(`${BASE_URL}/patients/${uhid}/set_expected_dod/`, { admNo, expectedDod });
+        return response.data;
+    },
+
+    requestPrint: async (uhid, admNo) => {
+        const response = await axios.post(`${BASE_URL}/patients/${uhid}/request_print/`, { admNo });
+        return response.data;
+    },
+
+    resolvePrint: async (uhid, admNo, action) => {
+        // action will be 'APPROVED' or 'REJECTED'
+        const response = await axios.post(`${BASE_URL}/patients/${uhid}/resolve_print/`, { admNo, action });
+        return response.data;
+    },
+    
+    updatePatient: async (uhid, patientData) => {
+        const response = await axios.patch(`${BASE_URL}/patients/${uhid}/`, patientData);
+        return response.data;
+    },
+
+    getPendingPrints: async () => {
+        const response = await axios.get(`${BASE_URL}/patients/pending_prints/`);
+        return response.data;
+    }
 };
