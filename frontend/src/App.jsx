@@ -16,6 +16,7 @@ import SummaryPage from "./pages/SummaryPage";
 import PatientsHistoryPage from "./pages/PatientsHistoryPage";
 import SuperAdminDashboard from './pages/SuperAdminDashboard';
 import ManagementAdminDashboard from './pages/Managementadmindashboard';
+import EmployeeDashboard from './pages/EmployeeDashboard';
 import MedicalHistoryPage from "./pages/MedicalHistoryPage";
 import LoginPage from "./pages/LoginPage";
 
@@ -80,6 +81,8 @@ export default function App() {
       setPage("superadmin");
     } else if (user.role === "managementadmin") {
       setPage("managementadmin");
+    } else if (["opd","ipd","billing","pharmacy","doctor","nursing","lab","radiology","reception","employee"].includes(user.role)) {
+      setPage("employee");
     } else {
       setPage("patient");
       setSubPage("search");
@@ -205,6 +208,15 @@ export default function App() {
     return (
       <ManagementAdminDashboard
         db={db}
+        onLogout={() => { setLoggedIn(false); setCurrentUser(null); resetAll(); }}
+      />
+    );
+  }
+
+  if (page === "employee") {
+    return (
+      <EmployeeDashboard
+        currentUser={currentUser}
         onLogout={() => { setLoggedIn(false); setCurrentUser(null); resetAll(); }}
       />
     );
