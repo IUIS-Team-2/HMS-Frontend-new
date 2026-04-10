@@ -136,141 +136,19 @@ function TH({ h }) {
     color:T.dim, textTransform:"uppercase", letterSpacing:".06em", whiteSpace:"nowrap", background:T.bg }}>{h}</th>;
 }
 
-<<<<<<< HEAD
 /* ══════════════════════════════════════════════════════════════
    PATIENT DETAIL MODAL
 ══════════════════════════════════════════════════════════════ */
 function PatientModal({ p, onClose }) {
   const [editSvcs, setEditSvcs] = useState(null);
   if (!p) return null;
+  
   const svcs = editSvcs || p.services || [];
   const upd = (i,field,val) => setEditSvcs((editSvcs||p.services||[]).map((s,idx)=>idx===i?{...s,[field]:val}:s));
   const subtotal = svcs.reduce((s,sv)=>s+(parseFloat(sv.rate)||0)*(parseFloat(sv.qty)||1),0);
   const discount = parseFloat(p.billingObj?.discount)||0;
   const grand = subtotal - discount;
   const col = bColor(p._branch);
-=======
-  useEffect(() => {
-    const handler = e => { if (dropRef.current && !dropRef.current.contains(e.target)) setDropOpen(false); };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
-
-  const stats = computeStats(db, viewLoc);
-
-  // Filter requests by branch if needed
-  const filteredRequests = viewLoc === "all"
-    ? printRequests
-    : printRequests.filter(r => r.locId === viewLoc || (viewLoc === "laxmi" && r.locId === "laxmi-nagar") || (viewLoc === "raya" && r.locId === "raya"));
-
- // 🌟 LIVE CHART DATA: Admissions Over Time
-  const admissionsOverTime = (() => {
-    const months = ["Nov", "Dec", "Jan", "Feb", "Mar", "Apr"];
-    // Build a map of Month -> Count for each branch
-    const buildMonthlyData = (locKey) => {
-      const counts = [0, 0, 0, 0, 0, 0];
-      (db[locKey] || []).forEach(p => {
-        (p.admissions || []).forEach(adm => {
-          if (!adm.dateTime) return;
-          const admDate = new Date(adm.dateTime);
-          // Simple check: Does the admission month match our labels?
-          const monthIndex = months.indexOf(admDate.toLocaleString('default', { month: 'short' }));
-          if (monthIndex !== -1) counts[monthIndex]++;
-        });
-      });
-      return counts;
-    };
-
-    const laxmiCounts = buildMonthlyData("laxmi");
-    const rayaCounts = buildMonthlyData("raya");
-
-    if (viewLoc === "laxmi") return months.map((label, i) => ({ label, value: laxmiCounts[i] }));
-    if (viewLoc === "raya") return months.map((label, i) => ({ label, value: rayaCounts[i] }));
-    
-    // Default: Combined view
-    return months.map((label, i) => ({ label, value: laxmiCounts[i] + rayaCounts[i] }));
-  })();
-
-  // 🌟 LIVE CHART DATA: Bed Occupancy
-  const bedOccupancy = (() => {
-    // A simple calculation based on live admissions minus live discharges
-    const calcOccupancy = (locKey, totalBeds) => {
-      let currentInpatients = 0;
-      (db[locKey] || []).forEach(p => {
-        (p.admissions || []).forEach(adm => {
-           // If they have an admission but no actualDod, they are still in a bed!
-           if (!adm.discharge?.actualDod) currentInpatients++;
-        });
-      });
-      // Cap at 100% just in case!
-      return Math.min(Math.round((currentInpatients / totalBeds) * 100), 100); 
-    };
-
-    const laxmiOcc = calcOccupancy("laxmi", 50); // Assuming Laxmi has 50 beds
-    const rayaOcc = calcOccupancy("raya", 30);   // Assuming Raya has 30 beds
-
-    if (viewLoc === "all") return [{ label: "Lakshmi Nagar", value: laxmiOcc }, { label: "Raya", value: rayaOcc }];
-    return [{ label: BRANCH_LABELS[viewLoc], value: viewLoc === "laxmi" ? laxmiOcc : rayaOcc }];
-  })();
-
-  const dischargeSeg = [
-    { color: "#1D9E75", value: 72, label: "Recovered" },
-    { color: "#FAC775", value: 18, label: "Referred" },
-    { color: "#E24B4A", value: 10, label: "LAMA" },
-  ];
-
-  const revenueSplit = viewLoc === "all"
-    ? [{ color: "#378ADD", value: 62, label: "Lakshmi Nagar" }, { color: "#D85A30", value: 38, label: "Raya" }]
-    : [{ color: BRANCH_COLORS[viewLoc], value: 100, label: BRANCH_LABELS[viewLoc] }];
-
-  const locOptions = [
-    { key: "all", label: "All Branches", sub: "Combined view", color: "#1D9E75" },
-    { key: "laxmi", label: "Lakshmi Nagar", sub: "Mathura", color: "#378ADD" },
-    { key: "raya", label: "Raya", sub: "Mathura", color: "#D85A30" },
-  ];
-  const activeLoc = locOptions.find(l => l.key === viewLoc);
-
-  const S = {
-    wrap: { background: "#0f1117", minHeight: "100vh", fontFamily: "system-ui,sans-serif", color: "#fff" },
-    topbar: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 24px", borderBottom: "1px solid rgba(255,255,255,.07)", background: "#141720" },
-    brandRow: { display: "flex", alignItems: "center", gap: 10 },
-    brandIcon: { width: 34, height: 34, background: "#0F6E56", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center" },
-    navRight: { display: "flex", alignItems: "center", gap: 10 },
-    pill: { fontSize: 12, padding: "5px 12px", borderRadius: 20, border: "1px solid rgba(255,255,255,.12)", color: "rgba(255,255,255,.6)", background: "transparent" },
-    locBtn: { display: "flex", alignItems: "center", gap: 7, padding: "6px 14px", borderRadius: 20, border: "1px solid rgba(255,255,255,.18)", background: "rgba(255,255,255,.06)", cursor: "pointer", fontSize: 13, fontWeight: 600, color: "#fff" },
-    locDot: (color) => ({ width: 8, height: 8, borderRadius: "50%", background: color, flexShrink: 0 }),
-    dropdown: { position: "absolute", top: "calc(100% + 8px)", right: 0, background: "#1e2130", border: "1px solid rgba(255,255,255,.1)", borderRadius: 12, minWidth: 210, zIndex: 100, overflow: "hidden" },
-    dropOption: (active) => ({ display: "flex", alignItems: "center", gap: 10, padding: "11px 16px", cursor: "pointer", borderBottom: "1px solid rgba(255,255,255,.06)", background: active ? "rgba(255,255,255,.06)" : "transparent" }),
-    backBtn: { fontSize: 12, padding: "6px 14px", borderRadius: 8, background: "rgba(255,255,255,.07)", border: "1px solid rgba(255,255,255,.12)", color: "#fff", cursor: "pointer" },
-    body: { padding: "24px" },
-    pageTitle: { fontSize: 22, fontWeight: 700, marginBottom: 2 },
-    pageSub: { fontSize: 13, color: "rgba(255,255,255,.45)", marginBottom: 16 },
-    branchTag: { display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, padding: "4px 12px", background: "rgba(29,158,117,.15)", borderRadius: 20, color: "#1D9E75", fontWeight: 600, marginBottom: 24 },
-    metricsGrid: { display: "grid", gridTemplateColumns: "repeat(6,minmax(0,1fr))", gap: 12, marginBottom: 24 },
-    metricCard: { background: "#1a1f2e", borderRadius: 10, padding: "14px 16px" },
-    metricLabel: { fontSize: 11, color: "rgba(255,255,255,.4)", marginBottom: 4 },
-    metricValue: { fontSize: 22, fontWeight: 700 },
-    metricDelta: { fontSize: 11, marginTop: 3, color: "#1D9E75" },
-    chartsRow: { display: "grid", gridTemplateColumns: "2fr 1fr", gap: 16, marginBottom: 16 },
-    chartsRow2: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, marginBottom: 16 },
-    card: { background: "#1a1f2e", borderRadius: 12, padding: 18, border: "1px solid rgba(255,255,255,.06)" },
-    cardTitle: { fontSize: 14, fontWeight: 600, marginBottom: 2 },
-    cardSub: { fontSize: 12, color: "rgba(255,255,255,.4)", marginBottom: 14 },
-    legend: { display: "flex", gap: 12, marginBottom: 10, flexWrap: "wrap" },
-    legendItem: { display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: "rgba(255,255,255,.5)" },
-    legendDot: (color) => ({ width: 9, height: 9, borderRadius: 2, background: color, flexShrink: 0 }),
-    table: { width: "100%", borderCollapse: "collapse", fontSize: 13 },
-    th: { fontSize: 11, color: "rgba(255,255,255,.35)", fontWeight: 400, textAlign: "left", padding: "6px 0", borderBottom: "1px solid rgba(255,255,255,.07)" },
-    td: { padding: "11px 0", borderBottom: "1px solid rgba(255,255,255,.05)", color: "#fff" },
-    dlBtn: { display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, padding: "4px 10px", borderRadius: 6, border: "1px solid rgba(255,255,255,.15)", background: "rgba(255,255,255,.05)", color: "#fff", cursor: "pointer" },
-  };
-
-  const statusStyle = s => s === "Discharged"
-    ? { background: "rgba(29,158,117,.15)", color: "#1D9E75", padding: "2px 9px", borderRadius: 20, fontSize: 11 }
-    : s === "Admitted"
-    ? { background: "rgba(55,138,221,.15)", color: "#378ADD", padding: "2px 9px", borderRadius: 20, fontSize: 11 }
-    : { background: "rgba(250,199,117,.15)", color: "#FAC775", padding: "2px 9px", borderRadius: 20, fontSize: 11 };
->>>>>>> f2e70b0 (local: finished merging stash and kept backend fixes)
 
   return (
     <div style={{ position:"fixed",inset:0,background:"rgba(0,0,0,.8)",zIndex:3000,

@@ -19,6 +19,8 @@ import ServicesPage from "./pages/ServicesPage";
 import SummaryPage from "./pages/SummaryPage";
 import PatientsHistoryPage from "./pages/PatientsHistoryPage";
 import SuperAdminDashboard from './pages/SuperAdminDashboard';
+import ManagementAdminDashboard from './pages/Managementadmindashboard';
+import EmployeeDashboard from './pages/EmployeeDashboard';
 import MedicalHistoryPage from "./pages/MedicalHistoryPage";
 import LoginPage from "./pages/LoginPage";
 
@@ -28,10 +30,6 @@ import PrintModal from "./modals/PrintModal";
 import PatientDetailModal from "./modals/PatientDetailModal";
 
 import AdminPanel from "./AdminPanel";
-
-// ─── Auth Context (keeps LoginPage's useAuth() working) ───────────────────────
-export const AuthContext = createContext(null);
-export function useAuth() { return useContext(AuthContext); }
 
 // ─── All users — seed + localStorage created users ────────────────────────────
 const SEED_USERS = [
@@ -175,28 +173,34 @@ export default function App() {
 
   const switchLoc = id => { setLocId(id); resetAll(); setShowPatientDetail(null); };
 
-  const handleLogin = (user, loc) => {
-    setCurrentUser(user);
-    setLocId(loc || "laxmi");
-    setLoggedIn(true);
-    sessionStorage.setItem("loggedIn", "true");
-    
-    // 🌟 FIX: Used 'found' instead of undefined 'user'
-    sessionStorage.setItem("currentUser", JSON.stringify(found));
-    sessionStorage.setItem("locId", loc || "laxmi");
-    
-    loadDashboardData(found.role);
+const handleLogin = (user, loc) => {
+  setCurrentUser(user);
+  setLocId(loc || "laxmi");
+  setLoggedIn(true);
+  sessionStorage.setItem("loggedIn", "true");
 
-    if (found.role === "superadmin") {
-      setPage("superadmin"); sessionStorage.setItem("page", "superadmin");
-    } else {
-      setPage("patient");
-      setSubPage("search");
-    }
-  };
+  // 🌟 FIXED: Replaced 'found' with 'user'
+  sessionStorage.setItem("currentUser", JSON.stringify(user));
+  sessionStorage.setItem("locId", loc || "laxmi");
+
+  loadDashboardData(user.role);
+
+  if (user.role === "superadmin") {
+    setPage("superadmin"); 
+    sessionStorage.setItem("page", "superadmin");
+  } else if (user.role === "managementadmin") {
+    setPage("managementadmin");
+    sessionStorage.setItem("page", "managementadmin");
+  } else if (["opd","ipd","billing","pharmacy","doctor","nursing","lab","radiology","reception","employee"].includes(user.role)) {
+    setPage("employee");
+    sessionStorage.setItem("page", "employee");
+  } else {
+    setPage("patient");
+    setSubPage("search");
+  }
+};
 
   useEffect(() => { setLoginCallback(handleLogin); });
-  const endSession = () => { resetAll(); };
 
   const syncDb = (currentUhid, currentAdmNo, dataKey, dataValue) => {
     setDb(prev => {
@@ -430,10 +434,6 @@ export default function App() {
     } catch (error) { toast.error("Failed to process approval."); }
   };
 
-  const canNav = id => ({ patient: true, medical: patientDone, discharge: patientDone && medicalDone, services: patientDone && medicalDone && dischargeDone, summary: patientDone && medicalDone && dischargeDone && servicesDone }[id] || false);
-  const isDone = id => ({ patient: patientDone, medical: medicalDone, discharge: dischargeDone, services: servicesDone }[id] || false);
-  const navTo  = id => { if (!canNav(id)) return; setShowUHID(false); setPage(id); };
-
   if (page === "superadmin") {
     return (
       <>
@@ -451,6 +451,24 @@ export default function App() {
         />
         <ToastContainer position="bottom-right" />
       </>
+    );
+  }
+
+  if (page === "managementadmin") {
+    return (
+      <ManagementAdminDashboard
+        db={db}
+        onLogout={() => { setLoggedIn(false); setCurrentUser(null); resetAll(); }}
+      />
+    );
+  }
+
+  if (page === "employee") {
+    return (
+      <EmployeeDashboard
+        currentUser={currentUser}
+        onLogout={() => { setLoggedIn(false); setCurrentUser(null); resetAll(); }}
+      />
     );
   }
 
@@ -559,13 +577,13 @@ export const AuthContext = null;
 let _loginCallback = null;
 export function setLoginCallback(fn) { _loginCallback = fn; }
 export function useAuth() {
-  const { USERS } = require('./data/constants');
+  const { getAllUsers } = require('./data/constants');
   const user = (() => { try { return JSON.parse(sessionStorage.getItem("currentUser")); } catch { return null; } })();
   const logout = () => { sessionStorage.clear(); window.location.reload(); };
   const login = (username, password) => {
-    const found = USERS.find(u => u.id === username && u.password === password);
+    const found = getAllUsers().find(u => u.id === username && u.password === password);
     if (!found) return { success: false, error: 'Invalid credentials' };
-    if (_loginCallback) _loginCallback(found, found.branch || found.locations?.[0] || "laxmi");
+    if (_loginCallback) _loginCallback(found, found.branch || (found.locations && found.locations[0]) || "laxmi");
     return { success: true };
   };
   return { user, logout, login };

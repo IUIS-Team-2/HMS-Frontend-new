@@ -134,6 +134,14 @@ export const USERS = [
     branch: "laxmi",
   },
 
+  // ── Management Admin ─────────────────────────────────────────────────────
+  {
+    id: "mgmt_admin",
+    name: "Management Admin",
+    password: "mgmt123",
+    role: "managementadmin",
+    locations: ["laxmi", "raya"],
+  },
   // ── Hospital Admins (also stored in localStorage hms_admins) ────────────
   {
     id: "admin_laxmi",

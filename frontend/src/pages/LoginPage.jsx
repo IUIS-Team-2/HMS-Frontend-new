@@ -104,6 +104,7 @@ export default function LoginPage() {
               { label:'Admin · Laxmi Nagar', u:'admin.laxmi', p:'laxmi123' },
               { label:'Admin · Raya', u:'admin.raya', p:'raya123' },
               { label:'Employee · Billing', u:'billing.laxmi', p:'bill123' },
+              { label:'Management Admin', u:'mgmt_admin', p:'mgmt123' },
             ].map(d => (
               <button key={d.u} onClick={() => demoFill(d.u, d.p)} style={{
                 display:'flex', justifyContent:'space-between', alignItems:'center',

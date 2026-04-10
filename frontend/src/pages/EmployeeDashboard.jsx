@@ -1,12 +1,12 @@
-// ─── EMPLOYEE THEME: Deep Charcoal + Amber/Cyan ──────────────────────────────
-// BG: #0d0e12 | Sidebar: #111318 | Cards: #14161e | Laxmi=Amber | Raya=Cyan
+// ─── MANAGEMENT ADMIN THEME: Deep Space Navy + Jade/Violet ──────────────────
+// BG: #05080f | Sidebar: #080c18 | Cards: #0b1120 | Laxmi=Jade | Raya=Violet
 
 import { useState, useMemo } from "react";
 import { LOCATION_DB } from "../data/mockDb";
 
 const BC = {
-  laxmi: { label: "Laxmi Nagar", accent: "#f59e0b", dim: "#f59e0b16", border: "#f59e0b30" },
-  raya:  { label: "Raya",        accent: "#22d3ee", dim: "#22d3ee16", border: "#22d3ee30" },
+  laxmi: { label: "Laxmi Nagar", accent: "#34d399", dim: "#34d39918", border: "#34d39930" },
+  raya:  { label: "Raya",        accent: "#818cf8", dim: "#818cf818", border: "#818cf830" },
 };
 
 const BRANCH_KEYS = ["laxmi", "raya"];
@@ -128,11 +128,11 @@ function seedPatients(dbBranch, branchKey) {
 }
 
 const SUMMARY_META = {
-  Normal: { color:"#34d399", bg:"#34d39916", label:"Normal" },
-  LAMA:   { color:"#f59e0b", bg:"#f59e0b16", label:"LAMA"   },
-  Refer:  { color:"#22d3ee", bg:"#22d3ee16", label:"Refer"  },
-  Death:  { color:"#f87171", bg:"#f8717116", label:"Death"  },
-  DAMA:   { color:"#c084fc", bg:"#c084fc16", label:"DAMA"   },
+  Normal: { color:"#34d399", bg:"#34d39918", label:"Normal" },
+  LAMA:   { color:"#fbbf24", bg:"#fbbf2418", label:"LAMA"   },
+  Refer:  { color:"#38bdf8", bg:"#38bdf818", label:"Refer"  },
+  Death:  { color:"#f87171", bg:"#f8717118", label:"Death"  },
+  DAMA:   { color:"#a78bfa", bg:"#a78bfa18", label:"DAMA"   },
 };
 const summaryColor = (type) => SUMMARY_META[type]?.color || "#6b7280";
 
@@ -151,7 +151,7 @@ export default function EmployeeDashboard({ currentUser, onLogout }) {
     raya:  seedPatients(LOCATION_DB["raya"],  "raya"),
   }));
 
-  // modal states
+  // ── modal states ──────────────────────────────────────────────────────────
   const [showMedModal,     setShowMedModal]     = useState(false);
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [showReportModal,  setShowReportModal]  = useState(false);
@@ -218,7 +218,7 @@ export default function EmployeeDashboard({ currentUser, onLogout }) {
     }));
   };
 
-  // medicines
+  // ── medicines ─────────────────────────────────────────────────────────────
   const openMedEditor = (p) => { setEditMedPt(JSON.parse(JSON.stringify(p))); setShowMedModal(true); };
   const updateMed = (idx, field, val) => setEditMedPt(prev => {
     const m = [...prev.medicines];
@@ -236,7 +236,7 @@ export default function EmployeeDashboard({ currentUser, onLogout }) {
     toast("Medicines saved"); setShowMedModal(false); setEditMedPt(null);
   };
 
-  // discharge summary
+  // ── discharge summary ─────────────────────────────────────────────────────
   const openSummaryEditor = (p) => {
     setEditSumPt(p);
     setSummaryForm({ ...(p.dischargeSummary || { type:"Normal", diagnosis:"", treatment:"", followUp:"", notes:"", doctorName:"", date:"" }) });
@@ -247,10 +247,10 @@ export default function EmployeeDashboard({ currentUser, onLogout }) {
     toast("Summary saved"); setShowSummaryModal(false); setEditSumPt(null);
   };
 
-  // view (read-only)
+  // ── view summary (read-only) ───────────────────────────────────────────────
   const openViewModal = (p) => { setViewPt(p); setShowViewModal(true); };
 
-  // delete/clear summary
+  // ── delete summary ────────────────────────────────────────────────────────
   const confirmDelete = (p) => { setDeletePt(p); setShowDeleteConfirm(true); };
   const doDeleteSummary = () => {
     updatePatient(viewBranch, deletePt.uhid, p => ({
@@ -260,7 +260,7 @@ export default function EmployeeDashboard({ currentUser, onLogout }) {
     toast("Summary cleared"); setShowDeleteConfirm(false); setDeletePt(null);
   };
 
-  // reports
+  // ── reports ───────────────────────────────────────────────────────────────
   const openReportEditor = (p) => {
     setEditRepPt(JSON.parse(JSON.stringify(p)));
     setNewReport({ name:"", date:"", result:"" });
@@ -280,7 +280,7 @@ export default function EmployeeDashboard({ currentUser, onLogout }) {
     toast("Reports saved"); setShowReportModal(false); setEditRepPt(null);
   };
 
-  // export
+  // ── export ────────────────────────────────────────────────────────────────
   const getExportPatients = () => {
     let pts = exportBranchFilter === "All"
       ? allPatientsFlat
@@ -334,72 +334,72 @@ export default function EmployeeDashboard({ currentUser, onLogout }) {
 
   // ── styles ────────────────────────────────────────────────────────────────
   const c = {
-    wrap:      { display:"flex", flexDirection:"column", height:"100vh", background:"#0d0e12", fontFamily:"'DM Sans','Segoe UI',sans-serif", color:"#e8e2d9", overflow:"hidden" },
-    hdr:       { height:54, background:"#0d0e12", borderBottom:"1px solid #1e2030", display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0 18px", flexShrink:0, zIndex:10 },
+    wrap:      { display:"flex", flexDirection:"column", height:"100vh", background:"#05080f", fontFamily:"'DM Sans','Segoe UI',sans-serif", color:"#dde4f0", overflow:"hidden" },
+    hdr:       { height:54, background:"#05080f", borderBottom:"1px solid #111b2e", display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0 18px", flexShrink:0, zIndex:10 },
     body:      { display:"flex", flex:1, overflow:"hidden" },
-    sb:        { width:collapsed?52:210, background:"#111318", borderRight:"1px solid #1e2030", display:"flex", flexDirection:"column", transition:"width 0.22s ease", flexShrink:0, overflow:"hidden" },
-    sbTop:     { padding:collapsed?"14px 8px":"14px 12px", borderBottom:"1px solid #1e2030", flexShrink:0 },
-    sbLabel:   { fontSize:9, fontWeight:700, color:"#3a3a4a", letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:7, paddingLeft:2 },
-    bsWrap:    { background:"#0d0e12", border:"1px solid #1e2030", borderRadius:9, overflow:"hidden" },
-    bsBtn:     (bk) => ({ width:"100%", display:"flex", alignItems:"center", gap:8, padding:collapsed?"9px 0":"9px 11px", justifyContent:collapsed?"center":"flex-start", background:viewBranch===bk?BC[bk].dim:"transparent", borderLeft:viewBranch===bk?`2px solid ${BC[bk].accent}`:"2px solid transparent", cursor:"pointer", border:"none", color:viewBranch===bk?BC[bk].accent:"#4a4a5e", fontSize:12, fontWeight:viewBranch===bk?700:400, transition:"all 0.15s" }),
+    sb:        { width:collapsed?52:210, background:"#080c18", borderRight:"1px solid #111b2e", display:"flex", flexDirection:"column", transition:"width 0.22s ease", flexShrink:0, overflow:"hidden" },
+    sbTop:     { padding:collapsed?"14px 8px":"14px 12px", borderBottom:"1px solid #111b2e", flexShrink:0 },
+    sbLabel:   { fontSize:9, fontWeight:700, color:"#253045", letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:7, paddingLeft:2 },
+    bsWrap:    { background:"#040710", border:"1px solid #111b2e", borderRadius:9, overflow:"hidden" },
+    bsBtn:     (bk) => ({ width:"100%", display:"flex", alignItems:"center", gap:8, padding:collapsed?"9px 0":"9px 11px", justifyContent:collapsed?"center":"flex-start", background:viewBranch===bk?BC[bk].dim:"transparent", borderLeft:viewBranch===bk?`2px solid ${BC[bk].accent}`:"2px solid transparent", cursor:"pointer", border:"none", color:viewBranch===bk?BC[bk].accent:"#3d4f6a", fontSize:12, fontWeight:viewBranch===bk?700:400, transition:"all 0.15s" }),
     bsDot:     (bk) => ({ width:7, height:7, borderRadius:"50%", background:BC[bk].accent, flexShrink:0 }),
     navWrap:   { flex:1, padding:"10px 0", overflowY:"auto" },
-    navSection:{ fontSize:9, fontWeight:700, color:"#3a3a4a", letterSpacing:"0.1em", textTransform:"uppercase", padding:collapsed?"0":"0 14px", marginBottom:5, marginTop:4, textAlign:collapsed?"center":"left" },
-    navItem:   (active) => ({ display:"flex", alignItems:"center", gap:9, padding:collapsed?"10px 0":"10px 14px", justifyContent:collapsed?"center":"flex-start", cursor:"pointer", fontSize:12, fontWeight:active?600:400, color:active?"#f5f0e8":"#4a4a5e", background:active?"#ffffff08":"transparent", borderLeft:active?`2px solid ${accent}`:"2px solid transparent", transition:"all 0.15s", whiteSpace:"nowrap" }),
+    navSection:{ fontSize:9, fontWeight:700, color:"#253045", letterSpacing:"0.1em", textTransform:"uppercase", padding:collapsed?"0":"0 14px", marginBottom:5, marginTop:4, textAlign:collapsed?"center":"left" },
+    navItem:   (active) => ({ display:"flex", alignItems:"center", gap:9, padding:collapsed?"10px 0":"10px 14px", justifyContent:collapsed?"center":"flex-start", cursor:"pointer", fontSize:12, fontWeight:active?600:400, color:active?"#eef2ff":"#3d4f6a", background:active?"#ffffff08":"transparent", borderLeft:active?`2px solid ${accent}`:"2px solid transparent", transition:"all 0.15s", whiteSpace:"nowrap" }),
     navIcon:   { fontSize:14, flexShrink:0, width:16, textAlign:"center" },
-    sbBot:     { padding:collapsed?"10px 8px":"10px 12px", borderTop:"1px solid #1e2030", flexShrink:0 },
-    colBtn:    { width:"100%", background:"transparent", border:"1px solid #1e2030", borderRadius:7, color:"#3a3a4a", cursor:"pointer", padding:"6px", fontSize:12, display:"flex", alignItems:"center", justifyContent:"center" },
+    sbBot:     { padding:collapsed?"10px 8px":"10px 12px", borderTop:"1px solid #111b2e", flexShrink:0 },
+    colBtn:    { width:"100%", background:"transparent", border:"1px solid #111b2e", borderRadius:7, color:"#253045", cursor:"pointer", padding:"6px", fontSize:12, display:"flex", alignItems:"center", justifyContent:"center" },
     main:      { flex:1, overflowY:"auto", padding:"22px 26px" },
     logoRow:   { display:"flex", alignItems:"center", gap:10 },
-    logoIcon:  { width:30, height:30, borderRadius:8, background:`linear-gradient(135deg,#f59e0b,#22d3ee)`, display:"flex", alignItems:"center", justifyContent:"center", fontWeight:800, fontSize:13, color:"#fff" },
-    logoText:  { fontSize:14, fontWeight:700, color:"#f5f0e8" },
-    logoSub:   { fontSize:9, color:"#3a3a4a" },
+    logoIcon:  { width:30, height:30, borderRadius:8, background:`linear-gradient(135deg,#34d399,#818cf8)`, display:"flex", alignItems:"center", justifyContent:"center", fontWeight:800, fontSize:13, color:"#fff" },
+    logoText:  { fontSize:14, fontWeight:700, color:"#eef2ff" },
+    logoSub:   { fontSize:9, color:"#253045" },
     hdrRight:  { display:"flex", alignItems:"center", gap:10 },
     roleBadge: { background:`${accent}18`, border:`1px solid ${accent}30`, color:accent, fontSize:9, fontWeight:700, padding:"3px 9px", borderRadius:20, letterSpacing:"0.07em" },
-    deptBadge: { background:"#c084fc18", border:"1px solid #c084fc30", color:"#c084fc", fontSize:9, fontWeight:700, padding:"3px 9px", borderRadius:20, letterSpacing:"0.07em" },
-    avatar:    { width:30, height:30, borderRadius:"50%", background:`linear-gradient(135deg,${accent},#c084fc)`, display:"flex", alignItems:"center", justifyContent:"center", fontWeight:700, fontSize:11, color:"#fff" },
-    logoutBtn: { background:"transparent", border:"1px solid #1e2030", color:"#4a4a5e", padding:"4px 11px", borderRadius:7, cursor:"pointer", fontSize:11 },
-    pgLabel:   { fontSize:10, fontWeight:700, color:"#3a3a4a", letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:6 },
+    deptBadge: { background:"#818cf818", border:"1px solid #818cf830", color:"#818cf8", fontSize:9, fontWeight:700, padding:"3px 9px", borderRadius:20, letterSpacing:"0.07em" },
+    avatar:    { width:30, height:30, borderRadius:"50%", background:`linear-gradient(135deg,${accent},#818cf8)`, display:"flex", alignItems:"center", justifyContent:"center", fontWeight:700, fontSize:11, color:"#fff" },
+    logoutBtn: { background:"transparent", border:"1px solid #111b2e", color:"#3d4f6a", padding:"4px 11px", borderRadius:7, cursor:"pointer", fontSize:11 },
+    pgLabel:   { fontSize:10, fontWeight:700, color:"#253045", letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:6 },
     bPill:     { display:"inline-flex", alignItems:"center", gap:5, background:bc.dim, border:`1px solid ${bc.border}`, color:accent, fontSize:10, fontWeight:700, padding:"3px 9px", borderRadius:20, marginBottom:18, letterSpacing:"0.04em" },
     statGrid:  { display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))", gap:12, marginBottom:20 },
-    statCard:  (a) => ({ background:"#14161e", border:`1px solid ${a||"#1e2030"}`, borderRadius:11, padding:"14px 16px" }),
-    statNum:   (col) => ({ fontSize:22, fontWeight:700, color:col||"#f5f0e8", lineHeight:1.2, marginBottom:3 }),
-    statLabel: { fontSize:10, color:"#4a4a5e", fontWeight:500 },
-    statSub:   { fontSize:9, color:"#3a3a4a", marginTop:1 },
-    card:      { background:"#14161e", border:"1px solid #1e2030", borderRadius:13, padding:"16px 18px", marginBottom:18 },
+    statCard:  (a) => ({ background:"#0b1120", border:`1px solid ${a||"#131e30"}`, borderRadius:11, padding:"14px 16px" }),
+    statNum:   (col) => ({ fontSize:22, fontWeight:700, color:col||"#eef2ff", lineHeight:1.2, marginBottom:3 }),
+    statLabel: { fontSize:10, color:"#3d4f6a", fontWeight:500 },
+    statSub:   { fontSize:9, color:"#253045", marginTop:1 },
+    card:      { background:"#0b1120", border:"1px solid #111b2e", borderRadius:13, padding:"16px 18px", marginBottom:18 },
     cardRow:   { display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 },
-    cardTitle: { fontSize:12, fontWeight:600, color:"#e8e2d9" },
+    cardTitle: { fontSize:12, fontWeight:600, color:"#dde4f0" },
     tbl:       { width:"100%", borderCollapse:"collapse" },
-    th:        { textAlign:"left", fontSize:9, color:"#3a3a4a", fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", padding:"0 9px 9px", borderBottom:"1px solid #1e2030" },
-    td:        { padding:"10px 9px", borderBottom:"1px solid #1e203050", fontSize:11, color:"#8a8a9e", verticalAlign:"middle" },
+    th:        { textAlign:"left", fontSize:9, color:"#253045", fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", padding:"0 9px 9px", borderBottom:"1px solid #111b2e" },
+    td:        { padding:"10px 9px", borderBottom:"1px solid #111b2e50", fontSize:11, color:"#7e94b8", verticalAlign:"middle" },
     badge:     (bc2) => ({ display:"inline-block", background:bc2+"20", color:bc2, border:`1px solid ${bc2}40`, fontSize:9, fontWeight:700, padding:"2px 7px", borderRadius:20, whiteSpace:"nowrap" }),
     aBtn:      (bc2) => ({ background:"transparent", border:`1px solid ${bc2}40`, color:bc2, padding:"3px 9px", borderRadius:6, cursor:"pointer", fontSize:10, fontWeight:600 }),
-    roBanner:  { background:"#c084fc10", border:"1px solid #c084fc30", borderRadius:8, padding:"8px 14px", marginBottom:16, fontSize:10, color:"#c084fc", fontWeight:600 },
-    empty:     { textAlign:"center", padding:"2rem", color:"#3a3a4a", fontSize:12 },
-    profCard:  { background:"#111318", border:`1px solid ${accent}30`, borderRadius:13, padding:"22px 20px", marginBottom:16 },
-    bigAv:     { width:56, height:56, borderRadius:"50%", background:`linear-gradient(135deg,${accent},#c084fc)`, display:"flex", alignItems:"center", justifyContent:"center", fontWeight:700, fontSize:18, color:"#fff", flexShrink:0 },
-    modal:     { position:"fixed", inset:0, background:"rgba(5,5,8,0.9)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:100 },
-    modalBox:  { background:"#14161e", border:"1px solid #282a38", borderRadius:16, padding:"22px", width:520, maxWidth:"94vw", maxHeight:"90vh", overflowY:"auto" },
-    modalBoxWide:{ background:"#14161e", border:"1px solid #282a38", borderRadius:16, padding:"22px", width:640, maxWidth:"96vw", maxHeight:"92vh", overflowY:"auto" },
-    modalTitle:{ fontSize:14, fontWeight:700, color:"#f5f0e8", marginBottom:16 },
-    lbl:       { display:"block", fontSize:9, color:"#4a4a5e", fontWeight:700, letterSpacing:"0.07em", textTransform:"uppercase", marginBottom:4 },
-    inp:       { width:"100%", background:"#111318", border:"1px solid #282a38", borderRadius:7, padding:"8px 10px", color:"#e8e2d9", fontSize:11, marginBottom:12, boxSizing:"border-box", outline:"none" },
-    sel:       { width:"100%", background:"#111318", border:"1px solid #282a38", borderRadius:7, padding:"8px 10px", color:"#e8e2d9", fontSize:11, marginBottom:12, boxSizing:"border-box", outline:"none" },
+    roBanner:  { background:"#818cf810", border:"1px solid #818cf830", borderRadius:8, padding:"8px 14px", marginBottom:16, fontSize:10, color:"#818cf8", fontWeight:600 },
+    empty:     { textAlign:"center", padding:"2rem", color:"#253045", fontSize:12 },
+    profCard:  { background:"#080c18", border:`1px solid ${accent}30`, borderRadius:13, padding:"22px 20px", marginBottom:16 },
+    bigAv:     { width:56, height:56, borderRadius:"50%", background:`linear-gradient(135deg,${accent},#818cf8)`, display:"flex", alignItems:"center", justifyContent:"center", fontWeight:700, fontSize:18, color:"#fff", flexShrink:0 },
+    modal:     { position:"fixed", inset:0, background:"rgba(2,4,12,0.88)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:100 },
+    modalBox:  { background:"#0b1120", border:"1px solid #1a2540", borderRadius:16, padding:"22px", width:520, maxWidth:"94vw", maxHeight:"90vh", overflowY:"auto" },
+    modalBoxWide:{ background:"#0b1120", border:"1px solid #1a2540", borderRadius:16, padding:"22px", width:640, maxWidth:"96vw", maxHeight:"92vh", overflowY:"auto" },
+    modalTitle:{ fontSize:14, fontWeight:700, color:"#eef2ff", marginBottom:16 },
+    lbl:       { display:"block", fontSize:9, color:"#3d4f6a", fontWeight:700, letterSpacing:"0.07em", textTransform:"uppercase", marginBottom:4 },
+    inp:       { width:"100%", background:"#080c18", border:"1px solid #1a2540", borderRadius:7, padding:"8px 10px", color:"#dde4f0", fontSize:11, marginBottom:12, boxSizing:"border-box", outline:"none" },
+    sel:       { width:"100%", background:"#080c18", border:"1px solid #1a2540", borderRadius:7, padding:"8px 10px", color:"#dde4f0", fontSize:11, marginBottom:12, boxSizing:"border-box", outline:"none" },
     mFoot:     { display:"flex", gap:9, marginTop:8 },
-    cancelBtn: { flex:1, background:"transparent", border:"1px solid #282a38", color:"#4a4a5e", padding:"8px", borderRadius:7, cursor:"pointer", fontSize:11 },
-    saveBtn:   { flex:1, background:`linear-gradient(135deg,${accent},${accent}cc)`, border:"none", color:"#0d0e12", padding:"8px", borderRadius:7, cursor:"pointer", fontSize:11, fontWeight:700 },
-    dangerBtn: { flex:1, background:"#f8717118", border:"1px solid #f8717150", color:"#f87171", padding:"8px", borderRadius:7, cursor:"pointer", fontSize:11, fontWeight:700 },
+    cancelBtn: { flex:1, background:"transparent", border:"1px solid #1a2540", color:"#3d4f6a", padding:"8px", borderRadius:7, cursor:"pointer", fontSize:11 },
+    saveBtn:   { flex:1, background:`linear-gradient(135deg,${accent},${accent}cc)`, border:"none", color:"#fff", padding:"8px", borderRadius:7, cursor:"pointer", fontSize:11, fontWeight:700 },
+    dangerBtn: { flex:1, background:"#f8717120", border:"1px solid #f8717150", color:"#f87171", padding:"8px", borderRadius:7, cursor:"pointer", fontSize:11, fontWeight:700 },
     g2:        { display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 },
     g3:        { display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8 },
-    inpSm:     { background:"#111318", border:"1px solid #282a38", borderRadius:6, padding:"5px 7px", color:"#e8e2d9", fontSize:11, outline:"none", width:"100%" },
-    sectionLabel:{ fontSize:9, fontWeight:700, color:"#3a3a4a", letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:9, marginTop:2, paddingBottom:5, borderBottom:"1px solid #1e2030" },
-    notif:     (t) => ({ position:"fixed", top:14, right:14, background:t==="ok"?"#0d1f12":"#1f0d0d", border:`1px solid ${t==="ok"?"#34d399":"#f87171"}`, color:t==="ok"?"#86efac":"#fca5a5", padding:"9px 16px", borderRadius:9, fontSize:11, fontWeight:600, zIndex:999 }),
-    addBtn:    { background:`linear-gradient(135deg,${accent},${accent}cc)`, border:"none", color:"#0d0e12", padding:"6px 13px", borderRadius:7, cursor:"pointer", fontSize:11, fontWeight:700 },
+    inpSm:     { background:"#080c18", border:"1px solid #1a2540", borderRadius:6, padding:"5px 7px", color:"#dde4f0", fontSize:11, outline:"none", width:"100%" },
+    sectionLabel:{ fontSize:9, fontWeight:700, color:"#253045", letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:9, marginTop:2, paddingBottom:5, borderBottom:"1px solid #111b2e" },
+    notif:     (t) => ({ position:"fixed", top:14, right:14, background:t==="ok"?"#01180e":"#1c0404", border:`1px solid ${t==="ok"?"#34d399":"#f87171"}`, color:t==="ok"?"#6ee7b7":"#fca5a5", padding:"9px 16px", borderRadius:9, fontSize:11, fontWeight:600, zIndex:999 }),
+    addBtn:    { background:`linear-gradient(135deg,${accent},${accent}cc)`, border:"none", color:"#fff", padding:"6px 13px", borderRadius:7, cursor:"pointer", fontSize:11, fontWeight:700 },
     filterRow: { display:"flex", gap:8, marginBottom:16, flexWrap:"wrap" },
-    filterBtn: (active, col) => ({ background:active?(col||accent)+"20":"transparent", border:`1px solid ${active?(col||accent)+"50":"#282a38"}`, color:active?(col||accent):"#4a4a5e", padding:"4px 12px", borderRadius:20, cursor:"pointer", fontSize:10, fontWeight:active?700:400, transition:"all 0.15s" }),
-    viewRow:   { display:"grid", gridTemplateColumns:"130px 1fr", gap:6, padding:"6px 0", borderBottom:"1px solid #1e203050" },
-    viewKey:   { fontSize:10, color:"#4a4a5e", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.06em" },
-    viewVal:   { fontSize:11, color:"#e8e2d9" },
+    filterBtn: (active, col) => ({ background:active?(col||accent)+"20":"transparent", border:`1px solid ${active?(col||accent)+"50":"#1a2540"}`, color:active?(col||accent):"#3d4f6a", padding:"4px 12px", borderRadius:20, cursor:"pointer", fontSize:10, fontWeight:active?700:400, transition:"all 0.15s" }),
+    viewRow:   { display:"grid", gridTemplateColumns:"130px 1fr", gap:6, padding:"6px 0", borderBottom:"1px solid #111b2e50" },
+    viewKey:   { fontSize:10, color:"#3d4f6a", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.06em" },
+    viewVal:   { fontSize:11, color:"#dde4f0" },
     summaryTypePill: (type) => {
       const m = SUMMARY_META[type] || { color:"#6b7280", bg:"#6b728018" };
       return { display:"inline-flex", alignItems:"center", gap:5, background:m.bg, border:`1px solid ${m.color}40`, color:m.color, fontSize:10, fontWeight:700, padding:"3px 10px", borderRadius:20 };
@@ -420,9 +420,9 @@ export default function EmployeeDashboard({ currentUser, onLogout }) {
       <div style={{ ...c.profCard, display:"flex", alignItems:"flex-start", gap:18 }}>
         <div style={c.bigAv}>{initials(currentUser?.name)}</div>
         <div style={{ flex:1 }}>
-          <div style={{ fontSize:16, fontWeight:700, color:"#f5f0e8", marginBottom:3 }}>{currentUser?.name}</div>
+          <div style={{ fontSize:16, fontWeight:700, color:"#eef2ff", marginBottom:3 }}>{currentUser?.name}</div>
           <div style={{ fontSize:11, color:accent, fontWeight:600, marginBottom:2 }}>{currentUser?.dept||currentUser?.role?.toUpperCase()}</div>
-          <div style={{ fontSize:10, color:"#4a4a5e" }}>{bc.label} Branch</div>
+          <div style={{ fontSize:10, color:"#3d4f6a" }}>{bc.label} Branch</div>
           <div style={{ display:"flex", gap:8, marginTop:10, flexWrap:"wrap" }}>
             {currentUser?.dept&&<span style={c.badge(accent)}>{currentUser.dept}</span>}
             <span style={c.badge("#34d399")}>Active</span>
@@ -433,11 +433,11 @@ export default function EmployeeDashboard({ currentUser, onLogout }) {
       <div style={c.statGrid}>
         {[
           { label:"Branch Patients",    sub:"All records", val:locationPatients.length,  col:accent,    acc:accent+"18"  },
-          { label:"Total Admissions",   sub:"All time",    val:allAdmissions.length,      col:"#22d3ee", acc:"#22d3ee18"  },
-          { label:"Currently Admitted", sub:"Active",      val:currentlyAdmitted,          col:"#34d399", acc:"#34d39918"  },
-          { label:"Discharged",         sub:"Completed",   val:discharged,                 col:"#8b949e", acc:"#8b949e18"  },
-          { label:"Revenue Collected",  sub:bc.label,      val:fmt(totalRevenue),          col:"#f59e0b", acc:"#f59e0b18"  },
-          { label:"Colleagues",         sub:"Same branch", val:branchColleagues.length,    col:"#c084fc", acc:"#c084fc18"  },
+          { label:"Total Admissions",   sub:"All time",    val:allAdmissions.length,      col:"#34d399", acc:"#34d39918"  },
+          { label:"Currently Admitted", sub:"Active",      val:currentlyAdmitted,          col:"#38bdf8", acc:"#38bdf818"  },
+          { label:"Discharged",         sub:"Completed",   val:discharged,                 col:"#818cf8", acc:"#818cf818"  },
+          { label:"Revenue Collected",  sub:bc.label,      val:fmt(totalRevenue),          col:"#fbbf24", acc:"#fbbf2418"  },
+          { label:"Colleagues",         sub:"Same branch", val:branchColleagues.length,    col:"#a78bfa", acc:"#a78bfa18"  },
         ].map((s,i) => (
           <div key={i} style={c.statCard(s.acc)}>
             <div style={c.statNum(s.col)}>{s.val}</div>
@@ -461,17 +461,17 @@ export default function EmployeeDashboard({ currentUser, onLogout }) {
                 const status = d.dod ? "Discharged" : "Admitted";
                 return (
                   <tr key={i}>
-                    <td style={c.td}><strong style={{ color:"#f5f0e8" }}>{p.patientName||p.name}</strong><div style={{ fontSize:9, color:"#3a3a4a" }}>{p.gender} · {p.ageYY||p.age}y · {p.bloodGroup}</div></td>
-                    <td style={{ ...c.td, fontFamily:"monospace", fontSize:10, color:"#3a3a4a" }}>{p.uhid}</td>
-                    <td style={c.td}>{d.wardName||"—"}<div style={{ fontSize:9, color:"#3a3a4a" }}>{d.bedNo}</div></td>
+                    <td style={c.td}><strong style={{ color:"#eef2ff" }}>{p.patientName||p.name}</strong><div style={{ fontSize:9, color:"#253045" }}>{p.gender} · {p.ageYY||p.age}y · {p.bloodGroup}</div></td>
+                    <td style={{ ...c.td, fontFamily:"monospace", fontSize:10, color:"#253045" }}>{p.uhid}</td>
+                    <td style={c.td}>{d.wardName||"—"}<div style={{ fontSize:9, color:"#253045" }}>{d.bedNo}</div></td>
                     <td style={{ ...c.td, fontSize:10 }}>{d.doctorName||"—"}</td>
                     <td style={c.td}>
                       <span style={{ ...c.badge(summaryColor(p.dischargeSummary?.type)), cursor:"pointer" }} onClick={() => openSummaryEditor(p)}>
                         {p.dischargeSummary?.type||"Set"}
                       </span>
                     </td>
-                    <td style={c.td}><span style={c.badge(status==="Admitted"?"#34d399":"#8b949e")}>{status}</span></td>
-                    <td style={{ ...c.td, fontSize:10, color:"#3a3a4a" }}>{fmtDt(last?.dateTime)}</td>
+                    <td style={c.td}><span style={c.badge(status==="Admitted"?"#34d399":"#818cf8")}>{status}</span></td>
+                    <td style={{ ...c.td, fontSize:10, color:"#253045" }}>{fmtDt(last?.dateTime)}</td>
                   </tr>
                 );
               })}
@@ -491,7 +491,7 @@ export default function EmployeeDashboard({ currentUser, onLogout }) {
         {[
           { label:"Total",     val:allAdmissions.length, col:accent,    acc:accent+"18"  },
           { label:"Admitted",  val:currentlyAdmitted,    col:"#34d399", acc:"#34d39918"  },
-          { label:"Discharged",val:discharged,           col:"#8b949e", acc:"#8b949e18"  },
+          { label:"Discharged",val:discharged,           col:"#818cf8", acc:"#818cf818"  },
         ].map((s,i) => (
           <div key={i} style={{ ...c.statCard(s.acc), padding:"10px 14px" }}>
             <div style={{ fontSize:16, fontWeight:700, color:s.col }}>{s.val}</div>
@@ -513,28 +513,28 @@ export default function EmployeeDashboard({ currentUser, onLogout }) {
                   return (
                     <tr key={`${pi}-${ai}`}>
                       <td style={c.td}>
-                        <strong style={{ color:"#f5f0e8", display:"block" }}>{p.patientName||p.name}</strong>
-                        <span style={{ fontFamily:"monospace", fontSize:9, color:"#3a3a4a" }}>{p.uhid}</span>
+                        <strong style={{ color:"#eef2ff", display:"block" }}>{p.patientName||p.name}</strong>
+                        <span style={{ fontFamily:"monospace", fontSize:9, color:"#253045" }}>{p.uhid}</span>
                       </td>
                       <td style={{ ...c.td, fontSize:10 }}>
                         <div>{p.phone}</div>
-                        <div style={{ color:"#3a3a4a", fontSize:9 }}>{p.email}</div>
+                        <div style={{ color:"#253045", fontSize:9 }}>{p.email}</div>
                       </td>
-                      <td style={c.td}>{d.wardName||"—"}<div style={{ fontSize:9, color:"#3a3a4a" }}>{d.bedNo}</div></td>
+                      <td style={c.td}>{d.wardName||"—"}<div style={{ fontSize:9, color:"#253045" }}>{d.bedNo}</div></td>
                       <td style={{ ...c.td, fontSize:10 }}>{d.doctorName||"—"}</td>
                       <td style={c.td}>
                         <span style={{ ...c.badge(summaryColor(p.dischargeSummary?.type)), cursor:"pointer" }} onClick={() => openSummaryEditor(p)}>
                           {p.dischargeSummary?.type||"Set ✎"}
                         </span>
                       </td>
-                      <td style={{ ...c.td, fontSize:10, color:"#3a3a4a" }}>{fmtDt(d.doa)}</td>
-                      <td style={{ ...c.td, fontSize:10, color:"#3a3a4a" }}>{fmtDt(d.dod)}</td>
-                      <td style={c.td}><span style={c.badge(status==="Admitted"?"#34d399":"#8b949e")}>{status}</span></td>
+                      <td style={{ ...c.td, fontSize:10, color:"#253045" }}>{fmtDt(d.doa)}</td>
+                      <td style={{ ...c.td, fontSize:10, color:"#253045" }}>{fmtDt(d.dod)}</td>
+                      <td style={c.td}><span style={c.badge(status==="Admitted"?"#34d399":"#818cf8")}>{status}</span></td>
                       <td style={c.td}>
                         <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
                           <button style={c.aBtn("#34d399")} onClick={() => openMedEditor(p)}>Meds</button>
-                          <button style={c.aBtn("#22d3ee")} onClick={() => openReportEditor(p)}>Reports</button>
-                          <button style={c.aBtn("#f59e0b")} onClick={() => {
+                          <button style={c.aBtn("#38bdf8")} onClick={() => openReportEditor(p)}>Reports</button>
+                          <button style={c.aBtn("#fbbf24")} onClick={() => {
                             const ds = p.dischargeSummary || {};
                             const mh = adm.medicalHistory || {};
                             exportTxt(`discharge_${p.uhid}.txt`, buildDischargeSummaryText(p, bc.label, { ...d, ...ds }, mh, p.medicines||[], p.reports||[]));
@@ -569,6 +569,7 @@ export default function EmployeeDashboard({ currentUser, onLogout }) {
       <div>
         <BranchHeader title="Discharge Summaries" />
 
+        {/* Summary type stats */}
         <div style={{ display:"flex", gap:10, flexWrap:"wrap", marginBottom:16 }}>
           {[
             { label:"Total",   val:locationPatients.length,  col:accent,    acc:accent+"18"  },
@@ -585,6 +586,7 @@ export default function EmployeeDashboard({ currentUser, onLogout }) {
           ))}
         </div>
 
+        {/* Filter pills */}
         <div style={c.filterRow}>
           {["All",...SUMMARY_TYPES].map(t => (
             <button key={t} style={c.filterBtn(dischSumFilter===t, t!=="All"?SUMMARY_META[t]?.color:accent)}
@@ -593,12 +595,13 @@ export default function EmployeeDashboard({ currentUser, onLogout }) {
           ))}
         </div>
 
+        {/* Summaries table */}
         <div style={c.card}>
           <div style={c.cardRow}>
             <div style={c.cardTitle}>
-              {filtered.length} Record{filtered.length!==1?"s":""} — {bc.label}
+              {filtered.length} Discharge Record{filtered.length!==1?"s":""} — {bc.label}
             </div>
-            <button style={c.aBtn("#f59e0b")} onClick={() => {
+            <button style={c.aBtn("#fbbf24")} onClick={() => {
               filtered.forEach(p => {
                 const adm = p.admissions?.[0] || {};
                 const ds  = p.dischargeSummary || {};
@@ -623,10 +626,10 @@ export default function EmployeeDashboard({ currentUser, onLogout }) {
                   return (
                     <tr key={i} style={{ background:i%2===0?"transparent":"#ffffff03" }}>
                       <td style={c.td}>
-                        <strong style={{ color:"#f5f0e8", display:"block" }}>{p.patientName||p.name}</strong>
-                        <div style={{ fontSize:9, color:"#3a3a4a" }}>{p.gender} · {p.ageYY||p.age}y</div>
+                        <strong style={{ color:"#eef2ff", display:"block" }}>{p.patientName||p.name}</strong>
+                        <div style={{ fontSize:9, color:"#253045" }}>{p.gender} · {p.ageYY||p.age}y</div>
                       </td>
-                      <td style={{ ...c.td, fontFamily:"monospace", fontSize:10, color:"#3a3a4a" }}>{p.uhid}</td>
+                      <td style={{ ...c.td, fontFamily:"monospace", fontSize:10, color:"#253045" }}>{p.uhid}</td>
                       <td style={c.td}>
                         <span style={c.summaryTypePill(ds.type)}>
                           <span style={{ width:5, height:5, borderRadius:"50%", background:SUMMARY_META[ds.type]?.color||"#6b7280", display:"inline-block" }}/>
@@ -635,24 +638,24 @@ export default function EmployeeDashboard({ currentUser, onLogout }) {
                       </td>
                       <td style={{ ...c.td, maxWidth:140 }}>
                         {hasDiagnosis
-                          ? <span style={{ color:"#e8e2d9", fontSize:11 }}>{ds.diagnosis}</span>
-                          : <span style={{ color:"#3a3a4a", fontStyle:"italic", fontSize:10 }}>Not set</span>
+                          ? <span style={{ color:"#dde4f0", fontSize:11 }}>{ds.diagnosis}</span>
+                          : <span style={{ color:"#253045", fontStyle:"italic", fontSize:10 }}>Not set</span>
                         }
                       </td>
                       <td style={{ ...c.td, fontSize:10 }}>{ds.doctorName||d.doctorName||"—"}</td>
-                      <td style={{ ...c.td, fontSize:10, color:"#3a3a4a" }}>{fmtDt(ds.date||d.dod)}</td>
+                      <td style={{ ...c.td, fontSize:10, color:"#253045" }}>{fmtDt(ds.date||d.dod)}</td>
                       <td style={c.td}><span style={c.badge("#34d399")}>{(p.medicines||[]).length}</span></td>
-                      <td style={c.td}><span style={c.badge("#22d3ee")}>{(p.reports||[]).length}</span></td>
+                      <td style={c.td}><span style={c.badge("#818cf8")}>{(p.reports||[]).length}</span></td>
                       <td style={c.td}>
                         <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
-                          <button style={c.aBtn("#22d3ee")} onClick={() => openViewModal(p)}>View</button>
-                          <button style={c.aBtn(accent)} onClick={() => openSummaryEditor(p)}>Edit</button>
-                          <button style={c.aBtn("#f59e0b")} onClick={() => {
+                          <button style={c.aBtn("#38bdf8")} title="View" onClick={() => openViewModal(p)}>View</button>
+                          <button style={c.aBtn(accent)} title="Edit" onClick={() => openSummaryEditor(p)}>Edit</button>
+                          <button style={c.aBtn("#fbbf24")} title="Download" onClick={() => {
                             const mh = adm.medicalHistory || {};
                             exportTxt(`discharge_${p.uhid}.txt`, buildDischargeSummaryText(p, bc.label, { ...d, ...ds }, mh, p.medicines||[], p.reports||[]));
                             toast("Downloaded");
                           }}>↓</button>
-                          <button style={c.aBtn("#f87171")} onClick={() => confirmDelete(p)}>✕</button>
+                          <button style={c.aBtn("#f87171")} title="Clear" onClick={() => confirmDelete(p)}>✕</button>
                         </div>
                       </td>
                     </tr>
@@ -676,8 +679,8 @@ export default function EmployeeDashboard({ currentUser, onLogout }) {
           <div key={p.uhid} style={c.card}>
             <div style={c.cardRow}>
               <div>
-                <div style={{ fontSize:12, fontWeight:700, color:"#f5f0e8" }}>{p.patientName||p.name}</div>
-                <div style={{ fontSize:9, color:"#3a3a4a", marginTop:2 }}>{p.uhid} · <span style={{ color:"#f59e0b" }}>{fmt(medTotal)} total</span></div>
+                <div style={{ fontSize:12, fontWeight:700, color:"#eef2ff" }}>{p.patientName||p.name}</div>
+                <div style={{ fontSize:9, color:"#253045", marginTop:2 }}>{p.uhid} · <span style={{ color:"#fbbf24" }}>{fmt(medTotal)} total</span></div>
               </div>
               <button style={c.addBtn} onClick={() => openMedEditor(p)}>Edit Medicines</button>
             </div>
@@ -687,10 +690,10 @@ export default function EmployeeDashboard({ currentUser, onLogout }) {
                 <tbody>
                   {(p.medicines||[]).map((m,i) => (
                     <tr key={i}>
-                      <td style={c.td}><strong style={{ color:"#f5f0e8" }}>{m.name}</strong></td>
+                      <td style={c.td}><strong style={{ color:"#eef2ff" }}>{m.name}</strong></td>
                       <td style={c.td}><span style={c.badge(accent)}>{m.qty}</span></td>
                       <td style={c.td}>{fmt(m.rate)}</td>
-                      <td style={c.td}><span style={{ color:"#f59e0b", fontWeight:700 }}>{fmt(m.qty*m.rate)}</span></td>
+                      <td style={c.td}><span style={{ color:"#fbbf24", fontWeight:700 }}>{fmt(m.qty*m.rate)}</span></td>
                     </tr>
                   ))}
                 </tbody>
@@ -711,11 +714,11 @@ export default function EmployeeDashboard({ currentUser, onLogout }) {
         <div key={p.uhid} style={c.card}>
           <div style={c.cardRow}>
             <div>
-              <div style={{ fontSize:12, fontWeight:700, color:"#f5f0e8" }}>{p.patientName||p.name}</div>
-              <div style={{ fontSize:9, color:"#3a3a4a", marginTop:2 }}>{p.uhid} · {(p.reports||[]).length} report(s)</div>
+              <div style={{ fontSize:12, fontWeight:700, color:"#eef2ff" }}>{p.patientName||p.name}</div>
+              <div style={{ fontSize:9, color:"#253045", marginTop:2 }}>{p.uhid} · {(p.reports||[]).length} report(s)</div>
             </div>
             <div style={{ display:"flex", gap:8 }}>
-              <button style={c.aBtn("#f59e0b")} onClick={() => {
+              <button style={c.aBtn("#fbbf24")} onClick={() => {
                 const rows = (p.reports||[]).map(r => ({ Report:r.name, Date:r.date, Result:r.result }));
                 exportCSV(`reports_${p.uhid}.csv`, rows, ["Report","Date","Result"]);
                 toast("Downloaded");
@@ -729,8 +732,8 @@ export default function EmployeeDashboard({ currentUser, onLogout }) {
               <tbody>
                 {(p.reports||[]).map((r,i) => (
                   <tr key={i}>
-                    <td style={c.td}><strong style={{ color:"#f5f0e8" }}>{r.name}</strong></td>
-                    <td style={{ ...c.td, fontSize:10, color:"#3a3a4a" }}>{r.date}</td>
+                    <td style={c.td}><strong style={{ color:"#eef2ff" }}>{r.name}</strong></td>
+                    <td style={{ ...c.td, fontSize:10, color:"#253045" }}>{r.date}</td>
                     <td style={c.td}>{r.result}</td>
                   </tr>
                 ))}
@@ -766,9 +769,9 @@ export default function EmployeeDashboard({ currentUser, onLogout }) {
         <BranchHeader title="Billing" />
         <div style={c.statGrid}>
           {[
-            { label:"Total Collected", val:fmt(grandTotal), col:"#f59e0b", acc:"#f59e0b18" },
-            { label:"Advance",         val:fmt(totalAdv),   col:"#22d3ee", acc:"#22d3ee18" },
-            { label:"Records",         val:billRows.length, col:"#34d399", acc:"#34d39918" },
+            { label:"Total Collected", val:fmt(grandTotal), col:"#fbbf24", acc:"#fbbf2418" },
+            { label:"Advance",         val:fmt(totalAdv),   col:"#34d399", acc:"#34d39918" },
+            { label:"Records",         val:billRows.length, col:"#38bdf8", acc:"#38bdf818" },
           ].map((s,i) => (
             <div key={i} style={c.statCard(s.acc)}>
               <div style={c.statNum(s.col)}>{s.val}</div>
@@ -783,14 +786,14 @@ export default function EmployeeDashboard({ currentUser, onLogout }) {
               <tbody>
                 {billRows.map((r,i) => (
                   <tr key={i}>
-                    <td style={c.td}><strong style={{ color:"#f5f0e8" }}>{r.patient}</strong></td>
-                    <td style={{ ...c.td, fontFamily:"monospace", fontSize:10, color:"#3a3a4a" }}>{r.uhid}</td>
+                    <td style={c.td}><strong style={{ color:"#eef2ff" }}>{r.patient}</strong></td>
+                    <td style={{ ...c.td, fontFamily:"monospace", fontSize:10, color:"#253045" }}>{r.uhid}</td>
                     <td style={c.td}><span style={c.badge(accent)}>#{r.admNo}</span></td>
-                    <td style={c.td}><span style={{ color:"#22d3ee", fontWeight:700 }}>{fmt(r.advance)}</span></td>
+                    <td style={c.td}><span style={{ color:"#34d399", fontWeight:700 }}>{fmt(r.advance)}</span></td>
                     <td style={c.td}><span style={{ color:"#34d399", fontWeight:700 }}>{fmt(r.paidNow)}</span></td>
-                    <td style={c.td}>{r.discount>0?<span style={{ color:"#c084fc" }}>{fmt(r.discount)}</span>:<span style={{ color:"#1e2030" }}>—</span>}</td>
+                    <td style={c.td}>{r.discount>0?<span style={{ color:"#818cf8" }}>{fmt(r.discount)}</span>:<span style={{ color:"#1a2540" }}>—</span>}</td>
                     <td style={{ ...c.td, fontSize:10 }}>{r.mode}</td>
-                    <td style={c.td}><span style={{ color:"#f59e0b", fontWeight:700 }}>{fmt(r.total)}</span></td>
+                    <td style={c.td}><span style={{ color:"#fbbf24", fontWeight:700 }}>{fmt(r.total)}</span></td>
                   </tr>
                 ))}
               </tbody>
@@ -815,7 +818,7 @@ export default function EmployeeDashboard({ currentUser, onLogout }) {
       <div>
         <div style={{ marginBottom:18 }}>
           <div style={c.pgLabel}>Export</div>
-          <div style={{ fontSize:10, color:"#4a4a5e" }}>Download summaries and data for any branch</div>
+          <div style={{ fontSize:10, color:"#3d4f6a" }}>Download summaries and data for any branch</div>
         </div>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16, marginBottom:20 }}>
           <div style={c.card}>
@@ -831,22 +834,22 @@ export default function EmployeeDashboard({ currentUser, onLogout }) {
               <option value="All">All Types</option>
               {SUMMARY_TYPES.map(t=><option key={t}>{t}</option>)}
             </select>
-            <div style={{ fontSize:10, color:"#4a4a5e" }}>{previewPts.length} patient(s) match</div>
+            <div style={{ fontSize:10, color:"#3d4f6a" }}>{previewPts.length} patient(s) match</div>
           </div>
           <div style={c.card}>
             <div style={{ ...c.sectionLabel, marginBottom:12 }}>Export Type</div>
             {exportOptions.map(o => (
-              <div key={o.id} onClick={() => setExportType(o.id)} style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 10px", borderRadius:8, marginBottom:6, cursor:"pointer", background:exportType===o.id?accent+"18":"transparent", border:`1px solid ${exportType===o.id?accent+"50":"#282a38"}`, transition:"all 0.15s" }}>
+              <div key={o.id} onClick={() => setExportType(o.id)} style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 10px", borderRadius:8, marginBottom:6, cursor:"pointer", background:exportType===o.id?accent+"18":"transparent", border:`1px solid ${exportType===o.id?accent+"50":"#1a2540"}`, transition:"all 0.15s" }}>
                 <span style={{ fontSize:15 }}>{o.icon}</span>
                 <div>
-                  <div style={{ fontSize:11, fontWeight:700, color:exportType===o.id?accent:"#e8e2d9" }}>{o.label}</div>
-                  <div style={{ fontSize:9, color:"#4a4a5e" }}>{o.desc}</div>
+                  <div style={{ fontSize:11, fontWeight:700, color:exportType===o.id?accent:"#dde4f0" }}>{o.label}</div>
+                  <div style={{ fontSize:9, color:"#3d4f6a" }}>{o.desc}</div>
                 </div>
               </div>
             ))}
           </div>
         </div>
-        <button onClick={doExport} style={{ width:"100%", padding:"13px", background:`linear-gradient(135deg,${accent},${accent}cc)`, border:"none", color:"#0d0e12", borderRadius:10, cursor:"pointer", fontSize:13, fontWeight:700 }}>
+        <button onClick={doExport} style={{ width:"100%", padding:"13px", background:`linear-gradient(135deg,${accent},${accent}cc)`, border:"none", color:"#fff", borderRadius:10, cursor:"pointer", fontSize:13, fontWeight:700 }}>
           ↓ Download {exportOptions.find(o=>o.id===exportType)?.label} — {previewPts.length} record(s)
         </button>
         <div style={{ ...c.card, marginTop:16 }}>
@@ -856,13 +859,13 @@ export default function EmployeeDashboard({ currentUser, onLogout }) {
             <tbody>
               {allPatientsFlat.map(p => (
                 <tr key={p.uhid+p._branch}>
-                  <td style={c.td}><strong style={{ color:"#f5f0e8" }}>{p.patientName||p.name}</strong><div style={{ fontSize:9, color:"#3a3a4a" }}>{p.uhid}</div></td>
+                  <td style={c.td}><strong style={{ color:"#eef2ff" }}>{p.patientName||p.name}</strong><div style={{ fontSize:9, color:"#253045" }}>{p.uhid}</div></td>
                   <td style={c.td}><span style={c.badge(BC[p._branch]?.accent||"#6b7280")}>{p._branchLabel}</span></td>
                   <td style={c.td}><span style={c.badge(summaryColor(p.dischargeSummary?.type))}>{p.dischargeSummary?.type||"—"}</span></td>
-                  <td style={c.td}><button style={c.aBtn("#f59e0b")} onClick={()=>{exportTxt(`discharge_${p.uhid}.txt`,buildDischargeSummaryText(p,p._branchLabel,p.dischargeSummary||{},{},p.medicines||[],p.reports||[]));toast("Downloaded");}}>↓</button></td>
+                  <td style={c.td}><button style={c.aBtn("#fbbf24")} onClick={()=>{exportTxt(`discharge_${p.uhid}.txt`,buildDischargeSummaryText(p,p._branchLabel,p.dischargeSummary||{},{},p.medicines||[],p.reports||[]));toast("Downloaded");}}>↓</button></td>
                   <td style={c.td}><button style={c.aBtn("#34d399")} onClick={()=>{exportTxt(`medhistory_${p.uhid}.txt`,`Medical History\nPatient: ${p.patientName||p.name}\nUHID: ${p.uhid}`);toast("Downloaded");}}>↓</button></td>
-                  <td style={c.td}><button style={c.aBtn("#22d3ee")} onClick={()=>{const rows=(p.medicines||[]).map(m=>({Medicine:m.name,Qty:m.qty,Rate:m.rate,Total:m.qty*m.rate}));exportCSV(`meds_${p.uhid}.csv`,rows,["Medicine","Qty","Rate","Total"]);toast("Downloaded");}}>↓</button></td>
-                  <td style={c.td}><button style={c.aBtn("#c084fc")} onClick={()=>{const rows=(p.reports||[]).map(r=>({Report:r.name,Date:r.date,Result:r.result}));exportCSV(`reports_${p.uhid}.csv`,rows,["Report","Date","Result"]);toast("Downloaded");}}>↓</button></td>
+                  <td style={c.td}><button style={c.aBtn("#38bdf8")} onClick={()=>{const rows=(p.medicines||[]).map(m=>({Medicine:m.name,Qty:m.qty,Rate:m.rate,Total:m.qty*m.rate}));exportCSV(`meds_${p.uhid}.csv`,rows,["Medicine","Qty","Rate","Total"]);toast("Downloaded");}}>↓</button></td>
+                  <td style={c.td}><button style={c.aBtn("#818cf8")} onClick={()=>{const rows=(p.reports||[]).map(r=>({Report:r.name,Date:r.date,Result:r.result}));exportCSV(`reports_${p.uhid}.csv`,rows,["Report","Date","Result"]);toast("Downloaded");}}>↓</button></td>
                 </tr>
               ))}
             </tbody>
@@ -878,13 +881,13 @@ export default function EmployeeDashboard({ currentUser, onLogout }) {
       <BranchHeader title="My Profile" />
       <div style={{ ...c.profCard, display:"flex", flexDirection:"column", alignItems:"center", textAlign:"center" }}>
         <div style={{ ...c.bigAv, width:70, height:70, fontSize:22, marginBottom:12 }}>{initials(currentUser?.name)}</div>
-        <div style={{ fontSize:16, fontWeight:700, color:"#f5f0e8", marginBottom:3 }}>{currentUser?.name}</div>
+        <div style={{ fontSize:16, fontWeight:700, color:"#eef2ff", marginBottom:3 }}>{currentUser?.name}</div>
         <div style={{ fontSize:11, color:accent, fontWeight:600, marginBottom:4 }}>{currentUser?.dept||currentUser?.role?.toUpperCase()}</div>
-        <div style={{ fontSize:10, color:"#4a4a5e", marginBottom:10 }}>{bc.label} Branch</div>
+        <div style={{ fontSize:10, color:"#3d4f6a", marginBottom:10 }}>{bc.label} Branch</div>
         <span style={c.badge("#34d399")}>Active</span>
       </div>
       <div style={c.card}>
-        <div style={{ fontSize:12, fontWeight:600, color:"#e8e2d9", marginBottom:14 }}>Account Details</div>
+        <div style={{ fontSize:12, fontWeight:600, color:"#dde4f0", marginBottom:14 }}>Account Details</div>
         <table style={c.tbl}>
           <tbody>
             {[
@@ -897,8 +900,8 @@ export default function EmployeeDashboard({ currentUser, onLogout }) {
               ["Created By",   currentUser?.createdBy||"Admin"],
             ].map(([k,v]) => (
               <tr key={k}>
-                <td style={{ ...c.td, width:150, fontSize:10, color:"#3a3a4a", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.06em" }}>{k}</td>
-                <td style={{ ...c.td, color:"#8a8a9e", fontFamily:k==="Employee ID"?"monospace":"inherit" }}>{v||"—"}</td>
+                <td style={{ ...c.td, width:150, fontSize:10, color:"#253045", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.06em" }}>{k}</td>
+                <td style={{ ...c.td, color:"#7e94b8", fontFamily:k==="Employee ID"?"monospace":"inherit" }}>{v||"—"}</td>
               </tr>
             ))}
           </tbody>
@@ -909,7 +912,7 @@ export default function EmployeeDashboard({ currentUser, onLogout }) {
         {["View patients — both branches","Edit medicines (qty & rates)","Edit discharge summaries","Add/edit investigation reports","Export discharge summaries, medical history, reports, medicines","View billing records"].map((r,i) => (
           <div key={i} style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6 }}>
             <span style={{ color:"#34d399", fontSize:11 }}>✓</span>
-            <span style={{ fontSize:11, color:"#4a4a5e" }}>{r}</span>
+            <span style={{ fontSize:11, color:"#3d4f6a" }}>{r}</span>
           </div>
         ))}
       </div>
@@ -918,7 +921,7 @@ export default function EmployeeDashboard({ currentUser, onLogout }) {
         {["Add/delete patients — Admin only","Create user accounts — Admin only","Manage departments — Admin only","Approve invoices — Super Admin only"].map((r,i) => (
           <div key={i} style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6 }}>
             <span style={{ color:"#f87171", fontSize:11 }}>✕</span>
-            <span style={{ fontSize:11, color:"#4a4a5e" }}>{r}</span>
+            <span style={{ fontSize:11, color:"#3d4f6a" }}>{r}</span>
           </div>
         ))}
       </div>
@@ -945,8 +948,8 @@ export default function EmployeeDashboard({ currentUser, onLogout }) {
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap');
         *{box-sizing:border-box;margin:0;padding:0;}
         ::-webkit-scrollbar{width:3px;height:3px;}
-        ::-webkit-scrollbar-thumb{background:#282a38;border-radius:3px;}
-        option{background:#0d0e12;}
+        ::-webkit-scrollbar-thumb{background:#1a2540;border-radius:3px;}
+        option{background:#040710;}
       `}</style>
 
       {notif && <div style={c.notif(notif.type)}>{notif.type==="ok"?"✓ ":"⚠ "}{notif.msg}</div>}
@@ -989,10 +992,10 @@ export default function EmployeeDashboard({ currentUser, onLogout }) {
             ))}
           </nav>
           {!collapsed && (
-            <div style={{ padding:"10px 12px", borderTop:"1px solid #1e2030", borderBottom:"1px solid #1e2030" }}>
-              <div style={{ fontSize:9, color:"#3a3a4a", fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:4 }}>Signed in as</div>
-              <div style={{ fontSize:11, color:"#8a8a9e", fontWeight:600 }}>{currentUser?.name}</div>
-              <div style={{ fontSize:9, color:"#4a4a5e", marginTop:1 }}>{currentUser?.dept||currentUser?.role}</div>
+            <div style={{ padding:"10px 12px", borderTop:"1px solid #111b2e", borderBottom:"1px solid #111b2e" }}>
+              <div style={{ fontSize:9, color:"#253045", fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:4 }}>Signed in as</div>
+              <div style={{ fontSize:11, color:"#7e94b8", fontWeight:600 }}>{currentUser?.name}</div>
+              <div style={{ fontSize:9, color:"#3d4f6a", marginTop:1 }}>{currentUser?.dept||currentUser?.role}</div>
             </div>
           )}
           <div style={c.sbBot}>
@@ -1009,7 +1012,7 @@ export default function EmployeeDashboard({ currentUser, onLogout }) {
         <div style={c.modal} onClick={e=>e.target===e.currentTarget&&(setShowMedModal(false),setEditMedPt(null))}>
           <div style={c.modalBox}>
             <div style={c.modalTitle}>Medicines — {editMedPt.patientName||editMedPt.name}</div>
-            <div style={{ fontSize:9, color:"#4a4a5e", marginBottom:12 }}>{editMedPt.uhid}</div>
+            <div style={{ fontSize:9, color:"#3d4f6a", marginBottom:12 }}>{editMedPt.uhid}</div>
             <div style={c.sectionLabel}>Medicine List</div>
             {(editMedPt.medicines||[]).map((m,i) => (
               <div key={i} style={{ display:"grid", gridTemplateColumns:"1fr 80px 80px 28px", gap:6, marginBottom:6, alignItems:"center" }}>
@@ -1020,7 +1023,7 @@ export default function EmployeeDashboard({ currentUser, onLogout }) {
               </div>
             ))}
             <button style={{ ...c.aBtn(accent), marginBottom:14, width:"100%", padding:"7px" }} onClick={addMedRow}>+ Add Medicine</button>
-            <div style={{ fontSize:10, color:"#f59e0b", fontWeight:700, marginBottom:12 }}>
+            <div style={{ fontSize:10, color:"#fbbf24", fontWeight:700, marginBottom:12 }}>
               Total: {fmt((editMedPt.medicines||[]).reduce((s,m)=>s+(m.qty*m.rate),0))}
             </div>
             <div style={c.mFoot}>
@@ -1031,7 +1034,7 @@ export default function EmployeeDashboard({ currentUser, onLogout }) {
         </div>
       )}
 
-      {/* ── VIEW DISCHARGE SUMMARY MODAL (read-only) ──────────────────── */}
+      {/* ── VIEW DISCHARGE SUMMARY MODAL ──────────────────────────────── */}
       {showViewModal && viewPt && (
         <div style={c.modal} onClick={e=>e.target===e.currentTarget&&(setShowViewModal(false),setViewPt(null))}>
           <div style={c.modalBoxWide}>
@@ -1043,15 +1046,16 @@ export default function EmployeeDashboard({ currentUser, onLogout }) {
                     <span style={{ width:5, height:5, borderRadius:"50%", background:SUMMARY_META[viewPt.dischargeSummary?.type]?.color||"#6b7280", display:"inline-block" }}/>
                     {viewPt.dischargeSummary?.type||"Normal"}
                   </span>
-                  <span style={{ fontSize:10, color:"#4a4a5e", fontFamily:"monospace" }}>{viewPt.uhid}</span>
+                  <span style={{ fontSize:10, color:"#3d4f6a", fontFamily:"monospace" }}>{viewPt.uhid}</span>
                 </div>
               </div>
               <button style={c.logoutBtn} onClick={()=>{setShowViewModal(false);setViewPt(null);}}>✕</button>
             </div>
 
-            <div style={{ ...c.statCard("#f59e0b18"), padding:"12px 14px", marginBottom:14 }}>
+            {/* Patient info */}
+            <div style={{ ...c.statCard("#34d39918"), padding:"12px 14px", marginBottom:14 }}>
               <div style={{ display:"flex", gap:14, flexWrap:"wrap" }}>
-                <div><div style={c.viewKey}>Patient</div><div style={{ ...c.viewVal, fontWeight:700, color:"#f5f0e8" }}>{viewPt.patientName||viewPt.name}</div></div>
+                <div><div style={c.viewKey}>Patient</div><div style={{ ...c.viewVal, fontWeight:700, color:"#eef2ff" }}>{viewPt.patientName||viewPt.name}</div></div>
                 <div><div style={c.viewKey}>Age / Gender</div><div style={c.viewVal}>{viewPt.ageYY||viewPt.age}Y / {viewPt.gender}</div></div>
                 <div><div style={c.viewKey}>Blood Group</div><div style={c.viewVal}>{viewPt.bloodGroup||"—"}</div></div>
                 <div><div style={c.viewKey}>Phone</div><div style={c.viewVal}>{viewPt.phone||"—"}</div></div>
@@ -1059,6 +1063,7 @@ export default function EmployeeDashboard({ currentUser, onLogout }) {
               </div>
             </div>
 
+            {/* Clinical details */}
             <div style={{ ...c.sectionLabel, marginBottom:10 }}>Clinical Details</div>
             {[
               ["Diagnosis",      viewPt.dischargeSummary?.diagnosis],
@@ -1070,22 +1075,23 @@ export default function EmployeeDashboard({ currentUser, onLogout }) {
             ].map(([k,v]) => (
               <div key={k} style={c.viewRow}>
                 <div style={c.viewKey}>{k}</div>
-                <div style={{ ...c.viewVal, color:v?"#e8e2d9":"#3a3a4a", fontStyle:v?"normal":"italic" }}>{v||"Not set"}</div>
+                <div style={{ ...c.viewVal, color:v?"#dde4f0":"#3d4f6a", fontStyle:v?"normal":"italic" }}>{v||"Not set"}</div>
               </div>
             ))}
 
+            {/* Medicines */}
             {(viewPt.medicines||[]).length > 0 && (
               <>
-                <div style={{ ...c.sectionLabel, marginTop:14, marginBottom:10 }}>Medicines ({(viewPt.medicines||[]).length})</div>
+                <div style={{ ...c.sectionLabel, marginTop:14, marginBottom:10 }}>Medicines Prescribed ({(viewPt.medicines||[]).length})</div>
                 <table style={c.tbl}>
                   <thead><tr>{["Medicine","Qty","Rate","Total"].map(h=><th key={h} style={c.th}>{h}</th>)}</tr></thead>
                   <tbody>
                     {(viewPt.medicines||[]).map((m,i) => (
                       <tr key={i}>
-                        <td style={c.td}><strong style={{ color:"#f5f0e8" }}>{m.name}</strong></td>
+                        <td style={c.td}><strong style={{ color:"#eef2ff" }}>{m.name}</strong></td>
                         <td style={c.td}><span style={c.badge(accent)}>{m.qty}</span></td>
                         <td style={c.td}>{fmt(m.rate)}</td>
-                        <td style={c.td}><span style={{ color:"#f59e0b", fontWeight:700 }}>{fmt(m.qty*m.rate)}</span></td>
+                        <td style={c.td}><span style={{ color:"#fbbf24", fontWeight:700 }}>{fmt(m.qty*m.rate)}</span></td>
                       </tr>
                     ))}
                   </tbody>
@@ -1093,6 +1099,7 @@ export default function EmployeeDashboard({ currentUser, onLogout }) {
               </>
             )}
 
+            {/* Reports */}
             {(viewPt.reports||[]).length > 0 && (
               <>
                 <div style={{ ...c.sectionLabel, marginTop:14, marginBottom:10 }}>Investigations ({(viewPt.reports||[]).length})</div>
@@ -1101,8 +1108,8 @@ export default function EmployeeDashboard({ currentUser, onLogout }) {
                   <tbody>
                     {(viewPt.reports||[]).map((r,i) => (
                       <tr key={i}>
-                        <td style={c.td}><strong style={{ color:"#f5f0e8" }}>{r.name}</strong></td>
-                        <td style={{ ...c.td, fontSize:10, color:"#3a3a4a" }}>{r.date}</td>
+                        <td style={c.td}><strong style={{ color:"#eef2ff" }}>{r.name}</strong></td>
+                        <td style={{ ...c.td, fontSize:10, color:"#253045" }}>{r.date}</td>
                         <td style={c.td}>{r.result}</td>
                       </tr>
                     ))}
@@ -1164,8 +1171,8 @@ export default function EmployeeDashboard({ currentUser, onLogout }) {
         <div style={c.modal} onClick={e=>e.target===e.currentTarget&&(setShowDeleteConfirm(false),setDeletePt(null))}>
           <div style={{ ...c.modalBox, width:380 }}>
             <div style={{ ...c.modalTitle, color:"#f87171" }}>Clear Discharge Summary?</div>
-            <div style={{ fontSize:12, color:"#8a8a9e", marginBottom:18, lineHeight:1.6 }}>
-              This will reset the discharge summary for <strong style={{ color:"#f5f0e8" }}>{deletePt.patientName||deletePt.name}</strong> ({deletePt.uhid}). This action cannot be undone.
+            <div style={{ fontSize:12, color:"#7e94b8", marginBottom:18, lineHeight:1.6 }}>
+              This will reset the discharge summary for <strong style={{ color:"#eef2ff" }}>{deletePt.patientName||deletePt.name}</strong> ({deletePt.uhid}). This action cannot be undone.
             </div>
             <div style={c.mFoot}>
               <button style={c.cancelBtn} onClick={()=>{setShowDeleteConfirm(false);setDeletePt(null);}}>Cancel</button>
