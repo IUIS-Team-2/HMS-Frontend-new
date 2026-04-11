@@ -80,6 +80,16 @@ export const apiService = {
         const response = await axios.patch(`${BASE_URL}/patients/${uhid}/`, patientData);
         return response.data;
     },
+    // --- DYNAMIC DISCHARGE SUMMARY ---
+    getDynamicSummary: async (uhid, admNo, type = 'LAMA') => {
+        const response = await axios.get(`${BASE_URL}/patients/${uhid}/admissions/${admNo}/dynamic-summary/?type=${type}`);
+        return response.data;
+    },
+
+    saveDynamicSummary: async (uhid, admNo, summaryData) => {
+        const response = await axios.post(`${BASE_URL}/patients/${uhid}/admissions/${admNo}/dynamic-summary/`, summaryData);
+        return response.data;
+    },
 
     getPendingPrints: async () => {
         const response = await axios.get(`${BASE_URL}/patients/pending_prints/`);

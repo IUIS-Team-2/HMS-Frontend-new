@@ -585,7 +585,7 @@ const handleLogin = (user, loc) => {
           {page === "patient"  && !showUHID && subPage === "form"   && <PatientFormPage data={patient} setData={setPatient} onSubmit={handleRegister} errs={errs} onBack={() => setSubPage("search")} />}
           {page === "patient"  && showUHID  && <UHIDScreen uhid={uhid} patient={patient} isReturning={isReturning} admNo={admNo} onContinue={handleUHIDContinue} onDashboard={handleUHIDDashboard} onNewPatient={handleUHIDNewPatient} />}
           {page === "medical"  && <MedicalHistoryPage data={medicalHistory} setData={setMedicalHistory} onSave={handleSaveMedical} onSkip={handleSaveMedical} patient={patient} discharge={discharge} locId={locId} />}
-          {page === "discharge"&& <DischargePage data={discharge} setData={setDischarge} onSave={handleSaveDischarge} />}
+          {page === "discharge" && <DischargePage data={discharge} setData={setDischarge} onSave={handleSaveDischarge} uhid={uhid} admNo={admNo} />}
           {page === "services" && <ServicesPage svcs={svcs} setSvcs={setSvcs} billing={billing} setBilling={setBilling} onSave={handleSaveServices} />}
           {page === "summary"  && <SummaryPage uhid={uhid} patient={patient} discharge={discharge} svcs={svcs} billing={billing} locId={locId} admNo={admNo} onPrint={() => setShowPrint(true)} onRequestPrint={handleRequestPrint} />}
           {page === "history"  && <PatientsHistoryPage db={currentDb} locId={locId} onBack={() => setPage("patient")} onDischarge={handleDischargeFromHistory} onGenerateBill={handleGenerateBillFromHistory} onSetExpectedDod={handleSetExpectedDod} onViewPatient={p => setShowPatientDetail(p)} onSaveMedHistory={handleSaveMedHistoryFromHistory} onViewMedical={handleMedicalFromHistory} />}
@@ -596,26 +596,25 @@ const handleLogin = (user, loc) => {
   );
 }
 
-export const AuthContext = null;
+export const AuthContext = createContext(null);
 let _loginCallback = null;
 export function setLoginCallback(fn) { _loginCallback = fn; }
 export function useAuth() {
   const { getAllUsers } = require('./data/constants');
+  // 🌟 This line reads the user from the session we saved during login
   const user = (() => { try { return JSON.parse(sessionStorage.getItem("currentUser")); } catch { return null; } })();
-  const logout = () => { sessionStorage.clear(); window.location.reload(); };
+  
+  const logout = () => { 
+    sessionStorage.clear(); 
+    window.location.reload(); 
+  };
+
   const login = (username, password) => {
     const found = getAllUsers().find(u => u.id === username && u.password === password);
-   if (!found) return { success: false, error: 'Invalid credentials' };
+    if (!found) return { success: false, error: 'Invalid credentials' };
+    if (_loginCallback) _loginCallback(found, found.branch || (found.locations && found.locations[0]) || "laxmi");
+    return { success: true };
+  };
 
-if (_loginCallback) {
-  _loginCallback(
-    found,
-    found.branch || (found.locations && found.locations[0]) || "laxmi"
-  );
-}
-
-return { success: true };
-};
-
-return { user, logout, login };
+  return { user, logout, login };
 }

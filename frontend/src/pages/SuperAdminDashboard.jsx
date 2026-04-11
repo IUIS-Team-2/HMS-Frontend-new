@@ -1,6 +1,8 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import * as XLSX from "xlsx";
 import { USERS } from "../data/constants";
+import { apiService } from "../services/apiService"; 
+import { toast } from "react-toastify";
 
 /* ══════════════════════════════════════════════════════════════
    DESIGN TOKENS & HELPERS
@@ -138,8 +140,10 @@ function TH({ h }) {
 ══════════════════════════════════════════════════════════════ */
 function PatientModal({ p, onClose }) {
   const [editSvcs, setEditSvcs] = useState(null);
+  const [docTemplate, setDocTemplate] = useState(null);
+  const [docLoading, setDocLoading] = useState(false);
+
   if (!p) return null;
-  
   const svcs = editSvcs || p.services || [];
   const upd = (i,field,val) => setEditSvcs((editSvcs||p.services||[]).map((s,idx)=>idx===i?{...s,[field]:val}:s));
   const subtotal = svcs.reduce((s,sv)=>s+(parseFloat(sv.rate)||0)*(parseFloat(sv.qty)||1),0);
@@ -147,18 +151,60 @@ function PatientModal({ p, onClose }) {
   const grand = subtotal - discount;
   const col = bColor(p._branch);
 
-  return (
-    <div style={{ position:"fixed",inset:0,background:"rgba(0,0,0,.8)",zIndex:3000,
-      display:"flex",alignItems:"center",justifyContent:"center",padding:20 }}>
-      <div style={{ background:T.surface,borderRadius:20,width:"100%",maxWidth:860,
-        maxHeight:"92vh",overflow:"hidden",display:"flex",flexDirection:"column",
-        boxShadow:"0 32px 100px rgba(0,0,0,.7)",border:`1px solid ${T.border}` }}>
+  const handleLoadDocument = async () => {
+    setDocLoading(true);
+    try {
+      const res = await apiService.getDynamicSummary(p.uhid, p.admNo, p.dischargeStatus || 'NORMAL');
+      let fetchedContent = res.content;
+      
+      // 🌟 AUTO-CONVERTER: If you have an old test record saved as an Object, this converts it to the new Array format instantly!
+      if (fetchedContent && fetchedContent.sections && !Array.isArray(fetchedContent.sections)) {
+        fetchedContent.sections = Object.entries(fetchedContent.sections).map(([k, v]) => ({ key: k, ...v }));
+      }
+      
+      setDocTemplate(fetchedContent);
+    } catch (err) {
+      toast.error("Failed to load document template.");
+    }
+    setDocLoading(false);
+  };
 
-        <div style={{ padding:"18px 24px",borderBottom:`1px solid ${T.border}`,background:T.card,
-          display:"flex",justifyContent:"space-between",alignItems:"center" }}>
+  const handleSaveDocument = async () => {
+    try {
+      await apiService.saveDynamicSummary(p.uhid, p.admNo, {
+        summary_type: p.dischargeStatus?.toUpperCase().includes('LAMA') ? 'LAMA' : (p.dischargeStatus?.toUpperCase() || 'NORMAL'),
+        content: docTemplate
+      });
+      toast.success("Official Document Saved!");
+    } catch (err) {
+      toast.error("Failed to save document.");
+    }
+  };
+
+  // 🌟 Updated to safely handle Array changes
+  const handleSectionUpdate = (index, val) => {
+    const newSections = [...docTemplate.sections];
+    newSections[index] = { ...newSections[index], value: val };
+    setDocTemplate({ ...docTemplate, sections: newSections });
+  };
+
+  const handleVitalsUpdate = (index, vKey, val) => {
+    const newSections = [...docTemplate.sections];
+    newSections[index] = { 
+      ...newSections[index], 
+      value: { ...newSections[index].value, [vKey]: val } 
+    };
+    setDocTemplate({ ...docTemplate, sections: newSections });
+  };
+
+  return (
+    <div style={{ position:"fixed",inset:0,background:"rgba(0,0,0,.8)",zIndex:3000, display:"flex",alignItems:"center",justifyContent:"center",padding:20 }}>
+      <div style={{ background:T.surface,borderRadius:20,width:"100%",maxWidth:860, maxHeight:"92vh",overflow:"hidden",display:"flex",flexDirection:"column", boxShadow:"0 32px 100px rgba(0,0,0,.7)",border:`1px solid ${T.border}` }}>
+        
+        {/* MODAL HEADER */}
+        <div style={{ padding:"18px 24px",borderBottom:`1px solid ${T.border}`,background:T.card, display:"flex",justifyContent:"space-between",alignItems:"center" }}>
           <div style={{ display:"flex",alignItems:"center",gap:12 }}>
-            <div style={{ width:40,height:40,borderRadius:10,background:col+"20",border:`1.5px solid ${col}44`,
-              display:"flex",alignItems:"center",justifyContent:"center",fontSize:20 }}>🧑</div>
+            <div style={{ width:40,height:40,borderRadius:10,background:col+"20",border:`1.5px solid ${col}44`, display:"flex",alignItems:"center",justifyContent:"center",fontSize:20 }}>🧑</div>
             <div>
               <div style={{ fontSize:16,fontWeight:900,color:T.white }}>{p.name}</div>
               <div style={{ fontSize:12,color:T.dim,display:"flex",gap:8,alignItems:"center",marginTop:2 }}>
@@ -169,12 +215,24 @@ function PatientModal({ p, onClose }) {
             </div>
           </div>
           <div style={{ display:"flex",gap:8 }}>
-             <button onClick={onClose} style={{ background:"rgba(255,255,255,.08)",border:"none",
-              color:T.white,width:34,height:34,borderRadius:8,cursor:"pointer",fontSize:16 }}>x</button>
+            <XlsBtn onClick={()=>exportXLSX([p],[
+              {label:"UHID",key:"uhid"},{label:"Patient",key:"name"},{label:"Branch",get:r=>bName(r._branch)},
+              {label:"Gender",key:"gender"},{label:"Age",key:"age"},{label:"Phone",key:"phone"},
+              {label:"Blood Group",key:"bloodGroup"},{label:"Address",key:"address"},
+              {label:"Doctor",key:"doctor"},{label:"Ward",key:"ward"},{label:"Bed",key:"bed"},
+              {label:"Department",key:"department"},{label:"Diagnosis",key:"diagnosis"},
+              {label:"Adm Date",get:r=>fmt(r.admDate)},{label:"Discharge Date",get:r=>fmt(r.dischargeDate)},
+              {label:"Status",key:"dischargeStatus"},{label:"Payment Mode",key:"paymentMode"},
+              {label:"Grand Total",key:"grand"},{label:"Paid",key:"paid"},{label:"Pending",key:"pending"},
+              {label:"TPA",key:"tpa"},{label:"TPA Card",key:"tpaCard"},
+            ],`${p.uhid}_adm${p.admNo}.xlsx`)} label="Download"/>
+            <button onClick={onClose} style={{ background:"rgba(255,255,255,.08)",border:"none", color:T.white,width:34,height:34,borderRadius:8,cursor:"pointer",fontSize:16 }}>x</button>
           </div>
         </div>
 
         <div style={{ overflowY:"auto",padding:24 }}>
+          
+          {/* RESTORED: PATIENT INFO GRID */}
           <div style={{ display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:20 }}>
             {[["Gender",p.gender],["Age",p.age],["Blood Group",p.bloodGroup],["Phone",p.phone],
               ["Ward",p.ward],["Bed / Room",p.bed+" / "+p.room],["Department",p.department],["Doctor",p.doctor],
@@ -189,6 +247,7 @@ function PatientModal({ p, onClose }) {
             ))}
           </div>
 
+          {/* RESTORED: MEDICAL HISTORY */}
           {p.medHistory && Object.values(p.medHistory).some(v=>v) && (
             <div style={{ ...cardStyle,marginBottom:18 }}>
               <STitle>Medical History</STitle>
@@ -205,8 +264,77 @@ function PatientModal({ p, onClose }) {
             </div>
           )}
 
+          {/* 🌟 OFFICIAL DISCHARGE DOCUMENT SECTION */}
+          {p.dischargeStatus && p.dischargeStatus !== "Admitted" && (
+            <div style={{ ...cardStyle, marginBottom: 18, borderLeft: `4px solid ${T.laxmi}` }}>
+              <STitle action={
+                <div style={{ display: "flex", gap: 8 }}>
+                  {!docTemplate ? (
+                    <button onClick={handleLoadDocument} style={{ padding: "5px 12px", borderRadius: 7, background: T.laxmi, color: "#000", border: "none", fontSize: 12, fontWeight: 800, cursor: "pointer" }}>
+                      {docLoading ? "Loading..." : "Prepare Official Document"}
+                    </button>
+                  ) : (
+                    <>
+                      <button onClick={() => setDocTemplate(null)} style={{ padding: "5px 12px", borderRadius: 7, background: "transparent", border: `1px solid ${T.border2}`, color: T.dim, fontSize: 12, cursor: "pointer" }}>Close Editor</button>
+                      <button onClick={handleSaveDocument} style={{ padding: "5px 12px", borderRadius: 7, background: T.green, color: "#000", border: "none", fontSize: 12, fontWeight: 800, cursor: "pointer" }}>Save Document</button>
+                      <button onClick={() => window.open(`http://localhost:8000/api/patients/${p.uhid}/admissions/${p.admNo}/dynamic-summary/print/`, "_blank")} style={{ padding: "5px 12px", borderRadius: 7, background: T.white, color: "#000", border: "none", fontSize: 12, fontWeight: 800, cursor: "pointer" }}>Print Document</button>
+                    </>
+                  )}
+                </div>
+              }>Official Discharge Document ({p.dischargeStatus})</STitle>
+
+              {/* RENDER THE DYNAMIC EDITOR */}
+              {docTemplate && Array.isArray(docTemplate.sections) && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 16, marginTop: 16 }}>
+                  {docTemplate.sections.map((sec, index) => {
+                    if (sec.type === "textarea") {
+                      return (
+                        <div key={sec.key}>
+                          <div style={{ fontSize: 11, color: T.dim, fontWeight: 700, marginBottom: 4 }}>{sec.label}</div>
+                          <textarea value={sec.value} onChange={e => handleSectionUpdate(index, e.target.value)} rows={3} style={{ width: "100%", padding: "10px", borderRadius: 8, background: T.bg, border: `1px solid ${T.border2}`, color: T.white, fontSize: 13, outline: "none", resize: "vertical" }} />
+                        </div>
+                      );
+                    }
+                    if (sec.type === "text") {
+                      return (
+                        <div key={sec.key}>
+                          <div style={{ fontSize: 11, color: T.dim, fontWeight: 700, marginBottom: 4 }}>{sec.label}</div>
+                          <input type="text" value={sec.value} onChange={e => handleSectionUpdate(index, e.target.value)} style={{ width: "100%", padding: "10px", borderRadius: 8, background: T.bg, border: `1px solid ${T.border2}`, color: T.white, fontSize: 13, outline: "none" }} />
+                        </div>
+                      );
+                    }
+                    if (sec.type === "vitals_grid") {
+                      return (
+                        <div key={sec.key} style={{ background: T.bg, border: `1px solid ${T.border2}`, padding: 16, borderRadius: 8 }}>
+                          <div style={{ fontSize: 11, color: T.dim, fontWeight: 700, marginBottom: 12 }}>{sec.label}</div>
+                          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+                            {Object.entries(sec.value).map(([vKey, vVal]) => (
+                              <div key={vKey}>
+                                <div style={{ fontSize: 10, color: T.dim, textTransform: "uppercase", marginBottom: 4 }}>{vKey}</div>
+                                <input type="text" value={vVal} onChange={e => handleVitalsUpdate(index, vKey, e.target.value)} style={{ width: "100%", padding: "8px", borderRadius: 6, background: T.card, border: `1px solid ${T.border2}`, color: T.white, fontSize: 12, outline: "none" }} />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* RESTORED: SERVICES AND BILL TABLE */}
           <div style={{ ...cardStyle,marginBottom:18 }}>
-            <STitle>Services and Bill</STitle>
+            <STitle action={
+              <div style={{ display:"flex",gap:8 }}>
+                {editSvcs && <button onClick={()=>setEditSvcs(null)} style={{ padding:"5px 12px",borderRadius:7,
+                  background:"transparent",border:`1px solid ${T.border2}`,color:T.dim,fontSize:12,cursor:"pointer" }}>Reset</button>}
+                <button onClick={()=>alert("Save connected to your backend")} style={{ padding:"5px 12px",borderRadius:7,
+                  background:T.green,color:"#000",border:"none",fontSize:12,fontWeight:800,cursor:"pointer" }}>Save Changes</button>
+              </div>
+            }>Services and Bill (Editable Rates and Qty)</STitle>
             <table style={{ width:"100%",borderCollapse:"collapse",fontSize:13 }}>
               <thead><tr>{["Service","Type","Rate","Qty","Amount"].map(h=><TH key={h} h={h}/>)}</tr></thead>
               <tbody>
@@ -214,8 +342,16 @@ function PatientModal({ p, onClose }) {
                   <tr key={i} style={{ borderBottom:`1px solid ${T.border}` }}>
                     <td style={{ padding:"8px 12px",color:T.white,fontWeight:600 }}>{sv.title||sv.type}</td>
                     <td style={{ padding:"8px 12px" }}><Badge color={T.dim}>{sv.type}</Badge></td>
-                    <td style={{ padding:"8px 12px", color: T.white }}>{inr(sv.rate)}</td>
-                    <td style={{ padding:"8px 12px", color: T.white }}>{sv.qty}</td>
+                    <td style={{ padding:"8px 12px" }}>
+                      <input type="number" value={sv.rate} onChange={e=>upd(i,"rate",e.target.value)}
+                        style={{ width:90,background:T.bg,border:`1px solid ${T.border2}`,borderRadius:6,
+                          color:T.white,padding:"4px 8px",fontSize:13,outline:"none",textAlign:"right" }}/>
+                    </td>
+                    <td style={{ padding:"8px 12px" }}>
+                      <input type="number" value={sv.qty} onChange={e=>upd(i,"qty",e.target.value)}
+                        style={{ width:60,background:T.bg,border:`1px solid ${T.border2}`,borderRadius:6,
+                          color:T.white,padding:"4px 8px",fontSize:13,outline:"none",textAlign:"right" }}/>
+                    </td>
                     <td style={{ padding:"8px 12px",fontWeight:800,color:T.amber }}>
                       {inr((parseFloat(sv.rate)||0)*(parseFloat(sv.qty)||1))}
                     </td>
@@ -223,7 +359,20 @@ function PatientModal({ p, onClose }) {
                 ))}
               </tbody>
             </table>
+            <div style={{ display:"flex",flexDirection:"column",alignItems:"flex-end",gap:4,
+              marginTop:14,paddingTop:14,borderTop:`1px solid ${T.border}` }}>
+              {[["Subtotal",inr(subtotal),T.white],["Discount","-"+inr(discount),T.red],
+                ["Advance",inr(parseFloat(p.billingObj?.advance)||0),T.green],
+                ["Paid Now",inr(p.paid),T.green]].map(([k,v,c])=>(
+                <div key={k} style={{ fontSize:12,color:T.dim }}>
+                  {k}: <strong style={{ color:c }}>{v}</strong>
+                </div>
+              ))}
+              <div style={{ fontSize:16,fontWeight:900,color:T.amber,marginTop:4 }}>Grand Total: {inr(grand)}</div>
+              {p.pending>0 && <div style={{ fontSize:13,fontWeight:800,color:T.red }}>Pending: {inr(p.pending)}</div>}
+            </div>
           </div>
+
         </div>
       </div>
     </div>

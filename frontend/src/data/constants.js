@@ -60,7 +60,7 @@ export const MASTER_ROOMS = [
 ];
 
 export const MASTER_CONSULTANTS = [
-  { title: "DR. NEERAJ JAI BHAGWAN SHARMA (UROLOGY)",  code: "CN003", rate: 700 },
+  { title: "DR. NEERAJ JAI BHAGWAN SHARMA (UROLOGY)",   code: "CN003", rate: 700 },
   { title: "DR. G. A. NOMANI (CARDIOLOGY)",             code: "CN003", rate: 700 },
   { title: "DR. RAJENDER SINGLA (NEUROLOGY)",           code: "CN003", rate: 700 },
   { title: "DR. SURENDRA SHARMA (SURGEON)",             code: "CN003", rate: 700 },
