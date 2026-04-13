@@ -1,11 +1,8 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, createContext, useContext } from "react";
+import { useTheme } from "../context/ThemeContext";
 import * as XLSX from "xlsx";
 import { USERS } from "../data/constants";
-
-/* ══════════════════════════════════════════════════════════════
-   DESIGN TOKENS
-══════════════════════════════════════════════════════════════ */
-const T = {
+const T_DARK = {
   bg:      "#08121E",
   surface: "#0D1B2A",
   card:    "#112236",
@@ -22,10 +19,36 @@ const T = {
   dimmer:  "#1E3D5C",
   sidebar: "#0A1828",
 };
+const T_LIGHT = {
+  bg:      "#f5f3ff",
+  surface: "#ffffff",
+  card:    "#ffffff",
+  card2:   "#faf8ff",
+  border:  "#e9e3ff",
+  border2: "#d4c8ff",
+  laxmi:   "#0891b2",
+  raya:    "#7c3aed",
+  green:   "#059669",
+  amber:   "#d97706",
+  red:     "#dc2626",
+  white:   "#1e1033",
+  dim:     "#7c6fa0",
+  dimmer:  "#c4b5fd",
+  sidebar: "#ffffff",
+};
+let T = T_DARK;
+const TC = createContext(T_DARK);
+const useT = () => useContext(TC);
+
+
+/* ══════════════════════════════════════════════════════════════
+   DESIGN TOKENS
+══════════════════════════════════════════════════════════════ */
+
 
 const SD = "0 4px 32px rgba(0,0,0,.5)";
-const cardStyle = { background: T.card, borderRadius: 14, padding: 20, boxShadow: SD };
-const bColor = loc => loc === "laxmi" ? T.laxmi : T.raya;
+const cardStyle = (t) => ({ background: t.card, borderRadius: 14, padding: 20, boxShadow: SD });
+const bColor = (loc, t) => loc === "laxmi" ? t.laxmi : t.raya;
 const bName  = loc => loc === "laxmi" ? "Lakshmi Nagar" : "Raya";
 const fmt    = d  => { try { const dt=new Date(d); return isNaN(dt)?"--":dt.toLocaleDateString("en-IN"); } catch { return "--"; } };
 const inr    = v  => "Rs." + Number(v||0).toLocaleString("en-IN");
@@ -103,13 +126,16 @@ function Badge({ children, color }) {
   return <span style={{ background:color+"18", color, borderRadius:5, padding:"2px 8px", fontSize:11, fontWeight:700 }}>{children}</span>;
 }
 function STitle({ children, action }) {
+  const T = useT();
   return <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
     <div style={{ fontSize:11, fontWeight:800, letterSpacing:".12em", textTransform:"uppercase", color:T.dim }}>{children}</div>
     {action}
   </div>;
 }
 function StatCard({ icon, label, value, sub, color }) {
-  return <div style={{ ...cardStyle, borderLeft:`4px solid ${color||T.laxmi}`, flex:1, minWidth:150 }}>
+  const T = useT();
+  const cs = cardStyle(T);
+  return <div style={{ ...cs, borderLeft:`4px solid ${color||T.laxmi}`, flex:1, minWidth:150 }}>
     <div style={{ display:"flex", justifyContent:"space-between" }}>
       <div>
         <div style={{ fontSize:11, color:T.dim, fontWeight:700, textTransform:"uppercase", letterSpacing:".07em", marginBottom:5 }}>{label}</div>
@@ -121,17 +147,49 @@ function StatCard({ icon, label, value, sub, color }) {
   </div>;
 }
 function XlsBtn({ onClick, label }) {
+  const T = useT();
   return <button onClick={onClick} style={{ padding:"7px 14px", borderRadius:8, border:"none",
     background:T.green, color:"#000", fontSize:12, fontWeight:800, cursor:"pointer", whiteSpace:"nowrap" }}>
     {label||"Download Excel"}
   </button>;
 }
 function FBtn({ active, color, onClick, children }) {
+  const T = useT();
   return <button onClick={onClick} style={{ padding:"6px 13px", borderRadius:8, cursor:"pointer",
     fontWeight:700, fontSize:12, border:`1px solid ${active?(color||T.laxmi):T.border}`,
     background:active?(color||T.laxmi)+"20":"transparent", color:active?(color||T.laxmi):T.dim }}>{children}</button>;
 }
+function FilterSelect({ value, onChange, options, style }) {
+  const T = useT();
+  return (
+    <select
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      style={{
+        padding: '6px 28px 6px 12px',
+        borderRadius: 8,
+        border: `1px solid ${T.border2}`,
+        background: T.card,
+        color: T.white,
+        fontSize: 12,
+        fontWeight: 600,
+        cursor: 'pointer',
+        outline: 'none',
+        appearance: 'none',
+        backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23888'/%3E%3C/svg%3E")`,
+        backgroundRepeat: 'no-repeat',
+        backgroundPosition: 'right 10px center',
+        ...style
+      }}
+    >
+      {options.map(([val, label]) => (
+        <option key={val} value={val}>{label}</option>
+      ))}
+    </select>
+  );
+}
 function TH({ h }) {
+  const T = useT();
   return <th style={{ padding:"10px 12px", textAlign:"left", fontSize:10, fontWeight:700,
     color:T.dim, textTransform:"uppercase", letterSpacing:".06em", whiteSpace:"nowrap", background:T.bg }}>{h}</th>;
 }
@@ -140,6 +198,7 @@ function TH({ h }) {
    PATIENT DETAIL MODAL
 ══════════════════════════════════════════════════════════════ */
 function PatientModal({ p, onClose }) {
+  const T = useT();
   const [editSvcs, setEditSvcs] = useState(null);
   if (!p) return null;
   const svcs = editSvcs || p.services || [];
@@ -147,7 +206,7 @@ function PatientModal({ p, onClose }) {
   const subtotal = svcs.reduce((s,sv)=>s+(parseFloat(sv.rate)||0)*(parseFloat(sv.qty)||1),0);
   const discount = parseFloat(p.billingObj?.discount)||0;
   const grand = subtotal - discount;
-  const col = bColor(p._branch);
+  const col = bColor(p._branch, T);
 
   return (
     <div style={{ position:"fixed",inset:0,background:"rgba(0,0,0,.8)",zIndex:3000,
@@ -205,7 +264,7 @@ function PatientModal({ p, onClose }) {
 
           {/* Medical History */}
           {p.medHistory && Object.values(p.medHistory).some(v=>v) && (
-            <div style={{ ...cardStyle,marginBottom:18 }}>
+            <div style={{ ...cardStyle(T),marginBottom:18 }}>
               <STitle>Medical History</STitle>
               <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:10 }}>
                 {Object.entries(p.medHistory).filter(([,v])=>v).map(([k,v])=>(
@@ -221,7 +280,7 @@ function PatientModal({ p, onClose }) {
           )}
 
           {/* Services - Editable */}
-          <div style={{ ...cardStyle,marginBottom:18 }}>
+          <div style={{ ...cardStyle(T),marginBottom:18 }}>
             <STitle action={
               <div style={{ display:"flex",gap:8 }}>
                 {editSvcs && <button onClick={()=>setEditSvcs(null)} style={{ padding:"5px 12px",borderRadius:7,
@@ -288,6 +347,7 @@ const PT_COLS = [
 ];
 
 function PTable({ rows, showBranch, filename }) {
+  const T = useT();
   const [modal, setModal]   = useState(null);
   const [search, setSearch] = useState("");
   const [typeF, setTypeF]   = useState("all");
@@ -302,15 +362,13 @@ function PTable({ rows, showBranch, filename }) {
   return (
     <>
       <div style={{ display:"flex",gap:8,flexWrap:"wrap",alignItems:"center",marginBottom:12 }}>
-        <FBtn active={typeF==="all"} onClick={()=>setTypeF("all")}>All</FBtn>
-        <FBtn active={typeF==="cash"} color={T.green} onClick={()=>setTypeF("cash")}>Cash Patients</FBtn>
-        <FBtn active={typeF==="cashless"} color={T.amber} onClick={()=>setTypeF("cashless")}>Cashless / TPA</FBtn>
+        <FilterSelect value={typeF} onChange={setTypeF} options={[["all","All Types"],["cash","Cash Patients"],["cashless","Cashless / TPA"]]}/>
         <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search name, UHID, doctor, diagnosis..."
           style={{ marginLeft:"auto",padding:"7px 13px",borderRadius:8,border:`1px solid ${T.border2}`,
             background:T.card,color:T.white,fontSize:13,outline:"none",width:270 }}/>
         <XlsBtn onClick={()=>exportXLSX(filtered,PT_COLS,filename||"patients.xlsx")}/>
       </div>
-      <div style={{ ...cardStyle,padding:0,overflow:"hidden" }}>
+      <div style={{ ...cardStyle(T),padding:0,overflow:"hidden" }}>
         <table style={{ width:"100%",borderCollapse:"collapse" }}>
           <thead><tr>
             {["#","UHID","Patient","Type",showBranch&&"Branch","Doctor","Ward","Adm","Discharge","Diagnosis","Grand","Paid","Pending","Status",""].filter(Boolean).map(h=><TH key={h} h={h}/>)}
@@ -321,13 +379,13 @@ function PTable({ rows, showBranch, filename }) {
               <tr key={i} onClick={()=>setModal(p)}
                 style={{ borderBottom:`1px solid ${T.border}`,background:i%2===0?T.card:T.surface,cursor:"pointer" }}>
                 <td style={{ padding:"9px 12px",color:T.dim,fontSize:11 }}>{i+1}</td>
-                <td style={{ padding:"9px 12px",fontSize:12,fontWeight:700,color:bColor(p._branch) }}>{p.uhid}</td>
+                <td style={{ padding:"9px 12px",fontSize:12,fontWeight:700,color:bColor(p._branch, T) }}>{p.uhid}</td>
                 <td style={{ padding:"9px 12px" }}>
                   <div style={{ fontSize:13,fontWeight:600,color:T.white }}>{p.name}</div>
                   <div style={{ fontSize:10,color:T.dim }}>{p.age} {p.gender}</div>
                 </td>
                 <td style={{ padding:"9px 12px" }}><Pill color={p.admType==="Cash"?T.green:T.amber}>{p.admType}</Pill></td>
-                {showBranch && <td style={{ padding:"9px 12px" }}><Pill color={bColor(p._branch)}>{bName(p._branch)}</Pill></td>}
+                {showBranch && <td style={{ padding:"9px 12px" }}><Pill color={bColor(p._branch, T)}>{bName(p._branch)}</Pill></td>}
                 <td style={{ padding:"9px 12px",fontSize:12,color:T.dim }}>{p.doctor}</td>
                 <td style={{ padding:"9px 12px",fontSize:11,color:T.dim }}>{p.ward} {p.bed}</td>
                 <td style={{ padding:"9px 12px",fontSize:11,color:T.dim }}>{fmt(p.admDate)}</td>
@@ -352,6 +410,7 @@ function PTable({ rows, showBranch, filename }) {
    TAB 1 — DASHBOARD
 ══════════════════════════════════════════════════════════════ */
 function DashboardTab({ all, laxmi, raya }) {
+  const T = useT();
   const totalRev = all.reduce((s,p)=>s+p.grand,0);
   const lRev     = laxmi.reduce((s,p)=>s+p.grand,0);
   const rRev     = raya.reduce((s,p)=>s+p.grand,0);
@@ -378,7 +437,7 @@ function DashboardTab({ all, laxmi, raya }) {
 
       <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:22 }}>
         {[["laxmi",laxmi,T.laxmi],["raya",raya,T.raya]].map(([br,pts,col])=>(
-          <div key={br} style={{ ...cardStyle,borderTop:`3px solid ${col}` }}>
+          <div key={br} style={{ ...cardStyle(T),borderTop:`3px solid ${col}` }}>
             <div style={{ display:"flex",alignItems:"center",gap:8,marginBottom:16 }}>
               <Pill color={col}>{bName(br)}</Pill>
               <span style={{ fontSize:12,color:T.dim }}>Branch Summary</span>
@@ -402,15 +461,15 @@ function DashboardTab({ all, laxmi, raya }) {
       <STitle action={<XlsBtn onClick={()=>exportXLSX(all,PT_COLS,"overview_all.xlsx")}/>}>
         Recent Admissions - Both Branches
       </STitle>
-      <div style={{ ...cardStyle,padding:0,overflow:"hidden" }}>
+      <div style={{ ...cardStyle(T),padding:0,overflow:"hidden" }}>
         <table style={{ width:"100%",borderCollapse:"collapse" }}>
           <thead><tr>{["UHID","Patient","Branch","Type","Doctor","Admitted","Grand Total","Status"].map(h=><TH key={h} h={h}/>)}</tr></thead>
           <tbody>
             {all.slice(0,12).map((p,i)=>(
               <tr key={i} style={{ borderBottom:`1px solid ${T.border}`,background:i%2===0?T.card:T.surface }}>
-                <td style={{ padding:"9px 12px",fontSize:12,fontWeight:700,color:bColor(p._branch) }}>{p.uhid}</td>
+                <td style={{ padding:"9px 12px",fontSize:12,fontWeight:700,color:bColor(p._branch, T) }}>{p.uhid}</td>
                 <td style={{ padding:"9px 12px",fontSize:13,fontWeight:600,color:T.white }}>{p.name}</td>
-                <td style={{ padding:"9px 12px" }}><Pill color={bColor(p._branch)}>{bName(p._branch)}</Pill></td>
+                <td style={{ padding:"9px 12px" }}><Pill color={bColor(p._branch, T)}>{bName(p._branch)}</Pill></td>
                 <td style={{ padding:"9px 12px" }}><Pill color={p.admType==="Cash"?T.green:T.amber}>{p.admType}</Pill></td>
                 <td style={{ padding:"9px 12px",fontSize:12,color:T.dim }}>{p.doctor}</td>
                 <td style={{ padding:"9px 12px",fontSize:11,color:T.dim }}>{fmt(p.admDate)}</td>
@@ -429,7 +488,8 @@ function DashboardTab({ all, laxmi, raya }) {
    TAB 2/3 — BRANCH PATIENTS
 ══════════════════════════════════════════════════════════════ */
 function BranchTab({ pts, branch }) {
-  const col = bColor(branch);
+  const T = useT();
+  const col = bColor(branch, T);
   const cash = pts.filter(p=>p.admType==="Cash");
   const cl   = pts.filter(p=>p.admType==="Cashless");
   return (
@@ -449,6 +509,7 @@ function BranchTab({ pts, branch }) {
    TAB 4 — ALL PATIENTS
 ══════════════════════════════════════════════════════════════ */
 function AllPatientsTab({ all }) {
+  const T = useT();
   const [branch, setBranch] = useState("all");
   const rows = branch==="all" ? all : all.filter(p=>p._branch===branch);
   return (
@@ -460,11 +521,7 @@ function AllPatientsTab({ all }) {
         <StatCard icon="💰" label="Combined Revenue" value={inr(all.reduce((s,p)=>s+p.grand,0))} color={T.green}/>
       </div>
       <div style={{ display:"flex",gap:8,marginBottom:12 }}>
-        {["all","laxmi","raya"].map(b=>(
-          <FBtn key={b} active={branch===b} color={b==="raya"?T.raya:T.laxmi} onClick={()=>setBranch(b)}>
-            {b==="all"?"All Branches":bName(b)}
-          </FBtn>
-        ))}
+        <FilterSelect value={branch} onChange={setBranch} options={[["all","All Branches"],["laxmi","Lakshmi Nagar"],["raya","Raya"]]}/>
       </div>
       <PTable rows={rows} showBranch={branch==="all"} filename="all_patients.xlsx"/>
     </div>
@@ -475,6 +532,7 @@ function AllPatientsTab({ all }) {
    TAB 5 — BILLING
 ══════════════════════════════════════════════════════════════ */
 function BillingTab({ all }) {
+  const T = useT();
   const [branch, setBranch] = useState("all");
   const [typeF, setTypeF]   = useState("all");
   const [modal, setModal]   = useState(null);
@@ -503,29 +561,20 @@ function BillingTab({ all }) {
         <StatCard icon="📊" label="Records" value={rows.length} color={T.laxmi}/>
       </div>
       <div style={{ display:"flex",gap:8,flexWrap:"wrap",alignItems:"center",marginBottom:12 }}>
-        {["all","laxmi","raya"].map(b=>(
-          <FBtn key={b} active={branch===b} color={b==="raya"?T.raya:T.laxmi} onClick={()=>setBranch(b)}>
-            {b==="all"?"All Branches":bName(b)}
-          </FBtn>
-        ))}
-        <div style={{ width:1,height:18,background:T.border,margin:"0 2px" }}/>
-        {["all","cash","cashless"].map(t=>(
-          <FBtn key={t} active={typeF===t} color={t==="cashless"?T.amber:T.green} onClick={()=>setTypeF(t)}>
-            {t==="all"?"All Types":t==="cash"?"Cash":"Cashless"}
-          </FBtn>
-        ))}
+        <FilterSelect value={branch} onChange={setBranch} options={[["all","All Branches"],["laxmi","Lakshmi Nagar"],["raya","Raya"]]}/>
+        <FilterSelect value={typeF} onChange={setTypeF} options={[["all","All Types"],["cash","Cash"],["cashless","Cashless / TPA"]]}/>
         <XlsBtn onClick={()=>exportXLSX(rows,BCOLS,"billing_all.xlsx")}/>
       </div>
-      <div style={{ ...cardStyle,padding:0,overflow:"hidden" }}>
+      <div style={{ ...cardStyle(T),padding:0,overflow:"hidden" }}>
         <table style={{ width:"100%",borderCollapse:"collapse" }}>
           <thead><tr>{["UHID","Patient","Branch","Type","Doctor","Date","Grand","Paid","Pending","Mode",""].map(h=><TH key={h} h={h}/>)}</tr></thead>
           <tbody>
             {rows.length===0&&<tr><td colSpan={11} style={{ padding:48,textAlign:"center",color:T.dim }}>No records</td></tr>}
             {rows.map((p,i)=>(
               <tr key={i} style={{ borderBottom:`1px solid ${T.border}`,background:i%2===0?T.card:T.surface }}>
-                <td style={{ padding:"9px 12px",fontSize:12,fontWeight:700,color:bColor(p._branch) }}>{p.uhid}</td>
+                <td style={{ padding:"9px 12px",fontSize:12,fontWeight:700,color:bColor(p._branch, T) }}>{p.uhid}</td>
                 <td style={{ padding:"9px 12px",fontSize:13,fontWeight:600,color:T.white }}>{p.name}</td>
-                <td style={{ padding:"9px 12px" }}><Pill color={bColor(p._branch)}>{bName(p._branch)}</Pill></td>
+                <td style={{ padding:"9px 12px" }}><Pill color={bColor(p._branch, T)}>{bName(p._branch)}</Pill></td>
                 <td style={{ padding:"9px 12px" }}><Pill color={p.admType==="Cash"?T.green:T.amber}>{p.admType}</Pill></td>
                 <td style={{ padding:"9px 12px",fontSize:12,color:T.dim }}>{p.doctor}</td>
                 <td style={{ padding:"9px 12px",fontSize:11,color:T.dim }}>{fmt(p.admDate)}</td>
@@ -548,6 +597,7 @@ function BillingTab({ all }) {
    TAB 6 — INVOICE APPROVALS
 ══════════════════════════════════════════════════════════════ */
 function InvoicesTab({ printRequests, onApprovePrint }) {
+  const T = useT();
   const reqs = printRequests||[];
   return (
     <div>
@@ -555,16 +605,16 @@ function InvoicesTab({ printRequests, onApprovePrint }) {
         <StatCard icon="📬" label="Pending Approvals" value={reqs.length} color={reqs.length>0?T.amber:T.green}/>
       </div>
       {reqs.length===0 ? (
-        <div style={{ ...cardStyle,textAlign:"center",padding:80 }}>
+        <div style={{ ...cardStyle(T),textAlign:"center",padding:80 }}>
           <div style={{ fontSize:52,marginBottom:14 }}>✅</div>
           <div style={{ fontSize:18,fontWeight:800,color:T.white }}>All clear</div>
           <div style={{ fontSize:13,color:T.dim,marginTop:6 }}>Invoice print requests from both branches will appear here</div>
         </div>
       ) : reqs.map((req,i)=>{
-        const col = bColor(req.locId);
+        const col = bColor(req.locId, T);
         const amt = Number(req.billing?.grandTotal)||Number(req.billing?.paidNow)||0;
         return (
-          <div key={i} style={{ ...cardStyle,borderLeft:`5px solid ${col}`,marginBottom:12,
+          <div key={i} style={{ ...cardStyle(T),borderLeft:`5px solid ${col}`,marginBottom:12,
             display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:16 }}>
             <div>
               <div style={{ display:"flex",alignItems:"center",gap:10,marginBottom:8 }}>
@@ -595,6 +645,7 @@ function InvoicesTab({ printRequests, onApprovePrint }) {
    TAB 7 — MEDICAL HISTORY
 ══════════════════════════════════════════════════════════════ */
 function MedicalTab({ all }) {
+  const T = useT();
   const withMed = all.filter(p=>p.medHistory&&Object.values(p.medHistory).some(v=>v));
   const [modal, setModal]   = useState(null);
   const [search, setSearch] = useState("");
@@ -627,26 +678,22 @@ function MedicalTab({ all }) {
         <StatCard icon="🏨" label="Raya" value={withMed.filter(p=>p._branch==="raya").length} color={T.raya}/>
       </div>
       <div style={{ display:"flex",gap:8,marginBottom:12,alignItems:"center" }}>
-        {["all","laxmi","raya"].map(b=>(
-          <FBtn key={b} active={branch===b} color={b==="raya"?T.raya:T.laxmi} onClick={()=>setBranch(b)}>
-            {b==="all"?"All Branches":bName(b)}
-          </FBtn>
-        ))}
+        <FilterSelect value={branch} onChange={setBranch} options={[["all","All Branches"],["laxmi","Lakshmi Nagar"],["raya","Raya"]]}/>
         <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search name or UHID..."
           style={{ marginLeft:"auto",padding:"7px 13px",borderRadius:8,border:`1px solid ${T.border2}`,
             background:T.card,color:T.white,fontSize:13,outline:"none",width:240 }}/>
         <XlsBtn onClick={()=>exportXLSX(rows,MCOLS,"medical_history.xlsx")}/>
       </div>
-      <div style={{ ...cardStyle,padding:0,overflow:"hidden" }}>
+      <div style={{ ...cardStyle(T),padding:0,overflow:"hidden" }}>
         <table style={{ width:"100%",borderCollapse:"collapse" }}>
           <thead><tr>{["UHID","Patient","Branch","Doctor","Prev Diagnosis","Medications","Allergies","Chronic","Notes",""].map(h=><TH key={h} h={h}/>)}</tr></thead>
           <tbody>
             {rows.length===0&&<tr><td colSpan={10} style={{ padding:48,textAlign:"center",color:T.dim }}>No medical history records</td></tr>}
             {rows.map((p,i)=>(
               <tr key={i} style={{ borderBottom:`1px solid ${T.border}`,background:i%2===0?T.card:T.surface }}>
-                <td style={{ padding:"9px 12px",fontSize:12,fontWeight:700,color:bColor(p._branch) }}>{p.uhid}</td>
+                <td style={{ padding:"9px 12px",fontSize:12,fontWeight:700,color:bColor(p._branch, T) }}>{p.uhid}</td>
                 <td style={{ padding:"9px 12px",fontSize:13,fontWeight:600,color:T.white }}>{p.name}</td>
-                <td style={{ padding:"9px 12px" }}><Pill color={bColor(p._branch)}>{bName(p._branch)}</Pill></td>
+                <td style={{ padding:"9px 12px" }}><Pill color={bColor(p._branch, T)}>{bName(p._branch)}</Pill></td>
                 <td style={{ padding:"9px 12px",fontSize:12,color:T.dim }}>{p.doctor}</td>
                 {["previousDiagnosis","currentMedications","knownAllergies","chronicConditions","notes"].map(k=>(
                   <td key={k} style={{ padding:"9px 12px",fontSize:11,color:T.dim,maxWidth:120,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{p.medHistory?.[k]||"--"}</td>
@@ -666,6 +713,7 @@ function MedicalTab({ all }) {
    TAB 8 — DISCHARGE SUMMARY
 ══════════════════════════════════════════════════════════════ */
 function DischargeTab({ all }) {
+  const T = useT();
   const disch = all.filter(p=>p.dischargeDate);
   const [branch, setBranch] = useState("all");
   const [modal, setModal]   = useState(null);
@@ -688,23 +736,19 @@ function DischargeTab({ all }) {
         <StatCard icon="💰" label="Revenue" value={inr(disch.reduce((s,p)=>s+p.grand,0))} color={T.amber}/>
       </div>
       <div style={{ display:"flex",gap:8,marginBottom:12,alignItems:"center" }}>
-        {["all","laxmi","raya"].map(b=>(
-          <FBtn key={b} active={branch===b} color={b==="raya"?T.raya:T.laxmi} onClick={()=>setBranch(b)}>
-            {b==="all"?"All Branches":bName(b)}
-          </FBtn>
-        ))}
+        <FilterSelect value={branch} onChange={setBranch} options={[["all","All Branches"],["laxmi","Lakshmi Nagar"],["raya","Raya"]]}/>
         <XlsBtn onClick={()=>exportXLSX(rows,DCOLS,"discharge_summary.xlsx")}/>
       </div>
-      <div style={{ ...cardStyle,padding:0,overflow:"hidden" }}>
+      <div style={{ ...cardStyle(T),padding:0,overflow:"hidden" }}>
         <table style={{ width:"100%",borderCollapse:"collapse" }}>
           <thead><tr>{["UHID","Patient","Branch","Type","Doctor","Department","Admitted","DOD","Diagnosis","Status","Billed",""].map(h=><TH key={h} h={h}/>)}</tr></thead>
           <tbody>
             {rows.length===0&&<tr><td colSpan={12} style={{ padding:48,textAlign:"center",color:T.dim }}>No discharges yet</td></tr>}
             {rows.map((p,i)=>(
               <tr key={i} style={{ borderBottom:`1px solid ${T.border}`,background:i%2===0?T.card:T.surface }}>
-                <td style={{ padding:"9px 12px",fontSize:12,fontWeight:700,color:bColor(p._branch) }}>{p.uhid}</td>
+                <td style={{ padding:"9px 12px",fontSize:12,fontWeight:700,color:bColor(p._branch, T) }}>{p.uhid}</td>
                 <td style={{ padding:"9px 12px",fontSize:13,fontWeight:600,color:T.white }}>{p.name}</td>
-                <td style={{ padding:"9px 12px" }}><Pill color={bColor(p._branch)}>{bName(p._branch)}</Pill></td>
+                <td style={{ padding:"9px 12px" }}><Pill color={bColor(p._branch, T)}>{bName(p._branch)}</Pill></td>
                 <td style={{ padding:"9px 12px" }}><Pill color={p.admType==="Cash"?T.green:T.amber}>{p.admType}</Pill></td>
                 <td style={{ padding:"9px 12px",fontSize:12,color:T.dim }}>{p.doctor}</td>
                 <td style={{ padding:"9px 12px",fontSize:12,color:T.dim }}>{p.department}</td>
@@ -728,6 +772,7 @@ function DischargeTab({ all }) {
    TAB 9 — REPORTS
 ══════════════════════════════════════════════════════════════ */
 function ReportsTab({ all }) {
+  const T = useT();
   const [branch, setBranch] = useState("all");
   const base = branch==="all" ? all : all.filter(p=>p._branch===branch);
 
@@ -769,15 +814,11 @@ function ReportsTab({ all }) {
   return (
     <div>
       <div style={{ display:"flex",gap:8,marginBottom:20 }}>
-        {["all","laxmi","raya"].map(b=>(
-          <FBtn key={b} active={branch===b} color={b==="raya"?T.raya:T.laxmi} onClick={()=>setBranch(b)}>
-            {b==="all"?"All Branches":bName(b)}
-          </FBtn>
-        ))}
+        <FilterSelect value={branch} onChange={setBranch} options={[["all","All Branches"],["laxmi","Lakshmi Nagar"],["raya","Raya"]]}/>
       </div>
       <div style={{ display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14 }}>
         {REPORTS.map(r=>(
-          <div key={r.title} style={{ ...cardStyle,display:"flex",flexDirection:"column",gap:12 }}>
+          <div key={r.title} style={{ ...cardStyle(T),display:"flex",flexDirection:"column",gap:12 }}>
             <div style={{ fontSize:30 }}>{r.icon}</div>
             <div style={{ fontSize:14,fontWeight:800,color:T.white }}>{r.title}</div>
             <div style={{ fontSize:12,color:T.dim,flex:1 }}>{r.desc}</div>
@@ -796,6 +837,7 @@ function ReportsTab({ all }) {
    TAB 10 — ADMIN MANAGEMENT
 ══════════════════════════════════════════════════════════════ */
 function AdminsTab() {
+  const T = useT();
   const base = USERS||[];
   const [users, setUsers] = useState(base);
   const [modal, setModal] = useState(false);
@@ -822,7 +864,7 @@ function AdminsTab() {
         <button onClick={()=>setModal(true)} style={{ padding:"9px 22px",borderRadius:9,background:T.laxmi,
           color:"#000",border:"none",fontWeight:800,fontSize:13,cursor:"pointer" }}>+ Create Admin</button>
       </div>
-      <div style={{ ...cardStyle,padding:0,overflow:"hidden" }}>
+      <div style={{ ...cardStyle(T),padding:0,overflow:"hidden" }}>
         <table style={{ width:"100%",borderCollapse:"collapse" }}>
           <thead><tr>{["Username","Full Name","Role","Branch","Locations","Status"].map(h=><TH key={h} h={h}/>)}</tr></thead>
           <tbody>
@@ -831,7 +873,7 @@ function AdminsTab() {
                 <td style={{ padding:"10px 12px",fontSize:12,fontFamily:"monospace",color:T.laxmi }}>{u.id}</td>
                 <td style={{ padding:"10px 12px",fontSize:13,fontWeight:600,color:T.white }}>{u.name}</td>
                 <td style={{ padding:"10px 12px" }}><Pill color={rc(u.role)}>{u.role}</Pill></td>
-                <td style={{ padding:"10px 12px" }}>{u.branch?<Pill color={bColor(u.branch)}>{bName(u.branch)}</Pill>:<span style={{ color:T.dim }}>All Branches</span>}</td>
+                <td style={{ padding:"10px 12px" }}>{u.branch?<Pill color={bColor(u.branch, T)}>{bName(u.branch)}</Pill>:<span style={{ color:T.dim }}>All Branches</span>}</td>
                 <td style={{ padding:"10px 12px",fontSize:12,color:T.dim }}>{(u.locations||[]).join(", ")||"--"}</td>
                 <td style={{ padding:"10px 12px" }}><Badge color={T.green}>Active</Badge></td>
               </tr>
@@ -880,6 +922,7 @@ function AdminsTab() {
    TAB 11 — DEPARTMENTS
 ══════════════════════════════════════════════════════════════ */
 function DepartmentsTab({ all }) {
+  const T = useT();
   const map = {};
   all.forEach(p => {
     const key = p._branch+"__"+p.department;
@@ -900,9 +943,9 @@ function DepartmentsTab({ all }) {
       </div>
       <div style={{ display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14 }}>
         {depts.map((d,i)=>{
-          const col = bColor(d.branch);
+          const col = bColor(d.branch, T);
           return (
-            <div key={i} style={{ ...cardStyle,borderTop:`3px solid ${col}` }}>
+            <div key={i} style={{ ...cardStyle(T),borderTop:`3px solid ${col}` }}>
               <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14 }}>
                 <div>
                   <div style={{ fontSize:15,fontWeight:800,color:T.white }}>{d.dept}</div>
@@ -936,6 +979,9 @@ function DepartmentsTab({ all }) {
    ROOT SUPER ADMIN DASHBOARD
 ══════════════════════════════════════════════════════════════ */
 export default function SuperAdminDashboard({ db={}, printRequests=[], onApprovePrint, onLogout }) {
+  const { isDark, toggle } = useTheme();
+  // eslint-disable-next-line no-global-assign
+  T = isDark ? T_DARK : T_LIGHT;
   const [tab, setTab] = useState("dashboard");
 
   const all   = useMemo(()=>flattenDB(db,"all"),  [db]);
@@ -965,7 +1011,8 @@ export default function SuperAdminDashboard({ db={}, printRequests=[], onApprove
   const activeLabel = NAV.find(n=>n.id===tab);
 
   return (
-    <div style={{ display:"flex",minHeight:"100vh",background:T.bg,fontFamily:"'Segoe UI',system-ui,sans-serif" }}>
+    <TC.Provider value={T}>
+    <div style={{ minHeight:"100vh",background:T.bg,fontFamily:"'Segoe UI',system-ui,sans-serif" }}>
 
       {/* SIDEBAR */}
       <div style={{ width:228,minHeight:"100vh",background:T.sidebar,display:"flex",flexDirection:"column",
@@ -973,8 +1020,8 @@ export default function SuperAdminDashboard({ db={}, printRequests=[], onApprove
 
         <div style={{ padding:"18px 14px 14px",borderBottom:`1px solid ${T.border}` }}>
           <div style={{ display:"flex",alignItems:"center",gap:10 }}>
-            <div style={{ width:36,height:36,borderRadius:10,background:T.laxmi+"20",border:`1px solid ${T.laxmi}44`,
-              display:"flex",alignItems:"center",justifyContent:"center",fontSize:18 }}>🏥</div>
+            <img src="/app_icon.png" alt="logo" style={{ width:36,height:36,borderRadius:10,
+              objectFit:"cover" }}/>
             <div>
               <div style={{ color:T.white,fontWeight:800,fontSize:13 }}>Sangi Hospital</div>
               <div style={{ color:T.dim,fontSize:10,textTransform:"uppercase",letterSpacing:".1em" }}>Super Admin Portal</div>
@@ -1015,25 +1062,22 @@ export default function SuperAdminDashboard({ db={}, printRequests=[], onApprove
               <div style={{ fontSize:12,color:T.white,fontWeight:700 }}>Super Admin</div>
               <div style={{ fontSize:10,color:T.dim }}>All branches</div>
             </div>
-            <button onClick={onLogout} style={{ background:"none",border:"none",color:T.dim,cursor:"pointer",fontSize:16 }}>⏻</button>
+            
           </div>
         </div>
       </div>
 
       {/* MAIN CONTENT */}
-      <div style={{ marginLeft:228,flex:1,padding:"24px 28px",minHeight:"100vh" }}>
-        <div style={{ marginBottom:22,display:"flex",justifyContent:"space-between",alignItems:"center" }}>
-          <div>
-            <h1 style={{ margin:0,fontSize:20,fontWeight:900,color:T.white }}>
-              {activeLabel?.icon} {activeLabel?.label}
-            </h1>
-            <div style={{ fontSize:12,color:T.dim,marginTop:3 }}>
-              {new Date().toLocaleDateString("en-IN",{weekday:"long",year:"numeric",month:"long",day:"numeric"})}
-              {" · "}{all.length} total records · {laxmi.length} Laxmi Nagar · {raya.length} Raya
-            </div>
+      <div style={{ marginLeft:228,flex:1,minHeight:"100vh",overflowX:"hidden" }}>
+        <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 28px",borderBottom:`1px solid ${T.border}`,background:T.sidebar,marginBottom:0,position:"sticky",top:0,zIndex:40 }}><div style={{ fontSize:13,fontWeight:700,color:T.white }}>{activeLabel?.icon} {activeLabel?.label}</div><div style={{ display:"flex",alignItems:"center",gap:12 }}><button onClick={toggle} style={{ background:"transparent",border:`1px solid ${T.border}`,color:T.dim,padding:"5px 12px",borderRadius:8,cursor:"pointer",fontSize:12,fontWeight:600 }}>{isDark?"☀ Light":"☾ Dark"}</button><div style={{ display:"flex",alignItems:"center",gap:8,background:"rgba(255,255,255,0.05)",borderRadius:20,padding:"3px 6px 3px 12px",border:`1px solid ${T.border}` }}><span style={{ fontSize:11,color:T.dim,fontWeight:500 }}>Super Admin</span><div style={{ width:28,height:28,borderRadius:"50%",background:T.laxmi+"30",display:"flex",alignItems:"center",justifyContent:"center",color:T.laxmi,fontWeight:900,fontSize:12 }}>S</div></div><button onClick={onLogout} style={{ background:"transparent",border:`1px solid ${T.border}`,color:T.dim,padding:"5px 13px",borderRadius:8,cursor:"pointer",fontSize:11,fontWeight:600,display:"flex",alignItems:"center",gap:5 }}>↪ Logout</button></div></div>
+      <div style={{ marginBottom:18,marginTop:18 }}>
+          <div style={{ fontSize:12,color:T.dim }}>
+            {new Date().toLocaleDateString("en-IN",{weekday:"long",year:"numeric",month:"long",day:"numeric"})}
+            {" · "}{all.length} total records · {laxmi.length} Laxmi Nagar · {raya.length} Raya
           </div>
         </div>
 
+        <div style={{ padding:"24px 28px" }}>
         {tab==="dashboard"   && <DashboardTab all={all} laxmi={laxmi} raya={raya}/>}
         {tab==="laxmi"       && <BranchTab pts={laxmi} branch="laxmi"/>}
         {tab==="raya"        && <BranchTab pts={raya} branch="raya"/>}
@@ -1046,6 +1090,8 @@ export default function SuperAdminDashboard({ db={}, printRequests=[], onApprove
         {tab==="admins"      && <AdminsTab/>}
         {tab==="departments" && <DepartmentsTab all={all}/>}
       </div>
+      </div>
     </div>
+    </TC.Provider>
   );
 }

@@ -19,6 +19,7 @@ import ManagementAdminDashboard from './pages/Managementadmindashboard';
 import EmployeeDashboard from './pages/EmployeeDashboard';
 import MedicalHistoryPage from "./pages/MedicalHistoryPage";
 import LoginPage from "./pages/LoginPage";
+import { ThemeProvider } from "./context/ThemeContext";
 
 // Modals
 import UHIDScreen from "./modals/UHIDScreen";
@@ -26,10 +27,16 @@ import PrintModal from "./modals/PrintModal";
 import PatientDetailModal from "./modals/PatientDetailModal";
 
 export default function App() {
-  const [loggedIn, setLoggedIn] = useState(false);
-  const [currentUser, setCurrentUser] = useState(null);
+  const [loggedIn, setLoggedIn] = useState(() => {
+    try { return sessionStorage.getItem('hms_loggedIn') === 'true'; } catch { return false; }
+  });
+  const [currentUser, setCurrentUser] = useState(() => {
+    try { const u = sessionStorage.getItem('hms_currentUser'); return u ? JSON.parse(u) : null; } catch { return null; }
+  });
   const [locId, setLocId] = useState("laxmi");
-  const [page, setPage] = useState("patient");
+  const [page, setPage] = useState(() => {
+    try { return sessionStorage.getItem('hms_page') || 'patient'; } catch { return 'patient'; }
+  });
   const [subPage, setSubPage] = useState("search");
   const [uhid, setUhid] = useState(null);
   const [admNo, setAdmNo] = useState(1);
@@ -77,6 +84,11 @@ export default function App() {
     setCurrentUser(user);
     setLocId(loc || "laxmi");
     setLoggedIn(true);
+    try {
+      sessionStorage.setItem('hms_loggedIn', 'true');
+      sessionStorage.setItem('hms_currentUser', JSON.stringify(user));
+      sessionStorage.setItem('hms_page', user.role === 'superadmin' ? 'superadmin' : user.role === 'managementadmin' ? 'managementadmin' : 'employee');
+    } catch {}
     if (user.role === "superadmin") {
       setPage("superadmin");
     } else if (user.role === "managementadmin") {
@@ -183,7 +195,7 @@ export default function App() {
   const isDone = id => ({ patient: patientDone, medical: medicalDone, discharge: dischargeDone, services: servicesDone }[id] || false);
   const navTo  = id => { if (!canNav(id)) return; setShowUHID(false); setPage(id); };
 
-  if (!loggedIn) return <LoginPage onLogin={handleLogin} />;
+  if (!loggedIn) return <ThemeProvider><LoginPage onLogin={handleLogin} /></ThemeProvider>;
 
   // ── SUPER ADMIN: render FULLSCREEN, no header/sidebar ──
   if (page === "superadmin") {
@@ -194,31 +206,32 @@ export default function App() {
             svcs={svcs} billing={billing} locId={locId} admNo={admNo}
             onClose={() => setShowPrint(false)} />
         )}
-        <SuperAdminDashboard
+        <ThemeProvider><SuperAdminDashboard
           db={db}
           printRequests={printRequests}
           onApprovePrint={handleApprovePrint}
-          onLogout={() => { setLoggedIn(false); setCurrentUser(null); resetAll(); setPrintRequests([]); }}
-        />
+          onLogout={() => { setLoggedIn(false); setCurrentUser(null); resetAll(); try { sessionStorage.removeItem('hms_loggedIn'); sessionStorage.removeItem('hms_currentUser'); sessionStorage.removeItem('hms_page'); } catch {} setPrintRequests([]); try { sessionStorage.removeItem('hms_loggedIn'); sessionStorage.removeItem('hms_currentUser'); sessionStorage.removeItem('hms_page'); } catch {} }}
+        /></ThemeProvider>
       </>
     );
   }
 
   if (page === "managementadmin") {
     return (
-      <ManagementAdminDashboard
+      <ThemeProvider><ManagementAdminDashboard
+        currentUser={currentUser}
         db={db}
-        onLogout={() => { setLoggedIn(false); setCurrentUser(null); resetAll(); }}
-      />
+        onLogout={() => { setLoggedIn(false); setCurrentUser(null); resetAll(); try { sessionStorage.removeItem('hms_loggedIn'); sessionStorage.removeItem('hms_currentUser'); sessionStorage.removeItem('hms_page'); } catch {} }}
+      /></ThemeProvider>
     );
   }
 
   if (page === "employee") {
     return (
-      <EmployeeDashboard
+      <ThemeProvider><EmployeeDashboard
         currentUser={currentUser}
-        onLogout={() => { setLoggedIn(false); setCurrentUser(null); resetAll(); }}
-      />
+        onLogout={() => { setLoggedIn(false); setCurrentUser(null); resetAll(); try { sessionStorage.removeItem('hms_loggedIn'); sessionStorage.removeItem('hms_currentUser'); sessionStorage.removeItem('hms_page'); } catch {} }}
+      /></ThemeProvider>
     );
   }
 
@@ -260,7 +273,7 @@ export default function App() {
                 </div>
               </div>
               <button
-                onClick={() => { setLoggedIn(false); setCurrentUser(null); resetAll(); }}
+                onClick={() => { setLoggedIn(false); setCurrentUser(null); resetAll(); try { sessionStorage.removeItem('hms_loggedIn'); sessionStorage.removeItem('hms_currentUser'); sessionStorage.removeItem('hms_page'); } catch {} }}
                 style={{ padding: "6px 14px", borderRadius: 8, background: "rgba(255,255,255,.1)", border: "1px solid rgba(255,255,255,.2)", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
                 Logout
               </button>
