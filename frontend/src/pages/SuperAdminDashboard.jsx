@@ -954,15 +954,20 @@ function AdminsTab() {
   const base = USERS||[];
   const [users, setUsers] = useState(base);
   const [modal, setModal] = useState(false);
-  const [form, setForm]   = useState({ id:"", name:"", password:"", role:"admin", branch:"laxmi" });
-  const sf = k => e => setForm(f=>({...f,[k]:e.target.value}));
+  const [form, setForm] = useState({ id:"", name:"", password:"", confirmPassword:"", role:"admin", branch:"laxmi" });
+  const [showAdminPass, setShowAdminPass] = useState(false);
+  const [showAdminConfirm, setShowAdminConfirm] = useState(false);
+  const [passErr, setPassErr] = useState("");
+  const sf = k => e => { setForm(f=>({...f,[k]:e.target.value})); setPassErr(""); };
   const rc = r => r==="superadmin"?T.amber:r==="admin"?T.laxmi:T.green;
 
   const create = () => {
-    if (!form.id||!form.name||!form.password) { alert("Fill all fields"); return; }
+    if (!form.id||!form.name||!form.password||!form.confirmPassword) { alert("Fill all fields"); return; }
+    if (form.password!==form.confirmPassword) { setPassErr("Passwords do not match"); return; }
     setUsers(p=>[...p,{...form,locations:[form.branch]}]);
     setModal(false);
-    setForm({ id:"",name:"",password:"",role:"admin",branch:"laxmi" });
+    setForm({ id:"", name:"", password:"", confirmPassword:"", role:"admin", branch:"laxmi" });
+    setPassErr("");
   };
 
   return (
@@ -1001,12 +1006,24 @@ function AdminsTab() {
           <div style={{ background:T.surface,borderRadius:16,padding:30,width:430,
             border:`1px solid ${T.border}`,boxShadow:SD }}>
             <div style={{ fontSize:16,fontWeight:800,color:T.white,marginBottom:20 }}>Create New Admin</div>
-            {[["Username / ID","id","text","admin_xyz"],["Full Name","name","text","Full Name"],["Password","password","password","password"]].map(([lbl,k,type,ph])=>(
+            {[["Username / ID","id","text","admin_xyz"],["Full Name","name","text","Full Name"],["Password","password",showAdminPass?"text":"password","••••••••"],["Confirm Password","confirmPassword",showAdminConfirm?"text":"password","Confirm password"]].map(([lbl,k,type,ph])=>(
               <div key={k} style={{ marginBottom:12 }}>
                 <div style={{ fontSize:11,color:T.dim,fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",marginBottom:4 }}>{lbl}</div>
-                <input type={type} placeholder={ph} value={form[k]} onChange={sf(k)}
-                  style={{ width:"100%",padding:"9px 13px",borderRadius:8,border:`1px solid ${T.border2}`,
-                    background:T.card,color:T.white,fontSize:13,outline:"none",boxSizing:"border-box" }}/>
+                <div style={{ position:"relative" }}>
+                  <input type={type} placeholder={ph} value={form[k]||""} onChange={sf(k)}
+                    style={{ width:"100%",padding:"9px 40px 9px 13px",borderRadius:8,border:`1px solid ${T.border2}`,
+                      background:T.card,color:T.white,fontSize:13,outline:"none",boxSizing:"border-box" }}/>
+                  {(k==="password"||k==="confirmPassword") && (
+                    <button type="button" onClick={()=>k==="password"?setShowAdminPass(p=>!p):setShowAdminConfirm(p=>!p)}
+                      style={{ position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",
+                        background:"none",border:"none",cursor:"pointer",color:"#9ca3af",fontSize:11,fontWeight:600 }}>
+                      {k==="password"?(showAdminPass?"HIDE":"SHOW"):(showAdminConfirm?"HIDE":"SHOW")}
+                    </button>
+                  )}
+                </div>
+                {k==="confirmPassword" && passErr && (
+                  <div style={{ color:"#ef4444",fontSize:12,marginTop:4 }}>{passErr}</div>
+                )}
               </div>
             ))}
             {[["Role","role",[["admin","Admin"],["employee","Employee"]]],["Branch","branch",[["laxmi","Lakshmi Nagar"],["raya","Raya"]]]].map(([lbl,k,opts])=>(

@@ -16,14 +16,15 @@ const BC = {
 const BRANCH_KEYS = ["laxmi", "raya"];
 
 const NAV = [
-  { id: "home",      label: "Home",       icon: "◈" },
-  { id: "patients",  label: "Patients",   icon: "♥" },
-  { id: "discharge", label: "Discharge",  icon: "⊟" },
-  { id: "medicines", label: "Medicines",  icon: "⊕" },
-  { id: "reports",   label: "Reports",    icon: "◧" },
-  { id: "billing",   label: "Billing",    icon: "₹" },
-  { id: "export",    label: "Export",     icon: "↓" },
-  { id: "profile",   label: "My Profile", icon: "◎" },
+  { id: "home",      label: "Home",       icon: "🏠" },
+  { id: "patients",  label: "Patients",   icon: "🧑‍⚕️" },
+  { id: "discharge", label: "Discharge",  icon: "🚪" },
+  { id: "medicines", label: "Medicines",  icon: "💊" },
+  { id: "reports",   label: "Reports",    icon: "📋" },
+  { id: "billing",   label: "Billing",    icon: "💳" },
+  { id: "export",    label: "Export",     icon: "📥" },
+  { id: "employees", label: "Employees",  icon: "👥" },
+  { id: "profile",   label: "My Profile", icon: "👤" },
 ];
 
 const SUMMARY_TYPES = ["Normal", "LAMA", "Refer", "Death", "DAMA"];
@@ -37,6 +38,30 @@ const fmtDt = (iso) => {
 const initials = (name = "") =>
   name.trim().split(" ").filter(Boolean).map(w => w[0]).join("").slice(0,2).toUpperCase();
 
+function exportPatientHistoryXLSX(pts, filename = "patient_history.xlsx") {
+  const wb = XLSX.utils.book_new();
+  const headers = ["SR.NO","PATIENT NAME","AGE","GENDER","UHID","BRANCH","DEPT","DOA","DOD","STATUS","SUMMARY TYPE","DOCTOR","PHONE"];
+  const rows = pts.map((p, i) => {
+    const adm = p.admissions?.at(-1) || {};
+    const d = adm.discharge || {};
+    const ds = p.dischargeSummary || {};
+    return [i+1, p.patientName||p.name||"", p.ageYY||p.age||"", p.gender||"", p.uhid||"", p._branchLabel||"", d.wardName||p.dept||"", d.doa?new Date(d.doa).toLocaleDateString("en-IN"):(p.admissions?.[0]?.dateTime?new Date(p.admissions[0].dateTime).toLocaleDateString("en-IN"):"—"), d.dod?new Date(d.dod).toLocaleDateString("en-IN"):"—", d.dod?"Discharged":"Admitted", ds.type||"Normal", ds.doctorName||d.doctorName||"—", p.phone||""];
+  });
+  const wsData = [["SANGI HOSPITAL — IPD PATIENT HISTORY RECORD"],["ESIC RAYA  |  Generated: "+new Date().toLocaleDateString("en-IN")+"  |  Confidential"],[],headers,...rows,[],["TOTAL PATIENTS",pts.length]];
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+  ws["!cols"] = [{wch:6},{wch:22},{wch:6},{wch:8},{wch:16},{wch:14},{wch:12},{wch:13},{wch:13},{wch:12},{wch:13},{wch:18},{wch:14}];
+  ws["!merges"] = [{s:{r:0,c:0},e:{r:0,c:12}},{s:{r:1,c:0},e:{r:1,c:12}}];
+  const titleStyle = {font:{bold:true,color:{rgb:"FFFFFF"},sz:14,name:"Arial"},fill:{fgColor:{rgb:"1A237E"},patternType:"solid"},alignment:{horizontal:"center",vertical:"center"}};
+  const subStyle = {font:{italic:true,color:{rgb:"FFFFFF"},sz:10,name:"Arial"},fill:{fgColor:{rgb:"008B8B"},patternType:"solid"},alignment:{horizontal:"center",vertical:"center"}};
+  const headerStyle = {font:{bold:true,color:{rgb:"FFFFFF"},sz:10,name:"Arial"},fill:{fgColor:{rgb:"6A0DAD"},patternType:"solid"},alignment:{horizontal:"center",vertical:"center",wrapText:true},border:{top:{style:"thin"},bottom:{style:"thin"},left:{style:"thin"},right:{style:"thin"}}};
+  const footerStyle = {font:{bold:true,color:{rgb:"FFFFFF"},sz:10,name:"Arial"},fill:{fgColor:{rgb:"008B8B"},patternType:"solid"},alignment:{horizontal:"center"}};
+  for (let c=0;c<=12;c++){const r0=XLSX.utils.encode_cell({r:0,c});const r1=XLSX.utils.encode_cell({r:1,c});if(!ws[r0])ws[r0]={v:"",t:"s"};if(!ws[r1])ws[r1]={v:"",t:"s"};ws[r0].s=titleStyle;ws[r1].s=subStyle;}
+  headers.forEach((_,ci)=>{const ref=XLSX.utils.encode_cell({r:3,c:ci});if(!ws[ref])ws[ref]={v:headers[ci],t:"s"};ws[ref].s=headerStyle;});
+  rows.forEach((row,ri)=>{const bgColor=ri%2===0?"E8F5E9":"FFFFFF";row.forEach((_,ci)=>{const ref=XLSX.utils.encode_cell({r:4+ri,c:ci});if(!ws[ref])ws[ref]={v:"",t:"s"};if(ci===9){const isD=row[9]==="Discharged";ws[ref].s={font:{bold:true,color:{rgb:isD?"1B5E20":"F57F17"},sz:9,name:"Arial"},fill:{fgColor:{rgb:isD?"C8E6C9":"FFF9C4"},patternType:"solid"},alignment:{horizontal:"center",vertical:"center"},border:{top:{style:"thin",color:{rgb:"BDBDBD"}},bottom:{style:"thin",color:{rgb:"BDBDBD"}},left:{style:"thin",color:{rgb:"BDBDBD"}},right:{style:"thin",color:{rgb:"BDBDBD"}}}};}else{ws[ref].s={font:{sz:9,name:"Arial",color:{rgb:ci===1?"1A237E":ci===4?"00695C":ci===5?"37474F":"424242"},bold:ci===1},fill:{fgColor:{rgb:bgColor},patternType:"solid"},alignment:{horizontal:ci===1?"left":"center",vertical:"center"},border:{top:{style:"thin",color:{rgb:"BDBDBD"}},bottom:{style:"thin",color:{rgb:"BDBDBD"}},left:{style:"thin",color:{rgb:"BDBDBD"}},right:{style:"thin",color:{rgb:"BDBDBD"}}}};}});});
+  const footerRow=4+rows.length+1;for(let c=0;c<=12;c++){const ref=XLSX.utils.encode_cell({r:footerRow,c});if(!ws[ref])ws[ref]={v:"",t:"s"};ws[ref].s=footerStyle;}
+  XLSX.utils.book_append_sheet(wb,ws,"Patient History");
+  XLSX.writeFile(wb,filename,{bookType:"xlsx",cellStyles:true});
+}
 function exportCSV(filename, rows, headers) {
   const csv = [headers.join(","), ...rows.map(r => headers.map(h => `"${(r[h] ?? "").toString().replace(/"/g,'""')}"`).join(","))].join("\n");
   const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" })); a.download = filename; a.click();
@@ -111,6 +136,16 @@ export default function ManagementAdminDashboard({ currentUser, onLogout }) {
   const [exportSumType,      setExportSumType]       = useState("All");
   const [dischSumFilter, setDischSumFilter] = useState("All");
   const [isDark, setIsDark] = useState(true); // dark mode default
+  const [showEmpModal,   setShowEmpModal]   = useState(false);
+  const [employees,      setEmployees]      = useState(() => { try { return JSON.parse(localStorage.getItem("hms_mgmt_employees") || "[]"); } catch { return []; } });
+  const [empForm,        setEmpForm]        = useState({ fullName:"", username:"", empId:"", dept:"Billing", email:"", phone:"", password:"", confirmPassword:"", branch:"laxmi" });
+  const [empOtpMode,     setEmpOtpMode]     = useState(false);
+  const [empOtp,         setEmpOtp]         = useState(["","","","","",""]);
+  const [empOtpSent,     setEmpOtpSent]     = useState(false);
+  const [empOtpTimer,    setEmpOtpTimer]    = useState(0);
+  const [empShowPass,    setEmpShowPass]    = useState(false);
+  const [empShowConfirm, setEmpShowConfirm] = useState(false);
+  const [empPassErr,     setEmpPassErr]     = useState("");
 
   const toast = (msg, type="ok") => { setNotif({ msg, type }); setTimeout(() => setNotif(null), 3000); };
 
@@ -149,7 +184,7 @@ export default function ManagementAdminDashboard({ currentUser, onLogout }) {
     else if (exportType === "medical") { pts.forEach(p => { const adm = p.admissions?.[0] || {}; const mh = adm.medicalHistory || p.medicalHistory || {}; exportTxt(`medhistory_${p.uhid}.txt`, `SANGI HOSPITAL — ${p._branchLabel}\nMEDICAL HISTORY\n\nPatient: ${p.patientName||p.name}\nUHID: ${p.uhid}\n\nPrevious Dx: ${mh.previousDiagnosis||"—"}\nPast Surgeries: ${mh.pastSurgeries||"—"}\nAllergies: ${mh.knownAllergies||"—"}\nChronic: ${mh.chronicConditions||"—"}\nCurrent Meds: ${mh.currentMedications||"—"}\nSmoking: ${mh.smokingStatus||"—"}\nAlcohol: ${mh.alcoholUse||"—"}\nNotes: ${mh.notes||"—"}`); }); toast(`Exported ${pts.length} file(s)`); }
     else if (exportType === "medicines") { exportCSV("medicines_export.csv", pts.flatMap(p => (p.medicines||[]).map(m => ({ Branch:p._branchLabel, Patient:p.patientName||p.name, UHID:p.uhid, Medicine:m.name, Qty:m.qty, Rate:m.rate, Total:m.qty*m.rate }))), ["Branch","Patient","UHID","Medicine","Qty","Rate","Total"]); toast("Medicines CSV exported"); }
     else if (exportType === "reports") { exportCSV("reports_export.csv", pts.flatMap(p => (p.reports||[]).map(r => ({ Branch:p._branchLabel, Patient:p.patientName||p.name, UHID:p.uhid, Report:r.name, Date:r.date, Result:r.result }))), ["Branch","Patient","UHID","Report","Date","Result"]); toast("Reports CSV exported"); }
-    else if (exportType === "patientHistory") { exportCSV("patient_history.csv", pts.map(p => ({ Branch:p._branchLabel, Name:p.patientName||p.name, UHID:p.uhid, Age:p.ageYY||p.age, Gender:p.gender, Dept:p.dept||"", Status:p.admissions?.at(-1)?.discharge?.dod?"Discharged":"Admitted", SummaryType:p.dischargeSummary?.type||"", ExpectedDOD:p.dischargeSummary?.expectedDod||"" })), ["Branch","Name","UHID","Age","Gender","Dept","Status","SummaryType","ExpectedDOD"]); toast("Patient history CSV exported"); }
+    else if (exportType === "patientHistory") { exportPatientHistoryXLSX(pts, "patient_history.xlsx"); toast("Patient history Excel exported ✓"); }
   };
 
   // ── Theme tokens (dark / light) ──────────────────────────────────────────
@@ -269,17 +304,18 @@ export default function ManagementAdminDashboard({ currentUser, onLogout }) {
       </div>
       <div style={c.statGrid}>
         {[
-          { label:"Branch Patients",    sub:"All records", val:locationPatients.length,  col:accent,    acc:accent+"18"  },
-          { label:"Total Admissions",   sub:"All time",    val:allAdmissions.length,      col:"#34d399", acc:"#22d3ee18"  },
-          { label:"Currently Admitted", sub:"Active",      val:currentlyAdmitted,          col:"#34d399", acc:"#34d39918"  },
-          { label:"Discharged",         sub:"Completed",   val:discharged,                 col:"#8b949e", acc:"#8b949e18"  },
-          { label:"Revenue Collected",  sub:bc.label,      val:fmt(totalRevenue),          col:"#f59e0b", acc:"#f59e0b18"  },
-          { label:"Colleagues",         sub:"Same branch", val:branchColleagues.length,    col:"#818cf8", acc:"#818cf818"  },
+          { label:"Branch Patients",    sub:"All records", val:locationPatients.length,  col:accent,    icon:<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> },
+          { label:"Total Admissions",   sub:"All time",    val:allAdmissions.length,      col:"#22d3ee", icon:<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> },
+          { label:"Currently Admitted", sub:"Active",      val:currentlyAdmitted,          col:"#34d399", icon:<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/><line x1="12" y1="15" x2="12" y2="17"/></svg> },
+          { label:"Discharged",         sub:"Completed",   val:discharged,                 col:"#8b949e", icon:<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.5"><polyline points="20 6 9 17 4 12"/></svg> },
+          { label:"Revenue Collected",  sub:bc.label,      val:fmt(totalRevenue),          col:"#f59e0b", icon:<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.5"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg> },
+          { label:"Colleagues",         sub:"Same branch", val:branchColleagues.length,    col:"#818cf8", icon:<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> },
         ].map((s,i) => (
-          <div key={i} style={c.statCard(s.acc)}>
-            <div style={c.statNum(s.col)}>{s.val}</div>
-            <div style={c.statLabel}>{s.label}</div>
-            <div style={c.statSub}>{s.sub}</div>
+          <div key={i} style={{ ...c.statCard(s.col+"15"), borderTop:`3px solid ${s.col}`, position:"relative", overflow:"hidden" }}>
+            <div style={{ position:"absolute", top:8, right:10, opacity:0.2, color:s.col }}>{s.icon}</div>
+            <div style={{ fontSize:10, color:s.col, fontWeight:700, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:8 }}>{s.label}</div>
+            <div style={{ fontSize:26, fontWeight:800, color:s.col, lineHeight:1, marginBottom:4 }}>{s.val}</div>
+            <div style={{ fontSize:10, color:T.txts }}>{s.sub}</div>
           </div>
         ))}
       </div>
@@ -525,7 +561,7 @@ export default function ManagementAdminDashboard({ currentUser, onLogout }) {
 
   // ── EXPORT ────────────────────────────────────────────────────────────────
   const renderExport = () => {
-    const exportOptions = [{ id:"discharge",label:"Discharge Summary",desc:"Full clinical summary .txt per patient",icon:"📋"},{ id:"medical",label:"Medical History",desc:"Medical history .txt per patient",icon:"🏥"},{ id:"medicines",label:"Medicines",desc:"Medicines with qty & rates as .csv",icon:"💊"},{ id:"reports",label:"Investigation Reports",desc:"Lab/radiology results as .csv",icon:"🔬"},{ id:"patientHistory",label:"Patient History",desc:"Full patient list as .csv",icon:"📊"}];
+    const exportOptions = [{ id:"discharge",label:"Discharge Summary",desc:"Full clinical summary .txt per patient",icon:"📋"},{ id:"medical",label:"Medical History",desc:"Medical history .txt per patient",icon:"🏥"},{ id:"medicines",label:"Medicines",desc:"Medicines with qty & rates as .csv",icon:"💊"},{ id:"reports",label:"Investigation Reports",desc:"Lab/radiology results as .csv",icon:"🔬"},{ id:"patientHistory",label:"Patient History",desc:"Full patient list as .xlsx",icon:"📊"}];
     const previewPts = getExportPatients();
     return (
       <div>
@@ -582,6 +618,61 @@ export default function ManagementAdminDashboard({ currentUser, onLogout }) {
     </div>
   );
 
+  const saveEmployee = () => {
+    if (!empForm.fullName||!empForm.username||!empForm.empId||!empForm.email||!empForm.phone||!empForm.password||!empForm.confirmPassword) {
+      setEmpPassErr("Please fill all fields"); return;
+    }
+    if (empForm.password !== empForm.confirmPassword) { setEmpPassErr("Passwords do not match"); return; }
+    const newEmp = { ...empForm, id: empForm.empId, name: empForm.fullName, role:"employee", status:"Active", createdBy: currentUser?.name||"Mgmt Admin", createdAt: new Date().toISOString() };
+    const updated = [...employees, newEmp];
+    setEmployees(updated);
+    try { localStorage.setItem("hms_mgmt_employees", JSON.stringify(updated)); } catch {}
+    setShowEmpModal(false);
+    setEmpForm({ fullName:"", username:"", empId:"", dept:"Billing", email:"", password:"", confirmPassword:"", branch:"laxmi" });
+    setEmpPassErr("");
+    toast("Employee created successfully");
+  };
+
+  const renderEmployees = () => (
+    <div>
+      <BranchHeader title="Employee Management" />
+      <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:16 }}>
+        <button onClick={()=>setShowEmpModal(true)} style={{ padding:"9px 20px", borderRadius:9, background:accent, color:"#000", border:"none", fontWeight:700, fontSize:13, cursor:"pointer" }}>+ Create Employee</button>
+      </div>
+      {employees.length === 0 ? (
+        <div style={{ ...c.card, textAlign:"center", padding:60, color:T.txts }}>
+          <div style={{ fontSize:40, marginBottom:12 }}>👤</div>
+          <div style={{ fontSize:14, fontWeight:600, color:T.txtm, marginBottom:6 }}>No employees yet</div>
+          <div style={{ fontSize:12 }}>Click "Create Employee" to add your first employee</div>
+        </div>
+      ) : (
+        <div style={{ ...c.card, padding:0, overflow:"hidden" }}>
+          <table style={{ ...c.tbl, width:"100%" }}>
+            <thead><tr style={{ background:T.bgCard }}>
+              {["Emp ID","Full Name","Username","Department","Email","Branch","Status","Created By"].map(h => (
+                <th key={h} style={{ ...c.th, padding:"10px 12px", textAlign:"left" }}>{h}</th>
+              ))}
+            </tr></thead>
+            <tbody>
+              {employees.map((emp, i) => (
+                <tr key={i} style={{ borderBottom:`1px solid ${T.bdr}`, background: i%2===0 ? T.bgCard : T.bg }}>
+                  <td style={{ ...c.td, fontFamily:"monospace", color:accent, fontSize:11 }}>{emp.empId||emp.id}</td>
+                  <td style={{ ...c.td, fontWeight:600, color:T.txtHigh }}>{emp.fullName||emp.name}</td>
+                  <td style={{ ...c.td, fontSize:11, color:T.txts }}>{emp.username}</td>
+                  <td style={{ ...c.td }}><span style={c.badge(accent)}>{emp.dept}</span></td>
+                  <td style={{ ...c.td, fontSize:11, color:T.txts }}>{emp.email}</td>
+                  <td style={{ ...c.td }}><span style={c.badge(BC[emp.branch]?.accent||accent)}>{BC[emp.branch]?.label||emp.branch}</span></td>
+                  <td style={{ ...c.td }}><span style={c.badge("#34d399")}>Active</span></td>
+                  <td style={{ ...c.td, fontSize:11, color:T.txts }}>{emp.createdBy}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+
   const renderContent = () => {
     switch(activeTab) {
       case "home":      return renderHome();
@@ -591,6 +682,7 @@ export default function ManagementAdminDashboard({ currentUser, onLogout }) {
       case "reports":   return renderReports();
       case "billing":   return renderBilling();
       case "export":    return renderExport();
+      case "employees": return renderEmployees();
       case "profile":   return renderProfile();
       default:          return renderHome();
     }
@@ -656,6 +748,72 @@ export default function ManagementAdminDashboard({ currentUser, onLogout }) {
         </aside>
         <main style={c.main}>{renderContent()}</main>
       </div>
+
+      {/* CREATE EMPLOYEE MODAL */}
+      {showEmpModal && (
+        <div style={c.modal} onClick={e=>e.target===e.currentTarget&&(setShowEmpModal(false),setEmpPassErr(""))}>
+          <div style={{ ...c.modalBox, width:480 }}>
+            <div style={c.modalTitle}>Create New Employee</div>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:4 }}>
+              {[["Full Name","fullName","text","Jane Doe"],["Username","username","text","jane.doe"],["Employee ID","empId","text","EMP-001"],["Email","email","email","jane@hospital.com"],["Phone","phone","tel","+91 98765 43210"]].map(([lbl,k,type,ph]) => (
+                <div key={k}>
+                  <label style={c.lbl}>{lbl}</label>
+                  <input type={type} placeholder={ph} value={empForm[k]} onChange={e=>{setEmpForm(f=>({...f,[k]:e.target.value}));setEmpPassErr("");}}
+                    style={c.inp}/>
+                </div>
+              ))}
+            </div>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:4 }}>
+              <div>
+                <label style={c.lbl}>Department</label>
+                <select value={empForm.dept} onChange={e=>setEmpForm(f=>({...f,dept:e.target.value}))} style={c.sel}>
+                  {["Billing","OPD","IPD","Pharmacy","Nursing","Lab","Radiology","Reception","Doctor","Other"].map(d=><option key={d}>{d}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={c.lbl}>Branch</label>
+                <select value={empForm.branch} onChange={e=>setEmpForm(f=>({...f,branch:e.target.value}))} style={c.sel}>
+                  <option value="laxmi">Laxmi Nagar</option>
+                  <option value="raya">Raya</option>
+                </select>
+              </div>
+            </div>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:4 }}>
+              <div>
+                <label style={c.lbl}>Password</label>
+                <div style={{ position:"relative" }}>
+                  <input type={empShowPass?"text":"password"} placeholder="••••••••" value={empForm.password}
+                    onChange={e=>{setEmpForm(f=>({...f,password:e.target.value}));setEmpPassErr("");}}
+                    style={{ ...c.inp, paddingRight:50 }}/>
+                  <button type="button" onClick={()=>setEmpShowPass(p=>!p)}
+                    style={{ position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:T.txts,fontSize:11,fontWeight:600 }}>
+                    {empShowPass?"HIDE":"SHOW"}
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label style={c.lbl}>Confirm Password</label>
+                <div style={{ position:"relative" }}>
+                  <input type={empShowConfirm?"text":"password"} placeholder="••••••••" value={empForm.confirmPassword}
+                    onChange={e=>{setEmpForm(f=>({...f,confirmPassword:e.target.value}));setEmpPassErr("");}}
+                    style={{ ...c.inp, paddingRight:50 }}/>
+                  <button type="button" onClick={()=>setEmpShowConfirm(p=>!p)}
+                    style={{ position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:T.txts,fontSize:11,fontWeight:600 }}>
+                    {empShowConfirm?"HIDE":"SHOW"}
+                  </button>
+                </div>
+              </div>
+            </div>
+            {empPassErr && <div style={{ color:"#f87171", fontSize:12, marginBottom:8, marginTop:4 }}>{empPassErr}</div>}
+            {!empOtpMode && <div style={{ textAlign:"right", marginTop:-8, marginBottom:10 }}><span onClick={()=>setEmpOtpMode(true)} style={{ fontSize:11, color:accent, cursor:"pointer", textDecoration:"underline" }}>Forgot Password?</span></div>}
+            {empOtpMode && <div style={{ background:T.bgSurf, border:"1px solid #282a38", borderRadius:10, padding:"14px", marginBottom:10 }}><div style={{ fontSize:11, fontWeight:600, color:T.txtHigh, marginBottom:6 }}>OTP Verification</div><div style={{ fontSize:10, color:T.txts, marginBottom:12 }}>A 6-digit OTP will be sent to the employee phone and email.</div><div style={{ display:"flex", gap:6, justifyContent:"center", marginBottom:10 }}>{empOtp.map((d,i) => <input key={i} maxLength={1} value={d} inputMode="numeric" onChange={e=>{ const v=e.target.value.replace(/\D/,""); const a=[...empOtp]; a[i]=v; setEmpOtp(a); if(v&&i<5) document.getElementById(`otp_${i+1}`)?.focus(); }} onKeyDown={e=>{ if(e.key==="Backspace"&&!d&&i>0) document.getElementById(`otp_${i-1}`)?.focus(); }} id={`otp_${i}`} style={{ width:36, height:40, textAlign:"center", fontSize:16, fontWeight:700, background:T.bgCard, border:`1px solid ${accent}50`, borderRadius:7, color:T.txtHigh, outline:"none" }}/>) }</div><div style={{ display:"flex", gap:8 }}><button style={c.cancelBtn} onClick={()=>{ setEmpOtpMode(false); setEmpOtp(["","","","","",""]); }}>Cancel</button><button style={c.saveBtn} onClick={()=>{ toast("OTP verified — set new password","ok"); setEmpOtpMode(false); setEmpOtp(["","","","","",""]); }}>Verify OTP</button></div></div>}
+            <div style={c.mFoot}>
+              <button style={c.cancelBtn} onClick={()=>{setShowEmpModal(false);setEmpPassErr("");setEmpOtpMode(false);setEmpOtp(["","","","","",""]);  }}>Cancel</button>
+              <button style={c.saveBtn} onClick={saveEmployee}>Create Employee</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* MEDICINES MODAL */}
       {showMedModal && editMedPt && <MedDrawer editMedPt={editMedPt} onClose={()=>{setShowMedModal(false);setEditMedPt(null);}} updateMed={updateMed} addMedRow={addMedRow} delMedRow={delMedRow} saveMeds={saveMeds} fmt={fmt} canEditRate={true} />}

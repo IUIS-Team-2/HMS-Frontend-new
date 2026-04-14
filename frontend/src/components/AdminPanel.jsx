@@ -442,7 +442,9 @@ function DischargePage({ branch }) {
 function EmployeesPage({ user }) {
   const branchUsers = HMS_USERS.filter(u => u.role==='employee' && (user.branch==='all'||u.branch===user.branch));
   const [modal, setModal] = useState(false);
-  const [form, setForm] = useState({name:'',username:'',password:'',dept:'Billing',branch:user.branch});
+  const [form, setForm] = useState({name:'',username:'',password:'',confirmPassword:'',dept:'Billing',branch:user.branch});
+  const [showEmpPass, setShowEmpPass] = useState(false);
+  const [showEmpConfirm, setShowEmpConfirm] = useState(false);
   const [users, setUsers] = useState(branchUsers);
 
   const create = () => {
