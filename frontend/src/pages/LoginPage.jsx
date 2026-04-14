@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { apiService } from "../services/apiService";
 
 export default function LoginPage({ onLogin }) {
   const [showPassword, setShowPassword] = useState(false);
@@ -8,17 +9,39 @@ export default function LoginPage({ onLogin }) {
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
-    await new Promise(r => setTimeout(r, 400));
-    const { getAllUsers } = await import("../data/constants");
-    const found = getAllUsers().find(u => u.id === username && u.password === password);
-    const res = found ? { success: true } : { success: false, error: "Invalid credentials" };
-    if (found) onLogin(found, found.branch || (found.locations && found.locations[0]) || "laxmi");
-    if (!res.success) setError(res.error);
-    setLoading(false);
-  };
+  e.preventDefault();
+  setError('');
+  setLoading(true);
+
+  try {
+    // 1. Call the real Django backend
+    const data = await apiService.login(username, password);
+
+    // 2. Save the secure JWT token so the interceptor can use it
+    sessionStorage.setItem('hms_token', data.access);
+
+    // 3. Decode the JWT token to read the custom data you built in serializers.py
+    const payload = JSON.parse(atob(data.access.split('.')[1]));
+
+    const loggedInUser = {
+      id: payload.username,
+      username: payload.username,
+      name: payload.name,
+      role: payload.role,
+      branch: payload.branch,
+      locations: [payload.branch]
+    };
+
+    // 4. Send the user into the app!
+    onLogin(loggedInUser, payload.branch || "laxmi");
+
+  } catch (err) {
+    // Show Django's error message (e.g., "No active account found with the given credentials")
+    setError(err.response?.data?.detail || "Invalid username or password");
+  }
+
+  setLoading(false);
+};
 
   const demoFill = (u, p) => { setUsername(u); setPassword(p); setError(''); };
 

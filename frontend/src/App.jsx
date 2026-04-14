@@ -472,7 +472,7 @@ const handleViewBill = (req) => {
           
           onApprovePrint={handleApprovePrint} 
           onViewBill={handleViewBill} 
-          onLogout={() => { setLoggedIn(false); setCurrentUser(null); resetAll(); setPrintRequests([]); try { sessionStorage.removeItem('hms_loggedIn'); sessionStorage.removeItem('hms_currentUser'); sessionStorage.removeItem('hms_page'); } catch {} }}
+          onLogout={() => { setLoggedIn(false); setCurrentUser(null); resetAll(); setPrintRequests([]); try { sessionStorage.removeItem('hms_loggedIn'); sessionStorage.removeItem('hms_currentUser'); sessionStorage.removeItem('hms_page');sessionStorage.removeItem('hms_token'); } catch {} }}
         />
         <ToastContainer position="bottom-right" />
       </ThemeProvider>
@@ -485,7 +485,7 @@ const handleViewBill = (req) => {
       <ThemeProvider><ManagementAdminDashboard
         currentUser={currentUser}
         db={db}
-        onLogout={() => { setLoggedIn(false); setCurrentUser(null); resetAll(); try { sessionStorage.removeItem('hms_loggedIn'); sessionStorage.removeItem('hms_currentUser'); sessionStorage.removeItem('hms_page'); } catch {} }}
+        onLogout={() => { setLoggedIn(false); setCurrentUser(null); resetAll(); try { sessionStorage.removeItem('hms_loggedIn'); sessionStorage.removeItem('hms_currentUser'); sessionStorage.removeItem('hms_page'); sessionStorage.removeItem('hms_token'); } catch {} }}
       /></ThemeProvider>
     );
   }
@@ -494,7 +494,7 @@ const handleViewBill = (req) => {
     return (
       <ThemeProvider><EmployeeDashboard
         currentUser={currentUser}
-        onLogout={() => { setLoggedIn(false); setCurrentUser(null); resetAll(); try { sessionStorage.removeItem('hms_loggedIn'); sessionStorage.removeItem('hms_currentUser'); sessionStorage.removeItem('hms_page'); } catch {} }}
+        onLogout={() => { setLoggedIn(false); setCurrentUser(null); resetAll(); try { sessionStorage.removeItem('hms_loggedIn'); sessionStorage.removeItem('hms_currentUser'); sessionStorage.removeItem('hms_page');sessionStorage.removeItem('hms_token'); } catch {} }}
       /></ThemeProvider>
     );
   }
@@ -536,7 +536,7 @@ const handleViewBill = (req) => {
                 </div>
               </div>
               <button
-                onClick={() => { setLoggedIn(false); setCurrentUser(null); resetAll(); try { sessionStorage.removeItem('hms_loggedIn'); sessionStorage.removeItem('hms_currentUser'); sessionStorage.removeItem('hms_page'); } catch {} }}
+                onClick={() => { setLoggedIn(false); setCurrentUser(null); resetAll(); try { sessionStorage.removeItem('hms_loggedIn'); sessionStorage.removeItem('hms_currentUser'); sessionStorage.removeItem('hms_page');sessionStorage.removeItem('hms_token'); } catch {} }}
                 style={{ padding: "6px 14px", borderRadius: 8, background: "rgba(255,255,255,.1)", border: "1px solid rgba(255,255,255,.2)", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
                 Logout
               </button>

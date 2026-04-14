@@ -2,7 +2,25 @@ import axios from 'axios';
 
 const BASE_URL = 'http://localhost:8000/api'; 
 
+// 🌟 NEW: Automatically attach the JWT token to EVERY request
+axios.interceptors.request.use(
+    (config) => {
+        const token = sessionStorage.getItem('hms_token');
+        if (token) {
+            config.headers['Authorization'] = `Bearer ${token}`;
+        }
+        return config;
+    },
+    (error) => Promise.reject(error)
+);
+
 export const apiService = {
+
+
+    login: async (username, password) => {
+        const response = await axios.post(`${BASE_URL}/users/login/`, { username, password });
+        return response.data;
+    },
     
     getPatients: async () => {
         try {
