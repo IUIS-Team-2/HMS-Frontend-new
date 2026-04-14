@@ -141,13 +141,11 @@ export default function PatientsHistoryPage({ db, locId, onBack, onDischarge, on
             <tbody>
               {filtered.map((r, i) => {
                 const isDischarge = r.dod && r.status;
-                
                 const hasBill = r.billing && r.billing.printStatus === 'APPROVED';
-                
                 const expDod = r.admObj.discharge?.expectedDod;
 
-                // 🌟 FIX 2: Trick the modal into only seeing THIS specific admission!
-                return (<tr key={i} onClick={() => onViewPatient({ ...r.patientObj, admissions: [r.admObj] })}>
+                // 🌟 FIX 1: Pass medHistory, dischargeStatus, and admNo to the main PatientDetailModal so it isn't blank
+                return (<tr key={i} onClick={() => onViewPatient({ ...r.patientObj, admissions: [r.admObj], medHistory: r.admObj.medicalHistory, dischargeStatus: r.status, admNo: r.admNo })}>
                   <td style={{ color: T.textMuted, fontSize: 12, width: 40 }}>{i + 1}</td>
                   <td>
                     <div className="hist-pt-name">{r.patientName}</div>
@@ -168,9 +166,10 @@ export default function PatientsHistoryPage({ db, locId, onBack, onDischarge, on
                   <td onClick={e => e.stopPropagation()}>
                     {r.admObj.medicalHistory && (r.admObj.medicalHistory.previousDiagnosis || r.admObj.medicalHistory.currentMedications || r.admObj.medicalHistory.knownAllergies) ? (
                       <button
+                        // 🌟 FIX 2: Trigger your local View Modal instead of the external page
                         onClick={e => {
                           e.stopPropagation();
-                          onViewMedical(r.patientObj, r.admObj);
+                          setMedHistModal(r.admObj.medicalHistory); 
                         }}
                         style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, padding: "4px 11px", borderRadius: 20, background: "#ECFDF5", color: "#059669", border: "1px solid #A7F3D0", cursor: "pointer" }}
                       >
@@ -178,9 +177,10 @@ export default function PatientsHistoryPage({ db, locId, onBack, onDischarge, on
                       </button>
                     ) : (
                       <button
+                        // 🌟 FIX 3: Trigger your local Fill Modal instead of the external page
                         onClick={e => {
                           e.stopPropagation();
-                          onViewMedical(r.patientObj, r.admObj);
+                          setFillMedModal({ patientObj: r.patientObj, admObj: r.admObj });
                         }}
                         style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, padding: "4px 11px", borderRadius: 20, background: "#FEF3C7", color: "#D97706", border: "1px solid #FDE68A", cursor: "pointer" }}
                       >
@@ -188,6 +188,8 @@ export default function PatientsHistoryPage({ db, locId, onBack, onDischarge, on
                       </button>
                     )}
                   </td>
+                  
+                  {/* Discharge Column */}
                   <td>
                     {isDischarge ? (
                       <div>

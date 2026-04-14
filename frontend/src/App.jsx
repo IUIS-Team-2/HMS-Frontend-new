@@ -23,6 +23,7 @@ import ManagementAdminDashboard from './pages/Managementadmindashboard';
 import EmployeeDashboard from './pages/EmployeeDashboard';
 import MedicalHistoryPage from "./pages/MedicalHistoryPage";
 import LoginPage from "./pages/LoginPage";
+import { ThemeProvider } from "./context/ThemeContext";
 
 // Modals
 import UHIDScreen from "./modals/UHIDScreen";
@@ -58,10 +59,16 @@ function getAllUsers() {
 
 // ─── Root App ─────────────────────────────────────────────────────────────────
 export default function App() {
-  const [loggedIn, setLoggedIn] = useState(false);
-  const [currentUser, setCurrentUser] = useState(null);
+  const [loggedIn, setLoggedIn] = useState(() => {
+    try { return sessionStorage.getItem('hms_loggedIn') === 'true'; } catch { return false; }
+  });
+  const [currentUser, setCurrentUser] = useState(() => {
+    try { const u = sessionStorage.getItem('hms_currentUser'); return u ? JSON.parse(u) : null; } catch { return null; }
+  });
   const [locId, setLocId] = useState("laxmi");
-  const [page, setPage] = useState("patient");
+  const [page, setPage] = useState(() => {
+    try { return sessionStorage.getItem('hms_page') || 'patient'; } catch { return 'patient'; }
+  });
   const [subPage, setSubPage] = useState("search");
   const [uhid, setUhid] = useState(null);
   const [admNo, setAdmNo] = useState(1);
@@ -173,32 +180,26 @@ export default function App() {
 
   const switchLoc = id => { setLocId(id); resetAll(); setShowPatientDetail(null); };
 
-const handleLogin = (user, loc) => {
-  setCurrentUser(user);
-  setLocId(loc || "laxmi");
-  setLoggedIn(true);
-  sessionStorage.setItem("loggedIn", "true");
-
-  // 🌟 FIXED: Replaced 'found' with 'user'
-  sessionStorage.setItem("currentUser", JSON.stringify(user));
-  sessionStorage.setItem("locId", loc || "laxmi");
-
-  loadDashboardData(user.role);
-
-  if (user.role === "superadmin") {
-    setPage("superadmin"); 
-    sessionStorage.setItem("page", "superadmin");
-  } else if (user.role === "managementadmin") {
-    setPage("managementadmin");
-    sessionStorage.setItem("page", "managementadmin");
-  } else if (["opd","ipd","billing","pharmacy","doctor","nursing","lab","radiology","reception","employee"].includes(user.role)) {
-    setPage("employee");
-    sessionStorage.setItem("page", "employee");
-  } else {
-    setPage("patient");
-    setSubPage("search");
-  }
-};
+  const handleLogin = (user, loc) => {
+    setCurrentUser(user);
+    setLocId(loc || "laxmi");
+    setLoggedIn(true);
+    try {
+      sessionStorage.setItem('hms_loggedIn', 'true');
+      sessionStorage.setItem('hms_currentUser', JSON.stringify(user));
+      sessionStorage.setItem('hms_page', user.role === 'superadmin' ? 'superadmin' : user.role === 'managementadmin' ? 'managementadmin' : 'employee');
+    } catch {}
+    if (user.role === "superadmin") {
+      setPage("superadmin");
+    } else if (user.role === "managementadmin") {
+      setPage("managementadmin");
+    } else if (["opd","ipd","billing","pharmacy","doctor","nursing","lab","radiology","reception","employee"].includes(user.role)) {
+      setPage("employee");
+    } else {
+      setPage("patient");
+      setSubPage("search");
+    }
+  };
 
     useEffect(() => { setLoginCallback(handleLogin); });
 
@@ -396,9 +397,8 @@ const handleLogin = (user, loc) => {
       toast.success("Services and Billing saved!");
     } catch (error) { toast.error("Failed to save Services/Billing."); }
   };
-
   
-  const handleViewBill = (req) => {
+const handleViewBill = (req) => {
     setShowPrint(true);
     setUhid(req.uhid);
     setPatient(req.patient || patient);
@@ -409,6 +409,7 @@ const handleLogin = (user, loc) => {
     setAdmNo(req.admNo);
   };
 
+  if (!loggedIn) return <ThemeProvider><LoginPage onLogin={handleLogin} /></ThemeProvider>;
   const handleRequestPrint = async (req) => {
     try {
       await apiService.requestPrint(uhid, admNo);
@@ -465,33 +466,36 @@ const handleLogin = (user, loc) => {
             svcs={svcs} billing={billing} locId={locId} admNo={admNo}
             onClose={() => setShowPrint(false)} />
         )}
-        <SuperAdminDashboard
+        <ThemeProvider><SuperAdminDashboard
           db={db}
           printRequests={printRequests}
+          
           onApprovePrint={handleApprovePrint} 
-          onViewBill={handleViewBill} // 🌟 Added the missing prop here
-          onLogout={() => { setLoggedIn(false); setCurrentUser(null); resetAll(); setPrintRequests([]); sessionStorage.clear(); }}
+          onViewBill={handleViewBill} 
+          onLogout={() => { setLoggedIn(false); setCurrentUser(null); resetAll(); setPrintRequests([]); try { sessionStorage.removeItem('hms_loggedIn'); sessionStorage.removeItem('hms_currentUser'); sessionStorage.removeItem('hms_page'); } catch {} }}
         />
         <ToastContainer position="bottom-right" />
+      </ThemeProvider>
       </>
     );
   }
 
   if (page === "managementadmin") {
     return (
-      <ManagementAdminDashboard
+      <ThemeProvider><ManagementAdminDashboard
+        currentUser={currentUser}
         db={db}
-        onLogout={() => { setLoggedIn(false); setCurrentUser(null); resetAll(); }}
-      />
+        onLogout={() => { setLoggedIn(false); setCurrentUser(null); resetAll(); try { sessionStorage.removeItem('hms_loggedIn'); sessionStorage.removeItem('hms_currentUser'); sessionStorage.removeItem('hms_page'); } catch {} }}
+      /></ThemeProvider>
     );
   }
 
   if (page === "employee") {
     return (
-      <EmployeeDashboard
+      <ThemeProvider><EmployeeDashboard
         currentUser={currentUser}
-        onLogout={() => { setLoggedIn(false); setCurrentUser(null); resetAll(); }}
-      />
+        onLogout={() => { setLoggedIn(false); setCurrentUser(null); resetAll(); try { sessionStorage.removeItem('hms_loggedIn'); sessionStorage.removeItem('hms_currentUser'); sessionStorage.removeItem('hms_page'); } catch {} }}
+      /></ThemeProvider>
     );
   }
 
@@ -532,7 +536,7 @@ const handleLogin = (user, loc) => {
                 </div>
               </div>
               <button
-                onClick={() => { setLoggedIn(false); setCurrentUser(null); resetAll(); sessionStorage.clear(); }}
+                onClick={() => { setLoggedIn(false); setCurrentUser(null); resetAll(); try { sessionStorage.removeItem('hms_loggedIn'); sessionStorage.removeItem('hms_currentUser'); sessionStorage.removeItem('hms_page'); } catch {} }}
                 style={{ padding: "6px 14px", borderRadius: 8, background: "rgba(255,255,255,.1)", border: "1px solid rgba(255,255,255,.2)", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
                 Logout
               </button>
