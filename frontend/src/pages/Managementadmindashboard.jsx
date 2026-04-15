@@ -4,7 +4,6 @@ import MedDrawer from "../components/MedDrawer";
 // BG: #05080f | Sidebar: #080c18 | Cards: #0b1120 | Laxmi=Jade | Raya=Violet
 
 import { useState, useMemo } from "react";
-import { LOCATION_DB } from "../data/mockDb";
 import { apiService } from "../services/apiService";
 import { toast } from "react-toastify";
 
@@ -75,26 +74,6 @@ function buildDischargeSummaryText(p, branchLabel, ds = {}, mh = {}, meds = [], 
   return `========================================\n  SANGI HOSPITAL — ${branchLabel.toUpperCase()}\n  DISCHARGE SUMMARY [${ds.type||"Normal"}]\n========================================\n\nPatient Name  : ${p.patientName||p.name||""}\nUHID          : ${p.uhid}\nAge / Gender  : ${p.ageYY||p.age||""}Y / ${p.gender||""}\nDepartment    : ${ds.wardName||p.dept||""}\nAdmit Date    : ${fmtDt(p.admissions?.[0]?.dateTime||p.admitDate)}\nDischarge Date: ${ds.dod||ds.date||"—"}\nExpected DOD  : ${ds.expectedDod||"—"}\nTreating Dr.  : ${ds.doctorName||mh.treatingDoctor||"—"}\n\n── CLINICAL ────────────────────────────\nDiagnosis     : ${ds.diagnosis||"—"}\nTreatment     : ${ds.treatment||"—"}\nFollow-up     : ${ds.followUp||"—"}\nNotes         : ${ds.notes||"—"}\n\n── MEDICAL HISTORY ─────────────────────\nPrevious Dx   : ${mh.previousDiagnosis||"—"}\nPast Surgeries: ${mh.pastSurgeries||"—"}\nAllergies     : ${mh.knownAllergies||"—"}\nChronic Cond. : ${mh.chronicConditions||"—"}\nCurrent Meds  : ${mh.currentMedications||"—"}\nSmoking       : ${mh.smokingStatus||"—"}\nAlcohol       : ${mh.alcoholUse||"—"}\n\n── MEDICINES PRESCRIBED ────────────────\n${medLines||"  None"}\n\n── INVESTIGATIONS ──────────────────────\n${repLines||"  None"}\n\n========================================\n  Generated: ${new Date().toLocaleString("en-IN")}\n========================================`;
 }
 
-const SEED_MEDS = {
-  "laxmi": [[{id:1,name:"Aspirin",qty:30,rate:5},{id:2,name:"Atorvastatin",qty:14,rate:12}],[{id:1,name:"Ibuprofen",qty:20,rate:8},{id:2,name:"Calcium",qty:30,rate:6}]],
-  "raya":  [[{id:1,name:"Metformin",qty:60,rate:4},{id:2,name:"Glimepiride",qty:30,rate:9}],[{id:1,name:"Azithromycin",qty:5,rate:25},{id:2,name:"Paracetamol",qty:15,rate:3}]],
-};
-const SEED_REPS = {
-  "laxmi": [[{id:1,name:"ECG",date:"2026-03-29",result:"Normal sinus rhythm"},{id:2,name:"Blood Panel",date:"2026-03-30",result:"Cholesterol elevated"}],[{id:1,name:"X-Ray Knee",date:"2026-03-21",result:"Mild arthritis"}]],
-  "raya":  [[{id:1,name:"HbA1c",date:"2026-04-04",result:"8.2%"},{id:2,name:"FBS",date:"2026-04-03",result:"210 mg/dL"}],[{id:1,name:"Chest X-Ray",date:"2026-03-26",result:"Consolidation RLL"}]],
-};
-
-function seedPatients(dbBranch, branchKey) {
-  return (dbBranch || []).map((p, idx) => ({
-    ...p,
-    medicines: p.medicines || (SEED_MEDS[branchKey]?.[idx] || []),
-    reports:   p.reports   || (SEED_REPS[branchKey]?.[idx]  || []),
-    dischargeSummary: p.dischargeSummary || {
-      type:"Normal", diagnosis:"", treatment:"", followUp:"", notes:"", doctorName:"", date:"", expectedDod:""
-    },
-  }));
-}
-
 const SUMMARY_META = {
   Normal: { color:"#34d399", bg:"#34d39916", label:"Normal" },
   LAMA:   { color:"#f59e0b", bg:"#f59e0b16", label:"LAMA"   },
@@ -114,10 +93,10 @@ export default function ManagementAdminDashboard({ currentUser, onLogout }) {
   const [collapsed,  setCollapsed]  = useState(false);
   const [notif,      setNotif]      = useState(null);
 
-  const [allPatients, setAllPatients] = useState(() => ({
-    laxmi: seedPatients(LOCATION_DB["laxmi"], "laxmi"),
-    raya:  seedPatients(LOCATION_DB["raya"],  "raya"),
-  }));
+  const [allPatients, setAllPatients] = useState({
+    laxmi: [],
+    raya:  []
+  });
 
   const [showMedModal,     setShowMedModal]     = useState(false);
   const [showSummaryModal, setShowSummaryModal] = useState(false);

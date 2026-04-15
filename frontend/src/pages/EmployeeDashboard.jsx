@@ -4,7 +4,6 @@ import MedDrawer from "../components/MedDrawer";
 // BG: #0d0e12 | Sidebar: #111318 | Cards: #14161e | Laxmi=Amber | Raya=Cyan
 
 import { useState, useMemo } from "react";
-import { LOCATION_DB } from "../data/mockDb";
 import { apiService } from "../services/apiService";
 import { toast } from "react-toastify";
 

@@ -69,8 +69,6 @@ export default function LoginPage({ onLogin }) {
     }
   };
 
-  const demoFill = (u, p) => { setUsername(u); setPassword(p); setError(''); };
-
   return (
     <div style={{
       minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -221,28 +219,6 @@ export default function LoginPage({ onLogin }) {
                 {loading ? 'Signing in…' : 'Sign In'}
               </button>
             </form>
-
-            <div style={{ marginTop:24, padding:'16px', background:'#f8fafc', borderRadius:10, border:'1px solid #e5e7eb' }}>
-              <div style={{ fontSize:11, fontWeight:700, color:'#6b7280', marginBottom:10, textTransform:'uppercase', letterSpacing:'0.08em' }}>Demo Credentials</div>
-              <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
-                {[
-                  { label:'Super Admin', u:'superadmin', p:'admin123' },
-                  { label:'Admin · Laxmi Nagar', u:'admin.laxmi', p:'laxmi123' },
-                  { label:'Admin · Raya', u:'admin.raya', p:'raya123' },
-                  { label:'Employee · Billing', u:'billing.laxmi', p:'bill123' },
-                  { label:'Management Admin', u:'mgmt_admin', p:'mgmt123' },
-                ].map(d => (
-                  <button key={d.u} onClick={() => demoFill(d.u, d.p)} style={{
-                    display:'flex', justifyContent:'space-between', alignItems:'center',
-                    background:'#fff', border:'1px solid #e5e7eb', borderRadius:7,
-                    padding:'6px 12px', cursor:'pointer', fontSize:12, color:'#374151',
-                  }}>
-                    <span style={{ fontWeight:500 }}>{d.label}</span>
-                    <span style={{ color:'#9ca3af', fontFamily:'monospace' }}>{d.u}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
           </>
         )}
       </div>

@@ -1,7 +1,6 @@
 import { useState, useMemo, useEffect, useRef, createContext, useContext } from "react";
 import { useTheme } from "../context/ThemeContext";
 import * as XLSX from "xlsx";
-import { USERS } from "../data/constants";
 import { apiService } from "../services/apiService"; 
 import { toast } from "react-toastify";
 
@@ -951,8 +950,7 @@ function ReportsTab({ all }) {
 ══════════════════════════════════════════════════════════════ */
 function AdminsTab() {
   const T = useT();
-  const base = USERS||[];
-  const [users, setUsers] = useState(base);
+  const [users, setUsers] = useState([]);
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState({ id:"", name:"", password:"", confirmPassword:"", role:"admin", branch:"laxmi" });
   const [showAdminPass, setShowAdminPass] = useState(false);

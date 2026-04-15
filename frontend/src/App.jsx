@@ -29,34 +29,6 @@ import { ThemeProvider } from "./context/ThemeContext";
 import UHIDScreen from "./modals/UHIDScreen";
 import PrintModal from "./modals/PrintModal";
 import PatientDetailModal from "./modals/PatientDetailModal";
-
-import AdminPanel from "./AdminPanel";
-
-// ─── All users — seed + localStorage created users ────────────────────────────
-const SEED_USERS = [
-  { id:"superadmin",   username:"superadmin",    password:"admin123",  role:"superadmin", name:"Super Admin",       branch:"laxmi", locations:["laxmi"] },
-  { id:"admin_laxmi",  username:"admin.laxmi",   password:"laxmi123",  role:"admin",      name:"Admin Laxmi Nagar", branch:"laxmi", locations:["laxmi"] },
-  { id:"admin_raya",   username:"admin.raya",    password:"raya123",   role:"admin",      name:"Admin Raya",        branch:"raya",  locations:["raya"]  },
-  { id:"bill_laxmi",   username:"billing.laxmi", password:"bill123",   role:"billing",    name:"Billing Staff",     branch:"laxmi", locations:["laxmi"], dept:"Billing"  },
-  { id:"pharma_raya",  username:"pharma.raya",   password:"pharma123", role:"pharmacy",   name:"Pharmacy Staff",    branch:"raya",  locations:["raya"],  dept:"Pharmacy" },
-];
-
-function getAllUsers() {
-  const base = [...SEED_USERS];
-  try {
-    const admins    = JSON.parse(localStorage.getItem("hms_admins")     || "[]");
-    const deptUsers = JSON.parse(localStorage.getItem("hms_dept_users") || "[]");
-    const ids = new Set(base.map(u => u.username));
-    [...admins, ...deptUsers].forEach(u => {
-      if (!ids.has(u.id) && !ids.has(u.username)) {
-        base.push({ ...u, username: u.id, locations: [u.branch] });
-        ids.add(u.id);
-      }
-    });
-  } catch {}
-  return base;
-}
-
 // ─── Root App ─────────────────────────────────────────────────────────────────
 export default function App() {
   const [loggedIn, setLoggedIn] = useState(() => {
@@ -446,15 +418,11 @@ const handleViewBill = (req) => {
       <AuthContext.Provider value={{
         user: null,
         logout: () => {},
-        login: (username, password) => {
-          const users = getAllUsers();
-          const found = users.find(u => u.id === username && u.password === password);
-          if (!found) return { success: false, error: 'Invalid credentials' };
-          handleLogin(found, found.branch || found.locations?.[0] || "laxmi");
-          return { success: true };
-        }
+        login: () => {} // The actual login API call is now safely handled inside LoginPage.jsx
       }}>
-        <LoginPage onLogin={handleLogin} />
+        <ThemeProvider>
+          <LoginPage onLogin={handleLogin} />
+        </ThemeProvider>
       </AuthContext.Provider>
     );
   }
@@ -600,25 +568,31 @@ const handleViewBill = (req) => {
   );
 }
 
+/* ══════════════════════════════════════════════════════════════
+   AUTHENTICATION CONTEXT (Cleaned up for Backend)
+══════════════════════════════════════════════════════════════ */
 export const AuthContext = createContext(null);
 let _loginCallback = null;
 export function setLoginCallback(fn) { _loginCallback = fn; }
+
 export function useAuth() {
-  const { getAllUsers } = require('./data/constants');
-  // 🌟 This line reads the user from the session we saved during login
-  const user = (() => { try { return JSON.parse(sessionStorage.getItem("currentUser")); } catch { return null; } })();
+  // Reads the real user payload we saved from the Django JWT token
+  const user = (() => { 
+    try { 
+      return JSON.parse(sessionStorage.getItem("hms_currentUser")); 
+    } catch { 
+      return null; 
+    } 
+  })();
   
   const logout = () => { 
-    sessionStorage.clear(); 
+    sessionStorage.removeItem('hms_loggedIn'); 
+    sessionStorage.removeItem('hms_currentUser'); 
+    sessionStorage.removeItem('hms_page');
+    sessionStorage.removeItem('hms_token'); // Wipes the Django secure token
     window.location.reload(); 
   };
 
-  const login = (username, password) => {
-    const found = getAllUsers().find(u => u.id === username && u.password === password);
-    if (!found) return { success: false, error: 'Invalid credentials' };
-    if (_loginCallback) _loginCallback(found, found.branch || (found.locations && found.locations[0]) || "laxmi");
-    return { success: true };
-  };
-
-  return { user, logout, login };
+  // We no longer need the fake login logic here, just pass the context
+  return { user, logout };
 }
