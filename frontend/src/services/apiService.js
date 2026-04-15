@@ -21,6 +21,16 @@ export const apiService = {
         const response = await axios.post(`${BASE_URL}/users/login/`, { username, password });
         return response.data;
     },
+
+    getUsers: async () => {
+        const response = await axios.get(`${BASE_URL}/users/manage/`);
+        return response.data;
+    },
+
+    createUser: async (userData) => {
+        const response = await axios.post(`${BASE_URL}/users/manage/`, userData);
+        return response.data;
+    },
     
     getPatients: async () => {
         try {

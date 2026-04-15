@@ -14,39 +14,43 @@ export default function LoginPage({ onLogin }) {
   const [forgotError, setForgotError] = useState('');
 
   const handleSubmit = async (e) => {
-  e.preventDefault();
-  setError('');
-  setLoading(true);
+    e.preventDefault();
+    setError('');
+    setLoading(true);
 
-  try {
-    // 1. Call the real Django backend
-    const data = await apiService.login(username, password);
+    try {
+      // 1. Call the real Django backend
+      const data = await apiService.login(username, password);
 
-    // 2. Save the secure JWT token so the interceptor can use it
-    sessionStorage.setItem('hms_token', data.access);
+      // 2. Save the secure JWT token so the interceptor can use it
+      sessionStorage.setItem('hms_token', data.access);
 
-    // 3. Decode the JWT token to read the custom data you built in serializers.py
-    const payload = JSON.parse(atob(data.access.split('.')[1]));
+      // 3. Decode the JWT token 
+      const payload = JSON.parse(atob(data.access.split('.')[1]));
 
-    const loggedInUser = {
-      id: payload.username,
-      username: payload.username,
-      name: payload.name,
-      role: payload.role,
-      branch: payload.branch,
-      locations: [payload.branch]
-    };
+      // 🌟 THE FIX: Translate backend branch codes to frontend theme words
+      let frontendBranch = payload.branch;
+      if (frontendBranch === "LNM") frontendBranch = "laxmi";
+      if (frontendBranch === "RYM") frontendBranch = "raya";
 
-    // 4. Send the user into the app!
-    onLogin(loggedInUser, payload.branch || "laxmi");
+      const loggedInUser = {
+        id: payload.username,
+        username: payload.username,
+        name: payload.name,
+        role: payload.role,
+        branch: frontendBranch,       // Now safely "laxmi" or "raya"
+        locations: [frontendBranch]   // Now safely "laxmi" or "raya"
+      };
 
-  } catch (err) {
-    // Show Django's error message (e.g., "No active account found with the given credentials")
-    setError(err.response?.data?.detail || "Invalid username or password");
-  }
+      // 4. Send the user into the app safely!
+      onLogin(loggedInUser, frontendBranch || "laxmi");
 
-  setLoading(false);
-};
+    } catch (err) {
+      setError(err.response?.data?.detail || "Invalid username or password");
+    }
+
+    setLoading(false);
+  };
 
   const handleForgot = async (e) => {
     e.preventDefault();

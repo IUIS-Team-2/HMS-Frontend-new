@@ -9,17 +9,23 @@ export default function ForgotPassword({ onBack }) {
     e.preventDefault();
     setError("");
     if (!email) return setError("Please enter your email.");
+    
     try {
-      // Replace this URL with your actual API endpoint
-      const res = await fetch("/api/auth/forgot-password", {
+      // 🌟 FIXED: Pointing to your actual Django OTP endpoint
+      const res = await fetch("http://localhost:8000/api/users/request-reset-otp/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email: email }),
       });
-      if (res.ok) setSent(true);
-      else setError("Email not found. Please try again.");
+      
+      if (res.ok) {
+        setSent(true);
+      } else {
+        const errorData = await res.json();
+        setError(errorData.error || "Email not found. Please try again.");
+      }
     } catch {
-      setError("Something went wrong. Please try again.");
+      setError("Something went wrong with the server. Please try again.");
     }
   };
 

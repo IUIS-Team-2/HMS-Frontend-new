@@ -961,13 +961,48 @@ function AdminsTab() {
   const sf = k => e => { setForm(f=>({...f,[k]:e.target.value})); setPassErr(""); };
   const rc = r => r==="superadmin"?T.amber:r==="admin"?T.laxmi:T.green;
 
-  const create = () => {
-    if (!form.id||!form.name||!form.password||!form.confirmPassword) { alert("Fill all fields"); return; }
-    if (form.password!==form.confirmPassword) { setPassErr("Passwords do not match"); return; }
-    setUsers(p=>[...p,{...form,locations:[form.branch]}]);
-    setModal(false);
-    setForm({ id:"", name:"", password:"", confirmPassword:"", role:"admin", branch:"laxmi" });
-    setPassErr("");
+  const create = async () => {
+    if (!form.id || !form.name || !form.password) { 
+      toast.error("Fill all fields"); 
+      return; 
+    }
+    
+    // Split the full name into first and last name for Django
+    const nameParts = form.name.split(" ");
+    const firstName = nameParts[0];
+    const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : ".";
+
+    // 🌟 FIXED: Map the frontend branch IDs to your Django backend choices
+    const branchCode = form.branch === "laxmi" ? "LNM" : "RYM";
+
+    // Format data to match your Django UserManagementSerializer
+    const payload = {
+      username: form.id,
+      first_name: firstName,
+      last_name: lastName,
+      password: form.password,
+      confirm_password: form.password, 
+      role: form.role,
+      branch: branchCode, // 🌟 Now sending 'LNM' or 'RYM' instead of 'laxmi'
+      email: `${form.id}@sangihospital.com` 
+    };
+
+    try {
+      await apiService.createUser(payload);
+      toast.success("Admin created successfully in database!");
+      setModal(false);
+      setForm({ id:"", name:"", password:"", role:"admin", branch:"laxmi" });
+      
+    } catch (error) {
+      console.error("Django Error:", error.response?.data);
+      
+      // 🌟 Better Error Handling: Show the exact Django error in the UI
+      const errData = error.response?.data;
+      if (errData?.username) toast.error("Username: " + errData.username[0]);
+      else if (errData?.password) toast.error("Password: " + errData.password[0]);
+      else if (errData?.branch) toast.error("Branch: " + errData.branch[0]);
+      else toast.error("Failed to create user. Check console.");
+    }
   };
 
   return (
