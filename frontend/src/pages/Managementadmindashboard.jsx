@@ -297,7 +297,7 @@ export default function ManagementAdminDashboard({ currentUser, onLogout }) {
           <div style={{ fontSize:10, color:T.txts }}>{bc.label} Branch</div>
           <div style={{ display:"flex", gap:8, marginTop:10, flexWrap:"wrap" }}>
             {currentUser?.dept&&<span style={c.badge(accent)}>{currentUser.dept}</span>}
-            <span style={c.badge("#34d399")}>Active</span>
+            <span style={c.badge(currentUser?.status==="Inactive"?"#f87171":"#34d399")}>{currentUser?.status||"Active"}</span>
             <span style={{ ...c.badge("#6b7280"), fontFamily:"monospace" }}>{currentUser?.id}</span>
           </div>
         </div>
@@ -649,7 +649,7 @@ export default function ManagementAdminDashboard({ currentUser, onLogout }) {
         <div style={{ ...c.card, padding:0, overflow:"hidden" }}>
           <table style={{ ...c.tbl, width:"100%" }}>
             <thead><tr style={{ background:T.bgCard }}>
-              {["Emp ID","Full Name","Username","Department","Email","Branch","Status","Created By"].map(h => (
+              {["Emp ID","Full Name","Username","Department","Email","Branch","Status","Created By","Actions"].map(h => (
                 <th key={h} style={{ ...c.th, padding:"10px 12px", textAlign:"left" }}>{h}</th>
               ))}
             </tr></thead>
@@ -664,6 +664,25 @@ export default function ManagementAdminDashboard({ currentUser, onLogout }) {
                   <td style={{ ...c.td }}><span style={c.badge(BC[emp.branch]?.accent||accent)}>{BC[emp.branch]?.label||emp.branch}</span></td>
                   <td style={{ ...c.td }}><span style={c.badge("#34d399")}>Active</span></td>
                   <td style={{ ...c.td, fontSize:11, color:T.txts }}>{emp.createdBy}</td>
+                  <td style={c.td}>
+                    <div style={{ display:"flex", gap:6 }}>
+                      <button style={c.aBtn("#f59e0b")} onClick={()=>{
+                        const newPass = prompt("Set new password for " + (emp.fullName||emp.name) + ":");
+                        if(newPass) {
+                          const updated = employees.map((e,ei) => ei===i ? {...e, password:newPass} : e);
+                          setEmployees(updated);
+                          try { localStorage.setItem("hms_mgmt_employees", JSON.stringify(updated)); } catch {}
+                          toast("Password reset successfully");
+                        }
+                      }}>🔑 Reset</button>
+                      <button style={c.aBtn(emp.status==="Inactive"?"#34d399":"#f87171")} onClick={()=>{
+                        const updated = employees.map((e,ei) => ei===i ? {...e, status: e.status==="Inactive"?"Active":"Inactive"} : e);
+                        setEmployees(updated);
+                        try { localStorage.setItem("hms_mgmt_employees", JSON.stringify(updated)); } catch {}
+                        toast(emp.status==="Inactive" ? "Employee activated" : "Employee deactivated");
+                      }}>{emp.status==="Inactive"?"✓ Activate":"⊘ Deactivate"}</button>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -805,8 +824,8 @@ export default function ManagementAdminDashboard({ currentUser, onLogout }) {
               </div>
             </div>
             {empPassErr && <div style={{ color:"#f87171", fontSize:12, marginBottom:8, marginTop:4 }}>{empPassErr}</div>}
-            {!empOtpMode && <div style={{ textAlign:"right", marginTop:-8, marginBottom:10 }}><span onClick={()=>setEmpOtpMode(true)} style={{ fontSize:11, color:accent, cursor:"pointer", textDecoration:"underline" }}>Forgot Password?</span></div>}
-            {empOtpMode && <div style={{ background:T.bgSurf, border:"1px solid #282a38", borderRadius:10, padding:"14px", marginBottom:10 }}><div style={{ fontSize:11, fontWeight:600, color:T.txtHigh, marginBottom:6 }}>OTP Verification</div><div style={{ fontSize:10, color:T.txts, marginBottom:12 }}>A 6-digit OTP will be sent to the employee phone and email.</div><div style={{ display:"flex", gap:6, justifyContent:"center", marginBottom:10 }}>{empOtp.map((d,i) => <input key={i} maxLength={1} value={d} inputMode="numeric" onChange={e=>{ const v=e.target.value.replace(/\D/,""); const a=[...empOtp]; a[i]=v; setEmpOtp(a); if(v&&i<5) document.getElementById(`otp_${i+1}`)?.focus(); }} onKeyDown={e=>{ if(e.key==="Backspace"&&!d&&i>0) document.getElementById(`otp_${i-1}`)?.focus(); }} id={`otp_${i}`} style={{ width:36, height:40, textAlign:"center", fontSize:16, fontWeight:700, background:T.bgCard, border:`1px solid ${accent}50`, borderRadius:7, color:T.txtHigh, outline:"none" }}/>) }</div><div style={{ display:"flex", gap:8 }}><button style={c.cancelBtn} onClick={()=>{ setEmpOtpMode(false); setEmpOtp(["","","","","",""]); }}>Cancel</button><button style={c.saveBtn} onClick={()=>{ toast("OTP verified — set new password","ok"); setEmpOtpMode(false); setEmpOtp(["","","","","",""]); }}>Verify OTP</button></div></div>}
+            
+            
             <div style={c.mFoot}>
               <button style={c.cancelBtn} onClick={()=>{setShowEmpModal(false);setEmpPassErr("");setEmpOtpMode(false);setEmpOtp(["","","","","",""]);  }}>Cancel</button>
               <button style={c.saveBtn} onClick={saveEmployee}>Create Employee</button>
