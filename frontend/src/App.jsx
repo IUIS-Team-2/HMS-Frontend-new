@@ -189,8 +189,9 @@ export default function App() {
     } else if (user.role === "hod") {
       // 🌟 HOD role routes to HOD dashboard
       startingPage = "hod";
-    } else if (["opd", "ipd", "billing", "pharmacy", "doctor", "nursing", "lab", "radiology", "employee"].includes(user.role)) {
-      startingPage = "employee";
+    } else if (["opd", "ipd", "billing", "pharmacy", "doctor", "nursing", "lab", "radiology", "employee", "receptionist"].includes(user.role)) {
+      /* IPD workflow lives on `patient` + subpages — there is no separate `employee` route */
+      startingPage = "patient";
     }
 
     try {

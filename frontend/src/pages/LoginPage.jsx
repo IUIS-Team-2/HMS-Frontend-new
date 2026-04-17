@@ -42,7 +42,7 @@ export default function LoginPage({ onLogin }) {
         locations: [frontendBranch]   // Now safely "laxmi" or "raya"
       };
 
-      // 4. Send the user into the app safely!
+      // 4. Send the user into the portal safely!
       onLogin(loggedInUser, frontendBranch || "laxmi");
 
     } catch (err) {
