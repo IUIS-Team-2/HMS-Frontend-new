@@ -2,6 +2,7 @@ import { useState, useEffect, createContext, useContext } from "react";
 import { T, NAV_PAGES } from "./data/constants";
 import { blankPatient, blankDischarge, blankBilling, blankSvc } from "./utils/helpers";
 import { Ico, IC, PAGE_ICONS } from "./components/ui/Icons";
+import './App.css'; // Add this missing import!
 
 // 🌟 Toast notifications
 import { ToastContainer, toast } from 'react-toastify';
@@ -208,7 +209,7 @@ export default function App() {
     }
   };
 
-  useEffect(() => { setLoginCallback(handleLogin); });
+ useEffect(() => { setLoginCallback(handleLogin); }, []); // Add the empty array
 
   const syncDb = (currentUhid, currentAdmNo, dataKey, dataValue) => {
     setDb(prev => {
@@ -311,7 +312,7 @@ export default function App() {
     if (!patient.patientName.trim()) e.patientName = "Required";
     if (!patient.guardianName.trim()) e.guardianName = "Required";
     if (!patient.gender) e.gender = "Required";
-    if (!patient.phone || patient.phone.replace(/\D/g, "").length !== 10) e.phone = "Must be 10 digits";
+    if (!patient.phone || String(patient.phone).replace(/\D/g, "").length !== 10) e.phone = "Must be 10 digits";
     if (!patient.email || !patient.email.includes("@")) e.email = "Valid email required";
     if (!patient.nationalId.trim()) e.nationalId = "Required";
     if (!patient.address.trim()) e.address = "Required";
