@@ -105,15 +105,33 @@ export default function App() {
     } catch {}
   };
 
-  // ==========================================
+// ==========================================
   // 🌟 THE MASTER DATA LOADER
   // ==========================================
   const loadDashboardData = async (userRole) => {
     try {
-      const livePatients = await apiService.getPatients();
+      let livePatients = await apiService.getPatients();
       const liveServices = await apiService.getServiceMaster();
 
       setMasterServices(liveServices);
+
+      // 🌟 THE TRUE CASHLESS FILTER: Using the exact database field names
+      const safeRole = String(userRole).toLowerCase();
+      if (safeRole === "office_admin" || safeRole === "managementadmin") {
+        livePatients = livePatients.filter(p => {
+           // 1. Check the patient-level payment mode (using the exact field name)
+           const pMode = String(p.paymentMode || p.payMode || p.payment_mode || "").toLowerCase();
+           if (pMode.includes("cashless")) return true;
+
+           // 2. Fallback: check inside their admissions/billing data
+           const hasCashlessBill = p.admissions && p.admissions.some(a => {
+               const aMode = String(a.paymentMode || a.billing?.paymentMode || a.billing?.billType || "").toLowerCase();
+               return aMode.includes("cashless");
+           });
+           
+           return hasCashlessBill;
+        });
+      }
 
       const laxmiPatients = livePatients.filter(p => p.branch_location === 'LNM' || !p.branch_location);
       const rayaPatients  = livePatients.filter(p => p.branch_location === 'RYM');
@@ -144,7 +162,6 @@ export default function App() {
       console.error("Failed to load live backend data:", error);
     }
   };
-
   useEffect(() => {
     if (loggedIn && currentUser) {
       loadDashboardData(currentUser.role);
@@ -185,10 +202,9 @@ export default function App() {
     let startingPage = "patient";
     if (user.role === "superadmin" || user.role === "admin") {
       startingPage = "superadmin";
-    } else if (user.role === "managementadmin") {
+    } else if (user.role === "managementadmin" || user.role === "office_admin") { 
       startingPage = "managementadmin";
     } else if (user.role === "hod") {
-      // 🌟 HOD role routes to HOD dashboard
       startingPage = "hod";
     } else if (["opd", "ipd", "billing", "pharmacy", "doctor", "nursing", "lab", "radiology", "employee", "receptionist"].includes(user.role)) {
       /* IPD workflow lives on `patient` + subpages — there is no separate `employee` route */

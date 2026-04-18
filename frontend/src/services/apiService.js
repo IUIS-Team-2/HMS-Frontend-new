@@ -122,5 +122,10 @@ export const apiService = {
     getPendingPrints: async () => {
         const response = await axios.get(`${BASE_URL}/patients/pending_prints/`);
         return response.data;
+    },
+
+    getCashlessPatients: async () => {
+        const response = await axios.get(`${BASE_URL}/patients/cashless-records/`);
+        return response.data;
     }
 };

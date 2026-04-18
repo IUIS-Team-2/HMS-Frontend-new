@@ -1,6 +1,7 @@
 import * as XLSX from "xlsx";
 import MedDrawer from "../components/MedDrawer";
 import { useState, useMemo, useEffect } from "react";
+import { apiService } from "../services/apiService";
 
 // ── CONSTANTS ─────────────────────────────────────────────────────────────────
 const BC = {
@@ -234,7 +235,7 @@ const DYNAMIC_CSS = (accent, isDark) => `
 `;
 
 // ── MAIN COMPONENT ─────────────────────────────────────────────────────────────
-export default function ManagementAdminDashboard({ currentUser, onLogout }) {
+export default function ManagementAdminDashboard({ currentUser, db, onLogout }) {
   const homeBranch = currentUser?.branch || currentUser?.locations?.[0] || "laxmi";
   const [viewBranch,  setViewBranch]  = useState(homeBranch);
   const bc     = BC[viewBranch] || BC.laxmi;
@@ -245,10 +246,15 @@ export default function ManagementAdminDashboard({ currentUser, onLogout }) {
   const [notif,      setNotif]      = useState(null);
   const [isDark,     setIsDark]     = useState(true);
 
-  const [allPatients, setAllPatients] = useState(() => ({
-    laxmi: seedPatients(LOCATION_DB["laxmi"], "laxmi"),
-    raya:  seedPatients(LOCATION_DB["raya"],  "raya"),
-  }));
+  // 1. Keep the state so your edit buttons still work
+  const [allPatients, setAllPatients] = useState({ laxmi: [], raya: [] });
+
+  // 2. Automatically load the real, secure data passed down from App.jsx!
+  useEffect(() => {
+    if (db) {
+      setAllPatients(db);
+    }
+  }, [db]);
 
   // Departments
   const [departments,    setDepartments]    = useState(() => safeLoad("hms_mgmt_departments", []));
@@ -359,11 +365,46 @@ export default function ManagementAdminDashboard({ currentUser, onLogout }) {
     setDepartments(prev=>[...prev,{id:`DEPT-${Date.now()}`,...deptForm,createdAt:new Date().toISOString(),memberCount:0}]);
     setShowDeptModal(false); setDeptForm({name:"",description:"",head:""}); toast("Department created");
   };
-  const saveEmployee = () => {
-    if (!empForm.fullName||!empForm.username||!empForm.empId||!empForm.email||!empForm.phone||!empForm.dept||!empForm.password||!empForm.confirmPassword) { setEmpPassErr("Please fill all fields"); return; }
-    if (empForm.password!==empForm.confirmPassword) { setEmpPassErr("Passwords do not match"); return; }
-    setEmployees(prev=>[...prev,{...empForm,id:empForm.empId,name:empForm.fullName,role:empForm.role||"employee",status:"Active",createdBy:currentUser?.name||"Mgmt Admin",createdAt:new Date().toISOString()}]);
-    setShowEmpModal(false); setEmpForm({fullName:"",username:"",empId:"",dept:"HOD",email:"",phone:"",role:"",password:"",confirmPassword:""}); setEmpPassErr(""); toast("Employee created successfully");
+  const saveEmployee = async () => {
+    // 1. Validate the form
+    if (!empForm.fullName||!empForm.username||!empForm.empId||!empForm.email||!empForm.phone||!empForm.dept||!empForm.password||!empForm.confirmPassword) { 
+      setEmpPassErr("Please fill all fields"); return; 
+    }
+    if (empForm.password !== empForm.confirmPassword) { 
+      setEmpPassErr("Passwords do not match"); return; 
+    }
+
+    try {
+      // 2. Prepare the data exactly how Django expects it
+      const [firstName, ...lastNameArr] = empForm.fullName.split(' ');
+      const payload = {
+        username: empForm.username,
+        password: empForm.password,
+        email: empForm.email,
+        first_name: firstName,
+        last_name: lastNameArr.join(' '),
+        emp_id: empForm.empId,
+        phone_number: empForm.phone,
+        // Map frontend role to backend role. Defaults to 'receptionist' if unknown.
+        role: empForm.role.toLowerCase().includes('admin') ? 'admin' : 'receptionist',
+        // Optional: Send the branch if they select one
+        branch: viewBranch === 'laxmi' ? 'LNM' : 'RYM' 
+      };
+
+      // 3. Send it to the Django Backend!
+      await apiService.createUser(payload);
+
+      // 4. Update the UI
+      setEmployees(prev=>[...prev,{...empForm, id:empForm.empId, name:empForm.fullName, status:"Active", createdBy:currentUser?.name||"Mgmt Admin", createdAt:new Date().toISOString()}]);
+      setShowEmpModal(false); 
+      setEmpForm({fullName:"",username:"",empId:"",dept:"HOD",email:"",phone:"",role:"",password:"",confirmPassword:""}); 
+      setEmpPassErr(""); 
+      toast("Employee securely created in database!");
+
+    } catch (error) {
+      console.error("User creation failed:", error);
+      setEmpPassErr(error.response?.data?.detail || "Failed to create user. Username or Emp ID might already exist.");
+    }
   };
 
   // ── EXPORT HELPERS ────────────────────────────────────────────────────────
