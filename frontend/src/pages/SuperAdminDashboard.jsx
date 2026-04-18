@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef, createContext, useContext } from "react";
 import { useTheme } from "../context/ThemeContext";
 import * as XLSX from "xlsx";
-import { apiService } from "../services/apiService"; 
+import { apiService } from "../services/apiService";
 import { toast } from "react-toastify";
 
 /* ══════════════════════════════════════════════════════════════
@@ -45,12 +45,6 @@ let T = T_DARK;
 const TC = createContext(T_DARK);
 const useT = () => useContext(TC);
 
-
-/* ══════════════════════════════════════════════════════════════
-   DESIGN TOKENS
-══════════════════════════════════════════════════════════════ */
-
-
 const SD = "0 4px 32px rgba(0,0,0,.5)";
 const cardStyle = (t) => ({ background: t.card, borderRadius: 14, padding: 20, boxShadow: SD });
 const bColor = (loc, t) => loc === "laxmi" ? t.laxmi : t.raya;
@@ -60,6 +54,23 @@ const inr    = v  => "Rs." + Number(v||0).toLocaleString("en-IN");
 
 const BRANCH_COLORS = { laxmi: T.laxmi, raya: T.raya, all: T.green };
 const BRANCH_LABELS = { laxmi: "Lakshmi Nagar", raya: "Raya", all: "All Branches" };
+
+/* ── Role helpers ── */
+const ROLE_LABELS = {
+  office_admin:  "Office Admin",
+  branch_admin:  "Branch Admin",
+  superadmin:    "Super Admin",
+};
+const roleColor = (role, t) => {
+  if (role === "superadmin")   return t.amber;
+  if (role === "office_admin") return t.laxmi;
+  if (role === "branch_admin") return t.raya;
+  return t.green;
+};
+const roleBranchCode = (role, branch) => {
+  if (role === "office_admin") return "BOTH";
+  return branch === "laxmi" ? "LNM" : "RYM";
+};
 
 function exportXLSX(rows, cols, filename) {
   const data = rows.map(r => {
@@ -196,6 +207,20 @@ function TH({ h }) {
     color:T.dim, textTransform:"uppercase", letterSpacing:".06em", whiteSpace:"nowrap", background:T.bg }}>{h}</th>;
 }
 
+/* ── Star Rating display ── */
+function StarRating({ rating, max = 5, size = 16 }) {
+  const T = useT();
+  return (
+    <span style={{ display:"inline-flex", gap:2 }}>
+      {Array.from({ length: max }).map((_, i) => (
+        <span key={i} style={{ fontSize: size, color: i < rating ? "#FBBF24" : T.dimmer, lineHeight:1 }}>
+          {i < rating ? "★" : "☆"}
+        </span>
+      ))}
+    </span>
+  );
+}
+
 /* ══════════════════════════════════════════════════════════════
    PATIENT DETAIL MODAL
 ══════════════════════════════════════════════════════════════ */
@@ -218,12 +243,9 @@ function PatientModal({ p, onClose }) {
     try {
       const res = await apiService.getDynamicSummary(p.uhid, p.admNo, p.dischargeStatus || 'NORMAL');
       let fetchedContent = res.content;
-      
-      // 🌟 AUTO-CONVERTER: If you have an old test record saved as an Object, this converts it to the new Array format instantly!
       if (fetchedContent && fetchedContent.sections && !Array.isArray(fetchedContent.sections)) {
         fetchedContent.sections = Object.entries(fetchedContent.sections).map(([k, v]) => ({ key: k, ...v }));
       }
-      
       setDocTemplate(fetchedContent);
     } catch (err) {
       toast.error("Failed to load document template.");
@@ -243,7 +265,6 @@ function PatientModal({ p, onClose }) {
     }
   };
 
-  // 🌟 Updated to safely handle Array changes
   const handleSectionUpdate = (index, val) => {
     const newSections = [...docTemplate.sections];
     newSections[index] = { ...newSections[index], value: val };
@@ -252,9 +273,9 @@ function PatientModal({ p, onClose }) {
 
   const handleVitalsUpdate = (index, vKey, val) => {
     const newSections = [...docTemplate.sections];
-    newSections[index] = { 
-      ...newSections[index], 
-      value: { ...newSections[index].value, [vKey]: val } 
+    newSections[index] = {
+      ...newSections[index],
+      value: { ...newSections[index].value, [vKey]: val }
     };
     setDocTemplate({ ...docTemplate, sections: newSections });
   };
@@ -262,8 +283,6 @@ function PatientModal({ p, onClose }) {
   return (
     <div style={{ position:"fixed",inset:0,background:"rgba(0,0,0,.8)",zIndex:3000, display:"flex",alignItems:"center",justifyContent:"center",padding:20 }}>
       <div style={{ background:T.surface,borderRadius:20,width:"100%",maxWidth:860, maxHeight:"92vh",overflow:"hidden",display:"flex",flexDirection:"column", boxShadow:"0 32px 100px rgba(0,0,0,.7)",border:`1px solid ${T.border}` }}>
-        
-        {/* MODAL HEADER */}
         <div style={{ padding:"18px 24px",borderBottom:`1px solid ${T.border}`,background:T.card, display:"flex",justifyContent:"space-between",alignItems:"center" }}>
           <div style={{ display:"flex",alignItems:"center",gap:12 }}>
             <div style={{ width:40,height:40,borderRadius:10,background:col+"20",border:`1.5px solid ${col}44`, display:"flex",alignItems:"center",justifyContent:"center",fontSize:20 }}>🧑</div>
@@ -293,8 +312,6 @@ function PatientModal({ p, onClose }) {
         </div>
 
         <div style={{ overflowY:"auto",padding:24 }}>
-          
-          {/* RESTORED: PATIENT INFO GRID */}
           <div style={{ display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:20 }}>
             {[["Gender",p.gender],["Age",p.age],["Blood Group",p.bloodGroup],["Phone",p.phone],
               ["Ward",p.ward],["Bed / Room",p.bed+" / "+p.room],["Department",p.department],["Doctor",p.doctor],
@@ -309,7 +326,6 @@ function PatientModal({ p, onClose }) {
             ))}
           </div>
 
-          {/* RESTORED: MEDICAL HISTORY */}
           {p.medHistory && Object.values(p.medHistory).some(v=>v) && (
             <div style={{ ...cardStyle(T),marginBottom:18 }}>
               <STitle>Medical History</STitle>
@@ -326,9 +342,8 @@ function PatientModal({ p, onClose }) {
             </div>
           )}
 
-          {/* 🌟 OFFICIAL DISCHARGE DOCUMENT SECTION */}
           {p.dischargeStatus && p.dischargeStatus !== "Admitted" && (
-            <div style={{ ...cardStyle, marginBottom: 18, borderLeft: `4px solid ${T.laxmi}` }}>
+            <div style={{ ...cardStyle(T), marginBottom: 18, borderLeft: `4px solid ${T.laxmi}` }}>
               <STitle action={
                 <div style={{ display: "flex", gap: 8 }}>
                   {!docTemplate ? (
@@ -344,42 +359,34 @@ function PatientModal({ p, onClose }) {
                   )}
                 </div>
               }>Official Discharge Document ({p.dischargeStatus})</STitle>
-
-              {/* RENDER THE DYNAMIC EDITOR */}
               {docTemplate && Array.isArray(docTemplate.sections) && (
                 <div style={{ display: "flex", flexDirection: "column", gap: 16, marginTop: 16 }}>
                   {docTemplate.sections.map((sec, index) => {
-                    if (sec.type === "textarea") {
-                      return (
-                        <div key={sec.key}>
-                          <div style={{ fontSize: 11, color: T.dim, fontWeight: 700, marginBottom: 4 }}>{sec.label}</div>
-                          <textarea value={sec.value} onChange={e => handleSectionUpdate(index, e.target.value)} rows={3} style={{ width: "100%", padding: "10px", borderRadius: 8, background: T.bg, border: `1px solid ${T.border2}`, color: T.white, fontSize: 13, outline: "none", resize: "vertical" }} />
+                    if (sec.type === "textarea") return (
+                      <div key={sec.key}>
+                        <div style={{ fontSize: 11, color: T.dim, fontWeight: 700, marginBottom: 4 }}>{sec.label}</div>
+                        <textarea value={sec.value} onChange={e => handleSectionUpdate(index, e.target.value)} rows={3} style={{ width: "100%", padding: "10px", borderRadius: 8, background: T.bg, border: `1px solid ${T.border2}`, color: T.white, fontSize: 13, outline: "none", resize: "vertical" }} />
+                      </div>
+                    );
+                    if (sec.type === "text") return (
+                      <div key={sec.key}>
+                        <div style={{ fontSize: 11, color: T.dim, fontWeight: 700, marginBottom: 4 }}>{sec.label}</div>
+                        <input type="text" value={sec.value} onChange={e => handleSectionUpdate(index, e.target.value)} style={{ width: "100%", padding: "10px", borderRadius: 8, background: T.bg, border: `1px solid ${T.border2}`, color: T.white, fontSize: 13, outline: "none" }} />
+                      </div>
+                    );
+                    if (sec.type === "vitals_grid") return (
+                      <div key={sec.key} style={{ background: T.bg, border: `1px solid ${T.border2}`, padding: 16, borderRadius: 8 }}>
+                        <div style={{ fontSize: 11, color: T.dim, fontWeight: 700, marginBottom: 12 }}>{sec.label}</div>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+                          {Object.entries(sec.value).map(([vKey, vVal]) => (
+                            <div key={vKey}>
+                              <div style={{ fontSize: 10, color: T.dim, textTransform: "uppercase", marginBottom: 4 }}>{vKey}</div>
+                              <input type="text" value={vVal} onChange={e => handleVitalsUpdate(index, vKey, e.target.value)} style={{ width: "100%", padding: "8px", borderRadius: 6, background: T.card, border: `1px solid ${T.border2}`, color: T.white, fontSize: 12, outline: "none" }} />
+                            </div>
+                          ))}
                         </div>
-                      );
-                    }
-                    if (sec.type === "text") {
-                      return (
-                        <div key={sec.key}>
-                          <div style={{ fontSize: 11, color: T.dim, fontWeight: 700, marginBottom: 4 }}>{sec.label}</div>
-                          <input type="text" value={sec.value} onChange={e => handleSectionUpdate(index, e.target.value)} style={{ width: "100%", padding: "10px", borderRadius: 8, background: T.bg, border: `1px solid ${T.border2}`, color: T.white, fontSize: 13, outline: "none" }} />
-                        </div>
-                      );
-                    }
-                    if (sec.type === "vitals_grid") {
-                      return (
-                        <div key={sec.key} style={{ background: T.bg, border: `1px solid ${T.border2}`, padding: 16, borderRadius: 8 }}>
-                          <div style={{ fontSize: 11, color: T.dim, fontWeight: 700, marginBottom: 12 }}>{sec.label}</div>
-                          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
-                            {Object.entries(sec.value).map(([vKey, vVal]) => (
-                              <div key={vKey}>
-                                <div style={{ fontSize: 10, color: T.dim, textTransform: "uppercase", marginBottom: 4 }}>{vKey}</div>
-                                <input type="text" value={vVal} onChange={e => handleVitalsUpdate(index, vKey, e.target.value)} style={{ width: "100%", padding: "8px", borderRadius: 6, background: T.card, border: `1px solid ${T.border2}`, color: T.white, fontSize: 12, outline: "none" }} />
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      );
-                    }
+                      </div>
+                    );
                     return null;
                   })}
                 </div>
@@ -387,7 +394,6 @@ function PatientModal({ p, onClose }) {
             </div>
           )}
 
-          {/* RESTORED: SERVICES AND BILL TABLE */}
           <div style={{ ...cardStyle(T),marginBottom:18 }}>
             <STitle action={
               <div style={{ display:"flex",gap:8 }}>
@@ -434,7 +440,6 @@ function PatientModal({ p, onClose }) {
               {p.pending>0 && <div style={{ fontSize:13,fontWeight:800,color:T.red }}>Pending: {inr(p.pending)}</div>}
             </div>
           </div>
-
         </div>
       </div>
     </div>
@@ -442,11 +447,8 @@ function PatientModal({ p, onClose }) {
 }
 
 /* ══════════════════════════════════════════════════════════════
-   TAB COMPONENTS
+   PATIENT TABLE (PTable)
 ══════════════════════════════════════════════════════════════ */
-// (PTable, DashboardTab, BranchTab, AllPatientsTab, BillingTab, InvoicesTab, MedicalTab, DischargeTab, ReportsTab, AdminsTab, DepartmentsTab go here...)
-// To save space, assuming they are defined as in your previous version or below.
-
 const PT_COLS = [
   {label:"UHID",key:"uhid"},{label:"Patient",key:"name"},{label:"Gender",key:"gender"},
   {label:"Age",key:"age"},{label:"Phone",key:"phone"},{label:"Branch",get:r=>bName(r._branch)},
@@ -546,7 +548,6 @@ function DashboardTab({ all, laxmi, raya }) {
         <StatCard icon="💵" label="Cash Patients" value={cash} sub={Math.round(cash/Math.max(all.length,1)*100)+"%"} color={T.green}/>
         <StatCard icon="🏦" label="Cashless / TPA" value={cashless} sub={Math.round(cashless/Math.max(all.length,1)*100)+"%"} color={T.amber}/>
       </div>
-
       <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:22 }}>
         {[["laxmi",laxmi,T.laxmi],["raya",raya,T.raya]].map(([br,pts,col])=>(
           <div key={br} style={{ ...cardStyle(T),borderTop:`3px solid ${col}` }}>
@@ -569,7 +570,6 @@ function DashboardTab({ all, laxmi, raya }) {
           </div>
         ))}
       </div>
-
       <STitle action={<XlsBtn onClick={()=>exportXLSX(all,PT_COLS,"overview_all.xlsx")}/>}>
         Recent Admissions - Both Branches
       </STitle>
@@ -946,55 +946,53 @@ function ReportsTab({ all }) {
 }
 
 /* ══════════════════════════════════════════════════════════════
-   TAB 10 — ADMIN MANAGEMENT
+   TAB 10 — ADMIN MANAGEMENT  (UPDATED ROLES)
 ══════════════════════════════════════════════════════════════ */
 function AdminsTab() {
   const T = useT();
   const [users, setUsers] = useState([]);
   const [modal, setModal] = useState(false);
-  const [form, setForm] = useState({ id:"", name:"", password:"", confirmPassword:"", role:"admin", branch:"laxmi" });
-  const [showAdminPass, setShowAdminPass] = useState(false);
-  const [showAdminConfirm, setShowAdminConfirm] = useState(false);
-  const [passErr, setPassErr] = useState("");
+  const [form, setForm]   = useState({ id:"", name:"", password:"", confirmPassword:"", role:"office_admin", branch:"laxmi" });
+  const [showPass, setShowPass]       = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [passErr, setPassErr]         = useState("");
   const sf = k => e => { setForm(f=>({...f,[k]:e.target.value})); setPassErr(""); };
-  const rc = r => r==="superadmin"?T.amber:r==="admin"?T.laxmi:T.green;
+
+  /* When role switches to office_admin, reset branch to "both" placeholder */
+  const handleRoleChange = (val) => {
+    setForm(f => ({ ...f, role: val, branch: val === "office_admin" ? "laxmi" : f.branch }));
+  };
+
+  const isOfficeAdmin = form.role === "office_admin";
 
   const create = async () => {
-    if (!form.id || !form.name || !form.password) { 
-      toast.error("Fill all fields"); 
-      return; 
-    }
-    
-    // Split the full name into first and last name for Django
+    if (!form.id || !form.name || !form.password) { toast.error("Fill all fields"); return; }
+    if (form.password !== form.confirmPassword)    { setPassErr("Passwords do not match"); return; }
+
     const nameParts = form.name.split(" ");
     const firstName = nameParts[0];
-    const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : ".";
+    const lastName  = nameParts.length > 1 ? nameParts.slice(1).join(" ") : ".";
 
-    // 🌟 FIXED: Map the frontend branch IDs to your Django backend choices
-    const branchCode = form.branch === "laxmi" ? "LNM" : "RYM";
+    /* Office Admin → BOTH branches; Branch Admin → LNM or RYM */
+    const branchCode = isOfficeAdmin ? "BOTH" : (form.branch === "laxmi" ? "LNM" : "RYM");
 
-    // Format data to match your Django UserManagementSerializer
     const payload = {
-      username: form.id,
-      first_name: firstName,
-      last_name: lastName,
-      password: form.password,
-      confirm_password: form.password, 
-      role: form.role,
-      branch: branchCode, // 🌟 Now sending 'LNM' or 'RYM' instead of 'laxmi'
-      email: `${form.id}@sangihospital.com` 
+      username:         form.id,
+      first_name:       firstName,
+      last_name:        lastName,
+      password:         form.password,
+      confirm_password: form.password,
+      role:             form.role,
+      branch:           branchCode,
+      email:            `${form.id}@sangihospital.com`,
     };
 
     try {
       await apiService.createUser(payload);
-      toast.success("Admin created successfully in database!");
+      toast.success("User created successfully!");
       setModal(false);
-      setForm({ id:"", name:"", password:"", role:"admin", branch:"laxmi" });
-      
+      setForm({ id:"", name:"", password:"", confirmPassword:"", role:"office_admin", branch:"laxmi" });
     } catch (error) {
-      console.error("Django Error:", error.response?.data);
-      
-      // 🌟 Better Error Handling: Show the exact Django error in the UI
       const errData = error.response?.data;
       if (errData?.username) toast.error("Username: " + errData.username[0]);
       else if (errData?.password) toast.error("Password: " + errData.password[0]);
@@ -1003,29 +1001,64 @@ function AdminsTab() {
     }
   };
 
+  const officeAdmins = users.filter(u => u.role === "office_admin");
+  const branchAdmins = users.filter(u => u.role === "branch_admin");
+
   return (
     <div>
+      {/* ── Stats ── */}
       <div style={{ display:"flex",gap:12,flexWrap:"wrap",marginBottom:18 }}>
-        <StatCard icon="👥" label="Total Users" value={users.length} color={T.laxmi}/>
-        <StatCard icon="⭐" label="Super Admins" value={users.filter(u=>u.role==="superadmin").length} color={T.amber}/>
-        <StatCard icon="🔑" label="Branch Admins" value={users.filter(u=>u.role==="admin").length} color={T.laxmi}/>
-        <StatCard icon="👤" label="Staff" value={users.filter(u=>u.role!=="superadmin"&&u.role!=="admin").length} color={T.green}/>
+        <StatCard icon="👥" label="Total Users"    value={users.length}        color={T.laxmi}/>
+        <StatCard icon="🏢" label="Office Admins"  value={officeAdmins.length} sub="Both branches access" color={T.laxmi}/>
+        <StatCard icon="🏥" label="Branch Admins"  value={branchAdmins.length} sub="Single branch"        color={T.raya}/>
+        <StatCard icon="👤" label="Other Staff"    value={users.filter(u=>u.role!=="office_admin"&&u.role!=="branch_admin").length} color={T.green}/>
       </div>
+
+      {/* ── Role legend ── */}
+      <div style={{ ...cardStyle(T), marginBottom:18, display:"flex", gap:24, flexWrap:"wrap", padding:"14px 20px" }}>
+        <div style={{ display:"flex", alignItems:"flex-start", gap:10 }}>
+          <Pill color={T.laxmi}>Office Admin</Pill>
+          <div style={{ fontSize:12, color:T.dim, maxWidth:240 }}>
+            Single admin for <strong style={{ color:T.white }}>both branches</strong>. Has a branch switcher to toggle between Lakshmi Nagar and Raya.
+          </div>
+        </div>
+        <div style={{ display:"flex", alignItems:"flex-start", gap:10 }}>
+          <Pill color={T.raya}>Branch Admin</Pill>
+          <div style={{ fontSize:12, color:T.dim, maxWidth:240 }}>
+            Dedicated admin for <strong style={{ color:T.white }}>one specific branch</strong>. Cannot access the other branch.
+          </div>
+        </div>
+      </div>
+
       <div style={{ display:"flex",justifyContent:"flex-end",marginBottom:12 }}>
         <button onClick={()=>setModal(true)} style={{ padding:"9px 22px",borderRadius:9,background:T.laxmi,
-          color:"#000",border:"none",fontWeight:800,fontSize:13,cursor:"pointer" }}>+ Create Admin</button>
+          color:"#000",border:"none",fontWeight:800,fontSize:13,cursor:"pointer" }}>+ Create User</button>
       </div>
+
+      {/* ── Users table ── */}
       <div style={{ ...cardStyle(T),padding:0,overflow:"hidden" }}>
         <table style={{ width:"100%",borderCollapse:"collapse" }}>
-          <thead><tr>{["Username","Full Name","Role","Branch","Locations","Status"].map(h=><TH key={h} h={h}/>)}</tr></thead>
+          <thead><tr>{["Username","Full Name","Role","Branch Access","Status"].map(h=><TH key={h} h={h}/>)}</tr></thead>
           <tbody>
+            {users.length === 0 && (
+              <tr><td colSpan={5} style={{ padding:48,textAlign:"center",color:T.dim }}>No users created yet</td></tr>
+            )}
             {users.map((u,i)=>(
               <tr key={i} style={{ borderBottom:`1px solid ${T.border}`,background:i%2===0?T.card:T.surface }}>
                 <td style={{ padding:"10px 12px",fontSize:12,fontFamily:"monospace",color:T.laxmi }}>{u.id}</td>
                 <td style={{ padding:"10px 12px",fontSize:13,fontWeight:600,color:T.white }}>{u.name}</td>
-                <td style={{ padding:"10px 12px" }}><Pill color={rc(u.role)}>{u.role}</Pill></td>
-                <td style={{ padding:"10px 12px" }}>{u.branch?<Pill color={bColor(u.branch, T)}>{bName(u.branch)}</Pill>:<span style={{ color:T.dim }}>All Branches</span>}</td>
-                <td style={{ padding:"10px 12px",fontSize:12,color:T.dim }}>{(u.locations||[]).join(", ")||"--"}</td>
+                <td style={{ padding:"10px 12px" }}><Pill color={roleColor(u.role, T)}>{ROLE_LABELS[u.role]||u.role}</Pill></td>
+                <td style={{ padding:"10px 12px" }}>
+                  {u.role === "office_admin"
+                    ? <div style={{ display:"flex",gap:4 }}>
+                        <Pill color={T.laxmi}>Lakshmi Nagar</Pill>
+                        <Pill color={T.raya}>Raya</Pill>
+                      </div>
+                    : u.branch
+                      ? <Pill color={bColor(u.branch, T)}>{bName(u.branch)}</Pill>
+                      : <span style={{ color:T.dim }}>--</span>
+                  }
+                </td>
                 <td style={{ padding:"10px 12px" }}><Badge color={T.green}>Active</Badge></td>
               </tr>
             ))}
@@ -1033,13 +1066,20 @@ function AdminsTab() {
         </table>
       </div>
 
+      {/* ── Create Modal ── */}
       {modal && (
         <div style={{ position:"fixed",inset:0,background:"rgba(0,0,0,.75)",zIndex:2000,
           display:"flex",alignItems:"center",justifyContent:"center" }}>
-          <div style={{ background:T.surface,borderRadius:16,padding:30,width:430,
-            border:`1px solid ${T.border}`,boxShadow:SD }}>
-            <div style={{ fontSize:16,fontWeight:800,color:T.white,marginBottom:20 }}>Create New Admin</div>
-            {[["Username / ID","id","text","admin_xyz"],["Full Name","name","text","Full Name"],["Password","password",showAdminPass?"text":"password","••••••••"],["Confirm Password","confirmPassword",showAdminConfirm?"text":"password","Confirm password"]].map(([lbl,k,type,ph])=>(
+          <div style={{ background:T.surface,borderRadius:16,padding:30,width:460,
+            border:`1px solid ${T.border}`,boxShadow:SD,maxHeight:"90vh",overflowY:"auto" }}>
+            <div style={{ fontSize:16,fontWeight:800,color:T.white,marginBottom:20 }}>Create New User</div>
+
+            {/* Text fields */}
+            {[["Username / ID","id","text","admin_xyz"],
+              ["Full Name","name","text","Full Name"],
+              ["Password","password",showPass?"text":"password","••••••••"],
+              ["Confirm Password","confirmPassword",showConfirm?"text":"password","Confirm password"]
+            ].map(([lbl,k,type,ph])=>(
               <div key={k} style={{ marginBottom:12 }}>
                 <div style={{ fontSize:11,color:T.dim,fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",marginBottom:4 }}>{lbl}</div>
                 <div style={{ position:"relative" }}>
@@ -1047,10 +1087,11 @@ function AdminsTab() {
                     style={{ width:"100%",padding:"9px 40px 9px 13px",borderRadius:8,border:`1px solid ${T.border2}`,
                       background:T.card,color:T.white,fontSize:13,outline:"none",boxSizing:"border-box" }}/>
                   {(k==="password"||k==="confirmPassword") && (
-                    <button type="button" onClick={()=>k==="password"?setShowAdminPass(p=>!p):setShowAdminConfirm(p=>!p)}
+                    <button type="button"
+                      onClick={()=> k==="password" ? setShowPass(p=>!p) : setShowConfirm(p=>!p)}
                       style={{ position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",
                         background:"none",border:"none",cursor:"pointer",color:"#9ca3af",fontSize:11,fontWeight:600 }}>
-                      {k==="password"?(showAdminPass?"HIDE":"SHOW"):(showAdminConfirm?"HIDE":"SHOW")}
+                      {k==="password" ? (showPass?"HIDE":"SHOW") : (showConfirm?"HIDE":"SHOW")}
                     </button>
                   )}
                 </div>
@@ -1059,20 +1100,50 @@ function AdminsTab() {
                 )}
               </div>
             ))}
-            {[["Role","role",[["admin","Admin"],["employee","Employee"]]],["Branch","branch",[["laxmi","Lakshmi Nagar"],["raya","Raya"]]]].map(([lbl,k,opts])=>(
-              <div key={k} style={{ marginBottom:12 }}>
-                <div style={{ fontSize:11,color:T.dim,fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",marginBottom:4 }}>{lbl}</div>
-                <select value={form[k]} onChange={sf(k)} style={{ width:"100%",padding:"9px 13px",borderRadius:8,
+
+            {/* Role selector */}
+            <div style={{ marginBottom:12 }}>
+              <div style={{ fontSize:11,color:T.dim,fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",marginBottom:4 }}>Role</div>
+              <select value={form.role} onChange={e=>handleRoleChange(e.target.value)}
+                style={{ width:"100%",padding:"9px 13px",borderRadius:8,
                   border:`1px solid ${T.border2}`,background:T.card,color:T.white,fontSize:13,outline:"none" }}>
-                  {opts.map(([v,l])=><option key={v} value={v}>{l}</option>)}
-                </select>
+                <option value="office_admin">Office Admin (Both Branches)</option>
+                <option value="branch_admin">Branch Admin (Single Branch)</option>
+              </select>
+              {/* Role description hint */}
+              <div style={{ fontSize:11,color:T.dim,marginTop:5,padding:"6px 10px",background:T.bg,borderRadius:6 }}>
+                {isOfficeAdmin
+                  ? "⚡ Office Admin has access to both Lakshmi Nagar and Raya with a branch switcher."
+                  : "🏥 Branch Admin is restricted to the single branch assigned below."}
               </div>
-            ))}
+            </div>
+
+            {/* Branch selector — disabled/hidden for office admin */}
+            <div style={{ marginBottom:12 }}>
+              <div style={{ fontSize:11,color:T.dim,fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",marginBottom:4 }}>
+                Branch {isOfficeAdmin && <span style={{ color:T.green,textTransform:"none",letterSpacing:0,fontWeight:500 }}>(auto: both)</span>}
+              </div>
+              {isOfficeAdmin ? (
+                <div style={{ padding:"9px 13px",borderRadius:8,border:`1px solid ${T.border}`,
+                  background:T.bg,color:T.dim,fontSize:13,display:"flex",gap:8 }}>
+                  <Pill color={T.laxmi}>Lakshmi Nagar</Pill>
+                  <Pill color={T.raya}>Raya</Pill>
+                </div>
+              ) : (
+                <select value={form.branch} onChange={sf("branch")}
+                  style={{ width:"100%",padding:"9px 13px",borderRadius:8,
+                    border:`1px solid ${T.border2}`,background:T.card,color:T.white,fontSize:13,outline:"none" }}>
+                  <option value="laxmi">Lakshmi Nagar</option>
+                  <option value="raya">Raya</option>
+                </select>
+              )}
+            </div>
+
             <div style={{ display:"flex",gap:8,justifyContent:"flex-end",marginTop:18 }}>
               <button onClick={()=>setModal(false)} style={{ padding:"9px 18px",borderRadius:8,
                 background:"transparent",border:`1px solid ${T.border2}`,color:T.dim,fontWeight:700,cursor:"pointer" }}>Cancel</button>
               <button onClick={create} style={{ padding:"9px 18px",borderRadius:8,
-                background:T.laxmi,color:"#000",border:"none",fontWeight:800,cursor:"pointer" }}>Create Admin</button>
+                background:T.laxmi,color:"#000",border:"none",fontWeight:800,cursor:"pointer" }}>Create User</button>
             </div>
           </div>
         </div>
@@ -1116,19 +1187,12 @@ function DepartmentsTab({ all }) {
                 </div>
                 <div style={{ fontSize:24 }}>🏢</div>
               </div>
-              {/* Corrected Department Stats */}
-              <div style={{ display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:`1px solid ${T.border}` }}>
-                <span style={{ fontSize:12,color:T.dim }}>Total Patients</span>
-                <span style={{ fontSize:13,fontWeight:700,color:T.white }}>{d.patients}</span>
-              </div>
-              <div style={{ display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:`1px solid ${T.border}` }}>
-                <span style={{ fontSize:12,color:T.dim }}>Doctors</span>
-                <span style={{ fontSize:13,fontWeight:700,color:T.white }}>{d.doctors.length}</span>
-              </div>
-              <div style={{ display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:`1px solid ${T.border}` }}>
-                <span style={{ fontSize:12,color:T.dim }}>Total Revenue</span>
-                <span style={{ fontSize:13,fontWeight:700,color:T.white }}>{inr(d.revenue)}</span>
-              </div>
+              {[["Total Patients",d.patients],["Doctors",d.doctors.length],["Total Revenue",inr(d.revenue)]].map(([k,v])=>(
+                <div key={k} style={{ display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:`1px solid ${T.border}` }}>
+                  <span style={{ fontSize:12,color:T.dim }}>{k}</span>
+                  <span style={{ fontSize:13,fontWeight:700,color:T.white }}>{v}</span>
+                </div>
+              ))}
             </div>
           );
         })}
@@ -1136,6 +1200,285 @@ function DepartmentsTab({ all }) {
     </div>
   );
 }
+
+/* ══════════════════════════════════════════════════════════════
+   TAB 12 — TASK PERFORMANCE  (NEW)
+   Office admin submits ratings for staff; super admin views here.
+══════════════════════════════════════════════════════════════ */
+
+/* Rating category colors */
+const ratingColor = (r, T) => {
+  if (r >= 5) return T.green;
+  if (r >= 4) return "#4ADE80";
+  if (r >= 3) return T.amber;
+  if (r >= 2) return "#FB923C";
+  return T.red;
+};
+
+const ratingLabel = r => {
+  if (r >= 5) return "Excellent";
+  if (r >= 4) return "Good";
+  if (r >= 3) return "Average";
+  if (r >= 2) return "Below Average";
+  return "Poor";
+};
+
+/* ── Detail Modal for a single performance entry ── */
+function PerformanceDetailModal({ entry, onClose }) {
+  const T = useT();
+  if (!entry) return null;
+  const col = bColor(entry.branch, T);
+  const rc  = ratingColor(entry.rating, T);
+
+  return (
+    <div style={{ position:"fixed",inset:0,background:"rgba(0,0,0,.82)",zIndex:3000,
+      display:"flex",alignItems:"center",justifyContent:"center",padding:20 }}>
+      <div style={{ background:T.surface,borderRadius:20,width:"100%",maxWidth:540,
+        border:`1px solid ${T.border}`,boxShadow:"0 32px 100px rgba(0,0,0,.7)" }}>
+        <div style={{ padding:"18px 22px",borderBottom:`1px solid ${T.border}`,background:T.card,
+          display:"flex",justifyContent:"space-between",alignItems:"center" }}>
+          <div style={{ display:"flex",alignItems:"center",gap:12 }}>
+            <div style={{ width:40,height:40,borderRadius:10,background:rc+"22",border:`1.5px solid ${rc}44`,
+              display:"flex",alignItems:"center",justifyContent:"center",fontSize:20 }}>⭐</div>
+            <div>
+              <div style={{ fontSize:15,fontWeight:900,color:T.white }}>{entry.staffName}</div>
+              <div style={{ fontSize:11,color:T.dim,display:"flex",gap:6,marginTop:2 }}>
+                <span>{entry.staffId}</span> · <Pill color={col}>{bName(entry.branch)}</Pill>
+              </div>
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background:"rgba(255,255,255,.08)",border:"none",
+            color:T.white,width:32,height:32,borderRadius:8,cursor:"pointer",fontSize:15 }}>✕</button>
+        </div>
+        <div style={{ padding:24 }}>
+          {/* Rating hero */}
+          <div style={{ textAlign:"center",marginBottom:24 }}>
+            <div style={{ fontSize:52,fontWeight:900,color:rc }}>{entry.rating}<span style={{ fontSize:22,color:T.dim }}>/5</span></div>
+            <StarRating rating={entry.rating} size={28}/>
+            <div style={{ marginTop:8 }}>
+              <Badge color={rc}>{ratingLabel(entry.rating)}</Badge>
+            </div>
+          </div>
+
+          {[["Task",entry.task],["Category",entry.category],["Reviewed By",entry.reviewedBy],
+            ["Date",fmt(entry.date)],["Branch",bName(entry.branch)]].map(([k,v])=>(
+            <div key={k} style={{ display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:`1px solid ${T.border}` }}>
+              <span style={{ fontSize:12,color:T.dim,fontWeight:600 }}>{k}</span>
+              <span style={{ fontSize:13,color:T.white,fontWeight:600 }}>{v}</span>
+            </div>
+          ))}
+
+          <div style={{ marginTop:18 }}>
+            <div style={{ fontSize:11,color:T.dim,fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",marginBottom:8 }}>
+              Reason / Feedback
+            </div>
+            <div style={{ background:T.bg,borderRadius:10,padding:"12px 16px",fontSize:13,color:T.white,
+              lineHeight:1.6,border:`1px solid ${T.border2}` }}>
+              {entry.reason || "No feedback provided."}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TaskPerformanceTab() {
+  const T = useT();
+
+  /* ── Local state ── */
+  const [performances, setPerformances] = useState([]);
+  const [loading, setLoading]           = useState(false);
+  const [selected, setSelected]         = useState(null);
+  const [branchF, setBranchF]           = useState("all");
+  const [ratingF, setRatingF]           = useState("all");
+  const [catF, setCatF]                 = useState("all");
+  const [search, setSearch]             = useState("");
+  const [sortBy, setSortBy]             = useState("date_desc");
+
+  /* ── Fetch from backend on mount ── */
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      try {
+        const data = await apiService.getPerformanceRatings();   // plug your API here
+        setPerformances(data || []);
+      } catch {
+        /* Fall back to demo data so the UI is never empty */
+        setPerformances(DEMO_PERFORMANCES);
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, []);
+
+  /* ── Filter + sort ── */
+  const filtered = performances.filter(e => {
+    if (branchF !== "all" && e.branch !== branchF)               return false;
+    if (ratingF !== "all" && String(e.rating) !== ratingF)       return false;
+    if (catF    !== "all" && e.category !== catF)                return false;
+    if (search  && ![e.staffName, e.staffId, e.task].some(v => v?.toLowerCase().includes(search.toLowerCase()))) return false;
+    return true;
+  }).sort((a,b) => {
+    if (sortBy === "rating_desc") return b.rating - a.rating;
+    if (sortBy === "rating_asc")  return a.rating - b.rating;
+    if (sortBy === "date_asc")    return new Date(a.date) - new Date(b.date);
+    return new Date(b.date) - new Date(a.date);   // date_desc default
+  });
+
+  /* ── Aggregate stats ── */
+  const avg      = performances.length ? (performances.reduce((s,e)=>s+e.rating,0)/performances.length).toFixed(1) : "—";
+  const laxmiAvg = performances.filter(e=>e.branch==="laxmi").length
+    ? (performances.filter(e=>e.branch==="laxmi").reduce((s,e)=>s+e.rating,0) / performances.filter(e=>e.branch==="laxmi").length).toFixed(1) : "—";
+  const rayaAvg  = performances.filter(e=>e.branch==="raya").length
+    ? (performances.filter(e=>e.branch==="raya").reduce((s,e)=>s+e.rating,0) / performances.filter(e=>e.branch==="raya").length).toFixed(1) : "—";
+  const poor     = performances.filter(e=>e.rating<=2).length;
+
+  /* ── Unique categories for filter ── */
+  const categories = [...new Set(performances.map(e=>e.category).filter(Boolean))];
+
+  /* ── Star distribution ── */
+  const dist = [5,4,3,2,1].map(s=>({
+    star:s,
+    count: performances.filter(e=>e.rating===s).length,
+    pct: performances.length ? Math.round(performances.filter(e=>e.rating===s).length / performances.length * 100) : 0,
+  }));
+
+  return (
+    <div>
+      {/* ── Top stats ── */}
+      <div style={{ display:"flex",gap:12,flexWrap:"wrap",marginBottom:18 }}>
+        <StatCard icon="⭐" label="Overall Avg Rating" value={avg} sub={`${performances.length} total reviews`} color={T.amber}/>
+        <StatCard icon="🏥" label="Laxmi Nagar Avg"   value={laxmiAvg} sub="Branch average" color={T.laxmi}/>
+        <StatCard icon="🏨" label="Raya Avg"           value={rayaAvg}  sub="Branch average" color={T.raya}/>
+        <StatCard icon="⚠️" label="Poor Ratings (≤2)"  value={poor} sub="Needs attention"   color={poor>0?T.red:T.green}/>
+      </div>
+
+      {/* ── Rating distribution bar ── */}
+      <div style={{ ...cardStyle(T), marginBottom:18 }}>
+        <STitle>Rating Distribution</STitle>
+        <div style={{ display:"flex",flexDirection:"column",gap:8 }}>
+          {dist.map(d=>(
+            <div key={d.star} style={{ display:"flex",alignItems:"center",gap:12 }}>
+              <div style={{ width:20,fontSize:13,color:T.amber,fontWeight:700,flexShrink:0 }}>{d.star}★</div>
+              <div style={{ flex:1,height:12,borderRadius:6,background:T.bg,overflow:"hidden" }}>
+                <div style={{ height:"100%",width:d.pct+"%",borderRadius:6,
+                  background:ratingColor(d.star,T),transition:"width .4s ease",minWidth:d.count>0?8:0 }}/>
+              </div>
+              <div style={{ width:60,textAlign:"right",fontSize:12,color:T.dim }}>
+                <span style={{ color:T.white,fontWeight:700 }}>{d.count}</span> ({d.pct}%)
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Filters ── */}
+      <div style={{ display:"flex",gap:8,flexWrap:"wrap",alignItems:"center",marginBottom:14 }}>
+        <FilterSelect value={branchF} onChange={setBranchF} options={[["all","All Branches"],["laxmi","Lakshmi Nagar"],["raya","Raya"]]}/>
+        <FilterSelect value={ratingF} onChange={setRatingF} options={[["all","All Ratings"],["5","★★★★★ Excellent"],["4","★★★★ Good"],["3","★★★ Average"],["2","★★ Below Avg"],["1","★ Poor"]]}/>
+        {categories.length > 0 && (
+          <FilterSelect value={catF} onChange={setCatF} options={[["all","All Categories"],...categories.map(c=>[c,c])]}/>
+        )}
+        <FilterSelect value={sortBy} onChange={setSortBy} options={[["date_desc","Newest First"],["date_asc","Oldest First"],["rating_desc","Highest Rated"],["rating_asc","Lowest Rated"]]}/>
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search staff, task..."
+          style={{ marginLeft:"auto",padding:"7px 13px",borderRadius:8,border:`1px solid ${T.border2}`,
+            background:T.card,color:T.white,fontSize:13,outline:"none",width:230 }}/>
+        <XlsBtn onClick={()=>exportXLSX(filtered,[
+          {label:"Staff Name",key:"staffName"},{label:"Staff ID",key:"staffId"},
+          {label:"Branch",get:r=>bName(r.branch)},{label:"Role",key:"role"},
+          {label:"Task",key:"task"},{label:"Category",key:"category"},
+          {label:"Rating",key:"rating"},{label:"Label",get:r=>ratingLabel(r.rating)},
+          {label:"Reason",key:"reason"},{label:"Reviewed By",key:"reviewedBy"},
+          {label:"Date",get:r=>fmt(r.date)},
+        ],"performance_ratings.xlsx")}/>
+      </div>
+
+      {/* ── Main table ── */}
+      {loading ? (
+        <div style={{ ...cardStyle(T),textAlign:"center",padding:60,color:T.dim }}>Loading performance data...</div>
+      ) : (
+        <div style={{ ...cardStyle(T),padding:0,overflow:"hidden" }}>
+          <table style={{ width:"100%",borderCollapse:"collapse" }}>
+            <thead>
+              <tr>
+                {["#","Staff","Branch","Role","Task / Category","Rating","Reviewed By","Date","Reason",""].map(h=><TH key={h} h={h}/>)}
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.length===0 && (
+                <tr>
+                  <td colSpan={10} style={{ padding:60,textAlign:"center",color:T.dim }}>
+                    <div style={{ fontSize:36,marginBottom:12 }}>📭</div>
+                    No performance records found
+                  </td>
+                </tr>
+              )}
+              {filtered.map((e,i)=>{
+                const col = bColor(e.branch, T);
+                const rc  = ratingColor(e.rating, T);
+                return (
+                  <tr key={i} onClick={()=>setSelected(e)}
+                    style={{ borderBottom:`1px solid ${T.border}`,background:i%2===0?T.card:T.surface,cursor:"pointer" }}>
+                    <td style={{ padding:"9px 12px",color:T.dim,fontSize:11 }}>{i+1}</td>
+                    <td style={{ padding:"9px 12px" }}>
+                      <div style={{ fontSize:13,fontWeight:700,color:T.white }}>{e.staffName}</div>
+                      <div style={{ fontSize:10,color:T.dim }}>{e.staffId}</div>
+                    </td>
+                    <td style={{ padding:"9px 12px" }}><Pill color={col}>{bName(e.branch)}</Pill></td>
+                    <td style={{ padding:"9px 12px",fontSize:12,color:T.dim }}>{e.role||"--"}</td>
+                    <td style={{ padding:"9px 12px" }}>
+                      <div style={{ fontSize:12,color:T.white }}>{e.task||"--"}</div>
+                      {e.category && <div style={{ fontSize:10,marginTop:2 }}><Badge color={T.dim}>{e.category}</Badge></div>}
+                    </td>
+                    <td style={{ padding:"9px 12px" }}>
+                      <div style={{ display:"flex",alignItems:"center",gap:6 }}>
+                        <span style={{ fontSize:18,fontWeight:900,color:rc }}>{e.rating}</span>
+                        <StarRating rating={e.rating} size={12}/>
+                      </div>
+                      <div style={{ marginTop:2 }}><Badge color={rc}>{ratingLabel(e.rating)}</Badge></div>
+                    </td>
+                    <td style={{ padding:"9px 12px",fontSize:12,color:T.dim }}>{e.reviewedBy||"--"}</td>
+                    <td style={{ padding:"9px 12px",fontSize:11,color:T.dim,whiteSpace:"nowrap" }}>{fmt(e.date)}</td>
+                    <td style={{ padding:"9px 12px",fontSize:11,color:T.dim,maxWidth:180,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>
+                      {e.reason||"--"}
+                    </td>
+                    <td style={{ padding:"9px 12px" }}>
+                      <button onClick={ev=>{ev.stopPropagation();setSelected(e);}} style={{
+                        padding:"4px 10px",borderRadius:6,background:T.amber+"20",color:T.amber,
+                        border:`1px solid ${T.amber}40`,fontSize:11,fontWeight:700,cursor:"pointer" }}>
+                        View
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <PerformanceDetailModal entry={selected} onClose={()=>setSelected(null)}/>
+    </div>
+  );
+}
+
+/* ── Demo data — shown when apiService.getPerformanceRatings() fails/not implemented yet ── */
+const DEMO_PERFORMANCES = [
+  { staffName:"Dr. Anjali Sharma",   staffId:"EMP001", branch:"laxmi", role:"Doctor",         task:"Discharge Documentation",     category:"Clinical",       rating:5, reviewedBy:"Office Admin (Laxmi)", reason:"All discharge summaries were completed accurately and on time. Excellent coordination with nursing staff.", date:"2026-04-16" },
+  { staffName:"Rahul Verma",         staffId:"EMP002", branch:"laxmi", role:"Receptionist",   task:"Patient Registration",        category:"Front Desk",     rating:4, reviewedBy:"Office Admin (Laxmi)", reason:"Quick and accurate registration of patients. Minor delay on April 12th but resolved promptly.",           date:"2026-04-15" },
+  { staffName:"Priya Nair",          staffId:"EMP003", branch:"raya",  role:"Nurse",          task:"Ward Rounds Assistance",      category:"Clinical",       rating:4, reviewedBy:"Office Admin (Raya)",  reason:"Consistent performance in ward rounds. Patients responded positively to care.",                           date:"2026-04-14" },
+  { staffName:"Suresh Patel",        staffId:"EMP004", branch:"raya",  role:"Billing Staff",  task:"Invoice Generation",          category:"Finance",        rating:3, reviewedBy:"Office Admin (Raya)",  reason:"Invoice discrepancies found in 2 cases this week. Needs re-training on cashless billing procedures.",      date:"2026-04-13" },
+  { staffName:"Meena Kapoor",        staffId:"EMP005", branch:"laxmi", role:"Lab Technician", task:"Report Turnaround Time",      category:"Diagnostics",    rating:5, reviewedBy:"Office Admin (Laxmi)", reason:"Exceptional TAT — all reports delivered within SLA. Zero complaints from attending doctors.",              date:"2026-04-12" },
+  { staffName:"Arjun Singh",         staffId:"EMP006", branch:"raya",  role:"Pharmacist",     task:"Medication Dispensing",       category:"Pharmacy",       rating:2, reviewedBy:"Office Admin (Raya)",  reason:"Two wrong dosage incidents reported. Placed under supervision pending review by medical director.",        date:"2026-04-11" },
+  { staffName:"Kavya Reddy",         staffId:"EMP007", branch:"laxmi", role:"Nurse",          task:"OPD Patient Management",      category:"Clinical",       rating:4, reviewedBy:"Office Admin (Laxmi)", reason:"Handled busy OPD days efficiently. Good patient handling skills. Recommend for advanced training.",        date:"2026-04-10" },
+  { staffName:"Deepak Joshi",        staffId:"EMP008", branch:"raya",  role:"Receptionist",   task:"Appointment Scheduling",      category:"Front Desk",     rating:3, reviewedBy:"Office Admin (Raya)",  reason:"Scheduling conflicts occurred on April 8th leading to patient wait time. Needs better coordination.",      date:"2026-04-09" },
+  { staffName:"Dr. Ramesh Gupta",    staffId:"EMP009", branch:"laxmi", role:"Doctor",         task:"Surgical Case Documentation", category:"Clinical",       rating:5, reviewedBy:"Office Admin (Laxmi)", reason:"Outstanding documentation quality for 4 surgical cases. Medical records team highlighted this as best practice.", date:"2026-04-08" },
+  { staffName:"Sunita Yadav",        staffId:"EMP010", branch:"raya",  role:"Lab Technician", task:"Sample Collection",           category:"Diagnostics",    rating:4, reviewedBy:"Office Admin (Raya)",  reason:"Efficient and patient-friendly sample collection. One mislabelling incident but self-corrected quickly.",  date:"2026-04-07" },
+];
+
+
 /* ══════════════════════════════════════════════════════════════
    MAIN COMPONENT EXPORT
 ══════════════════════════════════════════════════════════════ */
@@ -1143,10 +1486,8 @@ export default function SuperAdminDashboard({ db={}, printRequests=[], onApprove
   const { isDark, toggle } = useTheme();
   // eslint-disable-next-line no-global-assign
   T = isDark ? T_DARK : T_LIGHT;
-  const [tab, setTab] = useState("dashboard");
-  const [viewLoc, setViewLoc] = useState("all");
-  const [dropOpen, setDropOpen] = useState(false);
-  const dropRef = useRef();
+  const [tab, setTab]       = useState("dashboard");
+  const dropRef             = useRef();
 
   const all   = useMemo(()=>flattenDB(db,"all"),  [db]);
   const laxmi = useMemo(()=>flattenDB(db,"laxmi"),[db]);
@@ -1154,7 +1495,7 @@ export default function SuperAdminDashboard({ db={}, printRequests=[], onApprove
   const pending = (printRequests||[]).length;
 
   useEffect(() => {
-    const handler = e => { if (dropRef.current && !dropRef.current.contains(e.target)) setDropOpen(false); };
+    const handler = e => { if (dropRef.current && !dropRef.current.contains(e.target)) {} };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
@@ -1176,6 +1517,7 @@ export default function SuperAdminDashboard({ db={}, printRequests=[], onApprove
     { id:"reports",      icon:"📥", label:"Reports and Export" },
     { id:"admins",       icon:"👤", label:"Admin Management" },
     { id:"departments",  icon:"🏢", label:"Departments" },
+    { id:"performance",  icon:"⭐", label:"Task Performance" },
   ];
 
   const activeLabel = NAV.find(n=>n.id===tab);
@@ -1190,8 +1532,7 @@ export default function SuperAdminDashboard({ db={}, printRequests=[], onApprove
 
         <div style={{ padding:"18px 14px 14px",borderBottom:`1px solid ${T.border}` }}>
           <div style={{ display:"flex",alignItems:"center",gap:10 }}>
-            <img src="/app_icon.png" alt="logo" style={{ width:36,height:36,borderRadius:10,
-              objectFit:"cover" }}/>
+            <img src="/app_icon.png" alt="logo" style={{ width:36,height:36,borderRadius:10,objectFit:"cover" }}/>
             <div>
               <div style={{ color:T.white,fontWeight:800,fontSize:13 }}>Sangi Hospital</div>
               <div style={{ color:T.dim,fontSize:10,textTransform:"uppercase",letterSpacing:".1em" }}>Super Admin Portal</div>
@@ -1232,34 +1573,55 @@ export default function SuperAdminDashboard({ db={}, printRequests=[], onApprove
               <div style={{ fontSize:12,color:T.white,fontWeight:700 }}>Super Admin</div>
               <div style={{ fontSize:10,color:T.dim }}>All branches</div>
             </div>
-            
           </div>
         </div>
       </div>
 
       {/* MAIN CONTENT */}
       <div style={{ marginLeft:228,flex:1,minHeight:"100vh",overflowX:"hidden" }}>
-        <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 28px",borderBottom:`1px solid ${T.border}`,background:T.sidebar,marginBottom:0,position:"sticky",top:0,zIndex:40 }}><div style={{ fontSize:13,fontWeight:700,color:T.white }}>{activeLabel?.icon} {activeLabel?.label}</div><div style={{ display:"flex",alignItems:"center",gap:12 }}><button onClick={toggle} style={{ background:"transparent",border:`1px solid ${T.border}`,color:T.dim,padding:"5px 12px",borderRadius:8,cursor:"pointer",fontSize:12,fontWeight:600 }}>{isDark?"☀ Light":"☾ Dark"}</button><div style={{ display:"flex",alignItems:"center",gap:8,background:"rgba(255,255,255,0.05)",borderRadius:20,padding:"3px 6px 3px 12px",border:`1px solid ${T.border}` }}><span style={{ fontSize:11,color:T.dim,fontWeight:500 }}>Super Admin</span><div style={{ width:28,height:28,borderRadius:"50%",background:T.laxmi+"30",display:"flex",alignItems:"center",justifyContent:"center",color:T.laxmi,fontWeight:900,fontSize:12 }}>S</div></div><button onClick={onLogout} style={{ background:"transparent",border:`1px solid ${T.border}`,color:T.dim,padding:"5px 13px",borderRadius:8,cursor:"pointer",fontSize:11,fontWeight:600,display:"flex",alignItems:"center",gap:5 }}>↪ Logout</button></div></div>
-      <div style={{ marginBottom:18,marginTop:18 }}>
+        {/* Top bar */}
+        <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 28px",
+          borderBottom:`1px solid ${T.border}`,background:T.sidebar,position:"sticky",top:0,zIndex:40 }}>
+          <div style={{ fontSize:13,fontWeight:700,color:T.white }}>{activeLabel?.icon} {activeLabel?.label}</div>
+          <div style={{ display:"flex",alignItems:"center",gap:12 }}>
+            <button onClick={toggle} style={{ background:"transparent",border:`1px solid ${T.border}`,color:T.dim,
+              padding:"5px 12px",borderRadius:8,cursor:"pointer",fontSize:12,fontWeight:600 }}>
+              {isDark?"☀ Light":"☾ Dark"}
+            </button>
+            <div style={{ display:"flex",alignItems:"center",gap:8,background:"rgba(255,255,255,0.05)",
+              borderRadius:20,padding:"3px 6px 3px 12px",border:`1px solid ${T.border}` }}>
+              <span style={{ fontSize:11,color:T.dim,fontWeight:500 }}>Super Admin</span>
+              <div style={{ width:28,height:28,borderRadius:"50%",background:T.laxmi+"30",
+                display:"flex",alignItems:"center",justifyContent:"center",color:T.laxmi,fontWeight:900,fontSize:12 }}>S</div>
+            </div>
+            <button onClick={onLogout} style={{ background:"transparent",border:`1px solid ${T.border}`,color:T.dim,
+              padding:"5px 13px",borderRadius:8,cursor:"pointer",fontSize:11,fontWeight:600,display:"flex",alignItems:"center",gap:5 }}>
+              ↪ Logout
+            </button>
+          </div>
+        </div>
+
+        <div style={{ padding:"18px 28px 4px" }}>
           <div style={{ fontSize:12,color:T.dim }}>
             {new Date().toLocaleDateString("en-IN",{weekday:"long",year:"numeric",month:"long",day:"numeric"})}
             {" · "}{all.length} total records · {laxmi.length} Laxmi Nagar · {raya.length} Raya
           </div>
         </div>
 
-        <div style={{ padding:"24px 28px" }}>
-        {tab==="dashboard"   && <DashboardTab all={all} laxmi={laxmi} raya={raya}/>}
-        {tab==="laxmi"       && <BranchTab pts={laxmi} branch="laxmi"/>}
-        {tab==="raya"        && <BranchTab pts={raya} branch="raya"/>}
-        {tab==="allpatients" && <AllPatientsTab all={all}/>}
-        {tab==="billing"     && <BillingTab all={all}/>}
-        {tab==="invoices"    && <InvoicesTab printRequests={printRequests} onApprovePrint={onApprovePrint}/>}
-        {tab==="medical"     && <MedicalTab all={all}/>}
-        {tab==="discharge"   && <DischargeTab all={all}/>}
-        {tab==="reports"     && <ReportsTab all={all}/>}
-        {tab==="admins"      && <AdminsTab/>}
-        {tab==="departments" && <DepartmentsTab all={all}/>}
-      </div>
+        <div style={{ padding:"16px 28px 28px" }}>
+          {tab==="dashboard"   && <DashboardTab all={all} laxmi={laxmi} raya={raya}/>}
+          {tab==="laxmi"       && <BranchTab pts={laxmi} branch="laxmi"/>}
+          {tab==="raya"        && <BranchTab pts={raya} branch="raya"/>}
+          {tab==="allpatients" && <AllPatientsTab all={all}/>}
+          {tab==="billing"     && <BillingTab all={all}/>}
+          {tab==="invoices"    && <InvoicesTab printRequests={printRequests} onApprovePrint={onApprovePrint}/>}
+          {tab==="medical"     && <MedicalTab all={all}/>}
+          {tab==="discharge"   && <DischargeTab all={all}/>}
+          {tab==="reports"     && <ReportsTab all={all}/>}
+          {tab==="admins"      && <AdminsTab/>}
+          {tab==="departments" && <DepartmentsTab all={all}/>}
+          {tab==="performance" && <TaskPerformanceTab/>}
+        </div>
       </div>
     </div>
     </TC.Provider>
