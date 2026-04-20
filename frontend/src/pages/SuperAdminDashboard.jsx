@@ -52,9 +52,6 @@ const bName  = loc => loc === "laxmi" ? "Lakshmi Nagar" : "Raya";
 const fmt    = d  => { try { const dt=new Date(d); return isNaN(dt)?"--":dt.toLocaleDateString("en-IN"); } catch { return "--"; } };
 const inr    = v  => "Rs." + Number(v||0).toLocaleString("en-IN");
 
-const BRANCH_COLORS = { laxmi: T.laxmi, raya: T.raya, all: T.green };
-const BRANCH_LABELS = { laxmi: "Lakshmi Nagar", raya: "Raya", all: "All Branches" };
-
 /* ── Role helpers ── */
 const ROLE_LABELS = {
   office_admin:  "Office Admin",
@@ -67,11 +64,6 @@ const roleColor = (role, t) => {
   if (role === "branch_admin") return t.raya;
   return t.green;
 };
-const roleBranchCode = (role, branch) => {
-  if (role === "office_admin") return "BOTH";
-  return branch === "laxmi" ? "LNM" : "RYM";
-};
-
 function exportXLSX(rows, cols, filename) {
   const data = rows.map(r => {
     const obj = {};
@@ -165,12 +157,6 @@ function XlsBtn({ onClick, label }) {
     background:T.green, color:"#000", fontSize:12, fontWeight:800, cursor:"pointer", whiteSpace:"nowrap" }}>
     {label||"Download Excel"}
   </button>;
-}
-function FBtn({ active, color, onClick, children }) {
-  const T = useT();
-  return <button onClick={onClick} style={{ padding:"6px 13px", borderRadius:8, cursor:"pointer",
-    fontWeight:700, fontSize:12, border:`1px solid ${active?(color||T.laxmi):T.border}`,
-    background:active?(color||T.laxmi)+"20":"transparent", color:active?(color||T.laxmi):T.dim }}>{children}</button>;
 }
 function FilterSelect({ value, onChange, options, style }) {
   const T = useT();
@@ -946,11 +932,11 @@ function ReportsTab({ all }) {
 }
 
 /* ══════════════════════════════════════════════════════════════
-   TAB 10 — ADMIN MANAGEMENT  (UPDATED ROLES)
+   TAB 10 — ADMIN MANAGEMENT
 ══════════════════════════════════════════════════════════════ */
 function AdminsTab() {
   const T = useT();
-  const [users, setUsers] = useState([]);
+  const [users, setUsers] = useState([]);  // eslint-disable-line no-unused-vars
   const [modal, setModal] = useState(false);
   const [form, setForm]   = useState({ id:"", name:"", password:"", confirmPassword:"", role:"office_admin", branch:"laxmi" });
   const [showPass, setShowPass]       = useState(false);
@@ -958,35 +944,23 @@ function AdminsTab() {
   const [passErr, setPassErr]         = useState("");
   const sf = k => e => { setForm(f=>({...f,[k]:e.target.value})); setPassErr(""); };
 
-  /* When role switches to office_admin, reset branch to "both" placeholder */
   const handleRoleChange = (val) => {
     setForm(f => ({ ...f, role: val, branch: val === "office_admin" ? "laxmi" : f.branch }));
   };
-
   const isOfficeAdmin = form.role === "office_admin";
 
   const create = async () => {
     if (!form.id || !form.name || !form.password) { toast.error("Fill all fields"); return; }
     if (form.password !== form.confirmPassword)    { setPassErr("Passwords do not match"); return; }
-
     const nameParts = form.name.split(" ");
     const firstName = nameParts[0];
     const lastName  = nameParts.length > 1 ? nameParts.slice(1).join(" ") : ".";
-
-    /* Office Admin → BOTH branches; Branch Admin → LNM or RYM */
     const branchCode = isOfficeAdmin ? "BOTH" : (form.branch === "laxmi" ? "LNM" : "RYM");
-
     const payload = {
-      username:         form.id,
-      first_name:       firstName,
-      last_name:        lastName,
-      password:         form.password,
-      confirm_password: form.password,
-      role:             form.role,
-      branch:           branchCode,
-      email:            `${form.id}@sangihospital.com`,
+      username: form.id, first_name: firstName, last_name: lastName,
+      password: form.password, confirm_password: form.password,
+      role: form.role, branch: branchCode, email: `${form.id}@sangihospital.com`,
     };
-
     try {
       await apiService.createUser(payload);
       toast.success("User created successfully!");
@@ -1006,15 +980,12 @@ function AdminsTab() {
 
   return (
     <div>
-      {/* ── Stats ── */}
       <div style={{ display:"flex",gap:12,flexWrap:"wrap",marginBottom:18 }}>
         <StatCard icon="👥" label="Total Users"    value={users.length}        color={T.laxmi}/>
         <StatCard icon="🏢" label="Office Admins"  value={officeAdmins.length} sub="Both branches access" color={T.laxmi}/>
         <StatCard icon="🏥" label="Branch Admins"  value={branchAdmins.length} sub="Single branch"        color={T.raya}/>
         <StatCard icon="👤" label="Other Staff"    value={users.filter(u=>u.role!=="office_admin"&&u.role!=="branch_admin").length} color={T.green}/>
       </div>
-
-      {/* ── Role legend ── */}
       <div style={{ ...cardStyle(T), marginBottom:18, display:"flex", gap:24, flexWrap:"wrap", padding:"14px 20px" }}>
         <div style={{ display:"flex", alignItems:"flex-start", gap:10 }}>
           <Pill color={T.laxmi}>Office Admin</Pill>
@@ -1029,13 +1000,10 @@ function AdminsTab() {
           </div>
         </div>
       </div>
-
       <div style={{ display:"flex",justifyContent:"flex-end",marginBottom:12 }}>
         <button onClick={()=>setModal(true)} style={{ padding:"9px 22px",borderRadius:9,background:T.laxmi,
           color:"#000",border:"none",fontWeight:800,fontSize:13,cursor:"pointer" }}>+ Create User</button>
       </div>
-
-      {/* ── Users table ── */}
       <div style={{ ...cardStyle(T),padding:0,overflow:"hidden" }}>
         <table style={{ width:"100%",borderCollapse:"collapse" }}>
           <thead><tr>{["Username","Full Name","Role","Branch Access","Status"].map(h=><TH key={h} h={h}/>)}</tr></thead>
@@ -1054,8 +1022,7 @@ function AdminsTab() {
                         <Pill color={T.laxmi}>Lakshmi Nagar</Pill>
                         <Pill color={T.raya}>Raya</Pill>
                       </div>
-                    : u.branch
-                      ? <Pill color={bColor(u.branch, T)}>{bName(u.branch)}</Pill>
+                    : u.branch ? <Pill color={bColor(u.branch, T)}>{bName(u.branch)}</Pill>
                       : <span style={{ color:T.dim }}>--</span>
                   }
                 </td>
@@ -1065,16 +1032,12 @@ function AdminsTab() {
           </tbody>
         </table>
       </div>
-
-      {/* ── Create Modal ── */}
       {modal && (
         <div style={{ position:"fixed",inset:0,background:"rgba(0,0,0,.75)",zIndex:2000,
           display:"flex",alignItems:"center",justifyContent:"center" }}>
           <div style={{ background:T.surface,borderRadius:16,padding:30,width:460,
             border:`1px solid ${T.border}`,boxShadow:SD,maxHeight:"90vh",overflowY:"auto" }}>
             <div style={{ fontSize:16,fontWeight:800,color:T.white,marginBottom:20 }}>Create New User</div>
-
-            {/* Text fields */}
             {[["Username / ID","id","text","admin_xyz"],
               ["Full Name","name","text","Full Name"],
               ["Password","password",showPass?"text":"password","••••••••"],
@@ -1100,8 +1063,6 @@ function AdminsTab() {
                 )}
               </div>
             ))}
-
-            {/* Role selector */}
             <div style={{ marginBottom:12 }}>
               <div style={{ fontSize:11,color:T.dim,fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",marginBottom:4 }}>Role</div>
               <select value={form.role} onChange={e=>handleRoleChange(e.target.value)}
@@ -1110,15 +1071,12 @@ function AdminsTab() {
                 <option value="office_admin">Office Admin (Both Branches)</option>
                 <option value="branch_admin">Branch Admin (Single Branch)</option>
               </select>
-              {/* Role description hint */}
               <div style={{ fontSize:11,color:T.dim,marginTop:5,padding:"6px 10px",background:T.bg,borderRadius:6 }}>
                 {isOfficeAdmin
                   ? "⚡ Office Admin has access to both Lakshmi Nagar and Raya with a branch switcher."
                   : "🏥 Branch Admin is restricted to the single branch assigned below."}
               </div>
             </div>
-
-            {/* Branch selector — disabled/hidden for office admin */}
             <div style={{ marginBottom:12 }}>
               <div style={{ fontSize:11,color:T.dim,fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",marginBottom:4 }}>
                 Branch {isOfficeAdmin && <span style={{ color:T.green,textTransform:"none",letterSpacing:0,fontWeight:500 }}>(auto: both)</span>}
@@ -1138,7 +1096,6 @@ function AdminsTab() {
                 </select>
               )}
             </div>
-
             <div style={{ display:"flex",gap:8,justifyContent:"flex-end",marginTop:18 }}>
               <button onClick={()=>setModal(false)} style={{ padding:"9px 18px",borderRadius:8,
                 background:"transparent",border:`1px solid ${T.border2}`,color:T.dim,fontWeight:700,cursor:"pointer" }}>Cancel</button>
@@ -1202,80 +1159,283 @@ function DepartmentsTab({ all }) {
 }
 
 /* ══════════════════════════════════════════════════════════════
-   TAB 12 — TASK PERFORMANCE  (NEW)
-   Office admin submits ratings for staff; super admin views here.
+   TAB 12 — TASK PERFORMANCE  (COMPLETELY REDESIGNED)
+   Department-wise performance for each employee with full
+   descriptions: Billing, Uploading, OPD, Query, Intimation
 ══════════════════════════════════════════════════════════════ */
 
-/* Rating category colors */
-const ratingColor = (r, T) => {
-  if (r >= 5) return T.green;
-  if (r >= 4) return "#4ADE80";
-  if (r >= 3) return T.amber;
-  if (r >= 2) return "#FB923C";
-  return T.red;
+/* ── Constants ── */
+const DEPARTMENTS = ["Billing", "Uploading", "OPD", "Query", "Intimation"];
+
+const DEPT_META = {
+  Billing:    { icon:"💳", color:"#FBBF24", desc:"Invoice generation, payment collection, discount handling" },
+  Uploading:  { icon:"📤", color:"#38BDF8", desc:"Document uploads, report filing, data entry accuracy" },
+  OPD:        { icon:"🩺", color:"#34D399", desc:"Outpatient registration, scheduling, patient flow management" },
+  Query:      { icon:"💬", color:"#A78BFA", desc:"Patient and visitor queries, information desk, call handling" },
+  Intimation: { icon:"📞", color:"#FB923C", desc:"Insurance intimation, TPA coordination, pre-auth processing" },
 };
 
-const ratingLabel = r => {
-  if (r >= 5) return "Excellent";
-  if (r >= 4) return "Good";
-  if (r >= 3) return "Average";
-  if (r >= 2) return "Below Average";
-  return "Poor";
+const ratingMeta = (r) => {
+  if (r >= 5) return { label:"Excellent",  color:"#34D399" };
+  if (r >= 4) return { label:"Good",        color:"#4ADE80" };
+  if (r >= 3) return { label:"Average",     color:"#FBBF24" };
+  if (r >= 2) return { label:"Below Avg",   color:"#FB923C" };
+  return             { label:"Poor",         color:"#F87171" };
 };
 
-/* ── Detail Modal for a single performance entry ── */
-function PerformanceDetailModal({ entry, onClose }) {
+/* ── Department Overview Card ── */
+function DeptOverviewCard({ dept, entries }) {
   const T = useT();
-  if (!entry) return null;
-  const col = bColor(entry.branch, T);
-  const rc  = ratingColor(entry.rating, T);
+  const meta = DEPT_META[dept];
+  const avg = entries.length
+    ? (entries.reduce((s,e)=>s+e.rating,0)/entries.length).toFixed(1)
+    : "—";
+  const poor  = entries.filter(e=>e.rating<=2).length;
+  const excel = entries.filter(e=>e.rating>=5).length;
+  const rm    = entries.length ? ratingMeta(parseFloat(avg)) : { label:"—", color:T.dim };
+
+  const dist = [5,4,3,2,1].map(s=>({
+    s, count: entries.filter(e=>e.rating===s).length,
+    pct: entries.length ? Math.round(entries.filter(e=>e.rating===s).length/entries.length*100) : 0,
+  }));
+
+  return (
+    <div style={{ background:T.card, borderRadius:14, padding:18, boxShadow:SD,
+      borderTop:`3px solid ${meta.color}`, display:"flex", flexDirection:"column", gap:10 }}>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
+        <div>
+          <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:4 }}>
+            <span style={{ fontSize:20 }}>{meta.icon}</span>
+            <span style={{ fontSize:15, fontWeight:800, color:T.white }}>{dept}</span>
+          </div>
+          <div style={{ fontSize:11, color:T.dim, maxWidth:200 }}>{meta.desc}</div>
+        </div>
+        <div style={{ textAlign:"right" }}>
+          <div style={{ fontSize:28, fontWeight:900, color:rm.color }}>{avg}</div>
+          <div style={{ fontSize:10, color:T.dim }}>avg / 5</div>
+        </div>
+      </div>
+      <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+        <span style={{ background:T.bg, borderRadius:6, padding:"3px 9px", fontSize:11, color:T.dim }}>
+          <strong style={{ color:T.white }}>{entries.length}</strong> reviews
+        </span>
+        <span style={{ background:T.green+"18", borderRadius:6, padding:"3px 9px", fontSize:11, color:T.green }}>
+          <strong>{excel}</strong> excellent
+        </span>
+        {poor > 0 && <span style={{ background:T.red+"18", borderRadius:6, padding:"3px 9px", fontSize:11, color:T.red }}>
+          <strong>{poor}</strong> poor
+        </span>}
+      </div>
+      <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+        {dist.map(d=>(
+          <div key={d.s} style={{ display:"flex", alignItems:"center", gap:8 }}>
+            <div style={{ width:14, fontSize:10, color:T.amber, fontWeight:700 }}>{d.s}★</div>
+            <div style={{ flex:1, height:6, borderRadius:3, background:T.bg, overflow:"hidden" }}>
+              <div style={{ height:"100%", width:d.pct+"%", borderRadius:3,
+                background:ratingMeta(d.s).color, transition:"width .4s ease", minWidth:d.count>0?4:0 }}/>
+            </div>
+            <div style={{ width:28, textAlign:"right", fontSize:10, color:T.dim }}>{d.count}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ── Employee Performance Card (dept-wise breakdown) ── */
+function EmployeeCard({ emp, entries, onClick }) {
+  const T = useT();
+  const overallAvg = entries.length
+    ? (entries.reduce((s,e)=>s+e.rating,0)/entries.length).toFixed(1) : "—";
+  const rm  = entries.length ? ratingMeta(parseFloat(overallAvg)) : { label:"—", color:T.dim };
+  const col = bColor(emp.branch, T);
+
+  /* per-dept avg for this employee */
+  const deptBreakdown = DEPARTMENTS.map(dept => {
+    const de = entries.filter(e=>e.department===dept);
+    const avg = de.length ? (de.reduce((s,e)=>s+e.rating,0)/de.length).toFixed(1) : null;
+    return { dept, avg, count: de.length, meta: DEPT_META[dept] };
+  });
+
+  return (
+    <div onClick={onClick}
+      style={{ background:T.card, borderRadius:14, padding:18, boxShadow:SD,
+        cursor:"pointer", border:`1px solid ${T.border}`,
+        transition:"border-color .15s", borderLeft:`4px solid ${col}` }}>
+      {/* Header */}
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:12 }}>
+        <div style={{ display:"flex", gap:10, alignItems:"center" }}>
+          <div style={{ width:38, height:38, borderRadius:10, background:col+"25",
+            display:"flex", alignItems:"center", justifyContent:"center",
+            fontSize:15, fontWeight:900, color:col }}>
+            {emp.staffName?.split(" ").slice(0,2).map(w=>w[0]).join("").toUpperCase()}
+          </div>
+          <div>
+            <div style={{ fontSize:13, fontWeight:800, color:T.white }}>{emp.staffName}</div>
+            <div style={{ fontSize:11, color:T.dim, marginTop:2, display:"flex", gap:6 }}>
+              <span>{emp.staffId}</span>
+              <span>·</span>
+              <span style={{ color:col }}>{bName(emp.branch)}</span>
+            </div>
+          </div>
+        </div>
+        <div style={{ textAlign:"right" }}>
+          <div style={{ fontSize:22, fontWeight:900, color:rm.color }}>{overallAvg}</div>
+          <span style={{ fontSize:10, background:rm.color+"22", color:rm.color, borderRadius:5,
+            padding:"1px 7px", fontWeight:700 }}>{rm.label}</span>
+        </div>
+      </div>
+      {/* Role badge */}
+      <div style={{ marginBottom:10 }}>
+        <span style={{ background:T.bg, borderRadius:5, padding:"2px 8px", fontSize:11, color:T.dim, fontWeight:600 }}>
+          {emp.role}
+        </span>
+      </div>
+      {/* Dept breakdown mini-bars */}
+      <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+        {deptBreakdown.map(({ dept, avg, count, meta }) => (
+          <div key={dept} style={{ display:"flex", alignItems:"center", gap:8 }}>
+            <span style={{ fontSize:12 }}>{meta.icon}</span>
+            <div style={{ width:68, fontSize:10, color:T.dim, fontWeight:600 }}>{dept}</div>
+            {avg !== null ? (
+              <>
+                <div style={{ flex:1, height:5, borderRadius:3, background:T.bg, overflow:"hidden" }}>
+                  <div style={{ height:"100%", width:(parseFloat(avg)/5*100)+"%", borderRadius:3,
+                    background:meta.color, opacity:.85 }}/>
+                </div>
+                <div style={{ width:22, textAlign:"right", fontSize:11, fontWeight:700, color:meta.color }}>{avg}</div>
+                <div style={{ width:24, textAlign:"right", fontSize:10, color:T.dim }}>({count})</div>
+              </>
+            ) : (
+              <div style={{ flex:1, fontSize:10, color:T.dimmer }}>No data</div>
+            )}
+          </div>
+        ))}
+      </div>
+      <div style={{ marginTop:10, textAlign:"right", fontSize:11, color:T.dim }}>
+        {entries.length} total reviews — <span style={{ color:T.laxmi }}>View Details →</span>
+      </div>
+    </div>
+  );
+}
+
+/* ── Employee Detail Modal ── */
+function EmployeeDetailModal({ emp, entries, onClose }) {
+  const T = useT();
+  const [activeDept, setActiveDept] = useState("all");
+
+  if (!emp) return null;
+  const col = bColor(emp.branch, T);
+  const overallAvg = entries.length
+    ? (entries.reduce((s,e)=>s+e.rating,0)/entries.length).toFixed(1) : "—";
+  const rm = entries.length ? ratingMeta(parseFloat(overallAvg)) : { label:"—", color:T.dim };
+
+  const deptEntries = activeDept === "all" ? entries : entries.filter(e=>e.department===activeDept);
 
   return (
     <div style={{ position:"fixed",inset:0,background:"rgba(0,0,0,.82)",zIndex:3000,
       display:"flex",alignItems:"center",justifyContent:"center",padding:20 }}>
-      <div style={{ background:T.surface,borderRadius:20,width:"100%",maxWidth:540,
-        border:`1px solid ${T.border}`,boxShadow:"0 32px 100px rgba(0,0,0,.7)" }}>
-        <div style={{ padding:"18px 22px",borderBottom:`1px solid ${T.border}`,background:T.card,
-          display:"flex",justifyContent:"space-between",alignItems:"center" }}>
-          <div style={{ display:"flex",alignItems:"center",gap:12 }}>
-            <div style={{ width:40,height:40,borderRadius:10,background:rc+"22",border:`1.5px solid ${rc}44`,
-              display:"flex",alignItems:"center",justifyContent:"center",fontSize:20 }}>⭐</div>
+      <div style={{ background:T.surface, borderRadius:20, width:"100%", maxWidth:780,
+        maxHeight:"92vh", overflow:"hidden", display:"flex", flexDirection:"column",
+        border:`1px solid ${T.border}`, boxShadow:"0 32px 100px rgba(0,0,0,.7)" }}>
+
+        {/* Modal header */}
+        <div style={{ padding:"16px 22px", borderBottom:`1px solid ${T.border}`, background:T.card,
+          display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+            <div style={{ width:44, height:44, borderRadius:12, background:col+"25",
+              display:"flex", alignItems:"center", justifyContent:"center",
+              fontSize:16, fontWeight:900, color:col }}>
+              {emp.staffName?.split(" ").slice(0,2).map(w=>w[0]).join("").toUpperCase()}
+            </div>
             <div>
-              <div style={{ fontSize:15,fontWeight:900,color:T.white }}>{entry.staffName}</div>
-              <div style={{ fontSize:11,color:T.dim,display:"flex",gap:6,marginTop:2 }}>
-                <span>{entry.staffId}</span> · <Pill color={col}>{bName(entry.branch)}</Pill>
+              <div style={{ fontSize:16, fontWeight:900, color:T.white }}>{emp.staffName}</div>
+              <div style={{ fontSize:12, color:T.dim, display:"flex", gap:8, marginTop:2 }}>
+                <span>{emp.staffId}</span>
+                <span>·</span>
+                <span>{emp.role}</span>
+                <span>·</span>
+                <Pill color={col}>{bName(emp.branch)}</Pill>
               </div>
             </div>
           </div>
-          <button onClick={onClose} style={{ background:"rgba(255,255,255,.08)",border:"none",
-            color:T.white,width:32,height:32,borderRadius:8,cursor:"pointer",fontSize:15 }}>✕</button>
-        </div>
-        <div style={{ padding:24 }}>
-          {/* Rating hero */}
-          <div style={{ textAlign:"center",marginBottom:24 }}>
-            <div style={{ fontSize:52,fontWeight:900,color:rc }}>{entry.rating}<span style={{ fontSize:22,color:T.dim }}>/5</span></div>
-            <StarRating rating={entry.rating} size={28}/>
-            <div style={{ marginTop:8 }}>
-              <Badge color={rc}>{ratingLabel(entry.rating)}</Badge>
+          <div style={{ display:"flex", alignItems:"center", gap:14 }}>
+            <div style={{ textAlign:"right" }}>
+              <div style={{ fontSize:28, fontWeight:900, color:rm.color }}>{overallAvg}<span style={{ fontSize:14, color:T.dim }}>/5</span></div>
+              <StarRating rating={Math.round(parseFloat(overallAvg)||0)} size={14}/>
             </div>
+            <button onClick={onClose} style={{ background:"rgba(255,255,255,.08)", border:"none",
+              color:T.white, width:32, height:32, borderRadius:8, cursor:"pointer", fontSize:15 }}>✕</button>
+          </div>
+        </div>
+
+        <div style={{ overflowY:"auto", padding:22 }}>
+          {/* Department-wise avg summary row */}
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:8, marginBottom:18 }}>
+            {DEPARTMENTS.map(dept => {
+              const de = entries.filter(e=>e.department===dept);
+              const avg = de.length ? (de.reduce((s,e)=>s+e.rating,0)/de.length).toFixed(1) : null;
+              const meta = DEPT_META[dept];
+              return (
+                <div key={dept} onClick={()=>setActiveDept(activeDept===dept?"all":dept)}
+                  style={{ background: activeDept===dept ? meta.color+"25" : T.card,
+                    border:`1.5px solid ${activeDept===dept?meta.color:T.border}`,
+                    borderRadius:10, padding:"10px 12px", cursor:"pointer", textAlign:"center",
+                    transition:"all .15s" }}>
+                  <div style={{ fontSize:18, marginBottom:4 }}>{meta.icon}</div>
+                  <div style={{ fontSize:10, color:T.dim, fontWeight:600, marginBottom:4 }}>{dept}</div>
+                  <div style={{ fontSize:18, fontWeight:900, color: avg ? ratingMeta(parseFloat(avg)).color : T.dimmer }}>
+                    {avg || "—"}
+                  </div>
+                  <div style={{ fontSize:10, color:T.dim, marginTop:2 }}>{de.length} reviews</div>
+                </div>
+              );
+            })}
           </div>
 
-          {[["Task",entry.task],["Category",entry.category],["Reviewed By",entry.reviewedBy],
-            ["Date",fmt(entry.date)],["Branch",bName(entry.branch)]].map(([k,v])=>(
-            <div key={k} style={{ display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:`1px solid ${T.border}` }}>
-              <span style={{ fontSize:12,color:T.dim,fontWeight:600 }}>{k}</span>
-              <span style={{ fontSize:13,color:T.white,fontWeight:600 }}>{v}</span>
+          {/* Department filter label */}
+          {activeDept !== "all" && (
+            <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:12 }}>
+              <span style={{ fontSize:12, color:T.dim }}>Showing:</span>
+              <Pill color={DEPT_META[activeDept].color}>{DEPT_META[activeDept].icon} {activeDept}</Pill>
+              <button onClick={()=>setActiveDept("all")} style={{ background:"transparent", border:`1px solid ${T.border2}`,
+                color:T.dim, borderRadius:6, padding:"2px 8px", fontSize:11, cursor:"pointer" }}>Clear</button>
             </div>
-          ))}
+          )}
 
-          <div style={{ marginTop:18 }}>
-            <div style={{ fontSize:11,color:T.dim,fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",marginBottom:8 }}>
-              Reason / Feedback
-            </div>
-            <div style={{ background:T.bg,borderRadius:10,padding:"12px 16px",fontSize:13,color:T.white,
-              lineHeight:1.6,border:`1px solid ${T.border2}` }}>
-              {entry.reason || "No feedback provided."}
-            </div>
+          {/* Reviews list */}
+          <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+            {deptEntries.length === 0 && (
+              <div style={{ textAlign:"center", padding:40, color:T.dim }}>No reviews for this department</div>
+            )}
+            {deptEntries.map((e,i) => {
+              const meta = DEPT_META[e.department] || { icon:"📋", color:T.dim };
+              const rm2  = ratingMeta(e.rating);
+              return (
+                <div key={i} style={{ background:T.bg, borderRadius:10, padding:"14px 16px",
+                  border:`1px solid ${T.border}`, borderLeft:`3px solid ${meta.color}` }}>
+                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:8 }}>
+                    <div style={{ display:"flex", gap:8, alignItems:"center", flexWrap:"wrap" }}>
+                      <span style={{ fontSize:13 }}>{meta.icon}</span>
+                      <span style={{ fontSize:12, fontWeight:700, color:meta.color }}>{e.department}</span>
+                      <Badge color={T.dim}>{e.task}</Badge>
+                    </div>
+                    <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                      <span style={{ fontSize:16, fontWeight:900, color:rm2.color }}>{e.rating}</span>
+                      <StarRating rating={e.rating} size={11}/>
+                      <Badge color={rm2.color}>{rm2.label}</Badge>
+                    </div>
+                  </div>
+                  <div style={{ fontSize:12, color:T.white, lineHeight:1.65, marginBottom:8 }}>
+                    {e.description || e.reason || "No feedback provided."}
+                  </div>
+                  <div style={{ display:"flex", gap:16, fontSize:11, color:T.dim }}>
+                    <span>Reviewed by: <strong style={{ color:T.white }}>{e.reviewedBy}</strong></span>
+                    <span>Date: <strong style={{ color:T.white }}>{fmt(e.date)}</strong></span>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -1283,28 +1443,25 @@ function PerformanceDetailModal({ entry, onClose }) {
   );
 }
 
+/* ── Main TaskPerformanceTab ── */
 function TaskPerformanceTab() {
   const T = useT();
-
-  /* ── Local state ── */
   const [performances, setPerformances] = useState([]);
   const [loading, setLoading]           = useState(false);
-  const [selected, setSelected]         = useState(null);
+  const [selectedEmp, setSelectedEmp]   = useState(null);
+  const [viewMode, setViewMode]         = useState("employees"); // "employees" | "departments"
   const [branchF, setBranchF]           = useState("all");
+  const [deptF, setDeptF]               = useState("all");
   const [ratingF, setRatingF]           = useState("all");
-  const [catF, setCatF]                 = useState("all");
   const [search, setSearch]             = useState("");
-  const [sortBy, setSortBy]             = useState("date_desc");
 
-  /* ── Fetch from backend on mount ── */
   useEffect(() => {
     const load = async () => {
       setLoading(true);
       try {
-        const data = await apiService.getPerformanceRatings();   // plug your API here
+        const data = await apiService.getPerformanceRatings();
         setPerformances(data || []);
       } catch {
-        /* Fall back to demo data so the UI is never empty */
         setPerformances(DEMO_PERFORMANCES);
       } finally {
         setLoading(false);
@@ -1313,169 +1470,209 @@ function TaskPerformanceTab() {
     load();
   }, []);
 
-  /* ── Filter + sort ── */
+  /* Filter performances */
   const filtered = performances.filter(e => {
-    if (branchF !== "all" && e.branch !== branchF)               return false;
-    if (ratingF !== "all" && String(e.rating) !== ratingF)       return false;
-    if (catF    !== "all" && e.category !== catF)                return false;
-    if (search  && ![e.staffName, e.staffId, e.task].some(v => v?.toLowerCase().includes(search.toLowerCase()))) return false;
+    if (branchF !== "all" && e.branch !== branchF) return false;
+    if (deptF   !== "all" && e.department !== deptF) return false;
+    if (ratingF !== "all" && String(e.rating) !== ratingF) return false;
+    if (search && ![e.staffName, e.staffId, e.task, e.department]
+      .some(v => v?.toLowerCase().includes(search.toLowerCase()))) return false;
     return true;
-  }).sort((a,b) => {
-    if (sortBy === "rating_desc") return b.rating - a.rating;
-    if (sortBy === "rating_asc")  return a.rating - b.rating;
-    if (sortBy === "date_asc")    return new Date(a.date) - new Date(b.date);
-    return new Date(b.date) - new Date(a.date);   // date_desc default
   });
 
-  /* ── Aggregate stats ── */
-  const avg      = performances.length ? (performances.reduce((s,e)=>s+e.rating,0)/performances.length).toFixed(1) : "—";
-  const laxmiAvg = performances.filter(e=>e.branch==="laxmi").length
-    ? (performances.filter(e=>e.branch==="laxmi").reduce((s,e)=>s+e.rating,0) / performances.filter(e=>e.branch==="laxmi").length).toFixed(1) : "—";
-  const rayaAvg  = performances.filter(e=>e.branch==="raya").length
-    ? (performances.filter(e=>e.branch==="raya").reduce((s,e)=>s+e.rating,0) / performances.filter(e=>e.branch==="raya").length).toFixed(1) : "—";
-  const poor     = performances.filter(e=>e.rating<=2).length;
+  /* Group by employee */
+  const empMap = {};
+  filtered.forEach(e => {
+    if (!empMap[e.staffId]) {
+      empMap[e.staffId] = {
+        staffId: e.staffId, staffName: e.staffName,
+        branch: e.branch, role: e.role, entries: []
+      };
+    }
+    empMap[e.staffId].entries.push(e);
+  });
+  const employees = Object.values(empMap);
 
-  /* ── Unique categories for filter ── */
-  const categories = [...new Set(performances.map(e=>e.category).filter(Boolean))];
+  /* Stats */
+  const allFiltered   = filtered;
+  const overallAvg    = allFiltered.length ? (allFiltered.reduce((s,e)=>s+e.rating,0)/allFiltered.length).toFixed(1) : "—";
+  const laxmiEntries  = performances.filter(e=>e.branch==="laxmi");
+  const rayaEntries   = performances.filter(e=>e.branch==="raya");
+  const laxmiAvg      = laxmiEntries.length ? (laxmiEntries.reduce((s,e)=>s+e.rating,0)/laxmiEntries.length).toFixed(1) : "—";
+  const rayaAvg       = rayaEntries.length  ? (rayaEntries.reduce((s,e)=>s+e.rating,0)/rayaEntries.length).toFixed(1)  : "—";
+  const poorCount     = performances.filter(e=>e.rating<=2).length;
 
-  /* ── Star distribution ── */
-  const dist = [5,4,3,2,1].map(s=>({
-    star:s,
-    count: performances.filter(e=>e.rating===s).length,
-    pct: performances.length ? Math.round(performances.filter(e=>e.rating===s).length / performances.length * 100) : 0,
-  }));
+  /* Selected employee entries for modal */
+  const selEntries = selectedEmp ? performances.filter(e=>e.staffId===selectedEmp.staffId) : [];
+
+  /* Excel export cols */
+  const PERF_COLS = [
+    {label:"Staff Name",key:"staffName"},{label:"Staff ID",key:"staffId"},
+    {label:"Branch",get:r=>bName(r.branch)},{label:"Role",key:"role"},
+    {label:"Department",key:"department"},{label:"Task",key:"task"},
+    {label:"Rating",key:"rating"},{label:"Label",get:r=>ratingMeta(r.rating).label},
+    {label:"Description",key:"description"},{label:"Reason",key:"reason"},
+    {label:"Reviewed By",key:"reviewedBy"},{label:"Date",get:r=>fmt(r.date)},
+  ];
 
   return (
     <div>
-      {/* ── Top stats ── */}
+      {/* Top Stats */}
       <div style={{ display:"flex",gap:12,flexWrap:"wrap",marginBottom:18 }}>
-        <StatCard icon="⭐" label="Overall Avg Rating" value={avg} sub={`${performances.length} total reviews`} color={T.amber}/>
-        <StatCard icon="🏥" label="Laxmi Nagar Avg"   value={laxmiAvg} sub="Branch average" color={T.laxmi}/>
-        <StatCard icon="🏨" label="Raya Avg"           value={rayaAvg}  sub="Branch average" color={T.raya}/>
-        <StatCard icon="⚠️" label="Poor Ratings (≤2)"  value={poor} sub="Needs attention"   color={poor>0?T.red:T.green}/>
+        <StatCard icon="⭐" label="Overall Avg Rating"   value={overallAvg}  sub={performances.length+" total reviews"}  color={T.amber}/>
+        <StatCard icon="🏥" label="Laxmi Nagar Avg"      value={laxmiAvg}   sub="Branch average"                         color={T.laxmi}/>
+        <StatCard icon="🏨" label="Raya Avg"             value={rayaAvg}    sub="Branch average"                         color={T.raya}/>
+        <StatCard icon="⚠️" label="Poor Ratings (≤2)"    value={poorCount}  sub="Needs attention"                        color={poorCount>0?T.red:T.green}/>
       </div>
 
-      {/* ── Rating distribution bar ── */}
-      <div style={{ ...cardStyle(T), marginBottom:18 }}>
-        <STitle>Rating Distribution</STitle>
-        <div style={{ display:"flex",flexDirection:"column",gap:8 }}>
-          {dist.map(d=>(
-            <div key={d.star} style={{ display:"flex",alignItems:"center",gap:12 }}>
-              <div style={{ width:20,fontSize:13,color:T.amber,fontWeight:700,flexShrink:0 }}>{d.star}★</div>
-              <div style={{ flex:1,height:12,borderRadius:6,background:T.bg,overflow:"hidden" }}>
-                <div style={{ height:"100%",width:d.pct+"%",borderRadius:6,
-                  background:ratingColor(d.star,T),transition:"width .4s ease",minWidth:d.count>0?8:0 }}/>
-              </div>
-              <div style={{ width:60,textAlign:"right",fontSize:12,color:T.dim }}>
-                <span style={{ color:T.white,fontWeight:700 }}>{d.count}</span> ({d.pct}%)
-              </div>
-            </div>
+      {/* Dept Overview Cards */}
+      <div style={{ marginBottom:22 }}>
+        <STitle>Department Overview</STitle>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:12 }}>
+          {DEPARTMENTS.map(dept => (
+            <DeptOverviewCard key={dept} dept={dept} entries={performances.filter(e=>e.department===dept)}/>
           ))}
         </div>
       </div>
 
-      {/* ── Filters ── */}
-      <div style={{ display:"flex",gap:8,flexWrap:"wrap",alignItems:"center",marginBottom:14 }}>
+      {/* View Toggle + Filters */}
+      <div style={{ display:"flex", gap:8, flexWrap:"wrap", alignItems:"center", marginBottom:14 }}>
+        {/* View mode toggle */}
+        <div style={{ display:"flex", background:T.bg, borderRadius:9, padding:3, gap:2, border:`1px solid ${T.border}` }}>
+          {[["employees","👤 By Employee"],["departments","🏢 By Department"]].map(([v,lbl])=>(
+            <button key={v} onClick={()=>setViewMode(v)} style={{
+              padding:"5px 13px", borderRadius:7, cursor:"pointer", fontWeight:700, fontSize:12, border:"none",
+              background:viewMode===v?T.laxmi+"25":"transparent", color:viewMode===v?T.laxmi:T.dim,
+              borderLeft:viewMode===v?`2px solid ${T.laxmi}`:"2px solid transparent",
+            }}>{lbl}</button>
+          ))}
+        </div>
         <FilterSelect value={branchF} onChange={setBranchF} options={[["all","All Branches"],["laxmi","Lakshmi Nagar"],["raya","Raya"]]}/>
+        <FilterSelect value={deptF}   onChange={setDeptF}   options={[["all","All Departments"],...DEPARTMENTS.map(d=>[d,d])]}/>
         <FilterSelect value={ratingF} onChange={setRatingF} options={[["all","All Ratings"],["5","★★★★★ Excellent"],["4","★★★★ Good"],["3","★★★ Average"],["2","★★ Below Avg"],["1","★ Poor"]]}/>
-        {categories.length > 0 && (
-          <FilterSelect value={catF} onChange={setCatF} options={[["all","All Categories"],...categories.map(c=>[c,c])]}/>
-        )}
-        <FilterSelect value={sortBy} onChange={setSortBy} options={[["date_desc","Newest First"],["date_asc","Oldest First"],["rating_desc","Highest Rated"],["rating_asc","Lowest Rated"]]}/>
-        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search staff, task..."
-          style={{ marginLeft:"auto",padding:"7px 13px",borderRadius:8,border:`1px solid ${T.border2}`,
-            background:T.card,color:T.white,fontSize:13,outline:"none",width:230 }}/>
-        <XlsBtn onClick={()=>exportXLSX(filtered,[
-          {label:"Staff Name",key:"staffName"},{label:"Staff ID",key:"staffId"},
-          {label:"Branch",get:r=>bName(r.branch)},{label:"Role",key:"role"},
-          {label:"Task",key:"task"},{label:"Category",key:"category"},
-          {label:"Rating",key:"rating"},{label:"Label",get:r=>ratingLabel(r.rating)},
-          {label:"Reason",key:"reason"},{label:"Reviewed By",key:"reviewedBy"},
-          {label:"Date",get:r=>fmt(r.date)},
-        ],"performance_ratings.xlsx")}/>
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search staff, task, dept..."
+          style={{ marginLeft:"auto", padding:"7px 13px", borderRadius:8, border:`1px solid ${T.border2}`,
+            background:T.card, color:T.white, fontSize:13, outline:"none", width:210 }}/>
+        <XlsBtn onClick={()=>exportXLSX(filtered, PERF_COLS, "performance_ratings.xlsx")}/>
       </div>
 
-      {/* ── Main table ── */}
       {loading ? (
-        <div style={{ ...cardStyle(T),textAlign:"center",padding:60,color:T.dim }}>Loading performance data...</div>
+        <div style={{ ...cardStyle(T), textAlign:"center", padding:60, color:T.dim }}>Loading performance data...</div>
+      ) : viewMode === "employees" ? (
+        /* ── Employee Card Grid ── */
+        employees.length === 0 ? (
+          <div style={{ ...cardStyle(T), textAlign:"center", padding:60 }}>
+            <div style={{ fontSize:36, marginBottom:12 }}>📭</div>
+            <div style={{ color:T.dim }}>No performance records found</div>
+          </div>
+        ) : (
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:14 }}>
+            {employees.map((emp, i) => (
+              <EmployeeCard key={i} emp={emp} entries={emp.entries} onClick={()=>setSelectedEmp(emp)}/>
+            ))}
+          </div>
+        )
       ) : (
-        <div style={{ ...cardStyle(T),padding:0,overflow:"hidden" }}>
-          <table style={{ width:"100%",borderCollapse:"collapse" }}>
-            <thead>
-              <tr>
-                {["#","Staff","Branch","Role","Task / Category","Rating","Reviewed By","Date","Reason",""].map(h=><TH key={h} h={h}/>)}
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.length===0 && (
-                <tr>
-                  <td colSpan={10} style={{ padding:60,textAlign:"center",color:T.dim }}>
-                    <div style={{ fontSize:36,marginBottom:12 }}>📭</div>
-                    No performance records found
-                  </td>
-                </tr>
-              )}
-              {filtered.map((e,i)=>{
-                const col = bColor(e.branch, T);
-                const rc  = ratingColor(e.rating, T);
-                return (
-                  <tr key={i} onClick={()=>setSelected(e)}
-                    style={{ borderBottom:`1px solid ${T.border}`,background:i%2===0?T.card:T.surface,cursor:"pointer" }}>
-                    <td style={{ padding:"9px 12px",color:T.dim,fontSize:11 }}>{i+1}</td>
-                    <td style={{ padding:"9px 12px" }}>
-                      <div style={{ fontSize:13,fontWeight:700,color:T.white }}>{e.staffName}</div>
-                      <div style={{ fontSize:10,color:T.dim }}>{e.staffId}</div>
-                    </td>
-                    <td style={{ padding:"9px 12px" }}><Pill color={col}>{bName(e.branch)}</Pill></td>
-                    <td style={{ padding:"9px 12px",fontSize:12,color:T.dim }}>{e.role||"--"}</td>
-                    <td style={{ padding:"9px 12px" }}>
-                      <div style={{ fontSize:12,color:T.white }}>{e.task||"--"}</div>
-                      {e.category && <div style={{ fontSize:10,marginTop:2 }}><Badge color={T.dim}>{e.category}</Badge></div>}
-                    </td>
-                    <td style={{ padding:"9px 12px" }}>
-                      <div style={{ display:"flex",alignItems:"center",gap:6 }}>
-                        <span style={{ fontSize:18,fontWeight:900,color:rc }}>{e.rating}</span>
-                        <StarRating rating={e.rating} size={12}/>
-                      </div>
-                      <div style={{ marginTop:2 }}><Badge color={rc}>{ratingLabel(e.rating)}</Badge></div>
-                    </td>
-                    <td style={{ padding:"9px 12px",fontSize:12,color:T.dim }}>{e.reviewedBy||"--"}</td>
-                    <td style={{ padding:"9px 12px",fontSize:11,color:T.dim,whiteSpace:"nowrap" }}>{fmt(e.date)}</td>
-                    <td style={{ padding:"9px 12px",fontSize:11,color:T.dim,maxWidth:180,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>
-                      {e.reason||"--"}
-                    </td>
-                    <td style={{ padding:"9px 12px" }}>
-                      <button onClick={ev=>{ev.stopPropagation();setSelected(e);}} style={{
-                        padding:"4px 10px",borderRadius:6,background:T.amber+"20",color:T.amber,
-                        border:`1px solid ${T.amber}40`,fontSize:11,fontWeight:700,cursor:"pointer" }}>
-                        View
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+        /* ── Department Detail Table View ── */
+        <div style={{ display:"flex", flexDirection:"column", gap:20 }}>
+          {DEPARTMENTS.filter(d => deptF==="all" || d===deptF).map(dept => {
+            const de = filtered.filter(e=>e.department===dept);
+            const meta = DEPT_META[dept];
+            if (de.length === 0) return null;
+            const avg = (de.reduce((s,e)=>s+e.rating,0)/de.length).toFixed(1);
+            return (
+              <div key={dept}>
+                {/* Dept header */}
+                <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10 }}>
+                  <span style={{ fontSize:20 }}>{meta.icon}</span>
+                  <span style={{ fontSize:14, fontWeight:800, color:T.white }}>{dept} Department</span>
+                  <Pill color={meta.color}>{avg} avg</Pill>
+                  <span style={{ fontSize:12, color:T.dim }}>{de.length} reviews</span>
+                </div>
+                {/* Table */}
+                <div style={{ ...cardStyle(T), padding:0, overflow:"hidden" }}>
+                  <table style={{ width:"100%", borderCollapse:"collapse" }}>
+                    <thead>
+                      <tr>{["Staff","Branch","Role","Task","Rating","Description","Reviewed By","Date"].map(h=><TH key={h} h={h}/>)}</tr>
+                    </thead>
+                    <tbody>
+                      {de.map((e,i)=>{
+                        const rm2 = ratingMeta(e.rating);
+                        return (
+                          <tr key={i} style={{ borderBottom:`1px solid ${T.border}`, background:i%2===0?T.card:T.surface }}>
+                            <td style={{ padding:"9px 12px" }}>
+                              <div style={{ fontSize:13, fontWeight:700, color:T.white }}>{e.staffName}</div>
+                              <div style={{ fontSize:10, color:T.dim }}>{e.staffId}</div>
+                            </td>
+                            <td style={{ padding:"9px 12px" }}><Pill color={bColor(e.branch, T)}>{bName(e.branch)}</Pill></td>
+                            <td style={{ padding:"9px 12px", fontSize:12, color:T.dim }}>{e.role}</td>
+                            <td style={{ padding:"9px 12px", fontSize:12, color:T.white }}>{e.task}</td>
+                            <td style={{ padding:"9px 12px" }}>
+                              <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+                                <span style={{ fontSize:16, fontWeight:900, color:rm2.color }}>{e.rating}</span>
+                                <StarRating rating={e.rating} size={11}/>
+                              </div>
+                              <div style={{ marginTop:2 }}><Badge color={rm2.color}>{rm2.label}</Badge></div>
+                            </td>
+                            <td style={{ padding:"9px 12px", fontSize:11, color:T.dim, maxWidth:220,
+                              overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                              {e.description || e.reason || "--"}
+                            </td>
+                            <td style={{ padding:"9px 12px", fontSize:12, color:T.dim }}>{e.reviewedBy}</td>
+                            <td style={{ padding:"9px 12px", fontSize:11, color:T.dim, whiteSpace:"nowrap" }}>{fmt(e.date)}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 
-      <PerformanceDetailModal entry={selected} onClose={()=>setSelected(null)}/>
+      {/* Employee Detail Modal */}
+      {selectedEmp && (
+        <EmployeeDetailModal
+          emp={selectedEmp}
+          entries={selEntries}
+          onClose={()=>setSelectedEmp(null)}
+        />
+      )}
     </div>
   );
 }
 
-/* ── Demo data — shown when apiService.getPerformanceRatings() fails/not implemented yet ── */
+/* ── Demo data — replace with apiService.getPerformanceRatings() ── */
 const DEMO_PERFORMANCES = [
-  { staffName:"Dr. Anjali Sharma",   staffId:"EMP001", branch:"laxmi", role:"Doctor",         task:"Discharge Documentation",     category:"Clinical",       rating:5, reviewedBy:"Office Admin (Laxmi)", reason:"All discharge summaries were completed accurately and on time. Excellent coordination with nursing staff.", date:"2026-04-16" },
-  { staffName:"Rahul Verma",         staffId:"EMP002", branch:"laxmi", role:"Receptionist",   task:"Patient Registration",        category:"Front Desk",     rating:4, reviewedBy:"Office Admin (Laxmi)", reason:"Quick and accurate registration of patients. Minor delay on April 12th but resolved promptly.",           date:"2026-04-15" },
-  { staffName:"Priya Nair",          staffId:"EMP003", branch:"raya",  role:"Nurse",          task:"Ward Rounds Assistance",      category:"Clinical",       rating:4, reviewedBy:"Office Admin (Raya)",  reason:"Consistent performance in ward rounds. Patients responded positively to care.",                           date:"2026-04-14" },
-  { staffName:"Suresh Patel",        staffId:"EMP004", branch:"raya",  role:"Billing Staff",  task:"Invoice Generation",          category:"Finance",        rating:3, reviewedBy:"Office Admin (Raya)",  reason:"Invoice discrepancies found in 2 cases this week. Needs re-training on cashless billing procedures.",      date:"2026-04-13" },
-  { staffName:"Meena Kapoor",        staffId:"EMP005", branch:"laxmi", role:"Lab Technician", task:"Report Turnaround Time",      category:"Diagnostics",    rating:5, reviewedBy:"Office Admin (Laxmi)", reason:"Exceptional TAT — all reports delivered within SLA. Zero complaints from attending doctors.",              date:"2026-04-12" },
-  { staffName:"Arjun Singh",         staffId:"EMP006", branch:"raya",  role:"Pharmacist",     task:"Medication Dispensing",       category:"Pharmacy",       rating:2, reviewedBy:"Office Admin (Raya)",  reason:"Two wrong dosage incidents reported. Placed under supervision pending review by medical director.",        date:"2026-04-11" },
-  { staffName:"Kavya Reddy",         staffId:"EMP007", branch:"laxmi", role:"Nurse",          task:"OPD Patient Management",      category:"Clinical",       rating:4, reviewedBy:"Office Admin (Laxmi)", reason:"Handled busy OPD days efficiently. Good patient handling skills. Recommend for advanced training.",        date:"2026-04-10" },
-  { staffName:"Deepak Joshi",        staffId:"EMP008", branch:"raya",  role:"Receptionist",   task:"Appointment Scheduling",      category:"Front Desk",     rating:3, reviewedBy:"Office Admin (Raya)",  reason:"Scheduling conflicts occurred on April 8th leading to patient wait time. Needs better coordination.",      date:"2026-04-09" },
-  { staffName:"Dr. Ramesh Gupta",    staffId:"EMP009", branch:"laxmi", role:"Doctor",         task:"Surgical Case Documentation", category:"Clinical",       rating:5, reviewedBy:"Office Admin (Laxmi)", reason:"Outstanding documentation quality for 4 surgical cases. Medical records team highlighted this as best practice.", date:"2026-04-08" },
-  { staffName:"Sunita Yadav",        staffId:"EMP010", branch:"raya",  role:"Lab Technician", task:"Sample Collection",           category:"Diagnostics",    rating:4, reviewedBy:"Office Admin (Raya)",  reason:"Efficient and patient-friendly sample collection. One mislabelling incident but self-corrected quickly.",  date:"2026-04-07" },
+  /* Billing dept */
+  { staffName:"Rahul Verma",      staffId:"EMP002", branch:"laxmi", role:"Billing Staff",     department:"Billing",    task:"Invoice Generation",          rating:4, reviewedBy:"Office Admin (Laxmi)", description:"Invoices raised accurately with minor formatting issues. Collection targets met for the week. One cashless billing error was self-corrected before end of day.", reason:"", date:"2026-04-15" },
+  { staffName:"Suresh Patel",     staffId:"EMP004", branch:"raya",  role:"Billing Staff",     department:"Billing",    task:"Cashless Billing",            rating:3, reviewedBy:"Office Admin (Raya)",  description:"Two invoice discrepancies found this week involving TPA claims. Needs re-training on cashless billing procedure. Response time to queries was good.", reason:"", date:"2026-04-13" },
+  { staffName:"Priya Nair",       staffId:"EMP003", branch:"raya",  role:"Billing Staff",     department:"Billing",    task:"Daily Collections",           rating:5, reviewedBy:"Office Admin (Raya)",  description:"Exceptional daily collection rate — 100% invoices settled within SLA. No pending dues as of end of week. Patients appreciated clear billing explanation.", reason:"", date:"2026-04-14" },
+  { staffName:"Kavya Reddy",      staffId:"EMP007", branch:"laxmi", role:"Billing Staff",     department:"Billing",    task:"Advance Collection",          rating:4, reviewedBy:"Office Admin (Laxmi)", description:"Advance collections handled efficiently. No complaints from patients. Minor delay in uploading payment receipts to the system, resolved same day.", reason:"", date:"2026-04-10" },
+
+  /* Uploading dept */
+  { staffName:"Meena Kapoor",     staffId:"EMP005", branch:"laxmi", role:"Lab Technician",    department:"Uploading",  task:"Report Upload Accuracy",      rating:5, reviewedBy:"Office Admin (Laxmi)", description:"All lab reports uploaded with zero errors within 20 minutes of processing. Doctor feedback was overwhelmingly positive. Maintained 100% TAT compliance.", reason:"", date:"2026-04-12" },
+  { staffName:"Sunita Yadav",     staffId:"EMP010", branch:"raya",  role:"Lab Technician",    department:"Uploading",  task:"Sample Log Entry",            rating:4, reviewedBy:"Office Admin (Raya)",  description:"Efficient and thorough documentation of sample entries. One mislabeling incident self-corrected within the hour. Overall accuracy maintained above 98%.", reason:"", date:"2026-04-07" },
+  { staffName:"Rahul Verma",      staffId:"EMP002", branch:"laxmi", role:"Billing Staff",     department:"Uploading",  task:"Document Filing",             rating:3, reviewedBy:"Office Admin (Laxmi)", description:"Document filing was incomplete on April 11. Older records were not indexed correctly, causing retrieval delays. Has been informed to follow the checklist.", reason:"", date:"2026-04-11" },
+
+  /* OPD dept */
+  { staffName:"Kavya Reddy",      staffId:"EMP007", branch:"laxmi", role:"Nurse",             department:"OPD",        task:"Patient Registration",        rating:5, reviewedBy:"Office Admin (Laxmi)", description:"Handled a peak load of 62 OPD patients in a single shift with zero complaints. Registration completed in under 4 minutes per patient. Excellent coordination with doctors.", reason:"", date:"2026-04-10" },
+  { staffName:"Deepak Joshi",     staffId:"EMP008", branch:"raya",  role:"Receptionist",      department:"OPD",        task:"Appointment Scheduling",      rating:3, reviewedBy:"Office Admin (Raya)",  description:"Scheduling conflicts occurred on April 8th due to double-booking in the orthopedics slot. Led to 35-minute patient wait time. Improved coordination with specialists needed.", reason:"", date:"2026-04-09" },
+  { staffName:"Priya Nair",       staffId:"EMP003", branch:"raya",  role:"Nurse",             department:"OPD",        task:"Ward Rounds Assistance",      rating:4, reviewedBy:"Office Admin (Raya)",  description:"Consistent and attentive during ward rounds. Patients responded positively to care and follow-up. Minor delay in vitals logging once during the week.", reason:"", date:"2026-04-14" },
+  { staffName:"Dr. Anjali Sharma",staffId:"EMP001", branch:"laxmi", role:"Doctor",            department:"OPD",        task:"OPD Consultation Quality",    rating:5, reviewedBy:"Office Admin (Laxmi)", description:"Exemplary patient interaction during OPD. Prescription clarity rated 5/5 by pharmacy staff. Completed 38 consultations in one session without compromising quality.", reason:"", date:"2026-04-16" },
+
+  /* Query dept */
+  { staffName:"Deepak Joshi",     staffId:"EMP008", branch:"raya",  role:"Receptionist",      department:"Query",      task:"Patient Query Handling",      rating:4, reviewedBy:"Office Admin (Raya)",  description:"Most queries resolved at first contact. Escalated two complex TPA queries to the right department promptly. Communication was polite and professional throughout.", reason:"", date:"2026-04-09" },
+  { staffName:"Rahul Verma",      staffId:"EMP002", branch:"laxmi", role:"Receptionist",      department:"Query",      task:"Walk-in Information Desk",    rating:5, reviewedBy:"Office Admin (Laxmi)", description:"Zero complaints from patients or visitors during the entire week. All information requests answered accurately. Maintained composure under high footfall.", reason:"", date:"2026-04-15" },
+  { staffName:"Sunita Yadav",     staffId:"EMP010", branch:"raya",  role:"Lab Technician",    department:"Query",      task:"Test Result Queries",         rating:3, reviewedBy:"Office Admin (Raya)",  description:"Slow to respond to report-related queries on April 9. Patients had to follow up twice. Needs to be more proactive in communicating delays to patients and attending doctors.", reason:"", date:"2026-04-07" },
+
+  /* Intimation dept */
+  { staffName:"Arjun Singh",      staffId:"EMP006", branch:"raya",  role:"Insurance Exec",    department:"Intimation", task:"TPA Pre-Auth Processing",     rating:2, reviewedBy:"Office Admin (Raya)",  description:"Two pre-auth requests submitted with incorrect ICD codes, causing denial. Insurance company raised a flag. Patient discharge delayed by 18 hours in one case. Placed under daily supervision pending review.", reason:"", date:"2026-04-11" },
+  { staffName:"Meena Kapoor",     staffId:"EMP005", branch:"laxmi", role:"Insurance Exec",    department:"Intimation", task:"Cashless Intimation Filing",  rating:5, reviewedBy:"Office Admin (Laxmi)", description:"All intimation files submitted within 2 hours of admission. Zero rejections this week. Follow-up calls with insurance coordinators tracked in the system diligently.", reason:"", date:"2026-04-12" },
+  { staffName:"Dr. Ramesh Gupta", staffId:"EMP009", branch:"laxmi", role:"Doctor",            department:"Intimation", task:"Clinical Summary for Claims",  rating:5, reviewedBy:"Office Admin (Laxmi)", description:"Surgical case documentation prepared per NABH and insurance standards. All 4 claim summaries approved on first submission. Medical records team highlighted these as best practice examples.", reason:"", date:"2026-04-08" },
+  { staffName:"Kavya Reddy",      staffId:"EMP007", branch:"laxmi", role:"Nurse",             department:"Intimation", task:"Discharge Intimation",        rating:4, reviewedBy:"Office Admin (Laxmi)", description:"Discharge intimation sent to TPA coordinators on time for all 6 patients this week. One minor delay on April 8 due to incomplete discharge summary from treating doctor.", reason:"", date:"2026-04-10" },
 ];
 
 
@@ -1529,7 +1726,6 @@ export default function SuperAdminDashboard({ db={}, printRequests=[], onApprove
       {/* SIDEBAR */}
       <div style={{ width:228,minHeight:"100vh",background:T.sidebar,display:"flex",flexDirection:"column",
         position:"fixed",top:0,left:0,zIndex:50,borderRight:`1px solid ${T.border}` }}>
-
         <div style={{ padding:"18px 14px 14px",borderBottom:`1px solid ${T.border}` }}>
           <div style={{ display:"flex",alignItems:"center",gap:10 }}>
             <img src="/app_icon.png" alt="logo" style={{ width:36,height:36,borderRadius:10,objectFit:"cover" }}/>
@@ -1539,7 +1735,6 @@ export default function SuperAdminDashboard({ db={}, printRequests=[], onApprove
             </div>
           </div>
         </div>
-
         <div style={{ flex:1,overflowY:"auto",padding:"6px 6px" }}>
           {NAV.map((n,i)=>{
             if (n.section) return (
@@ -1563,7 +1758,6 @@ export default function SuperAdminDashboard({ db={}, printRequests=[], onApprove
             );
           })}
         </div>
-
         <div style={{ padding:"10px",borderTop:`1px solid ${T.border}` }}>
           <div style={{ display:"flex",alignItems:"center",gap:10,padding:"9px 11px",
             background:"rgba(255,255,255,.04)",borderRadius:9 }}>
@@ -1579,7 +1773,6 @@ export default function SuperAdminDashboard({ db={}, printRequests=[], onApprove
 
       {/* MAIN CONTENT */}
       <div style={{ marginLeft:228,flex:1,minHeight:"100vh",overflowX:"hidden" }}>
-        {/* Top bar */}
         <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 28px",
           borderBottom:`1px solid ${T.border}`,background:T.sidebar,position:"sticky",top:0,zIndex:40 }}>
           <div style={{ fontSize:13,fontWeight:700,color:T.white }}>{activeLabel?.icon} {activeLabel?.label}</div>
@@ -1600,14 +1793,12 @@ export default function SuperAdminDashboard({ db={}, printRequests=[], onApprove
             </button>
           </div>
         </div>
-
         <div style={{ padding:"18px 28px 4px" }}>
           <div style={{ fontSize:12,color:T.dim }}>
             {new Date().toLocaleDateString("en-IN",{weekday:"long",year:"numeric",month:"long",day:"numeric"})}
             {" · "}{all.length} total records · {laxmi.length} Laxmi Nagar · {raya.length} Raya
           </div>
         </div>
-
         <div style={{ padding:"16px 28px 28px" }}>
           {tab==="dashboard"   && <DashboardTab all={all} laxmi={laxmi} raya={raya}/>}
           {tab==="laxmi"       && <BranchTab pts={laxmi} branch="laxmi"/>}
