@@ -22,7 +22,7 @@ import MedicalHistoryPage from "./pages/MedicalHistoryPage";
 import LoginPage from "./pages/LoginPage";
 import HodDashboard from "./pages/HodDashboard";
 import BranchAdminDashboard from "./pages/BranchAdminDashboard";
-import BillingDashboard from "./pages/BillingDashboard"; // ← NEW
+import BillingDashboard from "./pages/BillingDashboard"; 
 import { ThemeProvider } from "./context/ThemeContext";
  
 import UHIDScreen from "./modals/UHIDScreen";
