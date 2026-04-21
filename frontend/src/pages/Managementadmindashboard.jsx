@@ -377,17 +377,32 @@ export default function ManagementAdminDashboard({ currentUser, db, onLogout }) 
     try {
       // 2. Prepare the data exactly how Django expects it
       const [firstName, ...lastNameArr] = empForm.fullName.split(' ');
+      
+      // 🌟 Smartly translate the typed role/dept into the exact backend role
+      let mappedRole = 'receptionist';
+      const inputRole = String(empForm.role).toLowerCase();
+      const inputDept = String(empForm.dept).toLowerCase();
+      const combined = inputRole + " " + inputDept;
+
+      if (combined.includes('office')) mappedRole = 'office_admin';
+      else if (combined.includes('branch') || combined.includes('admin')) mappedRole = 'admin';
+      else if (combined.includes('hod')) mappedRole = 'hod';
+      else if (combined.includes('bill')) mappedRole = 'billing';
+      else if (combined.includes('opd')) mappedRole = 'opd';
+      else if (combined.includes('intimation')) mappedRole = 'intimation';
+      else if (combined.includes('query')) mappedRole = 'query';
+      else if (combined.includes('uploading')) mappedRole = 'uploading';
+
       const payload = {
         username: empForm.username,
         password: empForm.password,
+        confirm_password: empForm.confirmPassword,
         email: empForm.email,
         first_name: firstName,
         last_name: lastNameArr.join(' '),
         emp_id: empForm.empId,
         phone_number: empForm.phone,
-        // Map frontend role to backend role. Defaults to 'receptionist' if unknown.
-        role: empForm.role.toLowerCase().includes('admin') ? 'admin' : 'receptionist',
-        // Optional: Send the branch if they select one
+        role: mappedRole, 
         branch: viewBranch === 'laxmi' ? 'LNM' : 'RYM' 
       };
 

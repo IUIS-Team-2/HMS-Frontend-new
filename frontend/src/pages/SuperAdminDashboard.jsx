@@ -936,13 +936,33 @@ function ReportsTab({ all }) {
 ══════════════════════════════════════════════════════════════ */
 function AdminsTab() {
   const T = useT();
-  const [users, setUsers] = useState([]);  // eslint-disable-line no-unused-vars
+  const [users, setUsers] = useState([]);  
   const [modal, setModal] = useState(false);
   const [form, setForm]   = useState({ id:"", name:"", password:"", confirmPassword:"", role:"office_admin", branch:"laxmi" });
   const [showPass, setShowPass]       = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [passErr, setPassErr]         = useState("");
   const sf = k => e => { setForm(f=>({...f,[k]:e.target.value})); setPassErr(""); };
+
+  // 🌟 THE FIX: Automatically fetch all users from Django when this tab opens
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const data = await apiService.getUsers();
+        // Map Django's format to the dashboard's table format
+        const formatted = data.map(u => ({
+          id: u.username,
+          name: `${u.first_name} ${u.last_name}`,
+          role: u.role === 'admin' ? 'branch_admin' : u.role, 
+          branch: u.branch === 'LNM' ? 'laxmi' : (u.branch === 'RYM' ? 'raya' : 'ALL')
+        }));
+        setUsers(formatted);
+      } catch (error) {
+        console.error("Failed to load users:", error);
+      }
+    };
+    fetchUsers();
+  }, []);
 
   const handleRoleChange = (val) => {
     setForm(f => ({ ...f, role: val, branch: val === "office_admin" ? "laxmi" : f.branch }));
@@ -955,16 +975,29 @@ function AdminsTab() {
     const nameParts = form.name.split(" ");
     const firstName = nameParts[0];
     const lastName  = nameParts.length > 1 ? nameParts.slice(1).join(" ") : ".";
-    const branchCode = isOfficeAdmin ? "BOTH" : (form.branch === "laxmi" ? "LNM" : "RYM");
+    
+    const backendRole = form.role === "branch_admin" ? "admin" : form.role;
+    const branchCode = isOfficeAdmin ? "ALL" : (form.branch === "laxmi" ? "LNM" : "RYM");
+
     const payload = {
       username: form.id, first_name: firstName, last_name: lastName,
       password: form.password, confirm_password: form.password,
-      role: form.role, branch: branchCode, email: `${form.id}@sangihospital.com`,
+      role: backendRole, branch: branchCode, email: `${form.id}@sangihospital.com`,
     };
+
     try {
       await apiService.createUser(payload);
       toast.success("User created successfully!");
       setModal(false);
+      
+      // 🌟 THE FIX: Instantly add the newly created user to your table without refreshing!
+      setUsers(prev => [...prev, {
+        id: form.id,
+        name: form.name,
+        role: form.role,
+        branch: isOfficeAdmin ? 'ALL' : form.branch
+      }]);
+
       setForm({ id:"", name:"", password:"", confirmPassword:"", role:"office_admin", branch:"laxmi" });
     } catch (error) {
       const errData = error.response?.data;

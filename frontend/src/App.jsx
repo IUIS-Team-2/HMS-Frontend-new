@@ -27,6 +27,10 @@ import HodDashboard from "./pages/HodDashboard";
 import BranchAdminDashboard from "./pages/BranchAdminDashboard";
 import BillingDashboard from "./pages/BillingDashboard"; // ← NEW
 import { ThemeProvider } from "./context/ThemeContext";
+import OpdDashboard from "./pages/OpdDashboard";
+import IntimationDashboard from "./pages/IntimationDashboard";
+import QueryDashboard from "./pages/QueryDashboard";
+import UploadingDashboard from "./pages/UploadingDashboard";
 
 // Modals
 import UHIDScreen from "./modals/UHIDScreen";
@@ -198,28 +202,27 @@ export default function App() {
     setLoggedIn(true);
 
     // Determine starting page by role
-    let startingPage = "patient"; // default: reception / branch staff
-
-    if (user.role === "superadmin" || user.role === "admin") {
+    let startingPage = "patient";
+    if (user.role === "superadmin") {
       startingPage = "superadmin";
+    } else if (user.role === "admin" || user.role === "branchadmin") {
+      startingPage = "branchadmin";
     } else if (user.role === "managementadmin" || user.role === "office_admin") { 
       startingPage = "managementadmin";
     } else if (user.role === "hod") {
       startingPage = "hod";
-    } else if (user.role === "uploading") {
-      startingPage = "uploading";
-    } else if (user.role === "query") {
-      // 🌟 Query department staff
-      startingPage = "query";
+    } else if (user.role === "billing") {
+      startingPage = "billing";
     } else if (user.role === "opd") {
-      // 🌟 OPD department staff — note: role "opd" goes to OPD dashboard,
-      //    NOT the branch staff layout (which uses role "ipd" etc.)
       startingPage = "opd";
     } else if (user.role === "intimation") {
-      // 🌟 Intimation department staff
       startingPage = "intimation";
-    } else if (["ipd", "billing", "pharmacy", "doctor", "nursing", "lab", "radiology", "employee"].includes(user.role)) {
-      startingPage = "employee";
+    } else if (user.role === "query") {
+      startingPage = "query";
+    } else if (user.role === "uploading") {
+      startingPage = "uploading";
+    } else if (["ipd", "pharmacy", "doctor", "nursing", "lab", "radiology", "receptionist"].includes(user.role)) {
+      startingPage = "patient";
     }
 
     try {
@@ -580,10 +583,47 @@ export default function App() {
   if (page === "intimation") {
     return (
       <ThemeProvider>
-        <IntimationDashboard
-          currentUser={currentUser}
-          onLogout={handleLogout}
-        />
+        <IntimationDashboard currentUser={currentUser} onLogout={handleLogout} />
+        <ToastContainer position="bottom-right" />
+      </ThemeProvider>
+    );
+  }
+
+  // ─── 🌟 Branch Admin Dashboard ────────────────────────────────────────────────
+  if (page === "branchadmin") {
+    return (
+      <ThemeProvider>
+        <BranchAdminDashboard currentUser={currentUser} db={db} locId={locId} onLogout={handleLogout} />
+        <ToastContainer position="bottom-right" />
+      </ThemeProvider>
+    );
+  }
+
+  // ─── 🌟 Billing Dashboard ──────────────────────────────────────────────────
+  if (page === "billing") {
+    return (
+      <ThemeProvider>
+        <BillingDashboard currentUser={currentUser} db={db} locId={locId} onLogout={handleLogout} />
+        <ToastContainer position="bottom-right" />
+      </ThemeProvider>
+    );
+  }
+
+  // ─── 🌟 Uploading Dashboard ──────────────────────────────────────────────────
+  if (page === "uploading") {
+    return (
+      <ThemeProvider>
+        <UploadingDashboard currentUser={currentUser} onLogout={handleLogout} />
+        <ToastContainer position="bottom-right" />
+      </ThemeProvider>
+    );
+  }
+
+  // ─── 🌟 Query Dashboard ──────────────────────────────────────────────────
+  if (page === "query") {
+    return (
+      <ThemeProvider>
+        <QueryDashboard currentUser={currentUser} onLogout={handleLogout} />
         <ToastContainer position="bottom-right" />
       </ThemeProvider>
     );

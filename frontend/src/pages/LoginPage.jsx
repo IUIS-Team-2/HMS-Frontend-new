@@ -8,10 +8,15 @@ export default function LoginPage({ onLogin }) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  
+  // 🌟 Forgot Password States
   const [showForgot, setShowForgot] = useState(false);
+  const [resetStep, setResetStep] = useState(1); // 1: Email, 2: OTP + New Password, 3: Success
   const [forgotEmail, setForgotEmail] = useState('');
-  const [forgotSent, setForgotSent] = useState(false);
+  const [otp, setOtp] = useState('');
+  const [newPassword, setNewPassword] = useState('');
   const [forgotError, setForgotError] = useState('');
+  const [forgotLoading, setForgotLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -19,16 +24,10 @@ export default function LoginPage({ onLogin }) {
     setLoading(true);
 
     try {
-      // 1. Call the real Django backend
       const data = await apiService.login(username, password);
-
-      // 2. Save the secure JWT token so the interceptor can use it
       sessionStorage.setItem('hms_token', data.access);
-
-      // 3. Decode the JWT token 
       const payload = JSON.parse(atob(data.access.split('.')[1]));
 
-      // 🌟 THE FIX: Translate backend branch codes to frontend theme words
       let frontendBranch = payload.branch;
       if (frontendBranch === "LNM") frontendBranch = "laxmi";
       if (frontendBranch === "RYM") frontendBranch = "raya";
@@ -38,35 +37,75 @@ export default function LoginPage({ onLogin }) {
         username: payload.username,
         name: payload.name,
         role: payload.role,
-        branch: frontendBranch,       // Now safely "laxmi" or "raya"
-        locations: [frontendBranch]   // Now safely "laxmi" or "raya"
+        branch: frontendBranch,
+        locations: [frontendBranch]
       };
 
-      // 4. Send the user into the portal safely!
       onLogin(loggedInUser, frontendBranch || "laxmi");
-
     } catch (err) {
       setError(err.response?.data?.detail || "Invalid username or password");
     }
-
     setLoading(false);
   };
 
-  const handleForgot = async (e) => {
+  // 🌟 STEP 1: Send the OTP to the email
+  const handleRequestOTP = async (e) => {
     e.preventDefault();
     setForgotError('');
     if (!forgotEmail) return setForgotError('Please enter your email.');
+    setForgotLoading(true);
+
     try {
-      const res = await fetch('/api/auth/forgot-password', {
+      const res = await fetch('http://localhost:8000/api/users/request-reset-otp/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: forgotEmail }),
       });
-      if (res.ok) setForgotSent(true);
-      else setForgotError('Email not found. Please try again.');
+      if (res.ok) {
+        setResetStep(2); // Move to OTP entry screen!
+      } else {
+        const errData = await res.json();
+        setForgotError(errData.error || 'Email not found. Please try again.');
+      }
     } catch {
-      setForgotSent(true);
+      setForgotError('Server error. Please check your connection.');
     }
+    setForgotLoading(false);
+  };
+
+  // 🌟 STEP 2: Verify OTP and Reset Password
+  const handleResetPassword = async (e) => {
+    e.preventDefault();
+    setForgotError('');
+    if (!otp || !newPassword) return setForgotError('Please fill all fields.');
+    setForgotLoading(true);
+
+    try {
+      const res = await fetch('http://localhost:8000/api/users/verify-reset-otp/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: forgotEmail, otp: otp, new_password: newPassword }),
+      });
+      if (res.ok) {
+        setResetStep(3); // Success!
+      } else {
+        const errData = await res.json();
+        setForgotError(errData.error || 'Invalid OTP. Please try again.');
+      }
+    } catch {
+      setForgotError('Server error. Please check your connection.');
+    }
+    setForgotLoading(false);
+  };
+
+  // Resets the forgot password modal back to normal
+  const closeForgotModal = () => {
+    setShowForgot(false);
+    setResetStep(1);
+    setForgotEmail('');
+    setOtp('');
+    setNewPassword('');
+    setForgotError('');
   };
 
   return (
@@ -94,45 +133,66 @@ export default function LoginPage({ onLogin }) {
 
         {showForgot ? (
           <div>
-            <button onClick={() => { setShowForgot(false); setForgotSent(false); setForgotEmail(''); setForgotError(''); }}
+            <button onClick={closeForgotModal}
               style={{ background:'none', border:'none', color:'#1e40af', cursor:'pointer', fontSize:13, marginBottom:16, padding:0, display:'flex', alignItems:'center', gap:4 }}>
               ← Back to Login
             </button>
-            <div style={{ fontSize:17, fontWeight:700, color:'#0f2252', marginBottom:6 }}>Forgot Password</div>
-            <div style={{ fontSize:13, color:'#6b7280', marginBottom:20 }}>Enter your registered email and we'll send you a reset link.</div>
-            {forgotSent ? (
-              <div style={{ background:'#f0fdf4', border:'1px solid #86efac', color:'#166534', borderRadius:8, padding:'12px 14px', fontSize:13 }}>
-                ✅ Reset link sent to <strong>{forgotEmail}</strong>. Check your inbox.
-              </div>
-            ) : (
-              <form onSubmit={handleForgot}>
+            <div style={{ fontSize:17, fontWeight:700, color:'#0f2252', marginBottom:6 }}>
+              {resetStep === 1 ? 'Forgot Password' : resetStep === 2 ? 'Enter OTP & New Password' : 'Password Reset Successful'}
+            </div>
+            
+            {/* Step 1: Request OTP */}
+            {resetStep === 1 && (
+              <form onSubmit={handleRequestOTP}>
+                <div style={{ fontSize:13, color:'#6b7280', marginBottom:20 }}>Enter your registered email and we'll send you a secure OTP.</div>
                 <div style={{ marginBottom:14 }}>
                   <label style={{ display:'block', fontSize:12, fontWeight:600, color:'#374151', marginBottom:5 }}>Email Address</label>
-                  <input
-                    type="email"
-                    value={forgotEmail}
-                    onChange={e => setForgotEmail(e.target.value)}
-                    placeholder="Enter your email"
-                    style={{
-                      width:'100%', padding:'10px 14px', border:'1.5px solid #e5e7eb',
-                      borderRadius:10, fontSize:14, boxSizing:'border-box', outline:'none',
-                    }}
-                    onFocus={e=>e.target.style.borderColor='#3b82f6'}
-                    onBlur={e=>e.target.style.borderColor='#e5e7eb'}
+                  <input type="email" value={forgotEmail} onChange={e => setForgotEmail(e.target.value)} placeholder="Enter your email"
+                    style={{ width:'100%', padding:'10px 14px', border:'1.5px solid #e5e7eb', borderRadius:10, fontSize:14, boxSizing:'border-box', outline:'none' }}
                   />
                 </div>
-                {forgotError && (
-                  <div style={{ background:'#fef2f2', border:'1px solid #fca5a5', color:'#b91c1c', borderRadius:8, padding:'9px 14px', fontSize:13, marginBottom:14 }}>
-                    {forgotError}
-                  </div>
-                )}
-                <button type="submit" style={{
-                  width:'100%', padding:'12px', background:'#1e40af', color:'#fff',
-                  border:'none', borderRadius:10, fontSize:15, fontWeight:700, cursor:'pointer',
-                }}>
-                  Send Reset Link
+                {forgotError && <div style={{ background:'#fef2f2', border:'1px solid #fca5a5', color:'#b91c1c', borderRadius:8, padding:'9px 14px', fontSize:13, marginBottom:14 }}>{forgotError}</div>}
+                <button type="submit" disabled={forgotLoading} style={{ width:'100%', padding:'12px', background:'#1e40af', color:'#fff', border:'none', borderRadius:10, fontSize:15, fontWeight:700, cursor:'pointer' }}>
+                  {forgotLoading ? 'Sending...' : 'Send OTP'}
                 </button>
               </form>
+            )}
+
+            {/* Step 2: Enter OTP and New Password */}
+            {resetStep === 2 && (
+              <form onSubmit={handleResetPassword}>
+                <div style={{ fontSize:13, color:'#6b7280', marginBottom:20 }}>We sent an OTP to <strong>{forgotEmail}</strong>. Please enter it below along with your new password.</div>
+                
+                <div style={{ marginBottom:14 }}>
+                  <label style={{ display:'block', fontSize:12, fontWeight:600, color:'#374151', marginBottom:5 }}>6-Digit OTP</label>
+                  <input type="text" value={otp} onChange={e => setOtp(e.target.value)} placeholder="Enter OTP" maxLength="6"
+                    style={{ width:'100%', padding:'10px 14px', border:'1.5px solid #e5e7eb', borderRadius:10, fontSize:14, boxSizing:'border-box', outline:'none', letterSpacing:'4px', fontWeight:'bold' }}
+                  />
+                </div>
+
+                <div style={{ marginBottom:14 }}>
+                  <label style={{ display:'block', fontSize:12, fontWeight:600, color:'#374151', marginBottom:5 }}>New Password</label>
+                  <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Enter new password"
+                    style={{ width:'100%', padding:'10px 14px', border:'1.5px solid #e5e7eb', borderRadius:10, fontSize:14, boxSizing:'border-box', outline:'none' }}
+                  />
+                </div>
+
+                {forgotError && <div style={{ background:'#fef2f2', border:'1px solid #fca5a5', color:'#b91c1c', borderRadius:8, padding:'9px 14px', fontSize:13, marginBottom:14 }}>{forgotError}</div>}
+                <button type="submit" disabled={forgotLoading} style={{ width:'100%', padding:'12px', background:'#1e40af', color:'#fff', border:'none', borderRadius:10, fontSize:15, fontWeight:700, cursor:'pointer' }}>
+                  {forgotLoading ? 'Resetting...' : 'Reset Password'}
+                </button>
+              </form>
+            )}
+
+            {/* Step 3: Success Screen */}
+            {resetStep === 3 && (
+              <div style={{ textAlign: 'center', marginTop: 20 }}>
+                <div style={{ fontSize: 40, marginBottom: 10 }}>✅</div>
+                <div style={{ color: '#166534', fontSize: 15, fontWeight: 600, marginBottom: 20 }}>Your password has been successfully reset!</div>
+                <button onClick={closeForgotModal} style={{ width:'100%', padding:'12px', background:'#10b981', color:'#fff', border:'none', borderRadius:10, fontSize:15, fontWeight:700, cursor:'pointer' }}>
+                  Return to Login
+                </button>
+              </div>
             )}
           </div>
         ) : (
@@ -140,82 +200,31 @@ export default function LoginPage({ onLogin }) {
             <form onSubmit={handleSubmit}>
               <div style={{ marginBottom:14 }}>
                 <label style={{ display:'block', fontSize:12, fontWeight:600, color:'#374151', marginBottom:5 }}>Username</label>
-                <input
-                  value={username} onChange={e=>setUsername(e.target.value)}
-                  placeholder="Enter your username" autoComplete="username"
-                  style={{
-                    width:'100%', padding:'10px 14px', border:'1.5px solid #e5e7eb',
-                    borderRadius:10, fontSize:14, boxSizing:'border-box', outline:'none',
-                  }}
-                  onFocus={e=>e.target.style.borderColor='#3b82f6'}
-                  onBlur={e=>e.target.style.borderColor='#e5e7eb'}
+                <input value={username} onChange={e=>setUsername(e.target.value)} placeholder="Enter your username" autoComplete="username"
+                  style={{ width:'100%', padding:'10px 14px', border:'1.5px solid #e5e7eb', borderRadius:10, fontSize:14, boxSizing:'border-box', outline:'none' }}
                 />
               </div>
 
               <div style={{ marginBottom:8 }}>
                 <label style={{ display:'block', fontSize:12, fontWeight:600, color:'#374151', marginBottom:5 }}>Password</label>
                 <div style={{ position:'relative' }}>
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    value={password} onChange={e=>setPassword(e.target.value)}
-                    placeholder="Enter your password" autoComplete="current-password"
-                    style={{
-                      width:'100%', padding:'10px 40px 10px 14px', border:'1.5px solid #e5e7eb',
-                      borderRadius:10, fontSize:14, boxSizing:'border-box', outline:'none',
-                    }}
-                    onFocus={e=>e.target.style.borderColor='#3b82f6'}
-                    onBlur={e=>e.target.style.borderColor='#e5e7eb'}
+                  <input type={showPassword ? 'text' : 'password'} value={password} onChange={e=>setPassword(e.target.value)} placeholder="Enter your password" autoComplete="current-password"
+                    style={{ width:'100%', padding:'10px 40px 10px 14px', border:'1.5px solid #e5e7eb', borderRadius:10, fontSize:14, boxSizing:'border-box', outline:'none' }}
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    style={{
-                      position:'absolute', right:12, top:'50%', transform:'translateY(-50%)',
-                      background:'none', border:'none', cursor:'pointer', padding:0,
-                      color:'#9ca3af', display:'flex', alignItems:'center',
-                    }}
-                  >
-                    {showPassword ? (
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/>
-                        <path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/>
-                        <line x1="1" y1="1" x2="23" y2="23"/>
-                      </svg>
-                    ) : (
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                        <circle cx="12" cy="12" r="3"/>
-                      </svg>
-                    )}
+                  <button type="button" onClick={() => setShowPassword(!showPassword)} style={{ position:'absolute', right:12, top:'50%', transform:'translateY(-50%)', background:'none', border:'none', cursor:'pointer', padding:0, color:'#9ca3af', display:'flex', alignItems:'center' }}>
+                    {showPassword ? 'Hide' : 'Show'}
                   </button>
                 </div>
               </div>
 
-              {/* Forgot Password Link */}
               <div style={{ textAlign:'right', marginBottom:18 }}>
-                <span
-                  onClick={() => setShowForgot(true)}
-                  style={{ fontSize:12, color:'#1e40af', cursor:'pointer', fontWeight:600 }}
-                >
-                  Forgot Password?
-                </span>
+                <span onClick={() => setShowForgot(true)} style={{ fontSize:12, color:'#1e40af', cursor:'pointer', fontWeight:600 }}>Forgot Password?</span>
               </div>
 
-              {error && (
-                <div style={{ background:'#fef2f2', border:'1px solid #fca5a5', color:'#b91c1c', borderRadius:8, padding:'9px 14px', fontSize:13, marginBottom:14 }}>
-                  {error}
-                </div>
-              )}
+              {error && <div style={{ background:'#fef2f2', border:'1px solid #fca5a5', color:'#b91c1c', borderRadius:8, padding:'9px 14px', fontSize:13, marginBottom:14 }}>{error}</div>}
 
-              <button
-                type="submit" disabled={loading || !username || !password}
-                style={{
-                  width:'100%', padding:'12px', background: loading ? '#93c5fd' : '#1e40af',
-                  color:'#fff', border:'none', borderRadius:10, fontSize:15,
-                  fontWeight:700, cursor: loading ? 'not-allowed' : 'pointer',
-                  transition:'background 0.2s', letterSpacing:'0.02em',
-                }}
-              >
+              <button type="submit" disabled={loading || !username || !password}
+                style={{ width:'100%', padding:'12px', background: loading ? '#93c5fd' : '#1e40af', color:'#fff', border:'none', borderRadius:10, fontSize:15, fontWeight:700, cursor: loading ? 'not-allowed' : 'pointer' }}>
                 {loading ? 'Signing in…' : 'Sign In'}
               </button>
             </form>
