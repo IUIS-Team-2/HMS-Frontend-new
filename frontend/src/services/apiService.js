@@ -31,6 +31,11 @@ export const apiService = {
         const response = await axios.post(`${BASE_URL}/users/manage/`, userData);
         return response.data;
     },
+    updateUser: async (userId, updateData) => {
+        // This sends a PATCH request to update ONLY the fields we provide (like is_active)
+        const response = await axios.patch(`${BASE_URL}/users/manage/${userId}/`, updateData);
+        return response.data;
+    },
     
     getPatients: async () => {
         try {

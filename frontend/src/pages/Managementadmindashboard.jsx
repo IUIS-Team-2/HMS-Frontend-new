@@ -249,22 +249,41 @@ export default function ManagementAdminDashboard({ currentUser, db, onLogout }) 
   // 1. Keep the state so your edit buttons still work
   const [allPatients, setAllPatients] = useState({ laxmi: [], raya: [] });
 
-  // 2. Automatically load the real, secure data passed down from App.jsx!
+  // Employees State (🌟 Added Edit ID tracker)
+  const [employees,      setEmployees]      = useState([]);
+  const [showEmpModal,   setShowEmpModal]   = useState(false);
+  const [editEmpId,      setEditEmpId]      = useState(null); 
+  const [empForm,        setEmpForm]        = useState({ fullName:"", username:"", empId:"", dept:"HOD", email:"", phone:"", role:"", password:"", confirmPassword:"" });
+
+  // 2. Automatically load the real, secure data!
   useEffect(() => {
-    if (db) {
-      setAllPatients(db);
-    }
+    if (db) setAllPatients(db);
+    
+    // 🌟 THE FIX: Fetch real employees from Django so we have their real integer IDs!
+    const loadEmployees = async () => {
+        try {
+            const users = await apiService.getUsers();
+            const mapped = users.map(u => ({
+                id: u.id, // REAL DB INTEGER ID!
+                empId: u.emp_id || "—",
+                username: u.username,
+                fullName: `${u.first_name} ${u.last_name}`.trim(),
+                email: u.email,
+                phone: u.phone_number,
+                role: u.role,
+                dept: u.role.toUpperCase(),
+                status: u.is_active ? "Active" : "Inactive"
+            }));
+            setEmployees(mapped);
+        } catch (err) { console.error("Failed to fetch employees", err); }
+    };
+    loadEmployees();
   }, [db]);
 
   // Departments
   const [departments,    setDepartments]    = useState(() => safeLoad("hms_mgmt_departments", []));
   const [showDeptModal,  setShowDeptModal]  = useState(false);
   const [deptForm,       setDeptForm]       = useState({ name:"", description:"", head:"" });
-
-  // Employees
-  const [employees,      setEmployees]      = useState(() => safeLoad("hms_mgmt_employees", []));
-  const [showEmpModal,   setShowEmpModal]   = useState(false);
-  const [empForm,        setEmpForm]        = useState({ fullName:"", username:"", empId:"", dept:"HOD", email:"", phone:"", role:"", password:"", confirmPassword:"" });
   const [empShowPass,    setEmpShowPass]    = useState(false);
   const [empShowConfirm, setEmpShowConfirm] = useState(false);
   const [empPassErr,     setEmpPassErr]     = useState("");
@@ -365,25 +384,32 @@ export default function ManagementAdminDashboard({ currentUser, db, onLogout }) 
     setDepartments(prev=>[...prev,{id:`DEPT-${Date.now()}`,...deptForm,createdAt:new Date().toISOString(),memberCount:0}]);
     setShowDeptModal(false); setDeptForm({name:"",description:"",head:""}); toast("Department created");
   };
+  const openEditEmployee = (emp) => {
+    setEditEmpId(emp.id); // Save real DB ID
+    setEmpForm({
+      fullName: emp.fullName || emp.name, username: emp.username, empId: emp.empId,
+      dept: emp.dept || "HOD", email: emp.email, phone: emp.phone, role: emp.role,
+      password: "", confirmPassword: "" // Keep blank so we don't accidentally overwrite it
+    });
+    setEmpPassErr(""); setShowEmpModal(true);
+  };
+
   const saveEmployee = async () => {
-    // 1. Validate the form
-    if (!empForm.fullName||!empForm.username||!empForm.empId||!empForm.email||!empForm.phone||!empForm.dept||!empForm.password||!empForm.confirmPassword) { 
-      setEmpPassErr("Please fill all fields"); return; 
+    if (!empForm.fullName||!empForm.username||!empForm.empId||!empForm.email||!empForm.phone||!empForm.dept) { 
+      setEmpPassErr("Please fill all required fields"); return; 
     }
     if (empForm.password !== empForm.confirmPassword) { 
       setEmpPassErr("Passwords do not match"); return; 
     }
+    if (!editEmpId && !empForm.password) {
+      setEmpPassErr("Password is required for new employees"); return;
+    }
 
     try {
-      // 2. Prepare the data exactly how Django expects it
       const [firstName, ...lastNameArr] = empForm.fullName.split(' ');
       
-      // 🌟 Smartly translate the typed role/dept into the exact backend role
       let mappedRole = 'receptionist';
-      const inputRole = String(empForm.role).toLowerCase();
-      const inputDept = String(empForm.dept).toLowerCase();
-      const combined = inputRole + " " + inputDept;
-
+      const combined = (String(empForm.role) + " " + String(empForm.dept)).toLowerCase();
       if (combined.includes('office')) mappedRole = 'office_admin';
       else if (combined.includes('branch') || combined.includes('admin')) mappedRole = 'admin';
       else if (combined.includes('hod')) mappedRole = 'hod';
@@ -394,31 +420,50 @@ export default function ManagementAdminDashboard({ currentUser, db, onLogout }) 
       else if (combined.includes('uploading')) mappedRole = 'uploading';
 
       const payload = {
-        username: empForm.username,
-        password: empForm.password,
-        confirm_password: empForm.confirmPassword,
-        email: empForm.email,
-        first_name: firstName,
-        last_name: lastNameArr.join(' '),
-        emp_id: empForm.empId,
-        phone_number: empForm.phone,
-        role: mappedRole, 
+        username: empForm.username, email: empForm.email, first_name: firstName,
+        last_name: lastNameArr.join(' ') || "", emp_id: empForm.empId,
+        phone_number: empForm.phone, role: mappedRole, 
         branch: viewBranch === 'laxmi' ? 'LNM' : 'RYM' 
       };
 
-      // 3. Send it to the Django Backend!
-      await apiService.createUser(payload);
+      // Only send password to Django if they typed a new one!
+      if (empForm.password) {
+        payload.password = empForm.password; payload.confirm_password = empForm.confirmPassword;
+      }
 
-      // 4. Update the UI
-      setEmployees(prev=>[...prev,{...empForm, id:empForm.empId, name:empForm.fullName, status:"Active", createdBy:currentUser?.name||"Mgmt Admin", createdAt:new Date().toISOString()}]);
-      setShowEmpModal(false); 
+      if (editEmpId) {
+        await apiService.updateUser(editEmpId, payload);
+        toast("Employee updated successfully!");
+      } else {
+        await apiService.createUser(payload);
+        toast("Employee securely created!");
+      }
+
+      // Instantly refresh table with Django data
+      const users = await apiService.getUsers();
+      setEmployees(users.map(u => ({
+          id: u.id, empId: u.emp_id || "—", username: u.username,
+          fullName: `${u.first_name} ${u.last_name}`.trim(), email: u.email,
+          phone: u.phone_number, role: u.role, dept: u.role.toUpperCase(),
+          status: u.is_active ? "Active" : "Inactive"
+      })));
+
+      setShowEmpModal(false); setEditEmpId(null);
       setEmpForm({fullName:"",username:"",empId:"",dept:"HOD",email:"",phone:"",role:"",password:"",confirmPassword:""}); 
-      setEmpPassErr(""); 
-      toast("Employee securely created in database!");
-
     } catch (error) {
-      console.error("User creation failed:", error);
-      setEmpPassErr(error.response?.data?.detail || "Failed to create user. Username or Emp ID might already exist.");
+      setEmpPassErr(error.response?.data?.detail || "Failed to save user. Username or Emp ID might exist.");
+    }
+  };
+
+  const handleToggleActive = async (emp, index) => {
+    const isCurrentlyActive = emp.status !== "Inactive";
+    const newStatusLabel = isCurrentlyActive ? "Inactive" : "Active";
+    try {
+      await apiService.updateUser(emp.id, { is_active: !isCurrentlyActive });
+      setEmployees(prev => prev.map((e, ei) => ei === index ? { ...e, status: newStatusLabel } : e));
+      toast(`Employee ${newStatusLabel === "Active" ? "activated" : "deactivated"} successfully!`);
+    } catch (error) {
+      toast("Failed to update employee status in the database.", "err");
     }
   };
 
@@ -1056,8 +1101,8 @@ export default function ManagementAdminDashboard({ currentUser, db, onLogout }) 
                 <Td><Badge col={emp.status==="Inactive"?"#f87171":"#34d399"}>{emp.status||"Active"}</Badge></Td>
                 <Td>
                   <div style={{ display:"flex", gap:6 }}>
-                    <ActionBtn col="#f59e0b" onClick={()=>{ const p=prompt("Set new password for "+(emp.fullName||emp.name)+":"); if(p){setEmployees(prev=>prev.map((e,ei)=>ei===i?{...e,password:p}:e));toast("Password reset successfully");} }}>🔑 Reset</ActionBtn>
-                    <ActionBtn col={emp.status==="Inactive"?"#34d399":"#f87171"} onClick={()=>{setEmployees(prev=>prev.map((e,ei)=>ei===i?{...e,status:e.status==="Inactive"?"Active":"Inactive"}:e));toast(emp.status==="Inactive"?"Employee activated":"Employee deactivated");}}>
+                    <ActionBtn col={accent} onClick={() => openEditEmployee(emp)}>✎ Edit / Reset</ActionBtn>
+                    <ActionBtn col={emp.status==="Inactive"?"#34d399":"#f87171"} onClick={() => handleToggleActive(emp, i)}>
                       {emp.status==="Inactive"?"✓ Activate":"⊘ Deactivate"}
                     </ActionBtn>
                   </div>
@@ -1264,14 +1309,14 @@ export default function ManagementAdminDashboard({ currentUser, db, onLogout }) 
 
       {/* ══ EMPLOYEE MODAL ══ */}
       {showEmpModal && (
-        <div className="hms-modal-overlay" onClick={e=>e.target===e.currentTarget&&(setShowEmpModal(false),setEmpPassErr(""))}>
+        <div className="hms-modal-overlay" onClick={e=>e.target===e.currentTarget&&(setShowEmpModal(false),setEmpPassErr(""),setEditEmpId(null))}>
           <div className="hms-modal-box" style={{ width:520 }}>
-            <div className="hms-modal-title">Create New Employee</div>
+            <div className="hms-modal-title">{editEmpId ? "Edit Employee Details" : "Create New Employee"}</div>
             <div className="hms-g2">
               {[["Full Name","fullName","text","Jane Doe"],["Username","username","text","jane.doe"],["Employee ID","empId","text","EMP-001"],["Email","email","email","jane@hospital.com"],["Phone","phone","tel","+91 98765 43210"],["Role","role","text","Staff / HOD / etc."]].map(([lbl,k,type,ph])=>(
                 <div key={k}>
                   <label className="hms-lbl">{lbl}</label>
-                  <input type={type} placeholder={ph} value={empForm[k]} className="hms-inp" onChange={e=>{setEmpForm(f=>({...f,[k]:e.target.value}));setEmpPassErr("");}}/>
+                  <input type={type} placeholder={ph} value={empForm[k]} className="hms-inp" onChange={e=>{setEmpForm(f=>({...f,[k]:e.target.value}));setEmpPassErr("");}} disabled={k==="username" && editEmpId}/>
                 </div>
               ))}
             </div>
@@ -1282,9 +1327,9 @@ export default function ManagementAdminDashboard({ currentUser, db, onLogout }) 
             <div className="hms-g2">
               {[["Password","password",empShowPass,setEmpShowPass],["Confirm Password","confirmPassword",empShowConfirm,setEmpShowConfirm]].map(([lbl,k,show,setShow])=>(
                 <div key={k}>
-                  <label className="hms-lbl">{lbl}</label>
+                  <label className="hms-lbl">{lbl} {editEmpId && <span style={{fontSize:9}}>(Leave blank to keep current)</span>}</label>
                   <div className="hms-pass-wrap">
-                    <input type={show?"text":"password"} placeholder="••••••••" value={empForm[k]} className="hms-inp" style={{ paddingRight:50 }} onChange={e=>{setEmpForm(f=>({...f,[k]:e.target.value}));setEmpPassErr("");}}/>
+                    <input type={show?"text":"password"} placeholder={editEmpId ? "Leave blank to keep current" : "••••••••"} value={empForm[k]} className="hms-inp" style={{ paddingRight:50 }} onChange={e=>{setEmpForm(f=>({...f,[k]:e.target.value}));setEmpPassErr("");}}/>
                     <button type="button" className="hms-pass-toggle" onClick={()=>setShow(p=>!p)}>{show?"HIDE":"SHOW"}</button>
                   </div>
                 </div>
@@ -1292,8 +1337,8 @@ export default function ManagementAdminDashboard({ currentUser, db, onLogout }) 
             </div>
             {empPassErr && <div className="hms-err-text">{empPassErr}</div>}
             <div className="hms-modal-foot">
-              <button className="hms-cancel-btn" onClick={()=>{setShowEmpModal(false);setEmpPassErr("");}}>Cancel</button>
-              <button className="hms-save-btn" onClick={saveEmployee}>Create Employee</button>
+              <button className="hms-cancel-btn" onClick={()=>{setShowEmpModal(false);setEmpPassErr("");setEditEmpId(null);}}>Cancel</button>
+              <button className="hms-save-btn" onClick={saveEmployee}>{editEmpId ? "Save Changes" : "Create Employee"}</button>
             </div>
           </div>
         </div>
