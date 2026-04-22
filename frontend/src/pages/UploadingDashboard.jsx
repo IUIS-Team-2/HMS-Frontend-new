@@ -1,8 +1,9 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 
 // ── SheetJS for Excel export (loaded via CDN script tag in index.html or inline import)
 // Usage: import * as XLSX from 'xlsx'  — listed as available in env
 import * as XLSX from "xlsx";
+import { apiService } from "../services/apiService";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const COLUMNS = [
@@ -19,7 +20,7 @@ const COLUMNS = [
   { key: "addedBy",    label: "Added By",     width: 130 },
 ];
 
-const STORAGE_KEY = "sangi_uploading_entries";
+const DEPARTMENT = "uploading";
 
 const blankRow = (sNo) => ({
   id: crypto.randomUUID(),
@@ -63,31 +64,16 @@ function yearRange() {
   return { start: `${y}-01-01`, end: `${y}-12-31` };
 }
 
+function entryDate(entry) {
+  return entry.uploadDate || entry.createdAt?.slice(0, 10) || entry.doa || entry.dod || "";
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function UploadingDashboard({ currentUser, onLogout }) {
   const today = todayStr();
 
-  // All entries stored persistently
-  const [allEntries, setAllEntries] = useState(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      return raw ? JSON.parse(raw) : [];
-    } catch { return []; }
-  });
-
-  // Today's working rows (editable grid)
-  const [rows, setRows] = useState(() => {
-    // Seed with any existing today entries or start with 10 blank rows
-    const existing = (() => {
-      try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        return raw ? JSON.parse(raw) : [];
-      } catch { return []; }
-    })();
-    const todayRows = existing.filter(e => e.uploadDate === todayStr() || e.createdAt?.slice(0, 10) === todayStr());
-    if (todayRows.length > 0) return todayRows;
-    return Array.from({ length: 10 }, (_, i) => blankRow(i + 1));
-  });
+  const [allEntries, setAllEntries] = useState([]);
+  const [rows, setRows] = useState(() => Array.from({ length: 10 }, (_, i) => blankRow(i + 1)));
 
   // Filter panel
   const [filterMode, setFilterMode] = useState("today"); // today | week | month | year | custom
@@ -98,12 +84,32 @@ export default function UploadingDashboard({ currentUser, onLogout }) {
   // Saving state
   const [savedAt, setSavedAt]     = useState(null);
   const [hasUnsaved, setHasUnsaved] = useState(false);
-  const [activeCell, setActiveCell] = useState(null);
+  const [syncError, setSyncError] = useState("");
 
-  // Persist all entries to localStorage
   useEffect(() => {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(allEntries)); } catch {}
-  }, [allEntries]);
+    let active = true;
+    const loadEntries = async () => {
+      try {
+        setSyncError("");
+        const response = await apiService.getDepartmentLogs(DEPARTMENT);
+        const normalized = (Array.isArray(response) ? response : []).map((entry, index) => ({
+          id: entry.id ? `uploading-${entry.id}` : crypto.randomUUID(),
+          ...entry.data,
+          createdAt: entry.data?.createdAt || `${entry.record_date}T00:00:00`,
+          sNo: index + 1,
+        }));
+        if (!active) return;
+        setAllEntries(normalized);
+        const todayRows = normalized.filter(entry => entryDate(entry) === today);
+        setRows(todayRows.length ? todayRows.map((entry, index) => ({ ...entry, sNo: index + 1 })) : Array.from({ length: 10 }, (_, i) => blankRow(i + 1)));
+      } catch (error) {
+        if (!active) return;
+        setSyncError("Unable to load saved uploading logs.");
+      }
+    };
+    loadEntries();
+    return () => { active = false; };
+  }, [today]);
 
   // Mark unsaved on row change
   const updateRow = (rowId, key, val) => {
@@ -127,21 +133,30 @@ export default function UploadingDashboard({ currentUser, onLogout }) {
     setHasUnsaved(true);
   };
 
-  const handleSave = () => {
-    const filled = rows.filter(r => r.claimId || r.ipdNo || r.patientName);
+  const handleSave = async () => {
+    const filled = rows
+      .filter(r => r.claimId || r.ipdNo || r.patientName)
+      .map((row, index) => ({
+        ...row,
+        sNo: index + 1,
+        uploadDate: row.uploadDate || today,
+        addedBy: row.addedBy || currentUser?.name || "",
+        createdAt: row.createdAt || new Date().toISOString(),
+      }));
     if (filled.length === 0) return;
 
-    setAllEntries(prev => {
-      // Remove today's old entries, replace with current rows
-      const withoutToday = prev.filter(e => {
-        const d = e.uploadDate || e.createdAt?.slice(0, 10);
-        return d !== today;
+    try {
+      setSyncError("");
+      await apiService.saveDepartmentLogs(DEPARTMENT, filled);
+      setAllEntries(prev => {
+        const withoutToday = prev.filter(entry => entryDate(entry) !== today);
+        return [...withoutToday, ...filled];
       });
-      return [...withoutToday, ...filled];
-    });
-
-    setSavedAt(new Date().toLocaleTimeString());
-    setHasUnsaved(false);
+      setSavedAt(new Date().toLocaleTimeString());
+      setHasUnsaved(false);
+    } catch (error) {
+      setSyncError("Save failed. Uploading logs were not synced.");
+    }
   };
 
   // ── Filtered records for Records tab ─────────────────────────────────────────
@@ -154,7 +169,7 @@ export default function UploadingDashboard({ currentUser, onLogout }) {
     else { start = customStart; end = customEnd; }
 
     return allEntries.filter(e => {
-      const d = e.uploadDate || e.createdAt?.slice(0, 10) || "";
+      const d = entryDate(e);
       return d >= start && d <= end;
     }).sort((a, b) => (a.uploadDate || "").localeCompare(b.uploadDate || ""));
   })();
@@ -197,9 +212,9 @@ export default function UploadingDashboard({ currentUser, onLogout }) {
   };
 
   // ── Stats ─────────────────────────────────────────────────────────────────────
-  const todayCount   = allEntries.filter(e => (e.uploadDate || e.createdAt?.slice(0,10)) === today).length;
-  const weekCount    = (() => { const { start, end } = weekRange(); return allEntries.filter(e => { const d = e.uploadDate || e.createdAt?.slice(0,10) || ""; return d >= start && d <= end; }).length; })();
-  const monthCount   = (() => { const { start, end } = monthRange(); return allEntries.filter(e => { const d = e.uploadDate || e.createdAt?.slice(0,10) || ""; return d >= start && d <= end; }).length; })();
+  const todayCount   = allEntries.filter(e => entryDate(e) === today).length;
+  const weekCount    = (() => { const { start, end } = weekRange(); return allEntries.filter(e => { const d = entryDate(e); return d >= start && d <= end; }).length; })();
+  const monthCount   = (() => { const { start, end } = monthRange(); return allEntries.filter(e => { const d = entryDate(e); return d >= start && d <= end; }).length; })();
   const filledToday  = rows.filter(r => r.claimId || r.ipdNo || r.patientName).length;
 
   // ── Keyboard nav: Tab moves right, Enter moves down ──────────────────────────
@@ -311,6 +326,11 @@ export default function UploadingDashboard({ currentUser, onLogout }) {
         <div style={{ display: "flex", gap: 8 }}>
           {viewTab === "entry" && (
             <>
+              {syncError && (
+                <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10, color: "#f87171" }}>
+                  {syncError}
+                </div>
+              )}
               {hasUnsaved && (
                 <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10, color: "#f59e0b", animation: "pulse 2s infinite" }}>
                   ● Unsaved changes
@@ -355,7 +375,7 @@ export default function UploadingDashboard({ currentUser, onLogout }) {
               <div>
                 <div style={{ fontSize: 12, fontWeight: 700, color: "#f1f5f9" }}>Today's Uploading Log — {today}</div>
                 <div style={{ fontSize: 10, color: "#374151", marginTop: 3 }}>
-                  {filledToday} of {rows.length} rows filled · Tab to move right · Enter to move down · Auto-saves to browser
+                  {filledToday} of {rows.length} rows filled · Tab to move right · Enter to move down · Synced to backend
                 </div>
               </div>
               <div style={{ fontSize: 22, fontWeight: 700, color: accent }}>{filledToday}</div>
@@ -391,8 +411,6 @@ export default function UploadingDashboard({ currentUser, onLogout }) {
                                 value={row[col.key] || ""}
                                 onChange={e => updateRow(row.id, col.key, e.target.value)}
                                 onKeyDown={e => handleKeyDown(e, rowIdx, col.key)}
-                                onFocus={() => setActiveCell(`${rowIdx}-${col.key}`)}
-                                onBlur={() => setActiveCell(null)}
                                 style={{
                                   width: "100%",
                                   padding: "9px 12px",

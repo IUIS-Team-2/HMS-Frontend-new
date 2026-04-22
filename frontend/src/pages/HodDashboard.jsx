@@ -92,12 +92,22 @@ export default function HodDashboard({ currentUser, onLogout }) {
 
   const API = "/api/hod";
 
+  function normalizeApiPath(path) {
+    const [pathname, search = ""] = String(path || "/").split("?");
+    const normalizedPath = pathname.endsWith("/") ? pathname : `${pathname}/`;
+    return search ? `${normalizedPath}?${search}` : normalizedPath;
+  }
+
   async function apiFetch(path, options = {}) {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API}${path}`, {
-        headers: { "Content-Type": "application/json" },
+      const token = sessionStorage.getItem("hms_token");
+      const res = await fetch(`${API}${normalizeApiPath(path)}`, {
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         ...options,
       });
       if (!res.ok) throw new Error(`API error: ${res.status}`);
@@ -190,7 +200,7 @@ export default function HodDashboard({ currentUser, onLogout }) {
     const params = new URLSearchParams({ department: activeDept, range: filterRange });
     if (filterEmployee) params.append("employeeId", filterEmployee);
     if (filterDate) params.append("date", filterDate);
-    window.open(`${API}/reports/download?${params}`, "_blank");
+    window.open(`${API}${normalizeApiPath(`/reports/download?${params}`)}`, "_blank");
   }
 
   // ─── Quick stats for sidebar ─────────────────────────────────────────────────
@@ -286,7 +296,6 @@ export default function HodDashboard({ currentUser, onLogout }) {
       letterSpacing: "0.5px",
       transition: "all 0.15s",
       border: "none",
-      borderLeft: active ? `3px solid ${DEPT_COLORS[dept]}` : "3px solid transparent",
       width: "100%",
       textAlign: "left",
       position: "relative",

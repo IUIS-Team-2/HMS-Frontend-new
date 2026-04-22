@@ -11,7 +11,7 @@ export default function SearchPage({db,locId,onNewAdmission,onNewPatient}){
   const [searched,setSearched]=useState(false);
   const [result,setResult]=useState(null);
   const loc=LOCATIONS.find(l=>l.id===locId);
-  const doSearch=()=>{if(!query.trim())return;const q=query.trim().toLowerCase();const found=db.find(p=>searchType==="phone"?p.phone===q||p.altPhone===q:searchType==="nationalId"?p.nationalId.toLowerCase()===q:p.card_number&&p.card_number.toLowerCase()===q);setResult(found||null);setSearched(true);};
+  const doSearch=()=>{if(!query.trim())return;const q=query.trim().toLowerCase();const found=db.find(p=>searchType==="phone"?p.phone===q||p.altPhone===q:searchType==="nationalId"?p.nationalId.toLowerCase()===q:[p.tpaCard,p.tpaPanelCardNo,p.card_number].some(v=>String(v||"").toLowerCase()===q));setResult(found||null);setSearched(true);};
   const clear=()=>{setQuery("");setSearched(false);setResult(null);};
   
   return(<>
@@ -93,7 +93,7 @@ export default function SearchPage({db,locId,onNewAdmission,onNewPatient}){
             </div>
           </div>
           <div style={{padding:"16px 24px",background:T.white,display:"flex",gap:10,flexWrap:"wrap"}}>
-            {[["Phone",result.phone],["National ID",result.nationalId],["Card Number",result.card_number],["Address",result.address],["Allergies",result.allergies||"None"]].map(([l,v])=>(
+            {[["Phone",result.phone],["National ID",result.nationalId],["Card Number",result.tpaCard||result.tpaPanelCardNo||result.card_number],["Address",result.address],["Allergies",result.allergies||"None"]].map(([l,v])=>(
               <div key={l} style={{background:T.offwhite,border:`1px solid ${T.border}`,borderRadius:9,padding:"9px 13px",minWidth:140}}>
                 <div style={{fontSize:10,fontWeight:700,color:T.textLight,textTransform:"uppercase",letterSpacing:".07em",marginBottom:2}}>{l}</div>
                 <div style={{fontSize:13,fontWeight:500,color:T.text}}>{v||"—"}</div>
@@ -107,7 +107,7 @@ export default function SearchPage({db,locId,onNewAdmission,onNewPatient}){
           <button className="nab-btn" onClick={()=>{if(!admissionType){toast.warn("Please select an admission type first!");return;}onNewAdmission(result,admissionType);}} style={{opacity:admissionType?1:0.6}}><Ico d={IC.plus} size={16} sw={2.5}/> New Admission</button>
         </div>
       </>)}
-      {searched&&!result&&(<div className="not-found"><div className="not-found-icon"><Ico d={IC.search} size={28} sw={1.5}/></div><h3 style={{fontFamily:"'DM Serif Display',serif",fontSize:20,color:T.primary,marginBottom:8}}>No patient found</h3><p style={{fontSize:14,color:T.textMuted,marginBottom:28,maxWidth:340,margin:"0 auto 28px",lineHeight:1.6}}>No record matches <strong>"{query}"</strong> at this branch.</p><button className="btn btn-accent" style={{margin:"0 auto"}} onClick={onNewPatient}><Ico d={IC.plus} size={15} sw={2.5}/> Register New Patient</button></div>)}
+      {searched&&!result&&(<div className="not-found"><div className="not-found-icon"><Ico d={IC.search} size={28} sw={1.5}/></div><h3 style={{fontFamily:"'DM Serif Display',serif",fontSize:20,color:T.primary,marginBottom:8}}>No patient found</h3><p style={{fontSize:14,color:T.textMuted,marginBottom:28,maxWidth:340,margin:"0 auto 28px",lineHeight:1.6}}>No record matches <strong>"{query}"</strong> at this branch.</p><button className="btn btn-accent" style={{margin:"0 auto"}} onClick={()=>{if(!admissionType){toast.warn("Please select an admission type first!");return;}onNewPatient(admissionType);}}><Ico d={IC.plus} size={15} sw={2.5}/> Register New Patient</button></div>)}
       {!searched&&(
         <div className="info-grid">
           {[{icon:"🔍",bg:"#EFF6FF",title:"Search First",desc:"Always search by phone or National ID before registering — avoids duplicate records."},{icon:"📋",bg:"#F0FDF4",title:"Patients History",desc:"Use Patients History in the sidebar to view all admissions, discharge status and bills."},{icon:"⚡",bg:"#FFF7ED",title:"Same UHID",desc:"Returning patients keep their original UHID — only a new admission is added."}].map(c=>(<div className="info-card" key={c.title}><div className="info-card-icon" style={{background:c.bg}}>{c.icon}</div><div className="info-card-title">{c.title}</div><p className="info-card-desc">{c.desc}</p></div>))}

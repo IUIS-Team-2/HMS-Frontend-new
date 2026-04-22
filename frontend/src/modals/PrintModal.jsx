@@ -1,8 +1,8 @@
 import { T, LOCATIONS } from "../data/constants";
 import { Ico, IC } from "../components/ui/Icons";
 
-export default function PrintModal({uhid,patient,discharge,svcs,billing,locId,admNo,onClose}){
-  const total=svcs.reduce((a,s)=>a+(parseFloat(s.rate)||0)*(parseInt(s.qty)||0),0);
+export default function PrintModal({uhid,patient,discharge,svcs,billing,locId,admNo,admission,onClose}){
+  const total=svcs.reduce((a,s)=>a+(parseFloat((s.rate ?? s.svcRate) || 0)||0)*(parseInt((s.qty ?? s.svcQty) || 0)||0),0);
   const disc=parseFloat(billing.discount)||0;
   const adv=parseFloat(billing.advance)||0;
   const paid=parseFloat(billing.paidNow)||0;
@@ -11,13 +11,14 @@ export default function PrintModal({uhid,patient,discharge,svcs,billing,locId,ad
   const nowTime=new Date().toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit",hour12:false});
   const loc=LOCATIONS.find(l=>l.id===locId)||{name:"Sangi",color:"#0EA5E9"};
   const branchInfo={
-    "laxmi-nagar":{address:"Lakshmi Nagar, Mathura, Uttar Pradesh - 281004",phone1:"+91-9717444531",phone2:"+91-9717444532",email:"laxminagar@sangihospital.com"},
+    "laxmi":{address:"Lakshmi Nagar, Mathura, Uttar Pradesh - 281004",phone1:"+91-9717444531",phone2:"+91-9717444532",email:"laxminagar@sangihospital.com"},
     "raya":{address:"Raya, Mathura, Uttar Pradesh - 281204",phone1:"+91-9311212090",phone2:"+91-9311212091",landline:"05663-299009",email:"info@sangihospital.com"}
   };
-  const branch=branchInfo[locId]||branchInfo["laxmi-nagar"];
-  const mockIpdNo=`SH/${patient.tpa?patient.tpa.substring(0,4).toUpperCase():"GEN"}/26/${1900+admNo}`;
-  const mockBillNo=`${1900+admNo}/26`;
-  const mockClaimId="42092669";
+  const branch=branchInfo[locId]||branchInfo["laxmi"];
+  const actualIpdNo = admission?.ipdNo || "—";
+  const actualBillNo = billing?.id ? String(billing.id) : "—";
+  const actualClaimId = patient.tpaPanelCardNo || patient.tpaCard || "—";
+  const admissionType = admission?.admissionType || patient.admissionType || "IPD";
 
   const printStyles = `
     @media print {
@@ -51,7 +52,7 @@ export default function PrintModal({uhid,patient,discharge,svcs,billing,locId,ad
             <div>
               <div style={{fontSize:11,color:"#555",marginBottom:4}}>Date: <strong style={{color:"#1a5b8c",textDecoration:"underline"}}>{today}</strong></div>
               <div style={{fontSize:18,fontWeight:900,color:"#0B2545",letterSpacing:1}}>FINAL BILL</div>
-              <div style={{fontSize:11,color:"#666",marginTop:4}}>Admission Type: <strong>{patient.admissionType||"IPD"}</strong></div>
+              <div style={{fontSize:11,color:"#666",marginTop:4}}>Admission Type: <strong>{admissionType}</strong></div>
             </div>
             <div style={{textAlign:"right"}}>
               <div style={{display:"flex",alignItems:"center",justifyContent:"flex-end",gap:10,marginBottom:4}}>
@@ -72,12 +73,12 @@ export default function PrintModal({uhid,patient,discharge,svcs,billing,locId,ad
           <table style={{width:"100%",borderCollapse:"collapse",marginTop:0,border:"1px solid #000"}}>
             <tbody>
               {[
-                [["UHID",uhid||"—"],["Bill No.",mockBillNo]],[["IPD No.",mockIpdNo],["Bill Date",`${today} ${nowTime} HRS`]],
+                [["UHID",uhid||"—"],["Bill No.",actualBillNo]],[["IPD No.",actualIpdNo],["Bill Date",`${today} ${nowTime} HRS`]],
                 [["Patient Name",patient.patientName?.toUpperCase()||"—"],["Bill Date",`${today} ${nowTime} HRS`]],
                 [["Guardian Name",patient.guardianName?.toUpperCase()||"—"],["Age/Sex",`${patient.ageYY||"—"} YRS / ${patient.gender?.toUpperCase()||"—"}`]],
                 [["Address",(patient.address||"—").toUpperCase()],["Card No.",patient.tpaCard||patient.tpaPanelCardNo||"—"]],
                 [["Consultant",(discharge.doctorName||"—").toUpperCase()],["Room",`${discharge.wardName||"—"} / ${discharge.roomNo||"—"}`]],
-                [["Claim ID",mockClaimId],["Panel",(patient.tpa||"CASH").toUpperCase()]],
+                [["Claim ID",actualClaimId],["Panel",(patient.tpa||patient.payMode||"CASH").toUpperCase()]],
                 [["DOA & Time",discharge.doa?new Date(discharge.doa).toLocaleString("en-IN"):"—"],["Contact No.",patient.phone||"—"]],
                 [["DOD & Time",discharge.dod?new Date(discharge.dod).toLocaleString("en-IN"):"—"],["Status on Discharge",(discharge.dischargeStatus||"—").toUpperCase()]],
               ].map((row,ri)=>(
@@ -103,22 +104,22 @@ export default function PrintModal({uhid,patient,discharge,svcs,billing,locId,ad
               </tr>
             </thead>
             <tbody>
-              {svcs.filter(s=>s.title||s.type).length===0?(
+              {svcs.filter(s=>s.title||s.type||s.svcName).length===0?(
                 <tr><td colSpan={7} style={{border:"1px solid #000",padding:"16px",textAlign:"center",color:"#999",fontStyle:"italic"}}>No services added</td></tr>
-              ):svcs.filter(s=>s.title||s.type).map((s,i)=>(
+              ):svcs.filter(s=>s.title||s.type||s.svcName).map((s,i)=>(
                 <tr key={i} style={{background:i%2===0?"#fff":"#f9f9f9"}}>
                   <td style={{border:"1px solid #000",padding:"7px 10px"}}>{i+1}</td>
-                  <td style={{border:"1px solid #000",padding:"7px 10px"}}>{today}</td>
-                  <td style={{border:"1px solid #000",padding:"7px 10px"}}>{s.code||"—"}</td>
-                  <td style={{border:"1px solid #000",padding:"7px 10px",fontWeight:500}}>{(s.title||s.type||"—").toUpperCase()}</td>
-                  <td style={{border:"1px solid #000",padding:"7px 10px",textAlign:"center"}}>{s.qty||1}</td>
-                  <td style={{border:"1px solid #000",padding:"7px 10px",textAlign:"right"}}>{parseFloat(s.rate||0).toFixed(2)}</td>
-                  <td style={{border:"1px solid #000",padding:"7px 10px",textAlign:"right",fontWeight:600}}>{((parseFloat(s.rate)||0)*(parseInt(s.qty)||0)).toFixed(2)}</td>
+                  <td style={{border:"1px solid #000",padding:"7px 10px"}}>{s.svcDate||today}</td>
+                  <td style={{border:"1px solid #000",padding:"7px 10px"}}>{s.code||s.svcCode||"—"}</td>
+                  <td style={{border:"1px solid #000",padding:"7px 10px",fontWeight:500}}>{(s.title||s.type||s.svcName||"—").toUpperCase()}</td>
+                  <td style={{border:"1px solid #000",padding:"7px 10px",textAlign:"center"}}>{s.qty||s.svcQty||1}</td>
+                  <td style={{border:"1px solid #000",padding:"7px 10px",textAlign:"right"}}>{parseFloat((s.rate ?? s.svcRate) || 0).toFixed(2)}</td>
+                  <td style={{border:"1px solid #000",padding:"7px 10px",textAlign:"right",fontWeight:600}}>{(parseFloat((s.total ?? s.svcTot) || ((parseFloat((s.rate ?? s.svcRate) || 0) || 0)*(parseInt((s.qty ?? s.svcQty) || 0) || 0))) || 0).toFixed(2)}</td>
                 </tr>
               ))}
 
               {/* Empty rows for aesthetics */}
-              {Array.from({length:Math.max(0,5-svcs.filter(s=>s.title||s.type).length)}).map((_,i)=>(
+              {Array.from({length:Math.max(0,5-svcs.filter(s=>s.title||s.type||s.svcName).length)}).map((_,i)=>(
                 <tr key={"empty"+i}>
                   {Array.from({length:7}).map((_,j)=>(
                     <td key={j} style={{border:"1px solid #000",padding:"7px 10px"}}>&nbsp;</td>

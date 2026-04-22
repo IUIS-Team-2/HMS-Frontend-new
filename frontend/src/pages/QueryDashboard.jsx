@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import * as XLSX from "xlsx";
+import { apiService } from "../services/apiService";
 
 // ─── Columns from screenshot: S.No. | Claim ID | Patient Name | RaiseDate | QueryRepDate | Hospital | JustifyBy | ReplyBy | Remarks | AddedBy
 const COLUMNS = [
@@ -15,7 +16,7 @@ const COLUMNS = [
   { key: "addedBy",       label: "AddedBy",         width: 130 },
 ];
 
-const STORAGE_KEY = "sangi_query_entries";
+const DEPARTMENT = "query";
 const accent      = "#f59e0b"; // amber — Query dept color
 
 const blankRow = (sNo) => ({
@@ -37,19 +38,13 @@ function todayStr() { return new Date().toISOString().slice(0, 10); }
 function weekRange()  { const now = new Date(); const day = now.getDay(); const mon = new Date(now); mon.setDate(now.getDate() - ((day + 6) % 7)); const sun = new Date(mon); sun.setDate(mon.getDate() + 6); return { start: mon.toISOString().slice(0, 10), end: sun.toISOString().slice(0, 10) }; }
 function monthRange() { const now = new Date(); return { start: new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10), end: new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10) }; }
 function yearRange()  { const y = new Date().getFullYear(); return { start: `${y}-01-01`, end: `${y}-12-31` }; }
+function entryDate(entry) { return entry.queryRepDate || entry.createdAt?.slice(0, 10) || entry.raiseDate || ""; }
 
 export default function QueryDashboard({ currentUser, onLogout }) {
   const today = todayStr();
 
-  const [allEntries, setAllEntries] = useState(() => {
-    try { const raw = localStorage.getItem(STORAGE_KEY); return raw ? JSON.parse(raw) : []; } catch { return []; }
-  });
-
-  const [rows, setRows] = useState(() => {
-    const existing = (() => { try { const raw = localStorage.getItem(STORAGE_KEY); return raw ? JSON.parse(raw) : []; } catch { return []; } })();
-    const todayRows = existing.filter(e => e.createdAt?.slice(0, 10) === todayStr());
-    return todayRows.length > 0 ? todayRows : Array.from({ length: 10 }, (_, i) => blankRow(i + 1));
-  });
+  const [allEntries, setAllEntries] = useState([]);
+  const [rows, setRows] = useState(() => Array.from({ length: 10 }, (_, i) => blankRow(i + 1)));
 
   const [filterMode, setFilterMode]   = useState("today");
   const [customStart, setCustomStart] = useState(today);
@@ -57,9 +52,32 @@ export default function QueryDashboard({ currentUser, onLogout }) {
   const [viewTab, setViewTab]         = useState("entry");
   const [savedAt, setSavedAt]         = useState(null);
   const [hasUnsaved, setHasUnsaved]   = useState(false);
+  const [syncError, setSyncError]     = useState("");
 
-
-  useEffect(() => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(allEntries)); } catch {} }, [allEntries]);
+  useEffect(() => {
+    let active = true;
+    const loadEntries = async () => {
+      try {
+        setSyncError("");
+        const response = await apiService.getDepartmentLogs(DEPARTMENT);
+        const normalized = (Array.isArray(response) ? response : []).map((entry, index) => ({
+          id: entry.id ? `query-${entry.id}` : crypto.randomUUID(),
+          ...entry.data,
+          createdAt: entry.data?.createdAt || `${entry.record_date}T00:00:00`,
+          sNo: index + 1,
+        }));
+        if (!active) return;
+        setAllEntries(normalized);
+        const todayRows = normalized.filter(entry => entryDate(entry) === today);
+        setRows(todayRows.length ? todayRows.map((entry, index) => ({ ...entry, sNo: index + 1 })) : Array.from({ length: 10 }, (_, i) => blankRow(i + 1)));
+      } catch (error) {
+        if (!active) return;
+        setSyncError("Unable to load saved query logs.");
+      }
+    };
+    loadEntries();
+    return () => { active = false; };
+  }, [today]);
 
   const updateRow = (rowId, key, val) => {
     setRows(prev => prev.map(r => r.id === rowId ? { ...r, [key]: val } : r));
@@ -75,15 +93,28 @@ export default function QueryDashboard({ currentUser, onLogout }) {
     setHasUnsaved(true);
   };
 
-  const handleSave = () => {
-    const filled = rows.filter(r => r.claimId || r.patientName);
+  const handleSave = async () => {
+    const filled = rows
+      .filter(r => r.claimId || r.patientName)
+      .map((row, index) => ({
+        ...row,
+        sNo: index + 1,
+        addedBy: row.addedBy || currentUser?.name || "",
+        createdAt: row.createdAt || new Date().toISOString(),
+      }));
     if (!filled.length) return;
-    setAllEntries(prev => {
-      const withoutToday = prev.filter(e => e.createdAt?.slice(0, 10) !== today);
-      return [...withoutToday, ...filled];
-    });
-    setSavedAt(new Date().toLocaleTimeString());
-    setHasUnsaved(false);
+    try {
+      setSyncError("");
+      await apiService.saveDepartmentLogs(DEPARTMENT, filled);
+      setAllEntries(prev => {
+        const withoutToday = prev.filter(entry => entryDate(entry) !== today);
+        return [...withoutToday, ...filled];
+      });
+      setSavedAt(new Date().toLocaleTimeString());
+      setHasUnsaved(false);
+    } catch (error) {
+      setSyncError("Save failed. Query logs were not synced.");
+    }
   };
 
   const filteredEntries = (() => {
@@ -93,7 +124,7 @@ export default function QueryDashboard({ currentUser, onLogout }) {
     else if (filterMode === "month")  { ({ start, end } = monthRange()); }
     else if (filterMode === "year")   { ({ start, end } = yearRange()); }
     else                              { start = customStart; end = customEnd; }
-    return allEntries.filter(e => { const d = e.createdAt?.slice(0, 10) || ""; return d >= start && d <= end; })
+    return allEntries.filter(e => { const d = entryDate(e); return d >= start && d <= end; })
       .sort((a, b) => (a.createdAt || "").localeCompare(b.createdAt || ""));
   })();
 
@@ -128,9 +159,9 @@ export default function QueryDashboard({ currentUser, onLogout }) {
     }
   };
 
-  const todayCount  = allEntries.filter(e => e.createdAt?.slice(0, 10) === today).length;
-  const weekCount   = (() => { const { start, end } = weekRange(); return allEntries.filter(e => { const d = e.createdAt?.slice(0,10)||""; return d>=start&&d<=end; }).length; })();
-  const monthCount  = (() => { const { start, end } = monthRange(); return allEntries.filter(e => { const d = e.createdAt?.slice(0,10)||""; return d>=start&&d<=end; }).length; })();
+  const todayCount  = allEntries.filter(e => entryDate(e) === today).length;
+  const weekCount   = (() => { const { start, end } = weekRange(); return allEntries.filter(e => { const d = entryDate(e); return d>=start&&d<=end; }).length; })();
+  const monthCount  = (() => { const { start, end } = monthRange(); return allEntries.filter(e => { const d = entryDate(e); return d>=start&&d<=end; }).length; })();
   const filledToday = rows.filter(r => r.claimId || r.patientName).length;
 
   return (
@@ -198,6 +229,7 @@ export default function QueryDashboard({ currentUser, onLogout }) {
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           {viewTab === "entry" && (
             <>
+              {syncError && <div style={{ fontSize: 10, color: "#f87171" }}>{syncError}</div>}
               {hasUnsaved && <div style={{ fontSize: 10, color: "#f59e0b", animation: "qpulse 2s infinite" }}>● Unsaved changes</div>}
               {savedAt && !hasUnsaved && <div style={{ fontSize: 10, color: "#34d399" }}>✓ Saved at {savedAt}</div>}
               <button className="qaction-btn" onClick={() => addRows(5)} style={{ padding: "5px 14px", borderRadius: 6, fontSize: 10, fontFamily: "inherit", cursor: "pointer", background: "#0f172a", border: "1px solid #1e2a3a", color: "#64748b" }}>+ 5 Rows</button>

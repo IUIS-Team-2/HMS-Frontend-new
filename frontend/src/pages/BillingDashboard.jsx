@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { apiService } from "../services/apiService";
 
 // ─── MOCK DATA ─────────────────────────────────────────────────────────────────
 const BRANCHES = [
@@ -421,6 +422,126 @@ function calcTotals(svcs, path, med, billing) {
   return { s, p, m, gross, disc, adv, net: gross - disc, due: gross - disc - adv };
 }
 
+function normalizeServices(services = []) {
+  return services.map((service, index) => ({
+    id: service.id || `${service.svcName || service.title || "svc"}-${index}`,
+    name: service.svcName || service.title || "",
+    category: service.svcCat || service.type || "",
+    qty: Number(service.svcQty ?? service.qty ?? 1),
+    rate: Number(service.svcRate ?? service.rate ?? 0),
+    amount: Number(service.svcTot ?? service.total ?? ((service.svcRate ?? service.rate ?? 0) * (service.svcQty ?? service.qty ?? 1))),
+    date: service.svcDate || service.date || "",
+  }));
+}
+
+function mapLivePatients(records = []) {
+  return records.flatMap((patient) => {
+    const admissions = Array.isArray(patient.admissions) ? patient.admissions : [];
+    return admissions.map((adm, index) => {
+      const allServices = normalizeServices(adm.services || []);
+      const pathologyBill = allServices.filter((service) => String(service.category || "").toLowerCase().includes("path"));
+      const medicalBill = allServices.filter((service) => String(service.category || "").toLowerCase().includes("med"));
+      const directServices = allServices.filter((service) => {
+        const category = String(service.category || "").toLowerCase();
+        return !category.includes("path") && !category.includes("med");
+      });
+      const discharge = adm.discharge || {};
+      const medicalHistory = adm.medicalHistory || {};
+      return {
+        uhid: patient.uhid,
+        admNo: adm.admNo,
+        assignedTo: "billing_user",
+        patientName: patient.patientName,
+        age: patient.ageYY || patient.age || "—",
+        gender: patient.gender,
+        phone: patient.phone,
+        address: patient.address,
+        doa: discharge.doa || adm.dateTime || "",
+        dod: discharge.dod || "",
+        ward: discharge.wardName || "",
+        bed: discharge.bedNo || discharge.roomNo || "",
+        doctor: discharge.doctorName || medicalHistory.treatingDoctor || "",
+        diagnosis: discharge.diagnosis || medicalHistory.previousDiagnosis || "",
+        status: discharge.dod ? "discharged" : "admitted",
+        taskStatus: ["PENDING", "APPROVED"].includes(adm.billing?.printStatus) ? "submitted" : "pending",
+        discharge: {
+          doa: discharge.doa || adm.dateTime || "",
+          dod: discharge.dod || "",
+          ward: discharge.wardName || "",
+          bed: discharge.bedNo || discharge.roomNo || "",
+          doctor: discharge.doctorName || "",
+          diagnosis: discharge.diagnosis || "",
+          condition: discharge.dischargeStatus || "",
+          instructions: discharge.instructions || "",
+          notes: discharge.notes || "",
+        },
+        medicalHistory: {
+          previousDiagnosis: medicalHistory.previousDiagnosis || "",
+          pastSurgeries: medicalHistory.pastSurgeries || "",
+          currentMedications: medicalHistory.currentMedications || "",
+          treatingDoctor: medicalHistory.treatingDoctor || "",
+          knownAllergies: medicalHistory.knownAllergies || "",
+          chronicConditions: medicalHistory.chronicConditions || "",
+          familyHistory: medicalHistory.familyHistory || "",
+          smokingStatus: medicalHistory.smokingStatus || "",
+          alcoholUse: medicalHistory.alcoholUse || "",
+          notes: medicalHistory.notes || "",
+        },
+        services: directServices,
+        pathologyBill: pathologyBill.map((service) => ({
+          id: service.id,
+          test: service.name,
+          date: service.date,
+          amount: service.amount,
+        })),
+        medicalBill: medicalBill.map((service) => ({
+          id: service.id,
+          item: service.name,
+          date: service.date,
+          amount: service.amount,
+        })),
+        billing: {
+          id: adm.billing?.id,
+          discount: Number(adm.billing?.discount || 0),
+          advance: Number(adm.billing?.advance || 0),
+          paidNow: Number(adm.billing?.paidNow || 0),
+          paymentMode: adm.billing?.paymentMode || "",
+          remarks: adm.billing?.remarks || "",
+          printStatus: adm.billing?.printStatus || "DRAFT",
+        },
+      };
+    });
+  });
+}
+
+function buildDischargePayload(form) {
+  return {
+    doa: form.doa || "",
+    dod: form.dod || "",
+    wardName: form.ward || "",
+    bedNo: form.bed || "",
+    roomNo: form.bed || "",
+    doctorName: form.doctor || "",
+    diagnosis: form.diagnosis || "",
+    dischargeStatus: form.condition || "",
+    notes: form.notes || "",
+  };
+}
+
+function buildServicePayload(service, fallbackCategory) {
+  const qty = Number(service.qty || 1);
+  const rate = Number(service.rate || service.amount || 0);
+  return {
+    svcName: service.name,
+    svcCat: service.category || fallbackCategory,
+    svcQty: qty,
+    svcRate: rate,
+    svcDate: service.date || new Date().toISOString().slice(0, 10),
+    rate,
+    qty,
+  };
+}
+
 let tid = 0;
 
 export default function BillingDashboard({ currentUser, db: propDb, locId: initLoc, onLogout }) {
@@ -444,10 +565,10 @@ export default function BillingDashboard({ currentUser, db: propDb, locId: initL
   const [eBilling, setEBilling] = useState({});
 
   useEffect(() => {
-    const src = propDb ? (propDb[branch] || []) : (MOCK_PATIENTS[branch] || []);
+    const src = propDb ? mapLivePatients(propDb[branch] || []) : (MOCK_PATIENTS[branch] || []);
     setPatients(src);
     setView("dashboard"); setSel(null);
-  }, [branch]);
+  }, [branch, propDb]);
 
   const toast = (msg, type = "s") => {
     const id = tid++;
@@ -467,20 +588,55 @@ export default function BillingDashboard({ currentUser, db: propDb, locId: initL
     setView("patient");
   };
 
-  const saveSection = (label) => {
+  const syncSelectedPatient = () => {
     setPatients(prev => prev.map(p =>
-      p.uhid === sel.uhid
+      p.uhid === sel.uhid && p.admNo === sel.admNo
         ? { ...p, discharge: { ...eDis }, medicalHistory: { ...eMed }, services: [...eSvc], pathologyBill: [...ePath], medicalBill: [...eMedBill], billing: { ...eBilling } }
         : p
     ));
-    toast(`${label} saved ✓`);
+    setSel(prev => prev ? ({ ...prev, discharge: { ...eDis }, medicalHistory: { ...eMed }, services: [...eSvc], pathologyBill: [...ePath], medicalBill: [...eMedBill], billing: { ...eBilling } }) : prev);
   };
 
-  const submitTask = () => {
-    setPatients(prev => prev.map(p => p.uhid === sel.uhid ? { ...p, taskStatus: "submitted" } : p));
-    setSel(prev => ({ ...prev, taskStatus: "submitted" }));
-    setShowConfirm(false);
-    toast("Submitted to HOD & Admin Management ✓");
+  const saveSection = async (label) => {
+    if (!sel) return;
+    try {
+      if (activeTab === "discharge") {
+        await apiService.dischargePatient(sel.uhid, sel.admNo, buildDischargePayload(eDis));
+      } else if (activeTab === "medical") {
+        await apiService.updateMedicalHistory(sel.uhid, sel.admNo, eMed);
+      } else if (activeTab === "finalbill") {
+        for (const service of eSvc.filter(row => row.name)) {
+          await apiService.addService(sel.uhid, sel.admNo, buildServicePayload(service, service.category || "GENERAL SERVICES"));
+        }
+        await apiService.updateBilling(sel.uhid, sel.admNo, eBilling);
+      } else if (activeTab === "pathology") {
+        for (const row of ePath.filter(item => item.test)) {
+          await apiService.addService(sel.uhid, sel.admNo, buildServicePayload({ name: row.test, category: "PATHOLOGY", qty: 1, rate: row.amount, date: row.date }, "PATHOLOGY"));
+        }
+      } else if (activeTab === "med_bill") {
+        for (const row of eMedBill.filter(item => item.item)) {
+          await apiService.addService(sel.uhid, sel.admNo, buildServicePayload({ name: row.item, category: "MEDICINE", qty: 1, rate: row.amount, date: row.date }, "MEDICINE"));
+        }
+      }
+
+      syncSelectedPatient();
+      toast(`${label} saved ✓`);
+    } catch (error) {
+      toast(`Failed to save ${label}`, "e");
+    }
+  };
+
+  const submitTask = async () => {
+    if (!sel) return;
+    try {
+      await apiService.requestPrint(sel.uhid, sel.admNo);
+      setPatients(prev => prev.map(p => p.uhid === sel.uhid && p.admNo === sel.admNo ? { ...p, taskStatus: "submitted", billing: { ...p.billing, printStatus: "PENDING" } } : p));
+      setSel(prev => prev ? ({ ...prev, taskStatus: "submitted", billing: { ...prev.billing, printStatus: "PENDING" } }) : prev);
+      setShowConfirm(false);
+      toast("Submitted to Admin print queue ✓");
+    } catch (error) {
+      toast("Failed to submit billing task", "e");
+    }
   };
 
   const updSvc = (setter, i, k, v) => setter(prev => {

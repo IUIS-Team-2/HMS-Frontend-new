@@ -962,14 +962,14 @@ function AdminsTab() {
   const fetchUsers = async () => {
     try {
       const data = await apiService.getUsers();
-      // 🌟 MAINTAIN CONNECTION: Map Django's format to the dashboard's table format
       const formatted = data.map(u => ({
         ...u,
-        id: u.username,
-        db_pk: u.id, // Store the real database ID for deactivation/editing
+        id: u.id,
+        username: u.username,
         name: `${u.first_name} ${u.last_name}`,
         role: u.role === 'admin' ? 'branch_admin' : u.role, 
-        branch: u.branch === 'LNM' ? 'laxmi' : (u.branch === 'RYM' ? 'raya' : 'ALL')
+        branch: u.branch === 'LNM' ? 'laxmi' : (u.branch === 'RYM' ? 'raya' : 'ALL'),
+        isActive: u.is_active,
       }));
       setUsers(formatted);
     } catch (error) {
@@ -986,7 +986,7 @@ function AdminsTab() {
   const filtered = users.filter(u => {
     const matchSearch = !search ||
       u.name?.toLowerCase().includes(search.toLowerCase()) ||
-      u.id?.toLowerCase().includes(search.toLowerCase()) ||
+      u.username?.toLowerCase().includes(search.toLowerCase()) ||
       u.role?.toLowerCase().includes(search.toLowerCase());
     if (subTab === "active")      return matchSearch && u.isActive !== false;
     if (subTab === "deactivated") return matchSearch && u.isActive === false;
@@ -1069,11 +1069,12 @@ function AdminsTab() {
     }
     setLoading(true);
     const nameParts  = editForm.name.split(" ");
-    const branchCode = editForm.role === "office_admin" ? "BOTH" : (editForm.branch === "laxmi" ? "LNM" : "RYM");
+    const backendRole = editForm.role === "branch_admin" ? "admin" : editForm.role;
+    const branchCode = editForm.role === "office_admin" ? "ALL" : (editForm.branch === "laxmi" ? "LNM" : "RYM");
     const payload = {
       first_name:  nameParts[0],
       last_name:   nameParts.length > 1 ? nameParts.slice(1).join(" ") : ".",
-      role:        editForm.role,
+      role:        backendRole,
       branch:      branchCode,
       ...(editForm.newPass ? { password: editForm.newPass, confirm_password: editForm.newPass } : {}),
     };
@@ -1237,7 +1238,7 @@ function AdminsTab() {
               }}>
                 {/* Username */}
                 <td style={{ padding:"10px 12px", fontSize:12, fontFamily:"monospace", color:T.laxmi }}>
-                  {u.id}
+                  {u.username}
                 </td>
                 {/* Name */}
                 <td style={{ padding:"10px 12px" }}>
@@ -1520,7 +1521,7 @@ function AdminsTab() {
               <div style={{ fontSize:13, fontWeight:700, color:T.white, marginBottom:4 }}>
                 {confirmModal.user.name}
               </div>
-              <div style={{ fontSize:12, color:T.dim, fontFamily:"monospace" }}>{confirmModal.user.id}</div>
+              <div style={{ fontSize:12, color:T.dim, fontFamily:"monospace" }}>{confirmModal.user.username}</div>
               <div style={{ marginTop:8, fontSize:12, color:T.dim }}>
                 {confirmModal.type==="delete"
                   ? "⚠️ This action is permanent and cannot be undone. All access for this user will be revoked immediately."

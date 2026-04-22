@@ -54,6 +54,7 @@ export default function App() {
   const [admNo, setAdmNo] = useState(1);
   const [showUHID, setShowUHID] = useState(false);
   const [isReturning, setIsReturning] = useState(false);
+  const [selectedAdmissionType, setSelectedAdmissionType] = useState("IPD");
   const [patientDone, setPatientDone] = useState(false);
   const [dischargeDone, setDischargeDone] = useState(false);
   const [servicesDone, setServicesDone] = useState(false);
@@ -76,6 +77,23 @@ export default function App() {
   // 🌟 Database States
   const [db, setDb] = useState({ laxmi: [], raya: [] });
   const [masterServices, setMasterServices] = useState([]); // eslint-disable-line no-unused-vars
+
+  const splitPatientsByBranch = (patients) => {
+    const laxmiPatients = patients.filter(p => p.branch_location === 'LNM' || !p.branch_location);
+    const rayaPatients = patients.filter(p => p.branch_location === 'RYM');
+    return { laxmi: laxmiPatients, raya: rayaPatients };
+  };
+
+  const findAdmissionRecord = (lookupUhid, lookupAdmNo, lookupLocId = null) => {
+    const buckets = lookupLocId ? [lookupLocId] : ['laxmi', 'raya'];
+    for (const bucket of buckets) {
+      const patientRecord = (db[bucket] || []).find(p => p.uhid === lookupUhid);
+      if (!patientRecord) continue;
+      const admissionRecord = (patientRecord.admissions || []).find(a => a.admNo === lookupAdmNo);
+      if (admissionRecord) return admissionRecord;
+    }
+    return null;
+  };
 
   // ─── Sidebar Navigation Helpers ───────────────────────────────────────────────
   const isDone = (id) => {
@@ -138,9 +156,7 @@ export default function App() {
         });
       }
 
-      const laxmiPatients = livePatients.filter(p => p.branch_location === 'LNM' || !p.branch_location);
-      const rayaPatients  = livePatients.filter(p => p.branch_location === 'RYM');
-      setDb({ laxmi: laxmiPatients, raya: rayaPatients });
+      setDb(splitPatientsByBranch(livePatients));
 
       if (userRole === "superadmin") {
         const pendingPatients = await apiService.getPendingPrints();
@@ -183,6 +199,7 @@ export default function App() {
     setMedicalDone(false);
     setDischargeDone(false);
     setServicesDone(false);
+    setSelectedAdmissionType("IPD");
     setPatient(blankPatient());
     setDischarge(blankDischarge());
     setSvcs([]);
@@ -253,8 +270,10 @@ export default function App() {
     });
   };
 
-  const handleNewAdmission = (existing) => {
+  const handleNewAdmission = (existing, admissionType = null) => {
     const { admissions, ...pd } = existing;
+    const latestAdmission = admissions?.[admissions.length - 1];
+    setSelectedAdmissionType(admissionType || latestAdmission?.admissionType || "IPD");
     setDischarge(prev => ({ ...prev, doa: new Date().toISOString().slice(0, 16) }));
     setPatient(pd);
     setUhid(existing.uhid);
@@ -264,6 +283,7 @@ export default function App() {
 
   const handleDischargeFromHistory = (patientObj, admObj) => {
     const { admissions, ...pd } = patientObj;
+    setSelectedAdmissionType(admObj.admissionType || "IPD");
     setPatient(pd);
     setUhid(patientObj.uhid);
     setAdmNo(admObj.admNo);
@@ -282,6 +302,7 @@ export default function App() {
 
   const handleMedicalFromHistory = (patientObj, admObj) => {
     const { admissions, ...pd } = patientObj;
+    setSelectedAdmissionType(admObj.admissionType || "IPD");
     setPatient(pd);
     setUhid(patientObj.uhid);
     setAdmNo(admObj.admNo);
@@ -299,6 +320,7 @@ export default function App() {
 
   const handleGenerateBillFromHistory = (patientObj, admObj) => {
     const { admissions, ...pd } = patientObj;
+    setSelectedAdmissionType(admObj.admissionType || "IPD");
     setPatient(pd);
     setUhid(patientObj.uhid);
     setAdmNo(admObj.admNo);
@@ -360,23 +382,23 @@ export default function App() {
     try {
       if (isReturning && uhid) {
         await apiService.updatePatient(uhid, sanitizedPayload);
-        const admResponse  = await apiService.newAdmission(uhid);
+        const admResponse  = await apiService.newAdmission(uhid, selectedAdmissionType);
         const livePatients = await apiService.getPatients();
-        setDb(prev => ({ ...prev, [locId]: livePatients }));
-        setAdmNo(admResponse.admNo);
+        setDb(splitPatientsByBranch(livePatients));
+        setAdmNo(admResponse.admNo || admNo + 1);
         setShowUHID(true);
         setSubPage("search");
         const localNow = new Date();
         localNow.setMinutes(localNow.getMinutes() - localNow.getTimezoneOffset());
         setDischarge(prev => ({ ...prev, doa: localNow.toISOString().slice(0, 16) }));
       } else {
-        const savedPatient = await apiService.registerPatient({ ...sanitizedPayload, locId });
+        const savedPatient = await apiService.registerPatient({ ...sanitizedPayload, locId, admissionType: selectedAdmissionType });
         const newUhid = savedPatient.uhid;
         setUhid(newUhid);
         setAdmNo(1);
         setIsReturning(false);
         setShowUHID(true);
-        setDb(prev => ({ ...prev, [locId]: [savedPatient, ...prev[locId]] }));
+        setDb(prev => ({ ...prev, [locId]: [savedPatient, ...(prev[locId] || [])] }));
         const localNow = new Date();
         localNow.setMinutes(localNow.getMinutes() - localNow.getTimezoneOffset());
         setDischarge(prev => ({ ...prev, doa: localNow.toISOString().slice(0, 16) }));
@@ -480,6 +502,8 @@ export default function App() {
   // ROUTE RENDERING
   // ══════════════════════════════════════════════════════════════
 
+  const activeAdmission = findAdmissionRecord(uhid, admNo, locId);
+
   // ─── Not logged in ────────────────────────────────────────────────────────────
   if (!loggedIn) {
     return (
@@ -496,6 +520,7 @@ export default function App() {
         {showPrint && (
           <PrintModal uhid={uhid} patient={patient} discharge={discharge}
             svcs={svcs} billing={billing} locId={locId} admNo={admNo}
+            admission={activeAdmission}
             onClose={() => setShowPrint(false)} />
         )}
         <ThemeProvider>
@@ -634,7 +659,7 @@ export default function App() {
     <>
       {showPrint && (
         <PrintModal uhid={uhid} patient={patient} discharge={discharge}
-          svcs={svcs} billing={billing} locId={locId} admNo={admNo}
+          svcs={svcs} billing={billing} locId={locId} admNo={admNo} admission={activeAdmission}
           onClose={() => setShowPrint(false)} />
       )}
       {showPatientDetail && (
@@ -730,7 +755,7 @@ export default function App() {
         </aside>
 
         <main className="main" key={page + showUHID + subPage + locId}>
-          {page === "patient"   && !showUHID && subPage === "search" && <SearchPage db={currentDb} locId={locId} onNewAdmission={handleNewAdmission} onNewPatient={() => setSubPage("form")} />}
+          {page === "patient"   && !showUHID && subPage === "search" && <SearchPage db={currentDb} locId={locId} onNewAdmission={handleNewAdmission} onNewPatient={(type = "IPD") => { setSelectedAdmissionType(type); setPatient(blankPatient()); setUhid(null); setIsReturning(false); setShowUHID(false); setSubPage("form"); }} />}
           {page === "patient"   && !showUHID && subPage === "form"   && <PatientFormPage data={patient} setData={setPatient} onSubmit={handleRegister} errs={errs} onBack={() => setSubPage("search")} />}
           {page === "patient"   && showUHID  && <UHIDScreen uhid={uhid} patient={patient} isReturning={isReturning} admNo={admNo} onContinue={handleUHIDContinue} onDashboard={handleUHIDDashboard} onNewPatient={handleUHIDNewPatient} />}
           {page === "medical"   && <MedicalHistoryPage data={medicalHistory} setData={setMedicalHistory} onSave={handleSaveMedical} onSkip={handleSaveMedical} patient={patient} discharge={discharge} locId={locId} />}

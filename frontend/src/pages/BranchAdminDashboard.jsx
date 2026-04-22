@@ -1,6 +1,6 @@
 
-
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
+import { apiService } from "../services/apiService";
 
 // ─── Branch Theme Map ──────────────────────────────────────────────────────────
 const BRANCH_THEMES = {
@@ -13,6 +13,14 @@ const BRANCH_THEMES = {
     initial:       "R",
   },
   lakshmi: {
+    primary:       "#818cf8",
+    primaryDim:    "#13153a",
+    primaryBorder: "#3730a3",
+    glow:          "rgba(129,140,248,0.10)",
+    label:         "Lakshmi Branch",
+    initial:       "L",
+  },
+  laxmi: {
     primary:       "#818cf8",
     primaryDim:    "#13153a",
     primaryBorder: "#3730a3",
@@ -139,6 +147,161 @@ const MOCK_RECORDS = {
   ],
 };
 
+function admissionGross(admission) {
+  const services = admission?.services || [];
+  const serviceTotal = services.reduce((sum, service) => (
+    sum + Number(service.svcTot ?? service.total ?? ((service.svcRate ?? service.rate ?? 0) * (service.svcQty ?? service.qty ?? 1)))
+  ), 0);
+  const billing = admission?.billing || {};
+  const discount = Number(billing.discount || 0);
+  return Math.max(0, serviceTotal - discount);
+}
+
+function admissionDue(admission) {
+  const billing = admission?.billing || {};
+  const gross = admissionGross(admission);
+  return Math.max(0, gross - Number(billing.advance || 0) - Number(billing.paidNow || 0));
+}
+
+function buildPatientRecords(patient, admission) {
+  const discharge = admission?.discharge || {};
+  const medical = admission?.medicalHistory || {};
+  const services = admission?.services || [];
+  const treatingDoctor = discharge.doctorName || medical.treatingDoctor || "—";
+  const admissionDate = (admission?.dateTime || discharge?.doa || "").slice(0, 10);
+
+  return {
+    discharge_summary: discharge.diagnosis || discharge.dod ? [{
+      date: (discharge.dod || discharge.doa || admission?.dateTime || "").slice(0, 10),
+      summary: discharge.diagnosis || "—",
+      doctor: treatingDoctor,
+      nextVisit: discharge.expectedDod || "—",
+      instructions: discharge.notes || "—",
+    }] : [],
+    reports: [],
+    medicines: services
+      .filter((service) => String(service.svcCat || "").toLowerCase().includes("med"))
+      .map((service) => ({
+        date: service.svcDate || admissionDate,
+        medicine: service.svcName || "Medicine",
+        dosage: String(service.svcQty || 1),
+        frequency: "—",
+        duration: "—",
+        prescribedBy: treatingDoctor,
+      })),
+    admission_note: medical.previousDiagnosis || medical.notes ? [{
+      date: admissionDate,
+      note: medical.notes || medical.previousDiagnosis || "—",
+      doctor: medical.treatingDoctor || "—",
+      diagnosis: medical.previousDiagnosis || "—",
+      plan: medical.currentMedications || "—",
+    }] : [],
+    medical_history: medical.previousDiagnosis || medical.notes ? [{
+      date: admissionDate,
+      condition: medical.previousDiagnosis || "—",
+      treatment: medical.currentMedications || "—",
+      doctor: medical.treatingDoctor || "—",
+      notes: medical.notes || "—",
+    }] : [],
+  };
+}
+
+function mapLiveBranchPatients(patients = []) {
+  return patients.flatMap((patient) => {
+    const admissions = Array.isArray(patient.admissions) ? patient.admissions : [];
+    return admissions.map((admission) => {
+      const discharge = admission?.discharge || {};
+      const paymentModeRaw = String(patient.payMode || "").toLowerCase();
+      const paymentMode = paymentModeRaw.includes("cashless") ? "cashless" : "cash";
+      const paymentType = paymentMode === "cashless"
+        ? (patient.cashlessType || (patient.tpa ? "TPA" : (patient.tpaCard || patient.tpaPanelCardNo ? "Card" : "")))
+        : "";
+      const records = buildPatientRecords(patient, admission);
+      return {
+        id: `${patient.uhid}-${admission.admNo}`,
+        name: patient.patientName,
+        age: patient.ageYY || patient.age || "—",
+        gender: patient.gender,
+        phone: patient.phone,
+        department: discharge.department || discharge.wardName || "General",
+        doctor: discharge.doctorName || admission?.medicalHistory?.treatingDoctor || "—",
+        admissionDate: (discharge.doa || admission.dateTime || "").slice(0, 10),
+        dischargeDate: discharge.dod ? discharge.dod.slice(0, 10) : "",
+        paymentMode,
+        paymentType,
+        status: discharge.dod ? "discharged" : "admitted",
+        uhid: patient.uhid,
+        patientObj: patient,
+        admObj: admission,
+        records,
+      };
+    });
+  });
+}
+
+function buildOverviewData(patientRows = [], employees = []) {
+  const today = new Date().toISOString().slice(0, 10);
+  const totalRevenue = patientRows.reduce((sum, row) => sum + admissionGross(row.admObj), 0);
+  const cashRevenue = patientRows
+    .filter((row) => row.paymentMode === "cash")
+    .reduce((sum, row) => sum + admissionGross(row.admObj), 0);
+  const cashlessRevenue = totalRevenue - cashRevenue;
+
+  return {
+    totalPatients: patientRows.length,
+    admittedToday: patientRows.filter((row) => row.admissionDate === today).length,
+    dischargedToday: patientRows.filter((row) => row.dischargeDate === today).length,
+    pendingDischarge: patientRows.filter((row) => row.status === "admitted").length,
+    cashRevenue,
+    cashlessRevenue,
+    totalRevenue,
+    pendingDues: patientRows.reduce((sum, row) => sum + admissionDue(row.admObj), 0),
+    empCount: employees.length,
+    tpaCount: patientRows.filter((row) => String(row.paymentType).toUpperCase() === "TPA").length,
+    cardCount: patientRows.filter((row) => String(row.paymentType).toUpperCase() === "CARD").length,
+    recentPatients: patientRows.slice().sort((a, b) => b.admissionDate.localeCompare(a.admissionDate)).slice(0, 8),
+  };
+}
+
+function buildFinancialData(patientRows = []) {
+  const cashRows = patientRows.filter((row) => row.paymentMode === "cash");
+  const cashlessRows = patientRows.filter((row) => row.paymentMode === "cashless");
+  const cashTxns = cashRows.map((row) => ({
+    patientId: row.id,
+    patientName: row.name,
+    date: row.admissionDate,
+    amount: admissionGross(row.admObj),
+    description: row.doctor || "Hospital Charges",
+    receivedBy: "Billing Desk",
+    status: admissionDue(row.admObj) > 0 ? "pending" : "paid",
+  }));
+  const cashlessTxns = cashlessRows.map((row) => ({
+    patientId: row.id,
+    patientName: row.name,
+    date: row.admissionDate,
+    amount: admissionGross(row.admObj),
+    paymentType: row.paymentType || "Cashless",
+    authCode: row.patientObj?.tpaPanelCardNo || row.patientObj?.tpaCard || "—",
+    insurerOrBank: row.patientObj?.tpa || row.patientObj?.cashlessType || "—",
+    status: admissionDue(row.admObj) > 0 ? "pending" : "paid",
+  }));
+
+  return {
+    cashTotal: cashTxns.reduce((sum, row) => sum + row.amount, 0),
+    cashlessTotal: cashlessTxns.reduce((sum, row) => sum + row.amount, 0),
+    tpaTotal: cashlessTxns.filter((row) => String(row.paymentType).toUpperCase() === "TPA").reduce((sum, row) => sum + row.amount, 0),
+    cardTotal: cashlessTxns.filter((row) => String(row.paymentType).toUpperCase() === "CARD").reduce((sum, row) => sum + row.amount, 0),
+    grandTotal: [...cashTxns, ...cashlessTxns].reduce((sum, row) => sum + row.amount, 0),
+    collectedToday: [...cashTxns, ...cashlessTxns]
+      .filter((row) => row.date === new Date().toISOString().slice(0, 10))
+      .reduce((sum, row) => sum + row.amount, 0),
+    pendingDues: patientRows.reduce((sum, row) => sum + admissionDue(row.admObj), 0),
+    txnCount: cashTxns.length + cashlessTxns.length,
+    cashTxns,
+    cashlessTxns,
+  };
+}
+
 // ─── Excel Export Utility ─────────────────────────────────────────────────────
 function exportExcel(rows, filename) {
   if (!rows?.length) return;
@@ -226,12 +389,18 @@ const mkBtn = (v, theme) => {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function BranchAdminDashboard({
+  currentUser,
+  db,
+  locId,
+  onLogout,
   branchId   = "raya",
   branchName = "",
   adminName  = "Admin",
 }) {
-  const theme              = BRANCH_THEMES[branchId] || BRANCH_THEMES.default;
+  const resolvedBranchKey  = locId || currentUser?.branch || branchId;
+  const theme              = BRANCH_THEMES[resolvedBranchKey] || BRANCH_THEMES.default;
   const resolvedBranchName = branchName || theme.label;
+  const resolvedAdminName  = currentUser?.name || adminName;
 
   const [nav,      setNav]      = useState("overview");
   const [range,    setRange]    = useState("monthly");
@@ -257,18 +426,55 @@ export default function BranchAdminDashboard({
 
   // ─── Load mock data ───────────────────────────────────────────────────────
   useEffect(() => {
-    setSearch(""); setStatusFil("all");
-    if (nav !== "records") setSelPatient(null);
-    if (nav === "overview")   setOverview(MOCK_OVERVIEW);
-    if (nav === "patients")   setPatients(MOCK_PATIENTS);
-    if (nav === "cash")       setCashPats(MOCK_PATIENTS.filter(p => p.paymentMode === "cash"));
-    if (nav === "cashless")   setCashlessPats(MOCK_PATIENTS.filter(p => p.paymentMode === "cashless"));
-    if (nav === "financials") setFinancials(MOCK_FINANCIALS);
-    if (nav === "employees")  setEmployees(MOCK_EMPLOYEES);
-  }, [nav, range, fromDate, toDate]);
+    let active = true;
+    const loadLiveData = async () => {
+      setSearch("");
+      setStatusFil("all");
+      if (nav !== "records") setSelPatient(null);
+
+      const branchPatients = db ? (db[resolvedBranchKey] || []) : null;
+      const mappedPatients = db ? mapLiveBranchPatients(branchPatients || []) : MOCK_PATIENTS;
+      if (!active) return;
+
+      setPatients(mappedPatients);
+      setCashPats(mappedPatients.filter(p => p.paymentMode === "cash"));
+      setCashlessPats(mappedPatients.filter(p => p.paymentMode === "cashless"));
+      setFinancials(buildFinancialData(mappedPatients));
+
+      try {
+        const users = await apiService.getUsers();
+        if (!active) return;
+        const branchCode = resolvedBranchKey === "raya" ? "RYM" : "LNM";
+        const branchUsers = users
+          .filter(user => user.branch === branchCode)
+          .map(user => ({
+            id: user.id,
+            employeeId: user.emp_id || user.username,
+            name: `${user.first_name} ${user.last_name}`.trim() || user.username,
+            designation: user.role.replaceAll("_", " ").toUpperCase(),
+            email: user.email,
+            phone: user.phone_number || "—",
+            role: user.role === "admin" ? "Admin" : user.role === "billing" ? "Billing" : user.role === "hod" ? "HOD" : user.role.charAt(0).toUpperCase() + user.role.slice(1),
+            departmentName: user.role.replaceAll("_", " ").toUpperCase(),
+            joinedDate: user.date_joined?.slice(0, 10) || "—",
+          }));
+        setEmployees(branchUsers);
+        setOverview(buildOverviewData(mappedPatients, branchUsers));
+      } catch (error) {
+        if (!active) return;
+        setEmployees([]);
+        setOverview(buildOverviewData(mappedPatients, []));
+      }
+    };
+
+    loadLiveData();
+    return () => { active = false; };
+  }, [nav, range, fromDate, toDate, db, resolvedBranchKey]);
 
   useEffect(() => {
-    if (nav === "records" && selPatient) setRecords(MOCK_RECORDS[recTab] || []);
+    if (nav === "records" && selPatient) {
+      setRecords(selPatient.records?.[recTab] || MOCK_RECORDS[recTab] || []);
+    }
   }, [selPatient, recTab, nav]);
 
   // ─── Filter helpers ───────────────────────────────────────────────────────
@@ -492,7 +698,7 @@ export default function BranchAdminDashboard({
               ...(financials?.cashTxns||[]).map(r=>({...r, __mode:"CASH"})),
               ...(financials?.cashlessTxns||[]).map(r=>({...r, __mode:"CASHLESS"})),
             ];
-            exportExcel(rows, `financials_${branchId}_${range}`);
+            exportExcel(rows, `financials_${resolvedBranchKey}_${range}`);
           }}>↓ Export Excel</button>
         </div>
 
@@ -625,7 +831,7 @@ export default function BranchAdminDashboard({
     return (
       <>
         <div style={{ display:"flex", justifyContent:"flex-end", gap:"10px", marginBottom:"20px" }}>
-          <button style={mkBtn("excel", theme)} onClick={() => exportExcel(employees.map(e=>({ "Emp ID":e.employeeId, Name:e.name, Email:e.email, Phone:e.phone, Role:e.role, Designation:e.designation, Department:e.departmentName, Joined:e.joinedDate, Branch:resolvedBranchName })), `employees_${branchId}`)}>↓ Excel</button>
+          <button style={mkBtn("excel", theme)} onClick={() => exportExcel(employees.map(e=>({ "Emp ID":e.employeeId, Name:e.name, Email:e.email, Phone:e.phone, Role:e.role, Designation:e.designation, Department:e.departmentName, Joined:e.joinedDate, Branch:resolvedBranchName })), `employees_${resolvedBranchKey}`)}>↓ Excel</button>
           <button style={mkBtn("primary", theme)} onClick={() => setModal("emp")}>+ Add Employee</button>
         </div>
 
@@ -712,10 +918,10 @@ export default function BranchAdminDashboard({
           <div style={{ fontSize:"16px", fontWeight:"800", color:T.text }}>Branch Admin</div>
           <div style={{ marginTop:"12px", display:"flex", alignItems:"center", gap:"10px" }}>
             <div style={{ width:"34px", height:"34px", borderRadius:"9px", flexShrink:0, background:theme.primaryDim, border:`1px solid ${theme.primaryBorder}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:"14px", fontWeight:"800", color:theme.primary }}>
-              {adminName?.[0]?.toUpperCase() || "A"}
+              {resolvedAdminName?.[0]?.toUpperCase() || "A"}
             </div>
             <div>
-              <div style={{ fontSize:"13px", fontWeight:"600", color:T.text }}>{adminName}</div>
+              <div style={{ fontSize:"13px", fontWeight:"600", color:T.text }}>{resolvedAdminName}</div>
               <div style={{ fontSize:"9px", color:T.textMuted, letterSpacing:"1px" }}>Branch Admin</div>
             </div>
           </div>
@@ -728,6 +934,9 @@ export default function BranchAdminDashboard({
             <div style={{ fontSize:"14px", fontWeight:"700", color:theme.primary }}>{resolvedBranchName}</div>
           </div>
           <div style={{ fontSize:"9px", color:T.textMuted }}>Read-only · Set by SuperAdmin</div>
+          {onLogout && (
+            <button style={{ ...mkBtn("danger", theme), marginTop:"10px", width:"100%", justifyContent:"center" }} onClick={onLogout}>Logout</button>
+          )}
         </div>
 
         <div style={{ flex:1, padding:"14px 12px", overflowY:"auto" }}>
@@ -783,9 +992,9 @@ export default function BranchAdminDashboard({
         {/* Page content */}
         <div style={{ flex:1, overflowY:"auto", padding:"26px 28px" }}>
           {nav==="overview"   && <OverviewView />}
-          {nav==="patients"   && <PatientListView data={patients}     exportFile={`all_patients_${branchId}_${range}`}      title="All Patients" />}
-          {nav==="cash"       && <PatientListView data={cashPats}     exportFile={`cash_patients_${branchId}_${range}`}     title="Cash Patients" />}
-          {nav==="cashless"   && <PatientListView data={cashlessPats} exportFile={`cashless_patients_${branchId}_${range}`} title="Cashless Patients — TPA / Card" />}
+          {nav==="patients"   && <PatientListView data={patients}     exportFile={`all_patients_${resolvedBranchKey}_${range}`}      title="All Patients" />}
+          {nav==="cash"       && <PatientListView data={cashPats}     exportFile={`cash_patients_${resolvedBranchKey}_${range}`}     title="Cash Patients" />}
+          {nav==="cashless"   && <PatientListView data={cashlessPats} exportFile={`cashless_patients_${resolvedBranchKey}_${range}`} title="Cashless Patients — TPA / Card" />}
           {nav==="records"    && <RecordsView />}
           {nav==="financials" && <FinancialsView />}
           {nav==="employees"  && <EmployeesView />}

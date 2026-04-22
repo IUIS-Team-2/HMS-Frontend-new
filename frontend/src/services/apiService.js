@@ -31,9 +31,24 @@ export const apiService = {
         const response = await axios.post(`${BASE_URL}/users/manage/`, userData);
         return response.data;
     },
+
     updateUser: async (userId, updateData) => {
-        // This sends a PATCH request to update ONLY the fields we provide (like is_active)
         const response = await axios.patch(`${BASE_URL}/users/manage/${userId}/`, updateData);
+        return response.data;
+    },
+
+    deactivateUser: async (userId) => {
+        const response = await axios.patch(`${BASE_URL}/users/manage/${userId}/`, { is_active: false });
+        return response.data;
+    },
+
+    reactivateUser: async (userId) => {
+        const response = await axios.patch(`${BASE_URL}/users/manage/${userId}/`, { is_active: true });
+        return response.data;
+    },
+
+    deleteUser: async (userId) => {
+        const response = await axios.delete(`${BASE_URL}/users/manage/${userId}/`);
         return response.data;
     },
     
@@ -61,8 +76,8 @@ export const apiService = {
         }
     },
 
-    newAdmission: async (uhid) => {
-        const response = await axios.post(`${BASE_URL}/patients/${uhid}/new_admission/`);
+    newAdmission: async (uhid, admissionType = 'IPD') => {
+        const response = await axios.post(`${BASE_URL}/patients/${uhid}/new_admission/`, { admissionType });
         return response.data;
     },
 
@@ -131,6 +146,41 @@ export const apiService = {
 
     getCashlessPatients: async () => {
         const response = await axios.get(`${BASE_URL}/patients/cashless-records/`);
+        return response.data;
+    },
+
+    getTasks: async (params = {}) => {
+        const response = await axios.get(`${BASE_URL}/tasks/`, { params });
+        return response.data;
+    },
+
+    createTask: async (taskData) => {
+        const response = await axios.post(`${BASE_URL}/tasks/`, taskData);
+        return response.data;
+    },
+
+    updateTask: async (taskId, updateData) => {
+        const response = await axios.patch(`${BASE_URL}/tasks/${taskId}/`, updateData);
+        return response.data;
+    },
+
+    deleteTask: async (taskId) => {
+        const response = await axios.delete(`${BASE_URL}/tasks/${taskId}/`);
+        return response.data;
+    },
+
+    getPerformanceRatings: async () => {
+        const response = await axios.get(`${BASE_URL}/hod/performance-ratings/`);
+        return response.data;
+    },
+
+    getDepartmentLogs: async (department) => {
+        const response = await axios.get(`${BASE_URL}/department-logs/`, { params: { department } });
+        return response.data;
+    },
+
+    saveDepartmentLogs: async (department, entries) => {
+        const response = await axios.post(`${BASE_URL}/department-logs/bulk-save/`, { department, entries });
         return response.data;
     }
 };

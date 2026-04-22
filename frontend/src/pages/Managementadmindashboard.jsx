@@ -16,7 +16,7 @@ const BC = {
 };
 const BRANCH_KEYS = ["laxmi", "raya"];
 const DEPT_OPTIONS = ["HOD", "Billing", "Uploading", "Intimation", "Query", "OPD"];
-const TASK_STATUS   = ["Pending", "In Progress", "Completed", "On Hold"];
+const TASK_STATUS   = ["Pending", "In Progress", "Completed", "On Hold", "Overdue"];
 const TASK_PRIORITY = ["Low", "Medium", "High", "Urgent"];
 const SUMMARY_TYPES = ["Normal", "LAMA", "Refer", "Death", "DAMA"];
 
@@ -47,6 +47,7 @@ const TASK_STATUS_META = {
   "In Progress": { color: "#38bdf8", bg: "#38bdf818" },
   "Completed":   { color: "#34d399", bg: "#34d39918" },
   "On Hold":     { color: "#f87171", bg: "#f8717118" },
+  "Overdue":     { color: "#f87171", bg: "#f8717118" },
 };
 const TASK_PRIORITY_META = {
   "Low":    { color: "#6b7280", bg: "#6b728018" },
@@ -64,6 +65,23 @@ const initials = (name = "") => name.trim().split(" ").filter(Boolean).map(w => 
 
 const safeLoad = (key, fb) => { try { return JSON.parse(localStorage.getItem(key)||"null") || fb; } catch { return fb; } };
 const safeSave = (key, val) => { try { localStorage.setItem(key, JSON.stringify(val)); } catch {} };
+const mapTaskFromApi = (task) => ({
+  id: task.id,
+  title: task.title,
+  description: task.description || "",
+  assignedToId: task.assigned_to,
+  assignedTo: task.assigned_to_name || "—",
+  department: task.department,
+  priority: task.priority,
+  status: task.status,
+  dueDate: task.due_date ? task.due_date.slice(0, 10) : "",
+  createdAt: task.created_at,
+  updatedAt: task.updated_at,
+  completedAt: task.status === "Completed" ? task.updated_at : "",
+  patientName: task.patient_names?.[0] || "",
+  patientUhid: task.patient_uhids?.[0] || "",
+  createdBy: task.assigned_by_name || "—",
+});
 
 // ── EXPORT UTILS ──────────────────────────────────────────────────────────────
 function exportPatientHistoryXLSX(pts, filename = "patient_history.xlsx") {
@@ -341,7 +359,17 @@ export default function ManagementAdminDashboard({ currentUser, db, onLogout }) 
             setEmployees(mapped);
         } catch (err) { console.error("Failed to fetch employees", err); }
     };
+    const loadTasks = async () => {
+      try {
+        const taskData = await apiService.getTasks();
+        setTasks((taskData || []).map(mapTaskFromApi));
+      } catch (err) {
+        console.error("Failed to fetch tasks", err);
+        setTasks([]);
+      }
+    };
     loadEmployees();
+    loadTasks();
   }, [db]);
 
   // Departments
@@ -353,7 +381,7 @@ export default function ManagementAdminDashboard({ currentUser, db, onLogout }) 
   const [empPassErr,     setEmpPassErr]     = useState("");
 
   // Tasks
-  const [tasks,           setTasks]           = useState(() => safeLoad("hms_mgmt_tasks", []));
+  const [tasks,           setTasks]           = useState([]);
   const [showTaskModal,   setShowTaskModal]   = useState(false);
   const [editTask,        setEditTask]        = useState(null);
   const [taskForm,        setTaskForm]        = useState({ title:"", description:"", assignedTo:"", department:"HOD", priority:"Medium", status:"Pending", dueDate:"", patientUhid:"", patientName:"" });
@@ -382,7 +410,6 @@ export default function ManagementAdminDashboard({ currentUser, db, onLogout }) 
 
   useEffect(() => safeSave("hms_mgmt_departments", departments), [departments]);
   useEffect(() => safeSave("hms_mgmt_employees",   employees),   [employees]);
-  useEffect(() => safeSave("hms_mgmt_tasks",       tasks),       [tasks]);
 
   const locationPatients  = allPatients[viewBranch] || [];
   const allAdmissions     = useMemo(() => locationPatients.flatMap(p => (p.admissions||[]).map(a => ({...a, patientName:p.patientName||p.name, uhid:p.uhid, gender:p.gender, bloodGroup:p.bloodGroup, phone:p.phone}))), [locationPatients]);
@@ -393,6 +420,7 @@ export default function ManagementAdminDashboard({ currentUser, db, onLogout }) 
 
   // All patients across both branches for task assignment
   const allPatientsForTask = useMemo(() => allPatientsFlat.map(p => ({
+    id: p.id,
     uhid: p.uhid,
     name: p.patientName || p.name,
     branch: p._branchLabel,
@@ -439,19 +467,64 @@ export default function ManagementAdminDashboard({ currentUser, db, onLogout }) 
     setTaskPatientSearch("");
     setShowTaskModal(true);
   };
-  const saveTask = () => {
+  const saveTask = async () => {
     if (!taskForm.title || !taskForm.assignedTo) { toast("Title and Assigned To are required","err"); return; }
-    if (editTask) {
-      setTasks(prev => prev.map(t => t.id===editTask.id ? {...t,...taskForm,updatedAt:new Date().toISOString(),completedAt:taskForm.status==="Completed"?(t.completedAt||new Date().toISOString()):undefined} : t));
-      toast("Task updated");
-    } else {
-      setTasks(prev => [{...taskForm,id:`TASK-${Date.now()}`,createdAt:new Date().toISOString(),createdBy:currentUser?.name||"Admin"},...prev]);
-      toast("Task assigned");
+
+    const assignedEmployee = employees.find((employee) => {
+      const fullName = (employee.fullName || employee.name || "").toLowerCase();
+      const username = String(employee.username || "").toLowerCase();
+      const empId = String(employee.empId || "").toLowerCase();
+      const search = taskForm.assignedTo.toLowerCase();
+      return fullName === search || username === search || empId === search;
+    });
+    if (!assignedEmployee) { toast("Select a valid employee from the live employee list","err"); return; }
+
+    const linkedPatient = allPatientsForTask.find(patient => patient.uhid === taskForm.patientUhid);
+    const payload = {
+      title: taskForm.title,
+      description: taskForm.description,
+      assigned_to: assignedEmployee.id,
+      department: taskForm.department,
+      priority: taskForm.priority,
+      status: taskForm.status,
+      due_date: taskForm.dueDate ? `${taskForm.dueDate}T23:59:00Z` : null,
+      patients: linkedPatient?.id ? [linkedPatient.id] : [],
+    };
+
+    try {
+      if (editTask) {
+        const updatedTask = await apiService.updateTask(editTask.id, payload);
+        setTasks(prev => prev.map(task => task.id === editTask.id ? mapTaskFromApi(updatedTask) : task));
+        toast("Task updated");
+      } else {
+        const createdTask = await apiService.createTask(payload);
+        setTasks(prev => [mapTaskFromApi(createdTask), ...prev]);
+        toast("Task assigned");
+      }
+      setShowTaskModal(false);
+      setEditTask(null);
+    } catch (error) {
+      toast("Failed to save task","err");
     }
-    setShowTaskModal(false); setEditTask(null);
   };
-  const deleteTask       = (id)     => { setTasks(prev=>prev.filter(t=>t.id!==id)); toast("Task deleted"); };
-  const updateTaskStatus = (id,status) => { setTasks(prev=>prev.map(t=>t.id===id?{...t,status,updatedAt:new Date().toISOString(),completedAt:status==="Completed"?new Date().toISOString():t.completedAt}:t)); toast(`Task marked ${status}`); };
+  const deleteTask = async (id) => {
+    try {
+      await apiService.deleteTask(id);
+      setTasks(prev => prev.filter(task => task.id !== id));
+      toast("Task deleted");
+    } catch (error) {
+      toast("Failed to delete task","err");
+    }
+  };
+  const updateTaskStatus = async (id,status) => {
+    try {
+      const updatedTask = await apiService.updateTask(id, { status });
+      setTasks(prev => prev.map(task => task.id === id ? mapTaskFromApi(updatedTask) : task));
+      toast(`Task marked ${status}`);
+    } catch (error) {
+      toast("Failed to update task status","err");
+    }
+  };
 
   const filteredTaskReport = useMemo(() => {
     const now = new Date();
