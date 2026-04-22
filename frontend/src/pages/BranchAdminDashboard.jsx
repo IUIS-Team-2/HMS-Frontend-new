@@ -1,15 +1,4 @@
-/**
- * BranchAdminDashboard.jsx
- *
- * Branch is injected via props — set by SuperAdmin at creation time.
- * The admin CANNOT switch branches. They only ever see their assigned branch.
- *
- * Usage (from your router / auth layer):
- *   const { branchId, branchName, adminName } = useAuth();
- *   <BranchAdminDashboard branchId={branchId} branchName={branchName} adminName={adminName} />
- *
- * SuperAdmin sets branchId = "raya" | "lakshmi" when creating the admin account.
- */
+
 
 import { useState, useEffect, useCallback } from "react";
 
@@ -41,15 +30,15 @@ const BRANCH_THEMES = {
   },
 };
 
+// Departments removed from NAV
 const NAV = [
-  { id: "overview",    label: "Overview",                icon: "▣" },
-  { id: "patients",    label: "All Patients",             icon: "◈" },
-  { id: "cash",        label: "Cash Patients",            icon: "◎" },
-  { id: "cashless",    label: "Cashless Patients",        icon: "◌" },
-  { id: "records",     label: "Patient Records",          icon: "▤" },
-  { id: "financials",  label: "Financials",               icon: "◆" },
-  { id: "departments", label: "Departments",              icon: "▦" },
-  { id: "employees",   label: "Employees",                icon: "◉" },
+  { id: "overview",   label: "Overview",          icon: "▣" },
+  { id: "patients",   label: "All Patients",       icon: "◈" },
+  { id: "cash",       label: "Cash Patients",      icon: "◎" },
+  { id: "cashless",   label: "Cashless Patients",  icon: "◌" },
+  { id: "records",    label: "Patient Records",    icon: "▤" },
+  { id: "financials", label: "Financials",         icon: "◆" },
+  { id: "employees",  label: "Employees",          icon: "◉" },
 ];
 
 const RECORD_TYPES = [
@@ -61,7 +50,94 @@ const RECORD_TYPES = [
 ];
 
 const RANGES = ["daily", "weekly", "monthly", "yearly"];
-const API    = "/api/branch-admin";
+
+// ─── Static Mock Data ─────────────────────────────────────────────────────────
+const MOCK_OVERVIEW = {
+  totalPatients:    124,
+  admittedToday:    8,
+  dischargedToday:  5,
+  pendingDischarge: 3,
+  cashRevenue:      182000,
+  cashlessRevenue:  340000,
+  totalRevenue:     522000,
+  pendingDues:      45000,
+  empCount:         38,
+  tpaCount:         21,
+  cardCount:        14,
+  recentPatients: [
+    { id:"P001", name:"Arjun Sharma",   department:"Cardiology",  doctor:"Dr. Mehta",    admissionDate:"2026-04-18", paymentMode:"cash",     paymentType:"",    status:"admitted"   },
+    { id:"P002", name:"Priya Verma",    department:"Ortho",       doctor:"Dr. Singh",    admissionDate:"2026-04-19", paymentMode:"cashless", paymentType:"TPA", status:"discharged" },
+    { id:"P003", name:"Ravi Kumar",     department:"Neurology",   doctor:"Dr. Kapoor",   admissionDate:"2026-04-20", paymentMode:"cash",     paymentType:"",    status:"pending"    },
+    { id:"P004", name:"Sunita Joshi",   department:"Gynecology",  doctor:"Dr. Rao",      admissionDate:"2026-04-20", paymentMode:"cashless", paymentType:"Card",status:"admitted"   },
+    { id:"P005", name:"Deepak Nair",    department:"ENT",         doctor:"Dr. Iyer",     admissionDate:"2026-04-21", paymentMode:"cash",     paymentType:"",    status:"admitted"   },
+  ],
+};
+
+const MOCK_PATIENTS = [
+  { id:"P001", name:"Arjun Sharma",   age:42, gender:"M", phone:"9876543210", department:"Cardiology",  doctor:"Dr. Mehta",    admissionDate:"2026-04-18", dischargeDate:"",           paymentMode:"cash",     paymentType:"",    status:"admitted"   },
+  { id:"P002", name:"Priya Verma",    age:35, gender:"F", phone:"9765432109", department:"Ortho",       doctor:"Dr. Singh",    admissionDate:"2026-04-10", dischargeDate:"2026-04-19", paymentMode:"cashless", paymentType:"TPA", status:"discharged" },
+  { id:"P003", name:"Ravi Kumar",     age:58, gender:"M", phone:"9654321098", department:"Neurology",   doctor:"Dr. Kapoor",   admissionDate:"2026-04-20", dischargeDate:"",           paymentMode:"cash",     paymentType:"",    status:"pending"    },
+  { id:"P004", name:"Sunita Joshi",   age:29, gender:"F", phone:"9543210987", department:"Gynecology",  doctor:"Dr. Rao",      admissionDate:"2026-04-20", dischargeDate:"",           paymentMode:"cashless", paymentType:"Card",status:"admitted"   },
+  { id:"P005", name:"Deepak Nair",    age:65, gender:"M", phone:"9432109876", department:"ENT",         doctor:"Dr. Iyer",     admissionDate:"2026-04-21", dischargeDate:"",           paymentMode:"cash",     paymentType:"",    status:"admitted"   },
+  { id:"P006", name:"Meena Pillai",   age:47, gender:"F", phone:"9321098765", department:"Oncology",    doctor:"Dr. Bose",     admissionDate:"2026-04-15", dischargeDate:"2026-04-20", paymentMode:"cashless", paymentType:"TPA", status:"discharged" },
+  { id:"P007", name:"Kiran Yadav",    age:33, gender:"M", phone:"9210987654", department:"Radiology",   doctor:"Dr. Sharma",   admissionDate:"2026-04-19", dischargeDate:"",           paymentMode:"cash",     paymentType:"",    status:"admitted"   },
+  { id:"P008", name:"Anita Desai",    age:52, gender:"F", phone:"9109876543", department:"ICU",         doctor:"Dr. Jain",     admissionDate:"2026-04-17", dischargeDate:"",           paymentMode:"cashless", paymentType:"Card",status:"admitted"   },
+];
+
+const MOCK_FINANCIALS = {
+  cashTotal:      182000,
+  cashlessTotal:  340000,
+  tpaTotal:       210000,
+  cardTotal:      130000,
+  grandTotal:     522000,
+  collectedToday: 34500,
+  pendingDues:    45000,
+  txnCount:       62,
+  cashTxns: [
+    { patientId:"P001", patientName:"Arjun Sharma",  date:"2026-04-18", amount:25000, description:"Admission fee",    receivedBy:"Billing Desk", status:"paid"   },
+    { patientId:"P003", patientName:"Ravi Kumar",    date:"2026-04-20", amount:18000, description:"Consultation",     receivedBy:"Billing Desk", status:"paid"   },
+    { patientId:"P005", patientName:"Deepak Nair",   date:"2026-04-21", amount:12000, description:"OT charges",       receivedBy:"Cashier",      status:"pending"},
+    { patientId:"P007", patientName:"Kiran Yadav",   date:"2026-04-19", amount:9500,  description:"Lab reports",      receivedBy:"Billing Desk", status:"paid"   },
+  ],
+  cashlessTxns: [
+    { patientId:"P002", patientName:"Priya Verma",  date:"2026-04-10", amount:85000, paymentType:"TPA",  authCode:"TPA2024881", insurerOrBank:"Star Health",  status:"paid"    },
+    { patientId:"P004", patientName:"Sunita Joshi", date:"2026-04-20", amount:42000, paymentType:"Card", authCode:"HDFC884421", insurerOrBank:"HDFC Bank",    status:"paid"    },
+    { patientId:"P006", patientName:"Meena Pillai", date:"2026-04-15", amount:120000,paymentType:"TPA",  authCode:"TPA9921034", insurerOrBank:"New India Ins", status:"pending" },
+    { patientId:"P008", patientName:"Anita Desai",  date:"2026-04-17", amount:65000, paymentType:"Card", authCode:"ICICI33291", insurerOrBank:"ICICI Bank",   status:"paid"    },
+  ],
+};
+
+const MOCK_EMPLOYEES = [
+  { id:1, employeeId:"EMP-001", name:"Dr. Mehta",     designation:"Senior Cardiologist",  email:"mehta@hospital.in",   phone:"9988776655", role:"Doctor",  departmentName:"Cardiology",  joinedDate:"2021-03-15" },
+  { id:2, employeeId:"EMP-002", name:"Dr. Singh",     designation:"Orthopaedic Surgeon",  email:"singh@hospital.in",   phone:"9977665544", role:"Doctor",  departmentName:"Ortho",       joinedDate:"2020-07-01" },
+  { id:3, employeeId:"EMP-003", name:"Kavita Rao",    designation:"Head Nurse",            email:"kavita@hospital.in",  phone:"9966554433", role:"Nurse",   departmentName:"ICU",         joinedDate:"2022-01-10" },
+  { id:4, employeeId:"EMP-004", name:"Ramesh Gupta",  designation:"Billing Executive",     email:"ramesh@hospital.in",  phone:"9955443322", role:"Billing", departmentName:"Accounts",    joinedDate:"2023-06-20" },
+  { id:5, employeeId:"EMP-005", name:"Dr. Kapoor",    designation:"Neurologist",           email:"kapoor@hospital.in",  phone:"9944332211", role:"Doctor",  departmentName:"Neurology",   joinedDate:"2019-11-05" },
+  { id:6, employeeId:"EMP-006", name:"Shalini Menon", designation:"Staff Nurse",           email:"shalini@hospital.in", phone:"9933221100", role:"Nurse",   departmentName:"Gynecology",  joinedDate:"2022-09-14" },
+  { id:7, employeeId:"EMP-007", name:"Dr. Rao",       designation:"Gynaecologist",         email:"rao@hospital.in",     phone:"9922110099", role:"Doctor",  departmentName:"Gynecology",  joinedDate:"2020-02-28" },
+  { id:8, employeeId:"EMP-008", name:"Pooja Tiwari",  designation:"Admin Officer",         email:"pooja@hospital.in",   phone:"9911009988", role:"Admin",   departmentName:"Admin",       joinedDate:"2021-08-03" },
+];
+
+const MOCK_RECORDS = {
+  discharge_summary: [
+    { date:"2026-04-10", summary:"Patient discharged after 5 days of recovery.",  doctor:"Dr. Mehta",  nextVisit:"2026-04-24", instructions:"Rest for 2 weeks, avoid strenuous activity." },
+  ],
+  reports: [
+    { date:"2026-04-09", reportType:"CBC",    result:"Normal",     lab:"Central Lab",  doctor:"Dr. Singh",  fileUrl:"" },
+    { date:"2026-04-08", reportType:"ECG",    result:"Sinus Rhythm",lab:"Cardio Lab", doctor:"Dr. Mehta",  fileUrl:"" },
+  ],
+  medicines: [
+    { date:"2026-04-08", medicine:"Aspirin 75mg",   dosage:"1 tab", frequency:"Once daily",  duration:"30 days", prescribedBy:"Dr. Mehta"  },
+    { date:"2026-04-08", medicine:"Metoprolol 25mg", dosage:"1 tab", frequency:"Twice daily", duration:"30 days", prescribedBy:"Dr. Mehta"  },
+  ],
+  admission_note: [
+    { date:"2026-04-05", note:"Patient admitted with chest pain.", doctor:"Dr. Mehta", diagnosis:"Unstable angina", plan:"Monitoring, angiography if needed." },
+  ],
+  medical_history: [
+    { date:"2025-10-12", condition:"Hypertension", treatment:"Amlodipine 5mg",  doctor:"Dr. Singh",  notes:"Controlled on medication." },
+    { date:"2024-06-18", condition:"T2 Diabetes",  treatment:"Metformin 500mg", doctor:"Dr. Kapoor", notes:"HbA1c 6.8 at last check."  },
+  ],
+};
 
 // ─── Excel Export Utility ─────────────────────────────────────────────────────
 function exportExcel(rows, filename) {
@@ -161,15 +237,12 @@ export default function BranchAdminDashboard({
   const [range,    setRange]    = useState("monthly");
   const [fromDate, setFromDate] = useState("");
   const [toDate,   setToDate]   = useState("");
-  const [loading,  setLoading]  = useState(false);
-  const [error,    setError]    = useState(null);
 
   const [overview,     setOverview]     = useState(null);
   const [patients,     setPatients]     = useState([]);
   const [cashPats,     setCashPats]     = useState([]);
   const [cashlessPats, setCashlessPats] = useState([]);
   const [financials,   setFinancials]   = useState(null);
-  const [departments,  setDepartments]  = useState([]);
   const [employees,    setEmployees]    = useState([]);
 
   const [selPatient, setSelPatient] = useState(null);
@@ -178,71 +251,44 @@ export default function BranchAdminDashboard({
 
   const [search,    setSearch]    = useState("");
   const [statusFil, setStatusFil] = useState("all");
-  const [modal,     setModal]     = useState(null);
 
-  const [deptForm, setDeptForm] = useState({ name:"", description:"", hodName:"" });
-  const [empForm,  setEmpForm]  = useState({ name:"", email:"", phone:"", role:"", departmentId:"", employeeId:"", designation:"" });
+  const [empForm, setEmpForm] = useState({ name:"", email:"", phone:"", role:"", employeeId:"", designation:"", departmentName:"" });
+  const [modal,   setModal]   = useState(null);
 
-  // ─── API ──────────────────────────────────────────────────────────────────
-  const apiFetch = useCallback(async (path, opts = {}) => {
-    setLoading(true); setError(null);
-    try {
-      const res = await fetch(`${API}${path}`, { headers:{"Content-Type":"application/json"}, ...opts });
-      if (!res.ok) throw new Error(`Request failed (${res.status})`);
-      return await res.json();
-    } catch (e) { setError(e.message); return null; }
-    finally { setLoading(false); }
-  }, []);
-
-  const qp = useCallback((extra = {}) => {
-    const p = new URLSearchParams({ branch:branchId, range, ...extra });
-    if (fromDate) p.set("from", fromDate);
-    if (toDate)   p.set("to",   toDate);
-    return p.toString();
-  }, [branchId, range, fromDate, toDate]);
-
-  // ─── Loaders ──────────────────────────────────────────────────────────────
+  // ─── Load mock data ───────────────────────────────────────────────────────
   useEffect(() => {
     setSearch(""); setStatusFil("all");
     if (nav !== "records") setSelPatient(null);
-    if (nav === "overview")    loadOverview();
-    if (nav === "patients")    loadPatients();
-    if (nav === "cash")        loadCash();
-    if (nav === "cashless")    loadCashless();
-    if (nav === "financials")  loadFinancials();
-    if (nav === "departments") loadDepts();
-    if (nav === "employees")   loadEmps();
+    if (nav === "overview")   setOverview(MOCK_OVERVIEW);
+    if (nav === "patients")   setPatients(MOCK_PATIENTS);
+    if (nav === "cash")       setCashPats(MOCK_PATIENTS.filter(p => p.paymentMode === "cash"));
+    if (nav === "cashless")   setCashlessPats(MOCK_PATIENTS.filter(p => p.paymentMode === "cashless"));
+    if (nav === "financials") setFinancials(MOCK_FINANCIALS);
+    if (nav === "employees")  setEmployees(MOCK_EMPLOYEES);
   }, [nav, range, fromDate, toDate]);
 
-  useEffect(() => { if (nav === "records" && selPatient) loadRecords(); }, [selPatient, recTab]);
+  useEffect(() => {
+    if (nav === "records" && selPatient) setRecords(MOCK_RECORDS[recTab] || []);
+  }, [selPatient, recTab, nav]);
 
-  const loadOverview  = async () => { const d = await apiFetch(`/overview?${qp()}`);                                                        if (d) setOverview(d); };
-  const loadPatients  = async () => { const d = await apiFetch(`/patients?${qp({ search, status:statusFil })}`);                           if (d) setPatients(d.patients||[]); };
-  const loadCash      = async () => { const d = await apiFetch(`/patients?${qp({ paymentMode:"cash", search, status:statusFil })}`);       if (d) setCashPats(d.patients||[]); };
-  const loadCashless  = async () => { const d = await apiFetch(`/patients?${qp({ paymentMode:"cashless", search, status:statusFil })}`);   if (d) setCashlessPats(d.patients||[]); };
-  const loadFinancials= async () => { const d = await apiFetch(`/financials?${qp()}`);                                                     if (d) setFinancials(d); };
-  const loadDepts     = async () => { const d = await apiFetch(`/departments?branch=${branchId}`);                                         if (d) setDepartments(d.departments||[]); };
-  const loadEmps      = async () => { const d = await apiFetch(`/employees?branch=${branchId}`);                                           if (d) setEmployees(d.employees||[]); };
-  const loadRecords   = async () => { const d = await apiFetch(`/patients/${selPatient?.id}/records?type=${recTab}&branch=${branchId}`);   if (d) setRecords(d.records||[]); };
+  // ─── Filter helpers ───────────────────────────────────────────────────────
+  const filterPatients = (list) => list.filter(p => {
+    const matchSearch = !search || p.name.toLowerCase().includes(search.toLowerCase()) || p.id.toLowerCase().includes(search.toLowerCase());
+    const matchStatus = statusFil === "all" || p.status === statusFil;
+    return matchSearch && matchStatus;
+  });
 
-  // ─── Mutations ────────────────────────────────────────────────────────────
-  async function createDept(e) {
+  // ─── Mutations (frontend-only) ────────────────────────────────────────────
+  function addEmployee(e) {
     e.preventDefault();
-    const d = await apiFetch("/departments", { method:"POST", body:JSON.stringify({...deptForm, branch:branchId}) });
-    if (d) { setModal(null); setDeptForm({name:"",description:"",hodName:""}); loadDepts(); }
+    const newEmp = { ...empForm, id: employees.length + 1, joinedDate: new Date().toISOString().split("T")[0] };
+    setEmployees(prev => [...prev, newEmp]);
+    setModal(null);
+    setEmpForm({ name:"", email:"", phone:"", role:"", employeeId:"", designation:"", departmentName:"" });
   }
-  async function createEmp(e) {
-    e.preventDefault();
-    const d = await apiFetch("/employees", { method:"POST", body:JSON.stringify({...empForm, branch:branchId}) });
-    if (d) { setModal(null); setEmpForm({name:"",email:"",phone:"",role:"",departmentId:"",employeeId:"",designation:""}); loadEmps(); }
-  }
-  async function deleteDept(id) {
-    if (!window.confirm("Delete this department?")) return;
-    await apiFetch(`/departments/${id}`, { method:"DELETE" }); loadDepts();
-  }
-  async function deleteEmp(id) {
+  function deleteEmp(id) {
     if (!window.confirm("Remove this employee?")) return;
-    await apiFetch(`/employees/${id}`, { method:"DELETE" }); loadEmps();
+    setEmployees(prev => prev.filter(e => e.id !== id));
   }
 
   // ─── Patient row for Excel ────────────────────────────────────────────────
@@ -253,7 +299,7 @@ export default function BranchAdminDashboard({
     "Payment Type":p.paymentType||"", Status:p.status, Branch:resolvedBranchName,
   });
 
-  // ─── Shared UI Pieces ─────────────────────────────────────────────────────
+  // ─── Shared UI ────────────────────────────────────────────────────────────
   const Th = ({ children }) => (
     <th style={{ padding:"10px 16px", textAlign:"left", fontSize:"9px", letterSpacing:"2px", color:T.textMuted, textTransform:"uppercase", borderBottom:`1px solid ${T.border}`, background:T.surface, whiteSpace:"nowrap" }}>
       {children}
@@ -297,7 +343,7 @@ export default function BranchAdminDashboard({
     );
   }
 
-  function FilterBar({ onSearch, onExport, exportLabel="Export Excel" }) {
+  function FilterBar({ data, onExport, exportLabel="Export Excel" }) {
     return (
       <div style={{ display:"flex", gap:"10px", marginBottom:"18px", flexWrap:"wrap", alignItems:"center" }}>
         <div style={{ position:"relative" }}>
@@ -307,7 +353,6 @@ export default function BranchAdminDashboard({
             placeholder="Search name / ID..."
             value={search}
             onChange={e => setSearch(e.target.value)}
-            onKeyDown={e => e.key === "Enter" && onSearch?.()}
           />
         </div>
         <select style={{ ...mkInput(), cursor:"pointer" }} value={statusFil} onChange={e => setStatusFil(e.target.value)}>
@@ -316,7 +361,6 @@ export default function BranchAdminDashboard({
           <option value="discharged">Discharged</option>
           <option value="pending">Pending</option>
         </select>
-        <button style={{ ...mkBtn("ghost", theme), padding:"8px 12px" }} onClick={onSearch} title="Refresh">↻</button>
         <button style={{ ...mkBtn("excel", theme), marginLeft:"auto" }} onClick={onExport}>↓ {exportLabel}</button>
       </div>
     );
@@ -336,15 +380,14 @@ export default function BranchAdminDashboard({
         </div>
         <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:"14px", marginBottom:"14px" }}>
           {[
-            ["Cash Revenue",     "cashRevenue",     T.success,      "₹"],
-            ["Cashless Revenue", "cashlessRevenue", T.purple,       "₹"],
-            ["Total Revenue",    "totalRevenue",    theme.primary,  "₹"],
-            ["Pending Dues",     "pendingDues",     T.danger,       "₹"],
+            ["Cash Revenue",     "cashRevenue",     T.success,     "₹"],
+            ["Cashless Revenue", "cashlessRevenue", T.purple,      "₹"],
+            ["Total Revenue",    "totalRevenue",    theme.primary, "₹"],
+            ["Pending Dues",     "pendingDues",     T.danger,      "₹"],
           ].map(([l,k,c,p]) => <StatCard key={k} label={l} value={overview?.[k]} color={c} prefix={p} />)}
         </div>
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:"14px", marginBottom:"24px" }}>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:"14px", marginBottom:"24px" }}>
           {[
-            ["Departments",  "deptCount", T.blue  ],
             ["Employees",    "empCount",  T.blue  ],
             ["TPA Patients", "tpaCount",  T.purple],
             ["Card Patients","cardCount", T.warning],
@@ -377,23 +420,24 @@ export default function BranchAdminDashboard({
     );
   }
 
-  function PatientListView({ data, reload, exportFile, title }) {
+  function PatientListView({ data, exportFile, title }) {
+    const filtered = filterPatients(data);
     return (
       <>
         <FilterBar
-          onSearch={reload}
-          onExport={() => exportExcel(data.map(pRow), exportFile)}
+          data={filtered}
+          onExport={() => exportExcel(filtered.map(pRow), exportFile)}
           exportLabel="Export Excel"
         />
-        <TableShell title={title} count={data.length}>
+        <TableShell title={title} count={filtered.length}>
           <table style={{ width:"100%", borderCollapse:"collapse", fontSize:"12px" }}>
             <thead>
               <tr>{["ID","Name","Age","Gender","Phone","Department","Doctor","Admission","Discharge","Pay Mode","Type","Status","Records"].map(h=><Th key={h}>{h}</Th>)}</tr>
             </thead>
             <tbody>
-              {!data.length
+              {!filtered.length
                 ? <EmptyRow cols={13} />
-                : data.map(p => (
+                : filtered.map(p => (
                   <tr key={p.id}>
                     <Td><span style={{ color:T.textMuted, fontSize:"10px" }}>#{p.id}</span></Td>
                     <Td primary>{p.name}</Td>
@@ -427,18 +471,18 @@ export default function BranchAdminDashboard({
       <>
         <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:"14px", marginBottom:"14px" }}>
           {[
-            ["Cash Total",        "cashTotal",      T.success,      "₹"],
-            ["Cashless Total",    "cashlessTotal",  T.purple,       "₹"],
-            ["TPA Total",         "tpaTotal",       T.blue,         "₹"],
-            ["Card Total",        "cardTotal",      T.warning,      "₹"],
+            ["Cash Total",     "cashTotal",     T.success, "₹"],
+            ["Cashless Total", "cashlessTotal", T.purple,  "₹"],
+            ["TPA Total",      "tpaTotal",      T.blue,    "₹"],
+            ["Card Total",     "cardTotal",     T.warning, "₹"],
           ].map(([l,k,c,p]) => <StatCard key={k} label={l} value={financials?.[k]} color={c} prefix={p} />)}
         </div>
         <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:"14px", marginBottom:"24px" }}>
           {[
-            ["Grand Total",       "grandTotal",     theme.primary,  "₹"],
-            ["Collected Today",   "collectedToday", T.success,      "₹"],
-            ["Pending Dues",      "pendingDues",    T.danger,       "₹"],
-            ["Transactions",      "txnCount",       T.blue         ],
+            ["Grand Total",     "grandTotal",     theme.primary, "₹"],
+            ["Collected Today", "collectedToday", T.success,     "₹"],
+            ["Pending Dues",    "pendingDues",    T.danger,      "₹"],
+            ["Transactions",    "txnCount",       T.blue        ],
           ].map(([l,k,c,p]) => <StatCard key={k} label={l} value={financials?.[k]} color={c} prefix={p||""} />)}
         </div>
 
@@ -520,7 +564,6 @@ export default function BranchAdminDashboard({
 
     return (
       <>
-        {/* Patient card */}
         <div style={{ background:T.card, border:`1px solid ${T.border}`, borderLeft:`3px solid ${theme.primary}`, borderRadius:"10px", padding:"18px 24px", marginBottom:"22px", display:"flex", gap:"28px", flexWrap:"wrap", alignItems:"center" }}>
           <div>
             <div style={{ fontSize:"9px", letterSpacing:"2px", color:T.textMuted, textTransform:"uppercase", marginBottom:"3px" }}>Patient</div>
@@ -541,7 +584,6 @@ export default function BranchAdminDashboard({
           </div>
         </div>
 
-        {/* Record type tabs */}
         <div style={{ display:"flex", gap:"6px", marginBottom:"20px", flexWrap:"wrap" }}>
           {RECORD_TYPES.map(rt => (
             <button key={rt.id} onClick={() => setRecTab(rt.id)} style={{
@@ -564,49 +606,11 @@ export default function BranchAdminDashboard({
                 : records.map((rec,i) => (
                   <tr key={i}>
                     <Td>{rec.date}</Td>
-                    {recTab==="discharge_summary" && <><Td sx={{maxWidth:"180px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{rec.summary}</Td><Td>{rec.doctor}</Td><Td>{rec.nextVisit}</Td><Td>{rec.instructions}</Td></>}
+                    {recTab==="discharge_summary" && <><Td style={{maxWidth:"180px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{rec.summary}</Td><Td>{rec.doctor}</Td><Td>{rec.nextVisit}</Td><Td>{rec.instructions}</Td></>}
                     {recTab==="reports" && <><Td primary>{rec.reportType}</Td><Td>{rec.result}</Td><Td>{rec.lab}</Td><Td>{rec.doctor}</Td><Td>{rec.fileUrl ? <a href={rec.fileUrl} target="_blank" rel="noreferrer" style={{color:theme.primary}}>↗</a> : "—"}</Td></>}
                     {recTab==="medicines" && <><Td primary>{rec.medicine}</Td><Td>{rec.dosage}</Td><Td>{rec.frequency}</Td><Td>{rec.duration}</Td><Td>{rec.prescribedBy}</Td></>}
-                    {recTab==="admission_note" && <><Td sx={{maxWidth:"180px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{rec.note}</Td><Td>{rec.doctor}</Td><Td>{rec.diagnosis}</Td><Td>{rec.plan}</Td></>}
-                    {recTab==="medical_history" && <><Td primary>{rec.condition}</Td><Td>{rec.treatment}</Td><Td>{rec.doctor}</Td><Td sx={{maxWidth:"160px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{rec.notes}</Td></>}
-                  </tr>
-                ))}
-            </tbody>
-          </table>
-        </TableShell>
-      </>
-    );
-  }
-
-  function DepartmentsView() {
-    return (
-      <>
-        <div style={{ display:"flex", justifyContent:"flex-end", gap:"10px", marginBottom:"20px" }}>
-          <button style={mkBtn("excel", theme)} onClick={() => exportExcel(departments.map(d=>({ ID:d.id, Name:d.name, Description:d.description, HOD:d.hodName, Employees:d.employeeCount, Created:d.createdAt, Branch:resolvedBranchName })), `departments_${branchId}`)}>↓ Excel</button>
-          <button style={mkBtn("primary", theme)} onClick={() => setModal("dept")}>+ New Department</button>
-        </div>
-
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:"14px", marginBottom:"22px" }}>
-          <StatCard label="Total Departments" value={departments.length}                                                   color={theme.primary} />
-          <StatCard label="Total Staff"        value={departments.reduce((a,d)=>a+(d.employeeCount||0),0)}                 color={T.success}     />
-          <StatCard label="Branch"             value={resolvedBranchName}                                                  color={theme.primary} />
-        </div>
-
-        <TableShell title="Departments" count={departments.length}>
-          <table style={{ width:"100%", borderCollapse:"collapse", fontSize:"12px" }}>
-            <thead><tr>{["ID","Name","Description","HOD","Employees","Created","Action"].map(h=><Th key={h}>{h}</Th>)}</tr></thead>
-            <tbody>
-              {!departments.length
-                ? <EmptyRow cols={7} msg="NO DEPARTMENTS — CREATE ONE" />
-                : departments.map(d => (
-                  <tr key={d.id}>
-                    <Td><span style={{color:T.textMuted,fontSize:"10px"}}>#{d.id}</span></Td>
-                    <Td primary>{d.name}</Td>
-                    <Td>{d.description||"—"}</Td>
-                    <Td>{d.hodName||"—"}</Td>
-                    <Td hi={theme.primary}>{d.employeeCount||0}</Td>
-                    <Td>{d.createdAt}</Td>
-                    <Td><button style={{ ...mkBtn("danger",theme), padding:"4px 12px", fontSize:"10px" }} onClick={()=>deleteDept(d.id)}>Delete</button></Td>
+                    {recTab==="admission_note" && <><Td style={{maxWidth:"180px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{rec.note}</Td><Td>{rec.doctor}</Td><Td>{rec.diagnosis}</Td><Td>{rec.plan}</Td></>}
+                    {recTab==="medical_history" && <><Td primary>{rec.condition}</Td><Td>{rec.treatment}</Td><Td>{rec.doctor}</Td><Td style={{maxWidth:"160px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{rec.notes}</Td></>}
                   </tr>
                 ))}
             </tbody>
@@ -622,7 +626,7 @@ export default function BranchAdminDashboard({
       <>
         <div style={{ display:"flex", justifyContent:"flex-end", gap:"10px", marginBottom:"20px" }}>
           <button style={mkBtn("excel", theme)} onClick={() => exportExcel(employees.map(e=>({ "Emp ID":e.employeeId, Name:e.name, Email:e.email, Phone:e.phone, Role:e.role, Designation:e.designation, Department:e.departmentName, Joined:e.joinedDate, Branch:resolvedBranchName })), `employees_${branchId}`)}>↓ Excel</button>
-          <button style={mkBtn("primary", theme)} onClick={() => { if (!departments.length) loadDepts(); setModal("emp"); }}>+ Add Employee</button>
+          <button style={mkBtn("primary", theme)} onClick={() => setModal("emp")}>+ Add Employee</button>
         </div>
 
         <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:"14px", marginBottom:"22px" }}>
@@ -662,7 +666,7 @@ export default function BranchAdminDashboard({
     );
   }
 
-  // ─── Modal Wrapper ────────────────────────────────────────────────────────
+  // ─── Modal ────────────────────────────────────────────────────────────────
   function ModalWrap({ title, onClose, onSubmit, children }) {
     return (
       <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.82)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:1000, backdropFilter:"blur(4px)" }}
@@ -703,8 +707,6 @@ export default function BranchAdminDashboard({
 
       {/* ── Sidebar ─────────────────────────────────────────────────────── */}
       <aside style={{ width:"256px", minWidth:"256px", background:T.surface, borderRight:`1px solid ${T.border}`, display:"flex", flexDirection:"column" }}>
-
-        {/* Logo + admin */}
         <div style={{ padding:"22px 20px 18px", borderBottom:`1px solid ${T.border}` }}>
           <div style={{ fontSize:"8px", letterSpacing:"4px", color:T.textMuted, textTransform:"uppercase", marginBottom:"2px" }}>MedCore HMS</div>
           <div style={{ fontSize:"16px", fontWeight:"800", color:T.text }}>Branch Admin</div>
@@ -719,7 +721,6 @@ export default function BranchAdminDashboard({
           </div>
         </div>
 
-        {/* Branch pill — locked, set by SuperAdmin */}
         <div style={{ margin:"14px 14px 2px", padding:"11px 14px", background:theme.glow, border:`1px solid ${theme.primaryBorder}`, borderRadius:"9px" }}>
           <div style={{ fontSize:"8px", letterSpacing:"2px", color:T.textMuted, textTransform:"uppercase", marginBottom:"5px" }}>Assigned Branch</div>
           <div style={{ display:"flex", alignItems:"center", gap:"8px", marginBottom:"3px" }}>
@@ -729,7 +730,6 @@ export default function BranchAdminDashboard({
           <div style={{ fontSize:"9px", color:T.textMuted }}>Read-only · Set by SuperAdmin</div>
         </div>
 
-        {/* Nav */}
         <div style={{ flex:1, padding:"14px 12px", overflowY:"auto" }}>
           <div style={{ fontSize:"8px", letterSpacing:"3px", color:T.textMuted, textTransform:"uppercase", padding:"0 8px", marginBottom:"8px" }}>Menu</div>
           {NAV.map(item => (
@@ -763,7 +763,6 @@ export default function BranchAdminDashboard({
           </div>
 
           <div style={{ display:"flex", gap:"10px", alignItems:"center" }}>
-            {/* Range toggle */}
             <div style={{ display:"flex", background:T.surfaceRaised, border:`1px solid ${T.border}`, borderRadius:"8px", overflow:"hidden" }}>
               {RANGES.map(r => (
                 <button key={r} onClick={() => setRange(r)} style={{
@@ -778,49 +777,24 @@ export default function BranchAdminDashboard({
             <input type="date" style={{ ...mkInput(), fontSize:"11px" }} value={fromDate} onChange={e=>setFromDate(e.target.value)} title="From Date" />
             <span style={{ color:T.textMuted }}>→</span>
             <input type="date" style={{ ...mkInput(), fontSize:"11px" }} value={toDate} onChange={e=>setToDate(e.target.value)} title="To Date" />
-            {loading && <div style={{ width:"7px", height:"7px", borderRadius:"50%", background:theme.primary, animation:"blink 1s ease-in-out infinite" }} />}
           </div>
         </div>
-
-        {/* Error banner */}
-        {error && (
-          <div style={{ background:T.dangerDim, borderBottom:`1px solid ${T.dangerBdr}`, color:T.danger, padding:"10px 28px", fontSize:"12px", display:"flex", alignItems:"center", gap:"8px" }}>
-            <span>⚠</span> {error}
-            <button style={{ ...mkBtn("ghost",theme), marginLeft:"auto", padding:"3px 10px", fontSize:"10px", color:T.danger, borderColor:T.dangerBdr }} onClick={()=>setError(null)}>✕</button>
-          </div>
-        )}
 
         {/* Page content */}
         <div style={{ flex:1, overflowY:"auto", padding:"26px 28px" }}>
-          {nav==="overview"    && <OverviewView />}
-          {nav==="patients"    && <PatientListView data={patients}     reload={loadPatients}  exportFile={`all_patients_${branchId}_${range}`}       title="All Patients" />}
-          {nav==="cash"        && <PatientListView data={cashPats}     reload={loadCash}      exportFile={`cash_patients_${branchId}_${range}`}      title="Cash Patients" />}
-          {nav==="cashless"    && <PatientListView data={cashlessPats} reload={loadCashless}  exportFile={`cashless_patients_${branchId}_${range}`}   title="Cashless Patients — TPA / Card" />}
-          {nav==="records"     && <RecordsView />}
-          {nav==="financials"  && <FinancialsView />}
-          {nav==="departments" && <DepartmentsView />}
-          {nav==="employees"   && <EmployeesView />}
+          {nav==="overview"   && <OverviewView />}
+          {nav==="patients"   && <PatientListView data={patients}     exportFile={`all_patients_${branchId}_${range}`}      title="All Patients" />}
+          {nav==="cash"       && <PatientListView data={cashPats}     exportFile={`cash_patients_${branchId}_${range}`}     title="Cash Patients" />}
+          {nav==="cashless"   && <PatientListView data={cashlessPats} exportFile={`cashless_patients_${branchId}_${range}`} title="Cashless Patients — TPA / Card" />}
+          {nav==="records"    && <RecordsView />}
+          {nav==="financials" && <FinancialsView />}
+          {nav==="employees"  && <EmployeesView />}
         </div>
       </div>
 
-      {/* ── Department Modal ─────────────────────────────────────────────── */}
-      {modal==="dept" && (
-        <ModalWrap title="Create Department" onClose={()=>setModal(null)} onSubmit={createDept}>
-          <FRow label="Department Name">
-            <input style={fi} value={deptForm.name} onChange={e=>setDeptForm({...deptForm,name:e.target.value})} placeholder="e.g. Radiology, ICU, OPD" required />
-          </FRow>
-          <FRow label="HOD Name">
-            <input style={fi} value={deptForm.hodName} onChange={e=>setDeptForm({...deptForm,hodName:e.target.value})} placeholder="Head of Department name" />
-          </FRow>
-          <FRow label="Description">
-            <input style={fi} value={deptForm.description} onChange={e=>setDeptForm({...deptForm,description:e.target.value})} placeholder="Optional" />
-          </FRow>
-        </ModalWrap>
-      )}
-
       {/* ── Employee Modal ───────────────────────────────────────────────── */}
       {modal==="emp" && (
-        <ModalWrap title="Add Employee" onClose={()=>setModal(null)} onSubmit={createEmp}>
+        <ModalWrap title="Add Employee" onClose={()=>setModal(null)} onSubmit={addEmployee}>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"0 16px" }}>
             <FRow label="Full Name"><input style={fi} value={empForm.name} onChange={e=>setEmpForm({...empForm,name:e.target.value})} required /></FRow>
             <FRow label="Employee ID"><input style={fi} value={empForm.employeeId} onChange={e=>setEmpForm({...empForm,employeeId:e.target.value})} placeholder="EMP-001" /></FRow>
@@ -834,17 +808,13 @@ export default function BranchAdminDashboard({
             </FRow>
             <FRow label="Designation"><input style={fi} value={empForm.designation} onChange={e=>setEmpForm({...empForm,designation:e.target.value})} placeholder="e.g. Senior Consultant" /></FRow>
           </div>
-          <FRow label="Department">
-            <select style={fs} value={empForm.departmentId} onChange={e=>setEmpForm({...empForm,departmentId:e.target.value})} required>
-              <option value="">Select department</option>
-              {departments.map(d=><option key={d.id} value={d.id}>{d.name}</option>)}
-            </select>
+          <FRow label="Department Name">
+            <input style={fi} value={empForm.departmentName} onChange={e=>setEmpForm({...empForm,departmentName:e.target.value})} placeholder="e.g. Cardiology, ICU" required />
           </FRow>
         </ModalWrap>
       )}
 
       <style>{`
-        @keyframes blink { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.2;transform:scale(0.6)} }
         *::-webkit-scrollbar { width:5px; height:5px }
         *::-webkit-scrollbar-track { background:transparent }
         *::-webkit-scrollbar-thumb { background:${T.border}; border-radius:10px }

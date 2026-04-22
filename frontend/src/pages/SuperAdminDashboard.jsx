@@ -932,215 +932,627 @@ function ReportsTab({ all }) {
 }
 
 /* ══════════════════════════════════════════════════════════════
-   TAB 10 — ADMIN MANAGEMENT
+   TAB 10 — ADMIN MANAGEMENT  ← FULLY UPDATED
+   • Sub-tabs: All Users | Active | Deactivated
+   • Create, Edit, Deactivate/Reactivate, Delete per user
+   • Confirm modal for destructive actions
+   • Edit modal (name, role, branch, password reset optional)
 ══════════════════════════════════════════════════════════════ */
 function AdminsTab() {
   const T = useT();
-  const [users, setUsers] = useState([]);  
-  const [modal, setModal] = useState(false);
-  const [form, setForm]   = useState({ id:"", name:"", password:"", confirmPassword:"", role:"office_admin", branch:"laxmi" });
-  const [showPass, setShowPass]       = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [passErr, setPassErr]         = useState("");
-  const sf = k => e => { setForm(f=>({...f,[k]:e.target.value})); setPassErr(""); };
+/* ── state ── */
+  const [users,       setUsers]       = useState([]);
+  const [subTab,      setSubTab]      = useState("all");   // "all" | "active" | "deactivated"
+  const [createModal, setCreateModal] = useState(false);
+  const [editModal,   setEditModal]   = useState(null);    // user object
+  const [confirmModal,setConfirmModal]= useState(null);    // { type:"deactivate"|"delete"|"reactivate", user }
+  const [search,      setSearch]      = useState("");
 
-  // 🌟 THE FIX: Automatically fetch all users from Django when this tab opens
+  /* ── form states ── */
+  const EMPTY_FORM = { id:"", name:"", password:"", confirmPassword:"", role:"office_admin", branch:"laxmi" };
+  const [form,        setForm]        = useState(EMPTY_FORM);
+  const [editForm,    setEditForm]    = useState({});
+  const [showPass,    setShowPass]    = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [showEditPass,setShowEditPass]= useState(false);
+  const [passErr,     setPassErr]     = useState("");
+  const [loading,     setLoading]     = useState(false);
+
+/* ── fetch users ── */
+  const fetchUsers = async () => {
+    try {
+      const data = await apiService.getUsers();
+      // 🌟 MAINTAIN CONNECTION: Map Django's format to the dashboard's table format
+      const formatted = data.map(u => ({
+        ...u,
+        id: u.username,
+        db_pk: u.id, // Store the real database ID for deactivation/editing
+        name: `${u.first_name} ${u.last_name}`,
+        role: u.role === 'admin' ? 'branch_admin' : u.role, 
+        branch: u.branch === 'LNM' ? 'laxmi' : (u.branch === 'RYM' ? 'raya' : 'ALL')
+      }));
+      setUsers(formatted);
+    } catch (error) {
+      console.error("Failed to load users:", error);
+      setUsers([]);
+    }
+  };
+
   useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        const data = await apiService.getUsers();
-        // Map Django's format to the dashboard's table format
-        const formatted = data.map(u => ({
-          id: u.username,
-          name: `${u.first_name} ${u.last_name}`,
-          role: u.role === 'admin' ? 'branch_admin' : u.role, 
-          branch: u.branch === 'LNM' ? 'laxmi' : (u.branch === 'RYM' ? 'raya' : 'ALL')
-        }));
-        setUsers(formatted);
-      } catch (error) {
-        console.error("Failed to load users:", error);
-      }
-    };
     fetchUsers();
   }, []);
-
-  const handleRoleChange = (val) => {
-    setForm(f => ({ ...f, role: val, branch: val === "office_admin" ? "laxmi" : f.branch }));
   };
-  const isOfficeAdmin = form.role === "office_admin";
+  useEffect(() => { fetchUsers(); }, []);
 
-  const create = async () => {
-    if (!form.id || !form.name || !form.password) { toast.error("Fill all fields"); return; }
+  /* ── derived lists ── */
+  const filtered = users.filter(u => {
+    const matchSearch = !search ||
+      u.name?.toLowerCase().includes(search.toLowerCase()) ||
+      u.id?.toLowerCase().includes(search.toLowerCase()) ||
+      u.role?.toLowerCase().includes(search.toLowerCase());
+    if (subTab === "active")      return matchSearch && u.isActive !== false;
+    if (subTab === "deactivated") return matchSearch && u.isActive === false;
+    return matchSearch;
+  });
+
+  const officeAdmins = users.filter(u => u.role === "office_admin");
+  const branchAdmins = users.filter(u => u.role === "branch_admin");
+  const activeCount  = users.filter(u => u.isActive !== false).length;
+  const deactCount   = users.filter(u => u.isActive === false).length;
+
+  /* ── field helpers ── */
+  const sf  = k => e => { setForm(f=>({...f,[k]:e.target.value})); setPassErr(""); };
+  const sef = k => e => setEditForm(f=>({...f,[k]:e.target.value}));
+
+  const handleRoleChange = val =>
+    setForm(f => ({ ...f, role: val, branch: val === "office_admin" ? "laxmi" : f.branch }));
+
+  /* ── CREATE ── */
+  const handleCreate = async () => {
+    if (!form.id || !form.name || !form.password) { toast.error("Fill all required fields"); return; }
     if (form.password !== form.confirmPassword)    { setPassErr("Passwords do not match"); return; }
+
+    const isOfficeAdmin = form.role === "office_admin";
+    const backendRole   = form.role === "branch_admin" ? "admin" : form.role;
+    const branchCode    = isOfficeAdmin ? "ALL" : (form.branch === "laxmi" ? "LNM" : "RYM");
+
     const nameParts = form.name.split(" ");
     const firstName = nameParts[0];
     const lastName  = nameParts.length > 1 ? nameParts.slice(1).join(" ") : ".";
-    
-    const backendRole = form.role === "branch_admin" ? "admin" : form.role;
-    const branchCode = isOfficeAdmin ? "ALL" : (form.branch === "laxmi" ? "LNM" : "RYM");
 
     const payload = {
-      username: form.id, first_name: firstName, last_name: lastName,
-      password: form.password, confirm_password: form.password,
-      role: backendRole, branch: branchCode, email: `${form.id}@sangihospital.com`,
+      username: form.id, 
+      first_name: firstName, 
+      last_name: lastName,
+      password: form.password, 
+      confirm_password: form.password,
+      role: backendRole, 
+      branch: branchCode, 
+      email: `${form.id}@sangihospital.com`,
     };
+    
+    // 🌟 THE FIX: Removed the accidental }; that was right here!
 
     try {
+      // (Optional: if you have setLoading in your state, uncomment the next line)
+      // setLoading(true); 
+      
       await apiService.createUser(payload);
       toast.success("User created successfully!");
-      setModal(false);
-      
-      // 🌟 THE FIX: Instantly add the newly created user to your table without refreshing!
-      setUsers(prev => [...prev, {
-        id: form.id,
-        name: form.name,
-        role: form.role,
-        branch: isOfficeAdmin ? 'ALL' : form.branch
-      }]);
-
-      setForm({ id:"", name:"", password:"", confirmPassword:"", role:"office_admin", branch:"laxmi" });
+      setCreateModal(false);
+      setForm(EMPTY_FORM);
+      fetchUsers();
     } catch (error) {
       const errData = error.response?.data;
       if (errData?.username) toast.error("Username: " + errData.username[0]);
       else if (errData?.password) toast.error("Password: " + errData.password[0]);
-      else if (errData?.branch) toast.error("Branch: " + errData.branch[0]);
-      else toast.error("Failed to create user. Check console.");
+      else toast.error("Failed to create user.");
+    } finally { 
+      // Ensure setLoading is defined in your state if you keep this line!
+      // setLoading(false); 
     }
   };
+  /* ── EDIT / SAVE ── */
+  const openEdit = (u) => {
+    setEditForm({
+      name:     u.name   || "",
+      role:     u.role   || "branch_admin",
+      branch:   u.branch || "laxmi",
+      newPass:  "",
+      confirmNewPass: "",
+    });
+    setEditModal(u);
+  };
 
-  const officeAdmins = users.filter(u => u.role === "office_admin");
-  const branchAdmins = users.filter(u => u.role === "branch_admin");
+  const handleSaveEdit = async () => {
+    if (!editForm.name) { toast.error("Name cannot be empty"); return; }
+    if (editForm.newPass && editForm.newPass !== editForm.confirmNewPass) {
+      toast.error("New passwords do not match"); return;
+    }
+    setLoading(true);
+    const nameParts  = editForm.name.split(" ");
+    const branchCode = editForm.role === "office_admin" ? "BOTH" : (editForm.branch === "laxmi" ? "LNM" : "RYM");
+    const payload = {
+      first_name:  nameParts[0],
+      last_name:   nameParts.length > 1 ? nameParts.slice(1).join(" ") : ".",
+      role:        editForm.role,
+      branch:      branchCode,
+      ...(editForm.newPass ? { password: editForm.newPass, confirm_password: editForm.newPass } : {}),
+    };
+    try {
+      await apiService.updateUser(editModal.id, payload);
+      toast.success("User updated successfully!");
+      setEditModal(null);
+      fetchUsers();
+    } catch (err) {
+      toast.error("Failed to update user.");
+    } finally { setLoading(false); }
+  };
+
+  /* ── DEACTIVATE / REACTIVATE ── */
+  const handleToggleActive = async (u) => {
+    setLoading(true);
+    try {
+      if (u.isActive === false) {
+        await apiService.reactivateUser(u.id);
+        toast.success(`${u.name} reactivated.`);
+      } else {
+        await apiService.deactivateUser(u.id);
+        toast.success(`${u.name} deactivated.`);
+      }
+      setConfirmModal(null);
+      fetchUsers();
+    } catch {
+      toast.error("Failed to update user status.");
+    } finally { setLoading(false); }
+  };
+
+  /* ── DELETE ── */
+  const handleDelete = async (u) => {
+    setLoading(true);
+    try {
+      await apiService.deleteUser(u.id);
+      toast.success(`${u.name} permanently deleted.`);
+      setConfirmModal(null);
+      fetchUsers();
+    } catch {
+      toast.error("Failed to delete user.");
+    } finally { setLoading(false); }
+  };
+
+  /* ── confirm dispatch ── */
+  const handleConfirm = () => {
+    if (!confirmModal) return;
+    if (confirmModal.type === "delete")              handleDelete(confirmModal.user);
+    else if (confirmModal.type === "deactivate")     handleToggleActive(confirmModal.user);
+    else if (confirmModal.type === "reactivate")     handleToggleActive(confirmModal.user);
+  };
+
+  /* ─────────────────────────────────────────────
+     INLINE STYLE HELPERS
+  ───────────────────────────────────────────── */
+  const inputSt = {
+    width:"100%", padding:"9px 13px", borderRadius:8,
+    border:`1px solid ${T.border2}`, background:T.card,
+    color:T.white, fontSize:13, outline:"none", boxSizing:"border-box",
+  };
+  const labelSt = {
+    fontSize:11, color:T.dim, fontWeight:700, textTransform:"uppercase",
+    letterSpacing:".06em", marginBottom:4, display:"block",
+  };
+  const btnSm = (bg, c, bdr) => ({
+    padding:"5px 12px", borderRadius:7, fontSize:11, fontWeight:700,
+    cursor:"pointer", border:`1px solid ${bdr||bg}`, background:bg, color:c,
+    whiteSpace:"nowrap",
+  });
+
+  /* ── sub-tab pill ── */
+  const SubPill = ({ id, label, count }) => (
+    <button onClick={()=>setSubTab(id)} style={{
+      padding:"6px 16px", borderRadius:20, fontSize:12, fontWeight:700,
+      cursor:"pointer", border:"none",
+      background: subTab===id ? T.laxmi : T.bg,
+      color:       subTab===id ? "#000"  : T.dim,
+      display:"flex", alignItems:"center", gap:6,
+    }}>
+      {label}
+      {count !== undefined && (
+        <span style={{ background: subTab===id?"rgba(0,0,0,.2)":T.dimmer, color: subTab===id?"#000":T.dim,
+          borderRadius:10, padding:"1px 7px", fontSize:10, fontWeight:900 }}>{count}</span>
+      )}
+    </button>
+  );
+
+  /* ── status badge ── */
+  const StatusBadge = ({ u }) => u.isActive === false
+    ? <Badge color={T.red}>Deactivated</Badge>
+    : <Badge color={T.green}>Active</Badge>;
 
   return (
     <div>
-      <div style={{ display:"flex",gap:12,flexWrap:"wrap",marginBottom:18 }}>
+      {/* ── Stat cards ── */}
+      <div style={{ display:"flex", gap:12, flexWrap:"wrap", marginBottom:18 }}>
         <StatCard icon="👥" label="Total Users"    value={users.length}        color={T.laxmi}/>
-        <StatCard icon="🏢" label="Office Admins"  value={officeAdmins.length} sub="Both branches access" color={T.laxmi}/>
-        <StatCard icon="🏥" label="Branch Admins"  value={branchAdmins.length} sub="Single branch"        color={T.raya}/>
-        <StatCard icon="👤" label="Other Staff"    value={users.filter(u=>u.role!=="office_admin"&&u.role!=="branch_admin").length} color={T.green}/>
+        <StatCard icon="🟢" label="Active"          value={activeCount}          sub="Can log in"          color={T.green}/>
+        <StatCard icon="🔴" label="Deactivated"     value={deactCount}           sub="Blocked from login"  color={T.red}/>
+        <StatCard icon="🏢" label="Office Admins"   value={officeAdmins.length}  sub="Both branches"       color={T.laxmi}/>
+        <StatCard icon="🏥" label="Branch Admins"   value={branchAdmins.length}  sub="Single branch"       color={T.raya}/>
       </div>
+
+      {/* ── Role info strip ── */}
       <div style={{ ...cardStyle(T), marginBottom:18, display:"flex", gap:24, flexWrap:"wrap", padding:"14px 20px" }}>
         <div style={{ display:"flex", alignItems:"flex-start", gap:10 }}>
           <Pill color={T.laxmi}>Office Admin</Pill>
           <div style={{ fontSize:12, color:T.dim, maxWidth:240 }}>
-            Single admin for <strong style={{ color:T.white }}>both branches</strong>. Has a branch switcher to toggle between Lakshmi Nagar and Raya.
+            Single admin for <strong style={{ color:T.white }}>both branches</strong>. Has a branch switcher.
           </div>
         </div>
         <div style={{ display:"flex", alignItems:"flex-start", gap:10 }}>
           <Pill color={T.raya}>Branch Admin</Pill>
           <div style={{ fontSize:12, color:T.dim, maxWidth:240 }}>
-            Dedicated admin for <strong style={{ color:T.white }}>one specific branch</strong>. Cannot access the other branch.
+            Dedicated admin for <strong style={{ color:T.white }}>one branch only</strong>. Cannot access other branch.
           </div>
         </div>
       </div>
-      <div style={{ display:"flex",justifyContent:"flex-end",marginBottom:12 }}>
-        <button onClick={()=>setModal(true)} style={{ padding:"9px 22px",borderRadius:9,background:T.laxmi,
-          color:"#000",border:"none",fontWeight:800,fontSize:13,cursor:"pointer" }}>+ Create User</button>
+
+      {/* ── Toolbar ── */}
+      <div style={{ display:"flex", gap:8, alignItems:"center", marginBottom:14, flexWrap:"wrap" }}>
+        {/* Sub-tabs */}
+        <div style={{ display:"flex", gap:4, background:T.bg, borderRadius:22, padding:3, border:`1px solid ${T.border}` }}>
+          <SubPill id="all"         label="All Users"    count={users.length}  />
+          <SubPill id="active"      label="Active"       count={activeCount}   />
+          <SubPill id="deactivated" label="Deactivated"  count={deactCount}    />
+        </div>
+        {/* Search */}
+        <input
+          value={search} onChange={e=>setSearch(e.target.value)}
+          placeholder="Search name, username, role..."
+          style={{ marginLeft:"auto", padding:"7px 13px", borderRadius:8, border:`1px solid ${T.border2}`,
+            background:T.card, color:T.white, fontSize:12, outline:"none", width:220 }}
+        />
+        {/* Create */}
+        <button onClick={()=>setCreateModal(true)} style={{
+          padding:"8px 20px", borderRadius:9, background:T.laxmi, color:"#000",
+          border:"none", fontWeight:800, fontSize:13, cursor:"pointer",
+        }}>+ Create User</button>
       </div>
-      <div style={{ ...cardStyle(T),padding:0,overflow:"hidden" }}>
-        <table style={{ width:"100%",borderCollapse:"collapse" }}>
-          <thead><tr>{["Username","Full Name","Role","Branch Access","Status"].map(h=><TH key={h} h={h}/>)}</tr></thead>
+
+      {/* ── Users table ── */}
+      <div style={{ ...cardStyle(T), padding:0, overflow:"hidden" }}>
+        <table style={{ width:"100%", borderCollapse:"collapse" }}>
+          <thead>
+            <tr>{["Username","Full Name","Role","Branch Access","Status","Last Login","Actions"].map(h=><TH key={h} h={h}/>)}</tr>
+          </thead>
           <tbody>
-            {users.length === 0 && (
-              <tr><td colSpan={5} style={{ padding:48,textAlign:"center",color:T.dim }}>No users created yet</td></tr>
+            {filtered.length === 0 && (
+              <tr><td colSpan={7} style={{ padding:48, textAlign:"center", color:T.dim }}>
+                {search ? "No users match your search" : "No users found"}
+              </td></tr>
             )}
-            {users.map((u,i)=>(
-              <tr key={i} style={{ borderBottom:`1px solid ${T.border}`,background:i%2===0?T.card:T.surface }}>
-                <td style={{ padding:"10px 12px",fontSize:12,fontFamily:"monospace",color:T.laxmi }}>{u.id}</td>
-                <td style={{ padding:"10px 12px",fontSize:13,fontWeight:600,color:T.white }}>{u.name}</td>
-                <td style={{ padding:"10px 12px" }}><Pill color={roleColor(u.role, T)}>{ROLE_LABELS[u.role]||u.role}</Pill></td>
+            {filtered.map((u,i)=>(
+              <tr key={i} style={{
+                borderBottom:`1px solid ${T.border}`,
+                background: u.isActive===false
+                  ? (i%2===0 ? T.bg+"cc" : T.surface+"cc")
+                  : (i%2===0 ? T.card    : T.surface),
+                opacity: u.isActive===false ? 0.7 : 1,
+              }}>
+                {/* Username */}
+                <td style={{ padding:"10px 12px", fontSize:12, fontFamily:"monospace", color:T.laxmi }}>
+                  {u.id}
+                </td>
+                {/* Name */}
+                <td style={{ padding:"10px 12px" }}>
+                  <div style={{ fontSize:13, fontWeight:600, color:T.white }}>{u.name}</div>
+                </td>
+                {/* Role */}
+                <td style={{ padding:"10px 12px" }}>
+                  <Pill color={roleColor(u.role, T)}>{ROLE_LABELS[u.role]||u.role}</Pill>
+                </td>
+                {/* Branch */}
                 <td style={{ padding:"10px 12px" }}>
                   {u.role === "office_admin"
-                    ? <div style={{ display:"flex",gap:4 }}>
+                    ? <div style={{ display:"flex", gap:4 }}>
                         <Pill color={T.laxmi}>Lakshmi Nagar</Pill>
                         <Pill color={T.raya}>Raya</Pill>
                       </div>
-                    : u.branch ? <Pill color={bColor(u.branch, T)}>{bName(u.branch)}</Pill>
+                    : u.branch
+                      ? <Pill color={bColor(u.branch, T)}>{bName(u.branch)}</Pill>
                       : <span style={{ color:T.dim }}>--</span>
                   }
                 </td>
-                <td style={{ padding:"10px 12px" }}><Badge color={T.green}>Active</Badge></td>
+                {/* Status */}
+                <td style={{ padding:"10px 12px" }}><StatusBadge u={u}/></td>
+                {/* Last login */}
+                <td style={{ padding:"10px 12px", fontSize:11, color:T.dim }}>
+                  {u.lastLogin ? fmt(u.lastLogin) : "--"}
+                </td>
+                {/* Actions */}
+                <td style={{ padding:"10px 12px" }}>
+                  <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                    {/* Edit */}
+                    <button
+                      onClick={() => openEdit(u)}
+                      style={btnSm(T.laxmi+"20", T.laxmi, T.laxmi+"44")}
+                    >✏ Edit</button>
+
+                    {/* Deactivate / Reactivate */}
+                    {u.isActive === false ? (
+                      <button
+                        onClick={() => setConfirmModal({ type:"reactivate", user:u })}
+                        style={btnSm(T.green+"20", T.green, T.green+"44")}
+                      >▶ Activate</button>
+                    ) : (
+                      <button
+                        onClick={() => setConfirmModal({ type:"deactivate", user:u })}
+                        style={btnSm(T.amber+"18", T.amber, T.amber+"44")}
+                      >⏸ Deactivate</button>
+                    )}
+
+                    {/* Delete */}
+                    <button
+                      onClick={() => setConfirmModal({ type:"delete", user:u })}
+                      style={btnSm(T.red+"15", T.red, T.red+"44")}
+                    >🗑 Delete</button>
+                  </div>
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      {modal && (
-        <div style={{ position:"fixed",inset:0,background:"rgba(0,0,0,.75)",zIndex:2000,
-          display:"flex",alignItems:"center",justifyContent:"center" }}>
-          <div style={{ background:T.surface,borderRadius:16,padding:30,width:460,
-            border:`1px solid ${T.border}`,boxShadow:SD,maxHeight:"90vh",overflowY:"auto" }}>
-            <div style={{ fontSize:16,fontWeight:800,color:T.white,marginBottom:20 }}>Create New User</div>
-            {[["Username / ID","id","text","admin_xyz"],
-              ["Full Name","name","text","Full Name"],
-              ["Password","password",showPass?"text":"password","••••••••"],
-              ["Confirm Password","confirmPassword",showConfirm?"text":"password","Confirm password"]
-            ].map(([lbl,k,type,ph])=>(
+
+      {/* ════════════════════════════════════════
+          CREATE USER MODAL
+      ════════════════════════════════════════ */}
+      {createModal && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.78)", zIndex:2000,
+          display:"flex", alignItems:"center", justifyContent:"center" }}>
+          <div style={{ background:T.surface, borderRadius:16, padding:30, width:460,
+            border:`1px solid ${T.border}`, boxShadow:SD, maxHeight:"90vh", overflowY:"auto" }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}>
+              <div style={{ fontSize:16, fontWeight:800, color:T.white }}>Create New User</div>
+              <button onClick={()=>setCreateModal(false)}
+                style={{ background:"rgba(255,255,255,.07)", border:"none", color:T.white,
+                  width:30, height:30, borderRadius:7, cursor:"pointer", fontSize:14 }}>✕</button>
+            </div>
+
+            {/* Username */}
+            <div style={{ marginBottom:12 }}>
+              <label style={labelSt}>Username / ID <span style={{ color:T.red }}>*</span></label>
+              <input type="text" placeholder="admin_xyz" value={form.id} onChange={sf("id")} style={inputSt}/>
+            </div>
+            {/* Full Name */}
+            <div style={{ marginBottom:12 }}>
+              <label style={labelSt}>Full Name <span style={{ color:T.red }}>*</span></label>
+              <input type="text" placeholder="Full Name" value={form.name} onChange={sf("name")} style={inputSt}/>
+            </div>
+            {/* Password */}
+            {[["Password","password",showPass,()=>setShowPass(p=>!p)],
+              ["Confirm Password","confirmPassword",showConfirm,()=>setShowConfirm(p=>!p)]
+            ].map(([lbl,k,visible,toggle])=>(
               <div key={k} style={{ marginBottom:12 }}>
-                <div style={{ fontSize:11,color:T.dim,fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",marginBottom:4 }}>{lbl}</div>
+                <label style={labelSt}>{lbl} <span style={{ color:T.red }}>*</span></label>
                 <div style={{ position:"relative" }}>
-                  <input type={type} placeholder={ph} value={form[k]||""} onChange={sf(k)}
-                    style={{ width:"100%",padding:"9px 40px 9px 13px",borderRadius:8,border:`1px solid ${T.border2}`,
-                      background:T.card,color:T.white,fontSize:13,outline:"none",boxSizing:"border-box" }}/>
-                  {(k==="password"||k==="confirmPassword") && (
-                    <button type="button"
-                      onClick={()=> k==="password" ? setShowPass(p=>!p) : setShowConfirm(p=>!p)}
-                      style={{ position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",
-                        background:"none",border:"none",cursor:"pointer",color:"#9ca3af",fontSize:11,fontWeight:600 }}>
-                      {k==="password" ? (showPass?"HIDE":"SHOW") : (showConfirm?"HIDE":"SHOW")}
-                    </button>
-                  )}
+                  <input type={visible?"text":"password"} placeholder="••••••••"
+                    value={form[k]||""} onChange={sf(k)}
+                    style={{ ...inputSt, paddingRight:52 }}/>
+                  <button type="button" onClick={toggle}
+                    style={{ position:"absolute", right:10, top:"50%", transform:"translateY(-50%)",
+                      background:"none", border:"none", cursor:"pointer", color:"#9ca3af", fontSize:11, fontWeight:600 }}>
+                    {visible?"HIDE":"SHOW"}
+                  </button>
                 </div>
-                {k==="confirmPassword" && passErr && (
-                  <div style={{ color:"#ef4444",fontSize:12,marginTop:4 }}>{passErr}</div>
-                )}
+                {k==="confirmPassword" && passErr &&
+                  <div style={{ color:T.red, fontSize:12, marginTop:4 }}>{passErr}</div>}
               </div>
             ))}
+            {/* Role */}
             <div style={{ marginBottom:12 }}>
-              <div style={{ fontSize:11,color:T.dim,fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",marginBottom:4 }}>Role</div>
+              <label style={labelSt}>Role</label>
               <select value={form.role} onChange={e=>handleRoleChange(e.target.value)}
-                style={{ width:"100%",padding:"9px 13px",borderRadius:8,
-                  border:`1px solid ${T.border2}`,background:T.card,color:T.white,fontSize:13,outline:"none" }}>
+                style={{ ...inputSt, cursor:"pointer" }}>
                 <option value="office_admin">Office Admin (Both Branches)</option>
                 <option value="branch_admin">Branch Admin (Single Branch)</option>
               </select>
-              <div style={{ fontSize:11,color:T.dim,marginTop:5,padding:"6px 10px",background:T.bg,borderRadius:6 }}>
-                {isOfficeAdmin
-                  ? "⚡ Office Admin has access to both Lakshmi Nagar and Raya with a branch switcher."
-                  : "🏥 Branch Admin is restricted to the single branch assigned below."}
+              <div style={{ fontSize:11, color:T.dim, marginTop:5, padding:"6px 10px", background:T.bg, borderRadius:6 }}>
+                {form.role==="office_admin"
+                  ? "⚡ Office Admin has access to both branches with a branch switcher."
+                  : "🏥 Branch Admin is restricted to the single branch below."}
               </div>
             </div>
-            <div style={{ marginBottom:12 }}>
-              <div style={{ fontSize:11,color:T.dim,fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",marginBottom:4 }}>
-                Branch {isOfficeAdmin && <span style={{ color:T.green,textTransform:"none",letterSpacing:0,fontWeight:500 }}>(auto: both)</span>}
-              </div>
-              {isOfficeAdmin ? (
-                <div style={{ padding:"9px 13px",borderRadius:8,border:`1px solid ${T.border}`,
-                  background:T.bg,color:T.dim,fontSize:13,display:"flex",gap:8 }}>
+            {/* Branch */}
+            <div style={{ marginBottom:18 }}>
+              <label style={labelSt}>
+                Branch {form.role==="office_admin" &&
+                  <span style={{ color:T.green, textTransform:"none", letterSpacing:0, fontWeight:500 }}>(auto: both)</span>}
+              </label>
+              {form.role==="office_admin" ? (
+                <div style={{ padding:"9px 13px", borderRadius:8, border:`1px solid ${T.border}`,
+                  background:T.bg, color:T.dim, fontSize:13, display:"flex", gap:8 }}>
                   <Pill color={T.laxmi}>Lakshmi Nagar</Pill>
                   <Pill color={T.raya}>Raya</Pill>
                 </div>
               ) : (
                 <select value={form.branch} onChange={sf("branch")}
-                  style={{ width:"100%",padding:"9px 13px",borderRadius:8,
-                    border:`1px solid ${T.border2}`,background:T.card,color:T.white,fontSize:13,outline:"none" }}>
+                  style={{ ...inputSt, cursor:"pointer" }}>
                   <option value="laxmi">Lakshmi Nagar</option>
                   <option value="raya">Raya</option>
                 </select>
               )}
             </div>
-            <div style={{ display:"flex",gap:8,justifyContent:"flex-end",marginTop:18 }}>
-              <button onClick={()=>setModal(false)} style={{ padding:"9px 18px",borderRadius:8,
-                background:"transparent",border:`1px solid ${T.border2}`,color:T.dim,fontWeight:700,cursor:"pointer" }}>Cancel</button>
-              <button onClick={create} style={{ padding:"9px 18px",borderRadius:8,
-                background:T.laxmi,color:"#000",border:"none",fontWeight:800,cursor:"pointer" }}>Create User</button>
+            {/* Footer */}
+            <div style={{ display:"flex", gap:8, justifyContent:"flex-end" }}>
+              <button onClick={()=>setCreateModal(false)}
+                style={{ padding:"9px 18px", borderRadius:8, background:"transparent",
+                  border:`1px solid ${T.border2}`, color:T.dim, fontWeight:700, cursor:"pointer" }}>Cancel</button>
+              <button onClick={handleCreate} disabled={loading}
+                style={{ padding:"9px 18px", borderRadius:8, background:T.laxmi, color:"#000",
+                  border:"none", fontWeight:800, cursor:"pointer", opacity:loading?0.7:1 }}>
+                {loading ? "Creating..." : "Create User"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════
+          EDIT USER MODAL
+      ════════════════════════════════════════ */}
+      {editModal && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.78)", zIndex:2000,
+          display:"flex", alignItems:"center", justifyContent:"center" }}>
+          <div style={{ background:T.surface, borderRadius:16, padding:30, width:460,
+            border:`1px solid ${T.border}`, boxShadow:SD, maxHeight:"90vh", overflowY:"auto" }}>
+            {/* Header */}
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
+              <div style={{ fontSize:16, fontWeight:800, color:T.white }}>Edit User</div>
+              <button onClick={()=>setEditModal(null)}
+                style={{ background:"rgba(255,255,255,.07)", border:"none", color:T.white,
+                  width:30, height:30, borderRadius:7, cursor:"pointer", fontSize:14 }}>✕</button>
+            </div>
+            <div style={{ fontSize:12, color:T.dim, marginBottom:20 }}>
+              Editing: <strong style={{ color:T.laxmi, fontFamily:"monospace" }}>{editModal.id}</strong>
+            </div>
+
+            {/* Full Name */}
+            <div style={{ marginBottom:12 }}>
+              <label style={labelSt}>Full Name <span style={{ color:T.red }}>*</span></label>
+              <input type="text" value={editForm.name} onChange={sef("name")} style={inputSt}/>
+            </div>
+            {/* Role */}
+            <div style={{ marginBottom:12 }}>
+              <label style={labelSt}>Role</label>
+              <select value={editForm.role}
+                onChange={e => setEditForm(f=>({ ...f, role:e.target.value, branch: e.target.value==="office_admin"?"laxmi":f.branch }))}
+                style={{ ...inputSt, cursor:"pointer" }}>
+                <option value="office_admin">Office Admin (Both Branches)</option>
+                <option value="branch_admin">Branch Admin (Single Branch)</option>
+              </select>
+            </div>
+            {/* Branch */}
+            <div style={{ marginBottom:12 }}>
+              <label style={labelSt}>
+                Branch {editForm.role==="office_admin" &&
+                  <span style={{ color:T.green, textTransform:"none", letterSpacing:0, fontWeight:500 }}>(auto: both)</span>}
+              </label>
+              {editForm.role==="office_admin" ? (
+                <div style={{ padding:"9px 13px", borderRadius:8, border:`1px solid ${T.border}`,
+                  background:T.bg, display:"flex", gap:8 }}>
+                  <Pill color={T.laxmi}>Lakshmi Nagar</Pill>
+                  <Pill color={T.raya}>Raya</Pill>
+                </div>
+              ) : (
+                <select value={editForm.branch} onChange={sef("branch")}
+                  style={{ ...inputSt, cursor:"pointer" }}>
+                  <option value="laxmi">Lakshmi Nagar</option>
+                  <option value="raya">Raya</option>
+                </select>
+              )}
+            </div>
+
+            {/* Divider — optional password reset */}
+            <div style={{ borderTop:`1px solid ${T.border}`, margin:"18px 0 14px",
+              fontSize:11, color:T.dim, fontWeight:700, textTransform:"uppercase", letterSpacing:".06em",
+              paddingTop:14 }}>
+              Reset Password <span style={{ color:T.dimmer, textTransform:"none", fontWeight:400 }}>(leave blank to keep current)</span>
+            </div>
+            {[["New Password","newPass",showEditPass,()=>setShowEditPass(p=>!p)],
+              ["Confirm New Password","confirmNewPass",showEditPass,()=>{}]
+            ].map(([lbl,k,visible])=>(
+              <div key={k} style={{ marginBottom:12 }}>
+                <label style={labelSt}>{lbl}</label>
+                <div style={{ position:"relative" }}>
+                  <input type={visible?"text":"password"} placeholder="••••••••"
+                    value={editForm[k]||""} onChange={sef(k)}
+                    style={{ ...inputSt, paddingRight:52 }}/>
+                  {k==="newPass" && (
+                    <button type="button" onClick={()=>setShowEditPass(p=>!p)}
+                      style={{ position:"absolute", right:10, top:"50%", transform:"translateY(-50%)",
+                        background:"none", border:"none", cursor:"pointer", color:"#9ca3af", fontSize:11, fontWeight:600 }}>
+                      {showEditPass?"HIDE":"SHOW"}
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+            {editForm.newPass && editForm.newPass !== editForm.confirmNewPass && (
+              <div style={{ color:T.red, fontSize:12, marginBottom:10 }}>Passwords do not match</div>
+            )}
+
+            {/* Footer */}
+            <div style={{ display:"flex", gap:8, justifyContent:"flex-end", marginTop:18 }}>
+              <button onClick={()=>setEditModal(null)}
+                style={{ padding:"9px 18px", borderRadius:8, background:"transparent",
+                  border:`1px solid ${T.border2}`, color:T.dim, fontWeight:700, cursor:"pointer" }}>Cancel</button>
+              <button onClick={handleSaveEdit} disabled={loading}
+                style={{ padding:"9px 18px", borderRadius:8, background:T.laxmi, color:"#000",
+                  border:"none", fontWeight:800, cursor:"pointer", opacity:loading?0.7:1 }}>
+                {loading ? "Saving..." : "Save Changes"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════
+          CONFIRM MODAL (Deactivate / Delete / Reactivate)
+      ════════════════════════════════════════ */}
+      {confirmModal && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.82)", zIndex:2100,
+          display:"flex", alignItems:"center", justifyContent:"center" }}>
+          <div style={{ background:T.surface, borderRadius:16, padding:28, width:400,
+            border:`1px solid ${
+              confirmModal.type==="delete"     ? T.red   :
+              confirmModal.type==="deactivate" ? T.amber : T.green
+            }44`, boxShadow:SD }}>
+            {/* Icon + title */}
+            <div style={{ textAlign:"center", marginBottom:16 }}>
+              <div style={{ fontSize:44, marginBottom:8 }}>
+                {confirmModal.type==="delete"     ? "🗑️" :
+                 confirmModal.type==="deactivate" ? "⏸️" : "▶️"}
+              </div>
+              <div style={{ fontSize:16, fontWeight:900, color:T.white }}>
+                {confirmModal.type==="delete"     ? "Permanently Delete User?" :
+                 confirmModal.type==="deactivate" ? "Deactivate User?"         : "Reactivate User?"}
+              </div>
+            </div>
+            {/* Description */}
+            <div style={{ background:T.bg, borderRadius:10, padding:"12px 16px", marginBottom:20 }}>
+              <div style={{ fontSize:13, fontWeight:700, color:T.white, marginBottom:4 }}>
+                {confirmModal.user.name}
+              </div>
+              <div style={{ fontSize:12, color:T.dim, fontFamily:"monospace" }}>{confirmModal.user.id}</div>
+              <div style={{ marginTop:8, fontSize:12, color:T.dim }}>
+                {confirmModal.type==="delete"
+                  ? "⚠️ This action is permanent and cannot be undone. All access for this user will be revoked immediately."
+                  : confirmModal.type==="deactivate"
+                  ? "This will block the user from logging in. You can reactivate them at any time."
+                  : "This will restore the user's login access immediately."}
+              </div>
+            </div>
+            {/* Actions */}
+            <div style={{ display:"flex", gap:8, justifyContent:"flex-end" }}>
+              <button onClick={()=>setConfirmModal(null)}
+                style={{ padding:"9px 18px", borderRadius:8, background:"transparent",
+                  border:`1px solid ${T.border2}`, color:T.dim, fontWeight:700, cursor:"pointer" }}>Cancel</button>
+              <button onClick={handleConfirm} disabled={loading}
+                style={{ padding:"9px 20px", borderRadius:8, border:"none", fontWeight:800, cursor:"pointer",
+                  opacity:loading?0.7:1,
+                  background: confirmModal.type==="delete"     ? T.red   :
+                              confirmModal.type==="deactivate" ? T.amber : T.green,
+                  color: confirmModal.type==="delete" ? "#fff" : "#000",
+                }}>
+                {loading ? "Processing..." :
+                  confirmModal.type==="delete"     ? "Yes, Delete"     :
+                  confirmModal.type==="deactivate" ? "Yes, Deactivate" : "Yes, Reactivate"}
+              </button>
             </div>
           </div>
         </div>
       )}
     </div>
   );
-}
 
 /* ══════════════════════════════════════════════════════════════
    TAB 11 — DEPARTMENTS
@@ -1192,12 +1604,8 @@ function DepartmentsTab({ all }) {
 }
 
 /* ══════════════════════════════════════════════════════════════
-   TAB 12 — TASK PERFORMANCE  (COMPLETELY REDESIGNED)
-   Department-wise performance for each employee with full
-   descriptions: Billing, Uploading, OPD, Query, Intimation
+   TAB 12 — TASK PERFORMANCE
 ══════════════════════════════════════════════════════════════ */
-
-/* ── Constants ── */
 const DEPARTMENTS = ["Billing", "Uploading", "OPD", "Query", "Intimation"];
 
 const DEPT_META = {
@@ -1216,22 +1624,17 @@ const ratingMeta = (r) => {
   return             { label:"Poor",         color:"#F87171" };
 };
 
-/* ── Department Overview Card ── */
 function DeptOverviewCard({ dept, entries }) {
   const T = useT();
   const meta = DEPT_META[dept];
-  const avg = entries.length
-    ? (entries.reduce((s,e)=>s+e.rating,0)/entries.length).toFixed(1)
-    : "—";
+  const avg = entries.length ? (entries.reduce((s,e)=>s+e.rating,0)/entries.length).toFixed(1) : "—";
   const poor  = entries.filter(e=>e.rating<=2).length;
   const excel = entries.filter(e=>e.rating>=5).length;
   const rm    = entries.length ? ratingMeta(parseFloat(avg)) : { label:"—", color:T.dim };
-
   const dist = [5,4,3,2,1].map(s=>({
     s, count: entries.filter(e=>e.rating===s).length,
     pct: entries.length ? Math.round(entries.filter(e=>e.rating===s).length/entries.length*100) : 0,
   }));
-
   return (
     <div style={{ background:T.card, borderRadius:14, padding:18, boxShadow:SD,
       borderTop:`3px solid ${meta.color}`, display:"flex", flexDirection:"column", gap:10 }}>
@@ -1275,27 +1678,20 @@ function DeptOverviewCard({ dept, entries }) {
   );
 }
 
-/* ── Employee Performance Card (dept-wise breakdown) ── */
 function EmployeeCard({ emp, entries, onClick }) {
   const T = useT();
-  const overallAvg = entries.length
-    ? (entries.reduce((s,e)=>s+e.rating,0)/entries.length).toFixed(1) : "—";
+  const overallAvg = entries.length ? (entries.reduce((s,e)=>s+e.rating,0)/entries.length).toFixed(1) : "—";
   const rm  = entries.length ? ratingMeta(parseFloat(overallAvg)) : { label:"—", color:T.dim };
   const col = bColor(emp.branch, T);
-
-  /* per-dept avg for this employee */
   const deptBreakdown = DEPARTMENTS.map(dept => {
     const de = entries.filter(e=>e.department===dept);
     const avg = de.length ? (de.reduce((s,e)=>s+e.rating,0)/de.length).toFixed(1) : null;
     return { dept, avg, count: de.length, meta: DEPT_META[dept] };
   });
-
   return (
     <div onClick={onClick}
       style={{ background:T.card, borderRadius:14, padding:18, boxShadow:SD,
-        cursor:"pointer", border:`1px solid ${T.border}`,
-        transition:"border-color .15s", borderLeft:`4px solid ${col}` }}>
-      {/* Header */}
+        cursor:"pointer", border:`1px solid ${T.border}`, borderLeft:`4px solid ${col}` }}>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:12 }}>
         <div style={{ display:"flex", gap:10, alignItems:"center" }}>
           <div style={{ width:38, height:38, borderRadius:10, background:col+"25",
@@ -1306,8 +1702,7 @@ function EmployeeCard({ emp, entries, onClick }) {
           <div>
             <div style={{ fontSize:13, fontWeight:800, color:T.white }}>{emp.staffName}</div>
             <div style={{ fontSize:11, color:T.dim, marginTop:2, display:"flex", gap:6 }}>
-              <span>{emp.staffId}</span>
-              <span>·</span>
+              <span>{emp.staffId}</span><span>·</span>
               <span style={{ color:col }}>{bName(emp.branch)}</span>
             </div>
           </div>
@@ -1318,13 +1713,11 @@ function EmployeeCard({ emp, entries, onClick }) {
             padding:"1px 7px", fontWeight:700 }}>{rm.label}</span>
         </div>
       </div>
-      {/* Role badge */}
       <div style={{ marginBottom:10 }}>
         <span style={{ background:T.bg, borderRadius:5, padding:"2px 8px", fontSize:11, color:T.dim, fontWeight:600 }}>
           {emp.role}
         </span>
       </div>
-      {/* Dept breakdown mini-bars */}
       <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
         {deptBreakdown.map(({ dept, avg, count, meta }) => (
           <div key={dept} style={{ display:"flex", alignItems:"center", gap:8 }}>
@@ -1333,8 +1726,7 @@ function EmployeeCard({ emp, entries, onClick }) {
             {avg !== null ? (
               <>
                 <div style={{ flex:1, height:5, borderRadius:3, background:T.bg, overflow:"hidden" }}>
-                  <div style={{ height:"100%", width:(parseFloat(avg)/5*100)+"%", borderRadius:3,
-                    background:meta.color, opacity:.85 }}/>
+                  <div style={{ height:"100%", width:(parseFloat(avg)/5*100)+"%", borderRadius:3, background:meta.color, opacity:.85 }}/>
                 </div>
                 <div style={{ width:22, textAlign:"right", fontSize:11, fontWeight:700, color:meta.color }}>{avg}</div>
                 <div style={{ width:24, textAlign:"right", fontSize:10, color:T.dim }}>({count})</div>
@@ -1352,17 +1744,13 @@ function EmployeeCard({ emp, entries, onClick }) {
   );
 }
 
-/* ── Employee Detail Modal ── */
 function EmployeeDetailModal({ emp, entries, onClose }) {
   const T = useT();
   const [activeDept, setActiveDept] = useState("all");
-
   if (!emp) return null;
   const col = bColor(emp.branch, T);
-  const overallAvg = entries.length
-    ? (entries.reduce((s,e)=>s+e.rating,0)/entries.length).toFixed(1) : "—";
+  const overallAvg = entries.length ? (entries.reduce((s,e)=>s+e.rating,0)/entries.length).toFixed(1) : "—";
   const rm = entries.length ? ratingMeta(parseFloat(overallAvg)) : { label:"—", color:T.dim };
-
   const deptEntries = activeDept === "all" ? entries : entries.filter(e=>e.department===activeDept);
 
   return (
@@ -1371,8 +1759,6 @@ function EmployeeDetailModal({ emp, entries, onClose }) {
       <div style={{ background:T.surface, borderRadius:20, width:"100%", maxWidth:780,
         maxHeight:"92vh", overflow:"hidden", display:"flex", flexDirection:"column",
         border:`1px solid ${T.border}`, boxShadow:"0 32px 100px rgba(0,0,0,.7)" }}>
-
-        {/* Modal header */}
         <div style={{ padding:"16px 22px", borderBottom:`1px solid ${T.border}`, background:T.card,
           display:"flex", justifyContent:"space-between", alignItems:"center" }}>
           <div style={{ display:"flex", alignItems:"center", gap:12 }}>
@@ -1384,10 +1770,7 @@ function EmployeeDetailModal({ emp, entries, onClose }) {
             <div>
               <div style={{ fontSize:16, fontWeight:900, color:T.white }}>{emp.staffName}</div>
               <div style={{ fontSize:12, color:T.dim, display:"flex", gap:8, marginTop:2 }}>
-                <span>{emp.staffId}</span>
-                <span>·</span>
-                <span>{emp.role}</span>
-                <span>·</span>
+                <span>{emp.staffId}</span><span>·</span><span>{emp.role}</span><span>·</span>
                 <Pill color={col}>{bName(emp.branch)}</Pill>
               </div>
             </div>
@@ -1401,9 +1784,7 @@ function EmployeeDetailModal({ emp, entries, onClose }) {
               color:T.white, width:32, height:32, borderRadius:8, cursor:"pointer", fontSize:15 }}>✕</button>
           </div>
         </div>
-
         <div style={{ overflowY:"auto", padding:22 }}>
-          {/* Department-wise avg summary row */}
           <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:8, marginBottom:18 }}>
             {DEPARTMENTS.map(dept => {
               const de = entries.filter(e=>e.department===dept);
@@ -1413,8 +1794,7 @@ function EmployeeDetailModal({ emp, entries, onClose }) {
                 <div key={dept} onClick={()=>setActiveDept(activeDept===dept?"all":dept)}
                   style={{ background: activeDept===dept ? meta.color+"25" : T.card,
                     border:`1.5px solid ${activeDept===dept?meta.color:T.border}`,
-                    borderRadius:10, padding:"10px 12px", cursor:"pointer", textAlign:"center",
-                    transition:"all .15s" }}>
+                    borderRadius:10, padding:"10px 12px", cursor:"pointer", textAlign:"center" }}>
                   <div style={{ fontSize:18, marginBottom:4 }}>{meta.icon}</div>
                   <div style={{ fontSize:10, color:T.dim, fontWeight:600, marginBottom:4 }}>{dept}</div>
                   <div style={{ fontSize:18, fontWeight:900, color: avg ? ratingMeta(parseFloat(avg)).color : T.dimmer }}>
@@ -1425,8 +1805,6 @@ function EmployeeDetailModal({ emp, entries, onClose }) {
               );
             })}
           </div>
-
-          {/* Department filter label */}
           {activeDept !== "all" && (
             <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:12 }}>
               <span style={{ fontSize:12, color:T.dim }}>Showing:</span>
@@ -1435,8 +1813,6 @@ function EmployeeDetailModal({ emp, entries, onClose }) {
                 color:T.dim, borderRadius:6, padding:"2px 8px", fontSize:11, cursor:"pointer" }}>Clear</button>
             </div>
           )}
-
-          {/* Reviews list */}
           <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
             {deptEntries.length === 0 && (
               <div style={{ textAlign:"center", padding:40, color:T.dim }}>No reviews for this department</div>
@@ -1476,13 +1852,12 @@ function EmployeeDetailModal({ emp, entries, onClose }) {
   );
 }
 
-/* ── Main TaskPerformanceTab ── */
 function TaskPerformanceTab() {
   const T = useT();
   const [performances, setPerformances] = useState([]);
   const [loading, setLoading]           = useState(false);
   const [selectedEmp, setSelectedEmp]   = useState(null);
-  const [viewMode, setViewMode]         = useState("employees"); // "employees" | "departments"
+  const [viewMode, setViewMode]         = useState("employees");
   const [branchF, setBranchF]           = useState("all");
   const [deptF, setDeptF]               = useState("all");
   const [ratingF, setRatingF]           = useState("all");
@@ -1496,14 +1871,11 @@ function TaskPerformanceTab() {
         setPerformances(data || []);
       } catch {
         setPerformances(DEMO_PERFORMANCES);
-      } finally {
-        setLoading(false);
-      }
+      } finally { setLoading(false); }
     };
     load();
   }, []);
 
-  /* Filter performances */
   const filtered = performances.filter(e => {
     if (branchF !== "all" && e.branch !== branchF) return false;
     if (deptF   !== "all" && e.department !== deptF) return false;
@@ -1513,32 +1885,21 @@ function TaskPerformanceTab() {
     return true;
   });
 
-  /* Group by employee */
   const empMap = {};
   filtered.forEach(e => {
-    if (!empMap[e.staffId]) {
-      empMap[e.staffId] = {
-        staffId: e.staffId, staffName: e.staffName,
-        branch: e.branch, role: e.role, entries: []
-      };
-    }
+    if (!empMap[e.staffId]) empMap[e.staffId] = { staffId:e.staffId, staffName:e.staffName, branch:e.branch, role:e.role, entries:[] };
     empMap[e.staffId].entries.push(e);
   });
   const employees = Object.values(empMap);
 
-  /* Stats */
-  const allFiltered   = filtered;
-  const overallAvg    = allFiltered.length ? (allFiltered.reduce((s,e)=>s+e.rating,0)/allFiltered.length).toFixed(1) : "—";
-  const laxmiEntries  = performances.filter(e=>e.branch==="laxmi");
-  const rayaEntries   = performances.filter(e=>e.branch==="raya");
-  const laxmiAvg      = laxmiEntries.length ? (laxmiEntries.reduce((s,e)=>s+e.rating,0)/laxmiEntries.length).toFixed(1) : "—";
-  const rayaAvg       = rayaEntries.length  ? (rayaEntries.reduce((s,e)=>s+e.rating,0)/rayaEntries.length).toFixed(1)  : "—";
-  const poorCount     = performances.filter(e=>e.rating<=2).length;
+  const overallAvg   = filtered.length ? (filtered.reduce((s,e)=>s+e.rating,0)/filtered.length).toFixed(1) : "—";
+  const laxmiEntries = performances.filter(e=>e.branch==="laxmi");
+  const rayaEntries  = performances.filter(e=>e.branch==="raya");
+  const laxmiAvg     = laxmiEntries.length ? (laxmiEntries.reduce((s,e)=>s+e.rating,0)/laxmiEntries.length).toFixed(1) : "—";
+  const rayaAvg      = rayaEntries.length  ? (rayaEntries.reduce((s,e)=>s+e.rating,0)/rayaEntries.length).toFixed(1)  : "—";
+  const poorCount    = performances.filter(e=>e.rating<=2).length;
+  const selEntries   = selectedEmp ? performances.filter(e=>e.staffId===selectedEmp.staffId) : [];
 
-  /* Selected employee entries for modal */
-  const selEntries = selectedEmp ? performances.filter(e=>e.staffId===selectedEmp.staffId) : [];
-
-  /* Excel export cols */
   const PERF_COLS = [
     {label:"Staff Name",key:"staffName"},{label:"Staff ID",key:"staffId"},
     {label:"Branch",get:r=>bName(r.branch)},{label:"Role",key:"role"},
@@ -1550,15 +1911,12 @@ function TaskPerformanceTab() {
 
   return (
     <div>
-      {/* Top Stats */}
       <div style={{ display:"flex",gap:12,flexWrap:"wrap",marginBottom:18 }}>
-        <StatCard icon="⭐" label="Overall Avg Rating"   value={overallAvg}  sub={performances.length+" total reviews"}  color={T.amber}/>
-        <StatCard icon="🏥" label="Laxmi Nagar Avg"      value={laxmiAvg}   sub="Branch average"                         color={T.laxmi}/>
-        <StatCard icon="🏨" label="Raya Avg"             value={rayaAvg}    sub="Branch average"                         color={T.raya}/>
-        <StatCard icon="⚠️" label="Poor Ratings (≤2)"    value={poorCount}  sub="Needs attention"                        color={poorCount>0?T.red:T.green}/>
+        <StatCard icon="⭐" label="Overall Avg Rating" value={overallAvg}  sub={performances.length+" total reviews"} color={T.amber}/>
+        <StatCard icon="🏥" label="Laxmi Nagar Avg"   value={laxmiAvg}    sub="Branch average"                       color={T.laxmi}/>
+        <StatCard icon="🏨" label="Raya Avg"           value={rayaAvg}     sub="Branch average"                       color={T.raya}/>
+        <StatCard icon="⚠️" label="Poor Ratings (≤2)"  value={poorCount}   sub="Needs attention"                      color={poorCount>0?T.red:T.green}/>
       </div>
-
-      {/* Dept Overview Cards */}
       <div style={{ marginBottom:22 }}>
         <STitle>Department Overview</STitle>
         <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:12 }}>
@@ -1567,10 +1925,7 @@ function TaskPerformanceTab() {
           ))}
         </div>
       </div>
-
-      {/* View Toggle + Filters */}
       <div style={{ display:"flex", gap:8, flexWrap:"wrap", alignItems:"center", marginBottom:14 }}>
-        {/* View mode toggle */}
         <div style={{ display:"flex", background:T.bg, borderRadius:9, padding:3, gap:2, border:`1px solid ${T.border}` }}>
           {[["employees","👤 By Employee"],["departments","🏢 By Department"]].map(([v,lbl])=>(
             <button key={v} onClick={()=>setViewMode(v)} style={{
@@ -1588,11 +1943,9 @@ function TaskPerformanceTab() {
             background:T.card, color:T.white, fontSize:13, outline:"none", width:210 }}/>
         <XlsBtn onClick={()=>exportXLSX(filtered, PERF_COLS, "performance_ratings.xlsx")}/>
       </div>
-
       {loading ? (
         <div style={{ ...cardStyle(T), textAlign:"center", padding:60, color:T.dim }}>Loading performance data...</div>
       ) : viewMode === "employees" ? (
-        /* ── Employee Card Grid ── */
         employees.length === 0 ? (
           <div style={{ ...cardStyle(T), textAlign:"center", padding:60 }}>
             <div style={{ fontSize:36, marginBottom:12 }}>📭</div>
@@ -1606,7 +1959,6 @@ function TaskPerformanceTab() {
           </div>
         )
       ) : (
-        /* ── Department Detail Table View ── */
         <div style={{ display:"flex", flexDirection:"column", gap:20 }}>
           {DEPARTMENTS.filter(d => deptF==="all" || d===deptF).map(dept => {
             const de = filtered.filter(e=>e.department===dept);
@@ -1615,14 +1967,12 @@ function TaskPerformanceTab() {
             const avg = (de.reduce((s,e)=>s+e.rating,0)/de.length).toFixed(1);
             return (
               <div key={dept}>
-                {/* Dept header */}
                 <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10 }}>
                   <span style={{ fontSize:20 }}>{meta.icon}</span>
                   <span style={{ fontSize:14, fontWeight:800, color:T.white }}>{dept} Department</span>
                   <Pill color={meta.color}>{avg} avg</Pill>
                   <span style={{ fontSize:12, color:T.dim }}>{de.length} reviews</span>
                 </div>
-                {/* Table */}
                 <div style={{ ...cardStyle(T), padding:0, overflow:"hidden" }}>
                   <table style={{ width:"100%", borderCollapse:"collapse" }}>
                     <thead>
@@ -1664,60 +2014,33 @@ function TaskPerformanceTab() {
           })}
         </div>
       )}
-
-      {/* Employee Detail Modal */}
       {selectedEmp && (
-        <EmployeeDetailModal
-          emp={selectedEmp}
-          entries={selEntries}
-          onClose={()=>setSelectedEmp(null)}
-        />
+        <EmployeeDetailModal emp={selectedEmp} entries={selEntries} onClose={()=>setSelectedEmp(null)}/>
       )}
     </div>
   );
 }
 
-/* ── Demo data — replace with apiService.getPerformanceRatings() ── */
 const DEMO_PERFORMANCES = [
-  /* Billing dept */
-  { staffName:"Rahul Verma",      staffId:"EMP002", branch:"laxmi", role:"Billing Staff",     department:"Billing",    task:"Invoice Generation",          rating:4, reviewedBy:"Office Admin (Laxmi)", description:"Invoices raised accurately with minor formatting issues. Collection targets met for the week. One cashless billing error was self-corrected before end of day.", reason:"", date:"2026-04-15" },
-  { staffName:"Suresh Patel",     staffId:"EMP004", branch:"raya",  role:"Billing Staff",     department:"Billing",    task:"Cashless Billing",            rating:3, reviewedBy:"Office Admin (Raya)",  description:"Two invoice discrepancies found this week involving TPA claims. Needs re-training on cashless billing procedure. Response time to queries was good.", reason:"", date:"2026-04-13" },
-  { staffName:"Priya Nair",       staffId:"EMP003", branch:"raya",  role:"Billing Staff",     department:"Billing",    task:"Daily Collections",           rating:5, reviewedBy:"Office Admin (Raya)",  description:"Exceptional daily collection rate — 100% invoices settled within SLA. No pending dues as of end of week. Patients appreciated clear billing explanation.", reason:"", date:"2026-04-14" },
-  { staffName:"Kavya Reddy",      staffId:"EMP007", branch:"laxmi", role:"Billing Staff",     department:"Billing",    task:"Advance Collection",          rating:4, reviewedBy:"Office Admin (Laxmi)", description:"Advance collections handled efficiently. No complaints from patients. Minor delay in uploading payment receipts to the system, resolved same day.", reason:"", date:"2026-04-10" },
-
-  /* Uploading dept */
-  { staffName:"Meena Kapoor",     staffId:"EMP005", branch:"laxmi", role:"Lab Technician",    department:"Uploading",  task:"Report Upload Accuracy",      rating:5, reviewedBy:"Office Admin (Laxmi)", description:"All lab reports uploaded with zero errors within 20 minutes of processing. Doctor feedback was overwhelmingly positive. Maintained 100% TAT compliance.", reason:"", date:"2026-04-12" },
-  { staffName:"Sunita Yadav",     staffId:"EMP010", branch:"raya",  role:"Lab Technician",    department:"Uploading",  task:"Sample Log Entry",            rating:4, reviewedBy:"Office Admin (Raya)",  description:"Efficient and thorough documentation of sample entries. One mislabeling incident self-corrected within the hour. Overall accuracy maintained above 98%.", reason:"", date:"2026-04-07" },
-  { staffName:"Rahul Verma",      staffId:"EMP002", branch:"laxmi", role:"Billing Staff",     department:"Uploading",  task:"Document Filing",             rating:3, reviewedBy:"Office Admin (Laxmi)", description:"Document filing was incomplete on April 11. Older records were not indexed correctly, causing retrieval delays. Has been informed to follow the checklist.", reason:"", date:"2026-04-11" },
-
-  /* OPD dept */
-  { staffName:"Kavya Reddy",      staffId:"EMP007", branch:"laxmi", role:"Nurse",             department:"OPD",        task:"Patient Registration",        rating:5, reviewedBy:"Office Admin (Laxmi)", description:"Handled a peak load of 62 OPD patients in a single shift with zero complaints. Registration completed in under 4 minutes per patient. Excellent coordination with doctors.", reason:"", date:"2026-04-10" },
-  { staffName:"Deepak Joshi",     staffId:"EMP008", branch:"raya",  role:"Receptionist",      department:"OPD",        task:"Appointment Scheduling",      rating:3, reviewedBy:"Office Admin (Raya)",  description:"Scheduling conflicts occurred on April 8th due to double-booking in the orthopedics slot. Led to 35-minute patient wait time. Improved coordination with specialists needed.", reason:"", date:"2026-04-09" },
-  { staffName:"Priya Nair",       staffId:"EMP003", branch:"raya",  role:"Nurse",             department:"OPD",        task:"Ward Rounds Assistance",      rating:4, reviewedBy:"Office Admin (Raya)",  description:"Consistent and attentive during ward rounds. Patients responded positively to care and follow-up. Minor delay in vitals logging once during the week.", reason:"", date:"2026-04-14" },
-  { staffName:"Dr. Anjali Sharma",staffId:"EMP001", branch:"laxmi", role:"Doctor",            department:"OPD",        task:"OPD Consultation Quality",    rating:5, reviewedBy:"Office Admin (Laxmi)", description:"Exemplary patient interaction during OPD. Prescription clarity rated 5/5 by pharmacy staff. Completed 38 consultations in one session without compromising quality.", reason:"", date:"2026-04-16" },
-
-  /* Query dept */
-  { staffName:"Deepak Joshi",     staffId:"EMP008", branch:"raya",  role:"Receptionist",      department:"Query",      task:"Patient Query Handling",      rating:4, reviewedBy:"Office Admin (Raya)",  description:"Most queries resolved at first contact. Escalated two complex TPA queries to the right department promptly. Communication was polite and professional throughout.", reason:"", date:"2026-04-09" },
-  { staffName:"Rahul Verma",      staffId:"EMP002", branch:"laxmi", role:"Receptionist",      department:"Query",      task:"Walk-in Information Desk",    rating:5, reviewedBy:"Office Admin (Laxmi)", description:"Zero complaints from patients or visitors during the entire week. All information requests answered accurately. Maintained composure under high footfall.", reason:"", date:"2026-04-15" },
-  { staffName:"Sunita Yadav",     staffId:"EMP010", branch:"raya",  role:"Lab Technician",    department:"Query",      task:"Test Result Queries",         rating:3, reviewedBy:"Office Admin (Raya)",  description:"Slow to respond to report-related queries on April 9. Patients had to follow up twice. Needs to be more proactive in communicating delays to patients and attending doctors.", reason:"", date:"2026-04-07" },
-
-  /* Intimation dept */
-  { staffName:"Arjun Singh",      staffId:"EMP006", branch:"raya",  role:"Insurance Exec",    department:"Intimation", task:"TPA Pre-Auth Processing",     rating:2, reviewedBy:"Office Admin (Raya)",  description:"Two pre-auth requests submitted with incorrect ICD codes, causing denial. Insurance company raised a flag. Patient discharge delayed by 18 hours in one case. Placed under daily supervision pending review.", reason:"", date:"2026-04-11" },
-  { staffName:"Meena Kapoor",     staffId:"EMP005", branch:"laxmi", role:"Insurance Exec",    department:"Intimation", task:"Cashless Intimation Filing",  rating:5, reviewedBy:"Office Admin (Laxmi)", description:"All intimation files submitted within 2 hours of admission. Zero rejections this week. Follow-up calls with insurance coordinators tracked in the system diligently.", reason:"", date:"2026-04-12" },
-  { staffName:"Dr. Ramesh Gupta", staffId:"EMP009", branch:"laxmi", role:"Doctor",            department:"Intimation", task:"Clinical Summary for Claims",  rating:5, reviewedBy:"Office Admin (Laxmi)", description:"Surgical case documentation prepared per NABH and insurance standards. All 4 claim summaries approved on first submission. Medical records team highlighted these as best practice examples.", reason:"", date:"2026-04-08" },
-  { staffName:"Kavya Reddy",      staffId:"EMP007", branch:"laxmi", role:"Nurse",             department:"Intimation", task:"Discharge Intimation",        rating:4, reviewedBy:"Office Admin (Laxmi)", description:"Discharge intimation sent to TPA coordinators on time for all 6 patients this week. One minor delay on April 8 due to incomplete discharge summary from treating doctor.", reason:"", date:"2026-04-10" },
+  { staffName:"Rahul Verma",       staffId:"EMP002", branch:"laxmi", role:"Billing Staff",  department:"Billing",    task:"Invoice Generation",         rating:4, reviewedBy:"Office Admin (Laxmi)", description:"Invoices raised accurately with minor formatting issues.", reason:"", date:"2026-04-15" },
+  { staffName:"Suresh Patel",      staffId:"EMP004", branch:"raya",  role:"Billing Staff",  department:"Billing",    task:"Cashless Billing",           rating:3, reviewedBy:"Office Admin (Raya)",  description:"Two invoice discrepancies found this week involving TPA claims.", reason:"", date:"2026-04-13" },
+  { staffName:"Priya Nair",        staffId:"EMP003", branch:"raya",  role:"Billing Staff",  department:"Billing",    task:"Daily Collections",          rating:5, reviewedBy:"Office Admin (Raya)",  description:"Exceptional daily collection rate — 100% invoices settled within SLA.", reason:"", date:"2026-04-14" },
+  { staffName:"Meena Kapoor",      staffId:"EMP005", branch:"laxmi", role:"Lab Technician", department:"Uploading",  task:"Report Upload Accuracy",     rating:5, reviewedBy:"Office Admin (Laxmi)", description:"All lab reports uploaded with zero errors within 20 minutes.", reason:"", date:"2026-04-12" },
+  { staffName:"Kavya Reddy",       staffId:"EMP007", branch:"laxmi", role:"Nurse",          department:"OPD",        task:"Patient Registration",       rating:5, reviewedBy:"Office Admin (Laxmi)", description:"Handled a peak load of 62 OPD patients in a single shift.", reason:"", date:"2026-04-10" },
+  { staffName:"Deepak Joshi",      staffId:"EMP008", branch:"raya",  role:"Receptionist",   department:"Query",      task:"Patient Query Handling",     rating:4, reviewedBy:"Office Admin (Raya)",  description:"Most queries resolved at first contact.", reason:"", date:"2026-04-09" },
+  { staffName:"Arjun Singh",       staffId:"EMP006", branch:"raya",  role:"Insurance Exec", department:"Intimation", task:"TPA Pre-Auth Processing",    rating:2, reviewedBy:"Office Admin (Raya)",  description:"Two pre-auth requests submitted with incorrect ICD codes.", reason:"", date:"2026-04-11" },
+  { staffName:"Meena Kapoor",      staffId:"EMP005", branch:"laxmi", role:"Insurance Exec", department:"Intimation", task:"Cashless Intimation Filing", rating:5, reviewedBy:"Office Admin (Laxmi)", description:"All intimation files submitted within 2 hours of admission.", reason:"", date:"2026-04-12" },
 ];
 
-
 /* ══════════════════════════════════════════════════════════════
-   MAIN COMPONENT EXPORT
+   MAIN EXPORT
 ══════════════════════════════════════════════════════════════ */
 export default function SuperAdminDashboard({ db={}, printRequests=[], onApprovePrint, onLogout }) {
   const { isDark, toggle } = useTheme();
   // eslint-disable-next-line no-global-assign
   T = isDark ? T_DARK : T_LIGHT;
-  const [tab, setTab]       = useState("dashboard");
-  const dropRef             = useRef();
+  const [tab, setTab] = useState("dashboard");
+  const dropRef       = useRef();
 
   const all   = useMemo(()=>flattenDB(db,"all"),  [db]);
   const laxmi = useMemo(()=>flattenDB(db,"laxmi"),[db]);
@@ -1754,80 +2077,80 @@ export default function SuperAdminDashboard({ db={}, printRequests=[], onApprove
 
   return (
     <TC.Provider value={T}>
-    <div style={{ minHeight:"100vh",background:T.bg,fontFamily:"'Segoe UI',system-ui,sans-serif" }}>
+    <div style={{ minHeight:"100vh", background:T.bg, fontFamily:"'Segoe UI',system-ui,sans-serif" }}>
 
       {/* SIDEBAR */}
-      <div style={{ width:228,minHeight:"100vh",background:T.sidebar,display:"flex",flexDirection:"column",
-        position:"fixed",top:0,left:0,zIndex:50,borderRight:`1px solid ${T.border}` }}>
-        <div style={{ padding:"18px 14px 14px",borderBottom:`1px solid ${T.border}` }}>
-          <div style={{ display:"flex",alignItems:"center",gap:10 }}>
-            <img src="/app_icon.png" alt="logo" style={{ width:36,height:36,borderRadius:10,objectFit:"cover" }}/>
+      <div style={{ width:228, minHeight:"100vh", background:T.sidebar, display:"flex", flexDirection:"column",
+        position:"fixed", top:0, left:0, zIndex:50, borderRight:`1px solid ${T.border}` }}>
+        <div style={{ padding:"18px 14px 14px", borderBottom:`1px solid ${T.border}` }}>
+          <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+            <img src="/app_icon.png" alt="logo" style={{ width:36, height:36, borderRadius:10, objectFit:"cover" }}/>
             <div>
-              <div style={{ color:T.white,fontWeight:800,fontSize:13 }}>Sangi Hospital</div>
-              <div style={{ color:T.dim,fontSize:10,textTransform:"uppercase",letterSpacing:".1em" }}>Super Admin Portal</div>
+              <div style={{ color:T.white, fontWeight:800, fontSize:13 }}>Sangi Hospital</div>
+              <div style={{ color:T.dim, fontSize:10, textTransform:"uppercase", letterSpacing:".1em" }}>Super Admin Portal</div>
             </div>
           </div>
         </div>
-        <div style={{ flex:1,overflowY:"auto",padding:"6px 6px" }}>
+        <div style={{ flex:1, overflowY:"auto", padding:"6px 6px" }}>
           {NAV.map((n,i)=>{
             if (n.section) return (
-              <div key={i} style={{ fontSize:10,color:T.dimmer,fontWeight:700,textTransform:"uppercase",
-                letterSpacing:".1em",padding:"12px 10px 4px" }}>{n.section}</div>
+              <div key={i} style={{ fontSize:10, color:T.dimmer, fontWeight:700, textTransform:"uppercase",
+                letterSpacing:".1em", padding:"12px 10px 4px" }}>{n.section}</div>
             );
             const active = tab===n.id;
             return (
               <button key={n.id} onClick={()=>setTab(n.id)} style={{
-                display:"flex",alignItems:"center",gap:8,padding:"8px 10px",borderRadius:9,
-                border:"none",cursor:"pointer",width:"100%",textAlign:"left",marginBottom:1,
+                display:"flex", alignItems:"center", gap:8, padding:"8px 10px", borderRadius:9,
+                border:"none", cursor:"pointer", width:"100%", textAlign:"left", marginBottom:1,
                 background:active?"rgba(56,189,248,.12)":"transparent",
-                color:active?T.laxmi:T.dim,fontWeight:active?700:400,fontSize:13,
+                color:active?T.laxmi:T.dim, fontWeight:active?700:400, fontSize:13,
                 borderLeft:active?`3px solid ${T.laxmi}`:"3px solid transparent",
               }}>
                 <span style={{ fontSize:15 }}>{n.icon}</span>
                 <span style={{ flex:1 }}>{n.label}</span>
-                {n.badge && <span style={{ background:T.amber,color:"#000",borderRadius:10,
-                  padding:"1px 7px",fontSize:10,fontWeight:900 }}>{n.badge}</span>}
+                {n.badge && <span style={{ background:T.amber, color:"#000", borderRadius:10,
+                  padding:"1px 7px", fontSize:10, fontWeight:900 }}>{n.badge}</span>}
               </button>
             );
           })}
         </div>
-        <div style={{ padding:"10px",borderTop:`1px solid ${T.border}` }}>
-          <div style={{ display:"flex",alignItems:"center",gap:10,padding:"9px 11px",
-            background:"rgba(255,255,255,.04)",borderRadius:9 }}>
-            <div style={{ width:30,height:30,borderRadius:8,background:T.laxmi+"30",
-              display:"flex",alignItems:"center",justifyContent:"center",color:T.laxmi,fontWeight:900,fontSize:13 }}>S</div>
+        <div style={{ padding:"10px", borderTop:`1px solid ${T.border}` }}>
+          <div style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 11px",
+            background:"rgba(255,255,255,.04)", borderRadius:9 }}>
+            <div style={{ width:30, height:30, borderRadius:8, background:T.laxmi+"30",
+              display:"flex", alignItems:"center", justifyContent:"center", color:T.laxmi, fontWeight:900, fontSize:13 }}>S</div>
             <div style={{ flex:1 }}>
-              <div style={{ fontSize:12,color:T.white,fontWeight:700 }}>Super Admin</div>
-              <div style={{ fontSize:10,color:T.dim }}>All branches</div>
+              <div style={{ fontSize:12, color:T.white, fontWeight:700 }}>Super Admin</div>
+              <div style={{ fontSize:10, color:T.dim }}>All branches</div>
             </div>
           </div>
         </div>
       </div>
 
       {/* MAIN CONTENT */}
-      <div style={{ marginLeft:228,flex:1,minHeight:"100vh",overflowX:"hidden" }}>
-        <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 28px",
-          borderBottom:`1px solid ${T.border}`,background:T.sidebar,position:"sticky",top:0,zIndex:40 }}>
-          <div style={{ fontSize:13,fontWeight:700,color:T.white }}>{activeLabel?.icon} {activeLabel?.label}</div>
-          <div style={{ display:"flex",alignItems:"center",gap:12 }}>
-            <button onClick={toggle} style={{ background:"transparent",border:`1px solid ${T.border}`,color:T.dim,
-              padding:"5px 12px",borderRadius:8,cursor:"pointer",fontSize:12,fontWeight:600 }}>
+      <div style={{ marginLeft:228, flex:1, minHeight:"100vh", overflowX:"hidden" }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 28px",
+          borderBottom:`1px solid ${T.border}`, background:T.sidebar, position:"sticky", top:0, zIndex:40 }}>
+          <div style={{ fontSize:13, fontWeight:700, color:T.white }}>{activeLabel?.icon} {activeLabel?.label}</div>
+          <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+            <button onClick={toggle} style={{ background:"transparent", border:`1px solid ${T.border}`, color:T.dim,
+              padding:"5px 12px", borderRadius:8, cursor:"pointer", fontSize:12, fontWeight:600 }}>
               {isDark?"☀ Light":"☾ Dark"}
             </button>
-            <div style={{ display:"flex",alignItems:"center",gap:8,background:"rgba(255,255,255,0.05)",
-              borderRadius:20,padding:"3px 6px 3px 12px",border:`1px solid ${T.border}` }}>
-              <span style={{ fontSize:11,color:T.dim,fontWeight:500 }}>Super Admin</span>
-              <div style={{ width:28,height:28,borderRadius:"50%",background:T.laxmi+"30",
-                display:"flex",alignItems:"center",justifyContent:"center",color:T.laxmi,fontWeight:900,fontSize:12 }}>S</div>
+            <div style={{ display:"flex", alignItems:"center", gap:8, background:"rgba(255,255,255,0.05)",
+              borderRadius:20, padding:"3px 6px 3px 12px", border:`1px solid ${T.border}` }}>
+              <span style={{ fontSize:11, color:T.dim, fontWeight:500 }}>Super Admin</span>
+              <div style={{ width:28, height:28, borderRadius:"50%", background:T.laxmi+"30",
+                display:"flex", alignItems:"center", justifyContent:"center", color:T.laxmi, fontWeight:900, fontSize:12 }}>S</div>
             </div>
-            <button onClick={onLogout} style={{ background:"transparent",border:`1px solid ${T.border}`,color:T.dim,
-              padding:"5px 13px",borderRadius:8,cursor:"pointer",fontSize:11,fontWeight:600,display:"flex",alignItems:"center",gap:5 }}>
+            <button onClick={onLogout} style={{ background:"transparent", border:`1px solid ${T.border}`, color:T.dim,
+              padding:"5px 13px", borderRadius:8, cursor:"pointer", fontSize:11, fontWeight:600, display:"flex", alignItems:"center", gap:5 }}>
               ↪ Logout
             </button>
           </div>
         </div>
         <div style={{ padding:"18px 28px 4px" }}>
-          <div style={{ fontSize:12,color:T.dim }}>
+          <div style={{ fontSize:12, color:T.dim }}>
             {new Date().toLocaleDateString("en-IN",{weekday:"long",year:"numeric",month:"long",day:"numeric"})}
             {" · "}{all.length} total records · {laxmi.length} Laxmi Nagar · {raya.length} Raya
           </div>
@@ -1835,7 +2158,7 @@ export default function SuperAdminDashboard({ db={}, printRequests=[], onApprove
         <div style={{ padding:"16px 28px 28px" }}>
           {tab==="dashboard"   && <DashboardTab all={all} laxmi={laxmi} raya={raya}/>}
           {tab==="laxmi"       && <BranchTab pts={laxmi} branch="laxmi"/>}
-          {tab==="raya"        && <BranchTab pts={raya} branch="raya"/>}
+          {tab==="raya"        && <BranchTab pts={raya}  branch="raya"/>}
           {tab==="allpatients" && <AllPatientsTab all={all}/>}
           {tab==="billing"     && <BillingTab all={all}/>}
           {tab==="invoices"    && <InvoicesTab printRequests={printRequests} onApprovePrint={onApprovePrint}/>}

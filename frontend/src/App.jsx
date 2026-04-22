@@ -24,8 +24,10 @@ import ManagementAdminDashboard from './pages/Managementadmindashboard';
 import MedicalHistoryPage from "./pages/MedicalHistoryPage";
 import LoginPage from "./pages/LoginPage";
 import HodDashboard from "./pages/HodDashboard";
-import BranchAdminDashboard from "./pages/BranchAdminDashboard";
-import BillingDashboard from "./pages/BillingDashboard"; // ← NEW
+import UploadingDashboard from "./pages/UploadingDashboard";
+import QueryDashboard from "./pages/QueryDashboard";         
+import OpdDashboard from "./pages/OpdDashboard";             
+import IntimationDashboard from "./pages/IntimationDashboard"; 
 import { ThemeProvider } from "./context/ThemeContext";
 import OpdDashboard from "./pages/OpdDashboard";
 import IntimationDashboard from "./pages/IntimationDashboard";
@@ -767,4 +769,3 @@ export function useAuth() {
 
   return { user, logout };
 }
- 

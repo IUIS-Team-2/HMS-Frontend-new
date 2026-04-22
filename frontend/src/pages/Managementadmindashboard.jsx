@@ -3,6 +3,12 @@ import MedDrawer from "../components/MedDrawer";
 import { useState, useMemo, useEffect } from "react";
 import { apiService } from "../services/apiService";
 
+const LOCATION_DB = {
+  laxmi: [],
+  raya: []
+};
+
+
 // ── CONSTANTS ─────────────────────────────────────────────────────────────────
 const BC = {
   laxmi: { label: "Laxmi Nagar", accent: "#34d399", dim: "#34d39918", border: "#34d39930" },
@@ -87,11 +93,11 @@ function exportPatientHistoryXLSX(pts, filename = "patient_history.xlsx") {
 
 function exportTasksXLSX(tasks, filename = "task_report.xlsx") {
   const wb = XLSX.utils.book_new();
-  const headers = ["Task ID","Title","Assigned To","Department","Priority","Status","Due Date","Created Date","Description","Completed Date"];
-  const rows = tasks.map((t,i) => [i+1,t.title,t.assignedTo,t.department,t.priority,t.status,t.dueDate||"—",t.createdAt?.split("T")[0]||"—",t.description||"—",t.completedAt?.split("T")[0]||"—"]);
-  const aoa = [["SANGI HOSPITAL — TASK REPORT",...Array(9).fill("")],[`Generated: ${new Date().toLocaleDateString("en-IN")}`,...Array(9).fill("")],Array(10).fill(""),headers,...rows];
+  const headers = ["Task ID","Title","Assigned To","Department","Priority","Status","Due Date","Created Date","Description","Completed Date","Patient Name","Patient UHID"];
+  const rows = tasks.map((t,i) => [i+1,t.title,t.assignedTo,t.department,t.priority,t.status,t.dueDate||"—",t.createdAt?.split("T")[0]||"—",t.description||"—",t.completedAt?.split("T")[0]||"—",t.patientName||"—",t.patientUhid||"—"]);
+  const aoa = [["SANGI HOSPITAL — TASK REPORT",...Array(11).fill("")],[`Generated: ${new Date().toLocaleDateString("en-IN")}`,...Array(11).fill("")],Array(12).fill(""),headers,...rows];
   const ws = XLSX.utils.aoa_to_sheet(aoa);
-  ws["!cols"] = [6,24,18,14,10,12,12,12,40,12].map(w=>({wch:w}));
+  ws["!cols"] = [6,24,18,14,10,12,12,12,40,12,20,14].map(w=>({wch:w}));
   XLSX.utils.book_append_sheet(wb, ws, "Task Report");
   XLSX.writeFile(wb, filename, {bookType:"xlsx"});
 }
@@ -127,8 +133,6 @@ function seedPatients(dbBranch, branchKey) {
 }
 
 // ── DYNAMIC CSS (theme-dependent only) ────────────────────────────────────────
-// Only rules that reference `accent` or `isDark` live here.
-// All static rules have been moved to index.css.
 const DYNAMIC_CSS = (accent, isDark) => `
   option { background: ${isDark ? "#040710" : "#ffffff"}; }
 
@@ -232,6 +236,66 @@ const DYNAMIC_CSS = (accent, isDark) => `
   .hms-dept-card   { background: ${isDark ? "#0b1120" : "#ffffff"}; }
   .hms-progress-bar    { background: ${isDark ? "#1e2a3a" : "#dde8f5"}; }
   .hms-progress-bar-sm { background: ${isDark ? "#1e2a3a" : "#dde8f5"}; }
+
+  /* ── PATIENT SELECT IN TASK MODAL ── */
+  .hms-patient-select-box {
+    background: ${isDark ? "#080c18" : "#f8faff"};
+    border: 1px solid ${isDark ? "#1a2540" : "#c7d5eb"};
+    border-radius: 8px;
+    max-height: 150px;
+    overflow-y: auto;
+    margin-top: 4px;
+  }
+  .hms-patient-select-item {
+    padding: 7px 12px;
+    cursor: pointer;
+    font-size: 11px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid ${isDark ? "#1a2540" : "#e8eef8"};
+    transition: background 0.15s;
+  }
+  .hms-patient-select-item:last-child { border-bottom: none; }
+  .hms-patient-select-item:hover { background: ${accent}18; }
+  .hms-patient-select-item.selected { background: ${accent}22; border-left: 3px solid ${accent}; }
+  .hms-patient-selected-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: ${accent}18;
+    border: 1px solid ${accent}40;
+    color: ${accent};
+    border-radius: 20px;
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 600;
+    margin-top: 6px;
+  }
+  .hms-patient-clear-btn {
+    background: none;
+    border: none;
+    color: ${accent};
+    cursor: pointer;
+    font-size: 13px;
+    line-height: 1;
+    padding: 0;
+    opacity: 0.7;
+  }
+  .hms-patient-clear-btn:hover { opacity: 1; }
+  .hms-patient-search {
+    background: ${isDark ? "#080c18" : "#ffffff"};
+    color: ${isDark ? "#e2e8f0" : "#1e293b"};
+    border: 1px solid ${isDark ? "#1a2540" : "#c7d5eb"};
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 11px;
+    width: 100%;
+    box-sizing: border-box;
+    margin-bottom: 4px;
+    outline: none;
+  }
+  .hms-patient-search:focus { border-color: ${accent}; }
 `;
 
 // ── MAIN COMPONENT ─────────────────────────────────────────────────────────────
@@ -292,7 +356,8 @@ export default function ManagementAdminDashboard({ currentUser, db, onLogout }) 
   const [tasks,           setTasks]           = useState(() => safeLoad("hms_mgmt_tasks", []));
   const [showTaskModal,   setShowTaskModal]   = useState(false);
   const [editTask,        setEditTask]        = useState(null);
-  const [taskForm,        setTaskForm]        = useState({ title:"", description:"", assignedTo:"", department:"HOD", priority:"Medium", status:"Pending", dueDate:"" });
+  const [taskForm,        setTaskForm]        = useState({ title:"", description:"", assignedTo:"", department:"HOD", priority:"Medium", status:"Pending", dueDate:"", patientUhid:"", patientName:"" });
+  const [taskPatientSearch, setTaskPatientSearch] = useState("");
   const [taskReportFilter,setTaskReportFilter]= useState({ period:"all", dept:"All", status:"All", empName:"" });
 
   // Patient modals
@@ -326,6 +391,20 @@ export default function ManagementAdminDashboard({ currentUser, db, onLogout }) 
   const allPatientsFlat   = useMemo(() => BRANCH_KEYS.flatMap(bk => (allPatients[bk]||[]).map(p=>({...p,_branch:bk,_branchLabel:BC[bk].label}))), [allPatients]);
   const allDeptOptions    = [...DEPT_OPTIONS, ...departments.filter(d=>!DEPT_OPTIONS.includes(d.name)).map(d=>d.name)];
 
+  // All patients across both branches for task assignment
+  const allPatientsForTask = useMemo(() => allPatientsFlat.map(p => ({
+    uhid: p.uhid,
+    name: p.patientName || p.name,
+    branch: p._branchLabel,
+    status: (p.admissions?.[p.admissions.length-1]?.discharge?.dod) ? "Discharged" : "Admitted",
+  })), [allPatientsFlat]);
+
+  const filteredTaskPatients = useMemo(() => {
+    if (!taskPatientSearch.trim()) return allPatientsForTask;
+    const q = taskPatientSearch.toLowerCase();
+    return allPatientsForTask.filter(p => p.name.toLowerCase().includes(q) || p.uhid.toLowerCase().includes(q));
+  }, [allPatientsForTask, taskPatientSearch]);
+
   const updatePatient = (branchKey, uhid, updater) => setAllPatients(prev => ({...prev,[branchKey]:prev[branchKey].map(p=>p.uhid===uhid?updater(p):p)}));
 
   // ── PATIENT HELPERS ───────────────────────────────────────────────────────
@@ -348,8 +427,18 @@ export default function ManagementAdminDashboard({ currentUser, db, onLogout }) 
   const saveReports  = () => { updatePatient(viewBranch, editRepPt.uhid, p=>({...p,reports:editRepPt.reports})); toast("Reports saved"); setShowReportModal(false); setEditRepPt(null); };
 
   // ── TASK HELPERS ──────────────────────────────────────────────────────────
-  const openNewTask  = () => { setEditTask(null); setTaskForm({title:"",description:"",assignedTo:"",department:"HOD",priority:"Medium",status:"Pending",dueDate:""}); setShowTaskModal(true); };
-  const openEditTask = (t) => { setEditTask(t); setTaskForm({title:t.title,description:t.description||"",assignedTo:t.assignedTo,department:t.department,priority:t.priority,status:t.status,dueDate:t.dueDate||""}); setShowTaskModal(true); };
+  const openNewTask  = () => {
+    setEditTask(null);
+    setTaskForm({title:"",description:"",assignedTo:"",department:"HOD",priority:"Medium",status:"Pending",dueDate:"",patientUhid:"",patientName:""});
+    setTaskPatientSearch("");
+    setShowTaskModal(true);
+  };
+  const openEditTask = (t) => {
+    setEditTask(t);
+    setTaskForm({title:t.title,description:t.description||"",assignedTo:t.assignedTo,department:t.department,priority:t.priority,status:t.status,dueDate:t.dueDate||"",patientUhid:t.patientUhid||"",patientName:t.patientName||""});
+    setTaskPatientSearch("");
+    setShowTaskModal(true);
+  };
   const saveTask = () => {
     if (!taskForm.title || !taskForm.assignedTo) { toast("Title and Assigned To are required","err"); return; }
     if (editTask) {
@@ -585,7 +674,7 @@ export default function ManagementAdminDashboard({ currentUser, db, onLogout }) 
         {tasks.length>0 && (
           <div className="hms-card">
             <CardRow title="Recent Tasks" action={<button className="hms-add-btn" onClick={()=>setActiveTab("tasks")}>View All</button>}/>
-            <TableWrap heads={["Task","Assigned To","Dept","Priority","Status","Due"]}>
+            <TableWrap heads={["Task","Assigned To","Dept","Priority","Status","Due","Patient"]}>
               {tasks.slice(0,5).map((t,i)=>(
                 <tr key={i}>
                   <Td hi>{t.title}</Td>
@@ -594,6 +683,7 @@ export default function ManagementAdminDashboard({ currentUser, db, onLogout }) 
                   <Td><PriorityPill p={t.priority}/></Td>
                   <Td><StatusPill s={t.status}/></Td>
                   <Td sm>{fmtDt(t.dueDate)}</Td>
+                  <Td sm>{t.patientName ? <span style={{ color:"#38bdf8" }}>{t.patientName}</span> : "—"}</Td>
                 </tr>
               ))}
             </TableWrap>
@@ -899,7 +989,7 @@ export default function ManagementAdminDashboard({ currentUser, db, onLogout }) 
         <div className="hms-card">
           <CardRow title="All Tasks" action={<button className="hms-add-btn" onClick={openNewTask}>+ Assign Task</button>}/>
           {!tasks.length ? <EmptyState icon="✅" label="No tasks yet" sub='Click "Assign Task" to create the first task'/> : (
-            <TableWrap heads={["Task","Assigned To","Dept","Priority","Status","Due Date","Created By","Actions"]}>
+            <TableWrap heads={["Task","Assigned To","Dept","Priority","Status","Due Date","Patient","Created By","Actions"]}>
               {tasks.map((t,i)=>(
                 <tr key={t.id} className="hms-tr-alt">
                   <Td><span className="hms-td-hi">{t.title}</span>{t.description&&<div style={{ fontSize:9, color:"#64748b", marginTop:2, maxWidth:180 }}>{t.description.slice(0,60)}{t.description.length>60?"…":""}</div>}</Td>
@@ -914,6 +1004,7 @@ export default function ManagementAdminDashboard({ currentUser, db, onLogout }) 
                     </select>
                   </Td>
                   <Td sm style={{ color:t.dueDate&&new Date(t.dueDate)<new Date()&&t.status!=="Completed"?"#f87171":"#64748b" }}>{fmtDt(t.dueDate)}</Td>
+                  <Td sm>{t.patientName ? <span style={{ color:"#38bdf8" }}>{t.patientName}<div style={{ fontSize:9, color:"#64748b" }}>{t.patientUhid}</div></span> : "—"}</Td>
                   <Td sm>{t.createdBy||"—"}</Td>
                   <Td>
                     <div style={{ display:"flex", gap:4 }}>
@@ -971,7 +1062,7 @@ export default function ManagementAdminDashboard({ currentUser, db, onLogout }) 
           </div>
           <div style={{ display:"flex", gap:8, marginTop:6, alignItems:"center" }}>
             <ActionBtn col="#34d399" onClick={()=>{exportTasksXLSX(filteredTaskReport,`task_report_${taskReportFilter.period}_${taskReportFilter.dept}.xlsx`);toast("Task report exported as XLSX");}}>↓ XLSX</ActionBtn>
-            <ActionBtn col="#38bdf8" onClick={()=>{exportCSV(`task_report_${taskReportFilter.period}.csv`,filteredTaskReport.map(t=>({TaskID:t.id,Title:t.title,AssignedTo:t.assignedTo,Department:t.department,Priority:t.priority,Status:t.status,DueDate:t.dueDate||"—",CreatedDate:t.createdAt?.split("T")[0]||"—",Description:t.description||"—",CompletedDate:t.completedAt?.split("T")[0]||"—"})),["TaskID","Title","AssignedTo","Department","Priority","Status","DueDate","CreatedDate","Description","CompletedDate"]);toast("Task report exported as CSV");}}>↓ CSV</ActionBtn>
+            <ActionBtn col="#38bdf8" onClick={()=>{exportCSV(`task_report_${taskReportFilter.period}.csv`,filteredTaskReport.map(t=>({TaskID:t.id,Title:t.title,AssignedTo:t.assignedTo,Department:t.department,Priority:t.priority,Status:t.status,DueDate:t.dueDate||"—",CreatedDate:t.createdAt?.split("T")[0]||"—",Description:t.description||"—",CompletedDate:t.completedAt?.split("T")[0]||"—",PatientName:t.patientName||"—",PatientUHID:t.patientUhid||"—"})),["TaskID","Title","AssignedTo","Department","Priority","Status","DueDate","CreatedDate","Description","CompletedDate","PatientName","PatientUHID"]);toast("Task report exported as CSV");}}>↓ CSV</ActionBtn>
             <span style={{ marginLeft:"auto", fontSize:11, color:"#64748b" }}><strong>{filteredTaskReport.length}</strong> record{filteredTaskReport.length!==1?"s":""} · <span style={{ color:accent }}>{periodLabel[taskReportFilter.period]}</span></span>
           </div>
         </div>
@@ -1013,7 +1104,7 @@ export default function ManagementAdminDashboard({ currentUser, db, onLogout }) 
         <div className="hms-card">
           <div className="hms-card-title" style={{ marginBottom:14 }}>Detailed Task List ({filteredTaskReport.length})</div>
           {!filteredTaskReport.length ? <div className="hms-empty">No tasks match the selected filters.</div> : (
-            <TableWrap heads={["Task ID","Title","Assigned To","Dept","Priority","Status","Due Date","Created","Completed"]}>
+            <TableWrap heads={["Task ID","Title","Assigned To","Dept","Priority","Status","Due Date","Created","Patient","Completed"]}>
               {filteredTaskReport.map((t,i)=>(
                 <tr key={t.id} className="hms-tr-alt">
                   <Td mono>{t.id}</Td>
@@ -1024,6 +1115,7 @@ export default function ManagementAdminDashboard({ currentUser, db, onLogout }) 
                   <Td><StatusPill s={t.status}/></Td>
                   <Td sm>{fmtDt(t.dueDate)}</Td>
                   <Td sm>{t.createdAt?.split("T")[0]||"—"}</Td>
+                  <Td sm>{t.patientName ? <span style={{ color:"#38bdf8" }}>{t.patientName}</span> : "—"}</Td>
                   <Td><span style={{ fontSize:10, color:"#34d399" }}>{t.completedAt?.split("T")[0]||"—"}</span></Td>
                 </tr>
               ))}
@@ -1165,7 +1257,6 @@ export default function ManagementAdminDashboard({ currentUser, db, onLogout }) 
 
   return (
     <div className="hms-wrap">
-      {/* Dynamic theme CSS — only accent/dark-mode dependent rules */}
       <style>{DYNAMIC_CSS(accent, isDark)}</style>
 
       {/* NOTIFICATION */}
@@ -1243,12 +1334,15 @@ export default function ManagementAdminDashboard({ currentUser, db, onLogout }) 
       {/* ══ TASK MODAL ══ */}
       {showTaskModal && (
         <div className="hms-modal-overlay" onClick={e=>e.target===e.currentTarget&&(setShowTaskModal(false),setEditTask(null))}>
-          <div className="hms-modal-box" style={{ width:500 }}>
+          <div className="hms-modal-box" style={{ width:520 }}>
             <div className="hms-modal-title">{editTask?"Edit Task":"Assign New Task"}</div>
+
             <label className="hms-lbl">Task Title *</label>
             <input className="hms-inp" placeholder="E.g. Prepare daily billing report" value={taskForm.title} onChange={e=>setTaskForm(f=>({...f,title:e.target.value}))}/>
+
             <label className="hms-lbl">Description</label>
             <textarea className="hms-textarea" placeholder="Task details…" value={taskForm.description} onChange={e=>setTaskForm(f=>({...f,description:e.target.value}))}/>
+
             <div className="hms-g2">
               <div>
                 <label className="hms-lbl">Assigned To *</label>
@@ -1262,7 +1356,8 @@ export default function ManagementAdminDashboard({ currentUser, db, onLogout }) 
                 </select>
               </div>
             </div>
-            <div className="hms-g3">
+
+            <div className="hms-g2">
               <div>
                 <label className="hms-lbl">Priority</label>
                 <select className="hms-sel" value={taskForm.priority} onChange={e=>setTaskForm(f=>({...f,priority:e.target.value}))}>
@@ -1270,16 +1365,50 @@ export default function ManagementAdminDashboard({ currentUser, db, onLogout }) 
                 </select>
               </div>
               <div>
-                <label className="hms-lbl">Status</label>
-                <select className="hms-sel" value={taskForm.status} onChange={e=>setTaskForm(f=>({...f,status:e.target.value}))}>
-                  {TASK_STATUS.map(s=><option key={s}>{s}</option>)}
-                </select>
-              </div>
-              <div>
                 <label className="hms-lbl">Due Date</label>
                 <input className="hms-inp" type="date" value={taskForm.dueDate} onChange={e=>setTaskForm(f=>({...f,dueDate:e.target.value}))}/>
               </div>
             </div>
+
+            {/* ── PATIENT SELECTION ── */}
+            <label className="hms-lbl">Link to Patient <span style={{ color:"#64748b", fontWeight:400 }}>(optional)</span></label>
+            {taskForm.patientUhid ? (
+              <div className="hms-patient-selected-pill">
+                🧑‍⚕️ {taskForm.patientName}
+                <span style={{ color:"#64748b", fontSize:10, fontWeight:400 }}> · {taskForm.patientUhid}</span>
+                <button className="hms-patient-clear-btn" onClick={()=>setTaskForm(f=>({...f,patientUhid:"",patientName:""}))}>✕</button>
+              </div>
+            ) : (
+              <>
+                <input
+                  className="hms-patient-search"
+                  placeholder="Search by patient name or UHID…"
+                  value={taskPatientSearch}
+                  onChange={e=>setTaskPatientSearch(e.target.value)}
+                />
+                <div className="hms-patient-select-box">
+                  {filteredTaskPatients.length === 0 ? (
+                    <div style={{ padding:"10px 12px", fontSize:11, color:"#64748b", textAlign:"center" }}>No patients found</div>
+                  ) : filteredTaskPatients.map(p=>(
+                    <div
+                      key={p.uhid}
+                      className={`hms-patient-select-item${taskForm.patientUhid===p.uhid?" selected":""}`}
+                      onClick={()=>{ setTaskForm(f=>({...f,patientUhid:p.uhid,patientName:p.name})); setTaskPatientSearch(""); }}
+                    >
+                      <div>
+                        <span style={{ fontWeight:600, color: isDark?"#e2e8f0":"#1e293b" }}>{p.name}</span>
+                        <span style={{ marginLeft:8, color:"#64748b", fontSize:10 }}>{p.uhid}</span>
+                      </div>
+                      <div style={{ display:"flex", gap:5, alignItems:"center" }}>
+                        <span style={{ fontSize:9, padding:"2px 6px", borderRadius:10, background:p.status==="Admitted"?"#34d39918":"#6b728018", color:p.status==="Admitted"?"#34d399":"#6b7280", border:`1px solid ${p.status==="Admitted"?"#34d39940":"#6b728040"}` }}>{p.status}</span>
+                        <span style={{ fontSize:9, color:"#64748b" }}>{p.branch}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+
             <div className="hms-modal-foot">
               <button className="hms-cancel-btn" onClick={()=>{setShowTaskModal(false);setEditTask(null);}}>Cancel</button>
               <button className="hms-save-btn" onClick={saveTask}>{editTask?"Update Task":"Assign Task"}</button>
