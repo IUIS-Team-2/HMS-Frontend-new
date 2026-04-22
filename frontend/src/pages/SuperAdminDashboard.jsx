@@ -981,8 +981,6 @@ function AdminsTab() {
   useEffect(() => {
     fetchUsers();
   }, []);
-  };
-  useEffect(() => { fetchUsers(); }, []);
 
   /* ── derived lists ── */
   const filtered = users.filter(u => {
@@ -1553,6 +1551,7 @@ function AdminsTab() {
       )}
     </div>
   );
+} // 🌟 ADD THIS MISSING CLOSING BRACE RIGHT HERE! 🌟
 
 /* ══════════════════════════════════════════════════════════════
    TAB 11 — DEPARTMENTS

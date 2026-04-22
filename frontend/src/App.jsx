@@ -28,11 +28,9 @@ import UploadingDashboard from "./pages/UploadingDashboard";
 import QueryDashboard from "./pages/QueryDashboard";         
 import OpdDashboard from "./pages/OpdDashboard";             
 import IntimationDashboard from "./pages/IntimationDashboard"; 
+import BranchAdminDashboard from "./pages/BranchAdminDashboard";
+import BillingDashboard from "./pages/BillingDashboard";
 import { ThemeProvider } from "./context/ThemeContext";
-import OpdDashboard from "./pages/OpdDashboard";
-import IntimationDashboard from "./pages/IntimationDashboard";
-import QueryDashboard from "./pages/QueryDashboard";
-import UploadingDashboard from "./pages/UploadingDashboard";
 
 // Modals
 import UHIDScreen from "./modals/UHIDScreen";
