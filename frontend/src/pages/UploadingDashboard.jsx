@@ -21,6 +21,7 @@ const COLUMNS = [
 ];
 
 const DEPARTMENT = "uploading";
+const STORAGE_KEY = "sangi_uploading_entries";
 
 const blankRow = (sNo) => ({
   id: crypto.randomUUID(),
@@ -44,28 +45,6 @@ function weekRange()  { const now = new Date(); const day = now.getDay(); const 
 function monthRange() { const now = new Date(); return { start: new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10), end: new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10) }; }
 function yearRange()  { const y = new Date().getFullYear(); return { start: `${y}-01-01`, end: `${y}-12-31` }; }
 
-function weekRange() {
-  const now = new Date();
-  const day = now.getDay();
-  const mon = new Date(now);
-  mon.setDate(now.getDate() - ((day + 6) % 7));
-  const sun = new Date(mon);
-  sun.setDate(mon.getDate() + 6);
-  return { start: mon.toISOString().slice(0, 10), end: sun.toISOString().slice(0, 10) };
-}
-
-function monthRange() {
-  const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
-  const end   = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
-  return { start, end };
-}
-
-function yearRange() {
-  const y = new Date().getFullYear();
-  return { start: `${y}-01-01`, end: `${y}-12-31` };
-}
-
 function entryDate(entry) {
   return entry.uploadDate || entry.createdAt?.slice(0, 10) || entry.doa || entry.dod || "";
 }
@@ -88,7 +67,6 @@ export default function UploadingDashboard({ currentUser, onLogout }) {
   const [filterMode, setFilterMode]   = useState("today");
   const [customStart, setCustomStart] = useState(today);
   const [customEnd, setCustomEnd]     = useState(today);
-  const [viewTab, setViewTab]         = useState("entry");
   const [viewTab, setViewTab]         = useState("entry");
   const [activeCell, setActiveCell]   = useState(null);
   const [savedAt, setSavedAt]         = useState(null);
@@ -237,11 +215,6 @@ const handleSave = async () => {
       else { addRows(1); setTimeout(() => document.getElementById(`cell-${rowIdx + 1}-${colKey}`)?.focus(), 50); }
     }
   };
-
-  const todayCount  = allEntries.filter(e => (e.uploadDate || e.createdAt?.slice(0,10)) === today).length;
-  const weekCount   = (() => { const { start, end } = weekRange(); return allEntries.filter(e => { const d = e.uploadDate || e.createdAt?.slice(0,10) || ""; return d>=start&&d<=end; }).length; })();
-  const monthCount  = (() => { const { start, end } = monthRange(); return allEntries.filter(e => { const d = e.uploadDate || e.createdAt?.slice(0,10) || ""; return d>=start&&d<=end; }).length; })();
-  const filledToday = rows.filter(r => r.uhid || r.claimId || r.ipdNo || r.patientName).length;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: "#f5f3ff", color: "#1e1b4b", fontFamily: "'Inter', 'Segoe UI', sans-serif", overflow: "hidden" }}>

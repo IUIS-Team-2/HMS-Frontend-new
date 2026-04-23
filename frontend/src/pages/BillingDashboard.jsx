@@ -307,6 +307,13 @@ function buildServicePayload(service, fallbackCategory) {
   };
 }
 
+const SECTION_KEYS   = ["discharge","admission","reports","medicines","billing"];
+const SECTION_LABELS = { discharge:"Discharge Summary", admission:"Admission Note", reports:"Reports", medicines:"Medicine Bill", billing:"Final Bill" };
+const SECTION_ICONS  = { discharge:"P", admission:"A", reports:"R", medicines:"M", billing:"B" };
+const TAB_MAP        = { discharge:"discharge", admission:"medical", reports:"reports", medicines:"med_bill", billing:"finalbill" };
+const REPORT_TYPES   = ["Pathology","Biochemistry","Radiology","Cardiology","Microbiology","Histopathology","Haematology","Serology","Other"];
+const emptyReport    = () => ({ id: Date.now(), reportName:"", reportType:"Pathology", date: new Date().toISOString().slice(0,10), orderedBy:"", amount:0, remarks:"", tests:[{ id: Date.now(), name:"", value:"", unit:"", refRange:"", status:"Normal" }] });
+let _tid = 0;
 let tid = 0;
 
 const CSS = `
@@ -525,7 +532,7 @@ body{background:var(--bg);color:var(--text);font-family:'Plus Jakarta Sans',sans
 }
 `;
 
-export default function BillingDashboard() {
+export default function BillingDashboard({ currentUser, onLogout, propDb, branch = "Sangi Hospital" }) {
   const [patients, setPatients]   = useState(MOCK_PATIENTS);
   const [view, setView]           = useState("tasks");
   const [sel, setSel]             = useState(null);
@@ -540,6 +547,7 @@ export default function BillingDashboard() {
   const [eLabRep, setELabRep]   = useState([]);
   const [eMedBill, setEMedBill] = useState([]);
   const [eBilling, setEBilling] = useState({});
+  const [eSaved, setESaved]     = useState({}); 
 
   useEffect(() => {
     const src = propDb ? mapLivePatients(propDb[branch] || []) : (MOCK_PATIENTS[branch] || []);
@@ -570,10 +578,10 @@ export default function BillingDashboard() {
   const syncSelectedPatient = () => {
     setPatients(prev => prev.map(p =>
       p.uhid === sel.uhid && p.admNo === sel.admNo
-        ? { ...p, discharge: { ...eDis }, medicalHistory: { ...eMed }, services: [...eSvc], pathologyBill: [...ePath], medicalBill: [...eMedBill], billing: { ...eBilling } }
+        ? { ...p, saved: { ...eSaved }, discharge: { ...eDis }, medicalHistory: { ...eMed }, services: [...eSvc], labReports: JSON.parse(JSON.stringify(eLabRep)), medicalBill: [...eMedBill], billing: { ...eBilling } }
         : p
     ));
-    setSel(prev => prev ? ({ ...prev, discharge: { ...eDis }, medicalHistory: { ...eMed }, services: [...eSvc], pathologyBill: [...ePath], medicalBill: [...eMedBill], billing: { ...eBilling } }) : prev);
+    setSel(prev => prev ? ({ ...prev, saved: { ...eSaved }, discharge: { ...eDis }, medicalHistory: { ...eMed }, services: [...eSvc], labReports: JSON.parse(JSON.stringify(eLabRep)), medicalBill: [...eMedBill], billing: { ...eBilling } }) : prev);
   };
 
   const saveSection = async (label) => {
@@ -588,9 +596,9 @@ export default function BillingDashboard() {
           await apiService.addService(sel.uhid, sel.admNo, buildServicePayload(service, service.category || "GENERAL SERVICES"));
         }
         await apiService.updateBilling(sel.uhid, sel.admNo, eBilling);
-      } else if (activeTab === "pathology") {
-        for (const row of ePath.filter(item => item.test)) {
-          await apiService.addService(sel.uhid, sel.admNo, buildServicePayload({ name: row.test, category: "PATHOLOGY", qty: 1, rate: row.amount, date: row.date }, "PATHOLOGY"));
+      } else if (activeTab === "reports") {
+        for (const row of eLabRep) {
+          await apiService.addService(sel.uhid, sel.admNo, buildServicePayload({ name: row.reportName, category: row.reportType || "PATHOLOGY", qty: 1, rate: row.amount, date: row.date }, "PATHOLOGY"));
         }
       } else if (activeTab === "med_bill") {
         for (const row of eMedBill.filter(item => item.item)) {
@@ -633,6 +641,8 @@ export default function BillingDashboard() {
   const completed = patients.filter(p => p.taskStatus === "completed").length;
   const repTypes  = sel ? ["All", ...Array.from(new Set(eLabRep.map(r => r.reportType)))] : ["All"];
   const visibleReps = eLabRep.filter(r => repFilter === "All" || r.reportType === repFilter);
+  const allSaved   = eSaved && SECTION_KEYS.every(k => eSaved[k]);
+  const savedCount = eSaved ? SECTION_KEYS.filter(k => eSaved[k]).length : 0;
 
   const TABS = [
     { id: "discharge", sKey: "discharge", lbl: "Discharge Summary", ico: "📋" },
@@ -1199,7 +1209,7 @@ export default function BillingDashboard() {
               </div>
               <div className="mrow">
                 <button className="cbtn" onClick={() => setShowConfirm(false)}>Cancel</button>
-                <button className="hod-btn" onClick={completeTask}>Confirm and Submit</button>
+                <button className="hod-btn" onClick={submitTask}>Confirm and Submit</button>
               </div>
             </div>
           </div>
