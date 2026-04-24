@@ -552,7 +552,7 @@ export default function BillingDashboard({ currentUser, onLogout, propDb, branch
   useEffect(() => {
     const src = propDb ? mapLivePatients(propDb[branch] || []) : (MOCK_PATIENTS[branch] || []);
     setPatients(src);
-    setView("dashboard"); setSel(null);
+    setView("tasks"); setSel(null);
   }, [branch, propDb]);
 
   const toast = (msg, type = "s") => {
@@ -658,6 +658,7 @@ export default function BillingDashboard({ currentUser, onLogout, propDb, branch
       <div className="app">
 
         {/* TOPBAR - no branch */}
+        {/* TOPBAR */}
         <header className="topbar">
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
             <div className="logo">Sh</div>
@@ -668,13 +669,15 @@ export default function BillingDashboard({ currentUser, onLogout, propDb, branch
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-              <div className="user-av">{CURRENT_USER.name[0]}</div>
+              {/* 🌟 FIXED: Now uses the actual logged-in user prop */}
+              <div className="user-av">{currentUser?.name?.[0] || "B"}</div>
               <div>
-                <div className="user-nm">{CURRENT_USER.name}</div>
-                <div className="user-id">{CURRENT_USER.empId} · Billing Staff</div>
+                <div className="user-nm">{currentUser?.name || "Billing Staff"}</div>
+                <div className="user-id">{currentUser?.emp_id || "EMP-001"} · Billing User</div>
               </div>
             </div>
-            <button className="so-btn">Sign Out</button>
+            {/* 🌟 FIXED: Added the onClick handler to the button */}
+            <button className="so-btn" onClick={onLogout}>Sign Out</button>
           </div>
         </header>
 
