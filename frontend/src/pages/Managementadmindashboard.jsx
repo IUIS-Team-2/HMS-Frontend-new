@@ -19,6 +19,346 @@ const DEPT_OPTIONS = ["HOD", "Billing", "Uploading", "Intimation", "Query", "OPD
 const TASK_STATUS   = ["Pending", "In Progress", "Completed", "On Hold", "Overdue"];
 const TASK_PRIORITY = ["Low", "Medium", "High", "Urgent"];
 const SUMMARY_TYPES = ["Normal", "LAMA", "Refer", "Death", "DAMA"];
+const LAB_TEMPLATES = {
+    "Complete Blood Count (CBC)": {
+      tests: [
+        { name: "HAEMOGLOBIN", unit: "gm/dl", refRange: "12–16" },
+        { name: "TLC (Total Leucocyte Count)", unit: "/cumm", refRange: "4000–11000" },
+        { name: "POLYMORPHS", unit: "%", refRange: "40-75" },
+        { name: "LYMPHOCYTE", unit: "%", refRange: "20-40" },
+        { name: "EOSINOPHIL", unit: "%", refRange: "01-06" },
+        { name: "MONOCYTE", unit: "%", refRange: "00-08" },
+        { name: "BASOPHIL", unit: "%", refRange: "00-00" },
+        { name: "PCV", unit: "%", refRange: "34-45" },
+        { name: "M C V (Mean Corp Volume)", unit: "Fl/dl", refRange: "76-96" },
+        { name: "M C H (Mean Corp Hb)", unit: "Pg/dl", refRange: "27-32" },
+        { name: "M C H C (Mean Corp Hb Conc)", unit: "gm/dl", refRange: "31-38" },
+        { name: "R B C (Red Blood Cell Count)", unit: "mill/cumm", refRange: "3.5-5.5" },
+        { name: "PLATELET COUNT", unit: "Lacs/cumm", refRange: "1.5-4.5" },
+        { name: "ESR (Wintrobe)", unit: "mm", refRange: "M(0-10), F(0-20)" },
+      ],
+      defaultRemarks: "***End Of The Report***"
+    },
+    "Kidney Function Test (KFT)": {
+      tests: [
+        { name: "BLOOD UREA", unit: "mg/dl", refRange: "13-45" },
+        { name: "SERUM CREATININE", unit: "mg/dl", refRange: "0.7-1.4" },
+        { name: "S.URIC ACID", unit: "mg/dl", refRange: "3.2-7.2" },
+        { name: "SODIUM", unit: "mmol/L", refRange: "135-145" },
+        { name: "POTASSIUM", unit: "mmol/L", refRange: "3.6-5.0" },
+        { name: "CALCIUM", unit: "mg/dl", refRange: "8.2-10.5" }
+      ],
+      defaultRemarks: "***End Of The Report***"
+    },
+    "Liver Function Test (LFT)": {
+      tests: [
+        { name: "SERUM BILIRUBIN (TOTAL)", unit: "mg/dl", refRange: "0.2-1.3" },
+        { name: "CONJUGATED (D BILIRUBIN)", unit: "mg/dl", refRange: "0.0-0.3" },
+        { name: "UNCONJUGATED (I.D BILIRUBIN)", unit: "mg/dl", refRange: "0.2-1.1" },
+        { name: "SGOT/AST", unit: "U/L", refRange: "00-55" },
+        { name: "SGPT/ALT", unit: "U/L", refRange: "00-40" },
+        { name: "TOTAL PROTEIN", unit: "gm/dl", refRange: "6.3-8.2" },
+        { name: "ALBUMIN", unit: "gm/dl", refRange: "3.5-5.0" },
+        { name: "GLOBULINE", unit: "gm/dl", refRange: "2.5-5.6" },
+        { name: "ALKALINE PHOSPHATASE", unit: "IU/L", refRange: "20-130" }
+      ],
+      defaultRemarks: "***End Of The Report***"
+    },
+    "Lipid Profile": {
+      tests: [
+        { name: "CHOLESTEROL TOTAL", unit: "mg/dl", refRange: "125-200" },
+        { name: "TRIGLYCERIDE", unit: "mg/dl", refRange: "25-200" },
+        { name: "CHOLESTEROL HDL", unit: "mg/dl", refRange: "35-80" },
+        { name: "CHOLESTEROL VLDL", unit: "mg/dl", refRange: "5-40" },
+        { name: "CHOLESTEROL LDL", unit: "mg/dl", refRange: "85-130" },
+        { name: "LDL. / HDL RATIO", unit: "mg/dl", refRange: "1.5-3.5" }
+      ],
+      defaultRemarks: "***End Of The Report***"
+    },
+    "Blood Gas Analysis": {
+      tests: [
+        { name: "pH", unit: "", refRange: "7.35-7.45" },
+        { name: "pCO2", unit: "mmHg", refRange: "35-40" },
+        { name: "pO2", unit: "mmHg", refRange: "80-95" },
+        { name: "TCO2", unit: "mmol/L", refRange: "23-27" },
+        { name: "HCO3", unit: "mmol/L", refRange: "22-26" },
+        { name: "BE", unit: "mmol/L", refRange: "-2 to +2" },
+        { name: "%SO2C", unit: "%", refRange: "96-97" },
+        { name: "Na+", unit: "mmol/L", refRange: "134-146" },
+        { name: "K+", unit: "mmol/L", refRange: "3.4-5.0" },
+        { name: "Cl", unit: "mmol/L", refRange: "1.15-1.33" },
+        { name: "GLU", unit: "mmol/L", refRange: "74-100" },
+        { name: "THbc", unit: "%", refRange: "12-16" },
+        { name: "HCT", unit: "mmol/L", refRange: "38-51" }
+      ],
+      defaultRemarks: "***End Of The Report***"
+    },
+    "CRP (Qualitative)": {
+      tests: [ { name: "CRP (Qualitative)", unit: "", refRange: "NON-REACTIVE" } ],
+      defaultRemarks: "***End Of The Report***"
+    },
+    "Blood Glucose (Random)": {
+      tests: [ { name: "BLOOD GLUCOSE RANDOM", unit: "mg/dl", refRange: "100-150" } ],
+      defaultRemarks: "***End Of The Report***"
+    },
+    "Blood Glucose (Fasting)": {
+      tests: [ { name: "BLOOD GLUCOSE FASTING", unit: "mg/dl", refRange: "70-110" } ],
+      defaultRemarks: "***End Of The Report***"
+    },
+    "Widal Test (Slide Method)": {
+      tests: [
+        { name: "Antigen TO (1:20 to 1:320)", unit: "", refRange: "Negative" },
+        { name: "Antigen TH (1:20 to 1:320)", unit: "", refRange: "Negative" },
+        { name: "Antigen AH (1:20 to 1:320)", unit: "", refRange: "Negative" },
+        { name: "Antigen BH (1:20 to 1:320)", unit: "", refRange: "Negative" },
+        { name: "RESULT", unit: "", refRange: "POSITIVE / NEGATIVE" }
+      ],
+      defaultRemarks: "INTERPRETATION: Antibody titer of 1:80 or higher suggests infection. A marked rise in the titer of one serotype to above 1:80 or paired samples collected at 5 to 7 days interval is regarded as diagnostically significant. However persons who have received TAB vaccine may show high titer of antibodies to each of the salmonella."
+    },
+    "Malaria Antigen Test": {
+      tests: [
+        { name: "PLASMODIUM P. VIVAX", unit: "", refRange: "NEGATIVE" },
+        { name: "PLASMODIUM FALCIPARUM", unit: "", refRange: "NEGATIVE" }
+      ],
+      defaultRemarks: "PRINCIPLE OF TEST: The test uses two antibodies. One antibody is specific for histidine-rich protein2 species P.falciparum (Pf HRP2). The other antibody is specific for a malaria antigen which is common to all the four species P.falciparum, P.vivax, P.ovale, P.malariae.\nLIMITATION: The test indicates the presence or absence of P.vivax in blood specimen. Diagnosis is made by this result with other finding. The test is not to be used in lieu of conventional smear diagnosis."
+    },
+    "Typhi Dot (IgG & IgM)": {
+      tests: [
+        { name: "THYPIDOT TEST FOR S.TYPHI IgM", unit: "", refRange: "POSITIVE / NEGATIVE" },
+        { name: "THYPIDOT TEST FOR S.TYPHI IgG", unit: "", refRange: "POSITIVE / NEGATIVE" }
+      ],
+      defaultRemarks: "COMMENTS: The typhidot test is based on dot enzyme immunosorbant assay for the early detection of IgM antibodies to salmonella typhi. This test has the sensitivity of approximately 95% and does not any cross reaction. Limitation of this test is that high IgG concentration may give false negative for IgM because IgG will drastically reduce binding of specific IgM to the antigen, so clinical correlation is a must."
+    },
+    "Dengue (IgM & IgG)": {
+      tests: [
+        { name: "DENGUE IgM ANTIBODIES", unit: "", refRange: "NON-REACTIVE" },
+        { name: "DENGUE IgG ANTIBODIES", unit: "", refRange: "NON-REACTIVE" }
+      ],
+      defaultRemarks: "REMARKS: Dengue viruses are mosquito-born viruses. Infected may lead to Dengue fever or dengue haemorrhagic fever and dengue shock syndrome. In the extreme cases, IgM antibodies appear around the 5th day of Dengue infection, rise for 1-3 weeks and last for 60-90days. IgG antibodies appear by the 14th day in primary infections and on the 2nd day in secondary infections and can usually be detected for life. Both Dengue fever IgM & IgG are useful in the early detection of primary and secondary Dengue infection."
+    },
+    "Dengue NS1 Antigen Test": {
+      tests: [ { name: "DENGUE NS1 ANTIGEN", unit: "", refRange: "NON-REACTIVE" } ],
+      defaultRemarks: "REMARKS: NS1 antigen is an non-structural protein recognized as a mark of acute phase of dengue infection, a period for which traditional serological antibodies based methods are of limited value. NS1 antigen was found circulating in sample of infected patient from the first day up to 9 days after onset fever. Dengue NS1 Ag Strip is an individual test for qualitative of Dengue virus NS1 antigen in human serum or plasma as an in the diagnosis of actual dengue infection."
+    },
+    "Viral Markers (HIV, HBsAg, HCV)": {
+      tests: [
+        { name: "HIV I & II", unit: "", refRange: "NEGATIVE" },
+        { name: "HEPATITIS B (HbsAg)", unit: "", refRange: "NEGATIVE" },
+        { name: "HCV", unit: "", refRange: "NEGATIVE" }
+      ],
+      defaultRemarks: "***End Of The Report***"
+    },
+    "COVID-19 Rapid Antigen": {
+      tests: [ { name: "COVID-19(Ag)", unit: "", refRange: "NON-REACTIVE" } ],
+      defaultRemarks: "***End Of The Report***"
+    },
+    "Urine Examination (Routine)": {
+      tests: [
+        { name: "COLOUR", unit: "", refRange: "Pale Yellow" },
+        { name: "VOLUME", unit: "ml", refRange: "" },
+        { name: "SPECIFIC GRAVITY", unit: "", refRange: "1.005-1.030" },
+        { name: "REACTION", unit: "", refRange: "ACIDIC" },
+        { name: "ALBUMIN", unit: "", refRange: "NIL" },
+        { name: "SUGAR", unit: "", refRange: "NIL" },
+        { name: "PH", unit: "", refRange: "4.5-8.0" },
+        { name: "PUS CELLS", unit: "/HPF", refRange: "0-5" },
+        { name: "EPITHELIAL CELLS", unit: "/HPF", refRange: "0-5" },
+        { name: "RBC'S", unit: "/HPF", refRange: "NIL" },
+        { name: "CASTS", unit: "", refRange: "NIL" },
+        { name: "CRYSTALS", unit: "", refRange: "NIL" },
+        { name: "BACTERIA", unit: "", refRange: "NIL" }
+      ],
+      defaultRemarks: "***End Of The Report***"
+    },
+    "Urine Gram Stain": {
+      tests: [ { name: "RESULT", unit: "", refRange: "" } ],
+      defaultRemarks: "NATURE OF SAMPLE: URINE\nRESULT: GRAM NEGATIVE BACILLI SEEN. NO BUDDING YEAST CELLS SEEN."
+    },
+    "Aerobic Culture & Sensitivity": {
+      tests: [
+        { name: "SPECIMEN SOURCE", unit: "", refRange: "e.g. URINE C/S" },
+        { name: "DATE RECEIVED", unit: "", refRange: "" },
+        { name: "DATE REPORTED", unit: "", refRange: "" },
+        { name: "CULTURE RESULT", unit: "", refRange: "e.g. E. COLI" },
+        { name: "AMIKACIN", unit: "", refRange: "SENSITIVE/RESISTANT" },
+        { name: "AMOXICILLIN+ CLAVULANATE", unit: "", refRange: "SENSITIVE/RESISTANT" },
+        { name: "AMPICILLIN", unit: "", refRange: "SENSITIVE/RESISTANT" },
+        { name: "CEFOTAXIME", unit: "", refRange: "SENSITIVE/RESISTANT" },
+        { name: "CEFTRIAXONE", unit: "", refRange: "SENSITIVE/RESISTANT" },
+        { name: "CIPROFLOXACIN", unit: "", refRange: "SENSITIVE/RESISTANT" },
+        { name: "MEROPENEM", unit: "", refRange: "SENSITIVE/RESISTANT" }
+      ],
+      defaultRemarks: "***End Of The Report***"
+    },
+    "Serum Procalcitonin": {
+      tests: [ { name: "SERUM PROCALCITONIN", unit: "pg/ml", refRange: "0.0 – 500" } ],
+      defaultRemarks: "METHOD : ELFA. Pro calcitonin, the pro hormone of calcitonin is below limit of detection (0.05 ng/ml) in healthy individuals. It rises in response to an inflammatory stimulus especially of bacterial origin. It does not rise significantly with viral or non infectious inflammations.\nPROCALCITONIN LEVEL INFERENCE:-\n< 500.0: Minor local bacterial infection is possible.\n500 - 2000: Systemic infection is Possible. Suggest repeat after 6-24 hours.\n2000 - <10000: Systemic infection (sepsis) is likely.\n>10000: important systemic inflammatory response, almost exclusively due to severe bacterial sepsis or septic shock."
+    },
+    "Sputum for AFB": {
+      tests: [ { name: "RESULT", unit: "", refRange: "" } ],
+      defaultRemarks: "RESULT: NO ACID FAST BACILLI SEEN."
+    },
+    "Sputum Gram Stain": {
+      tests: [ { name: "RESULT", unit: "", refRange: "" } ],
+      defaultRemarks: "RESULT: NO PATHOGENIC BACTERIA SEEN. NO BUDDING YEAST CELLS SEEN."
+    },
+    "Cardiac Markers (Trop-T, Trop-I, CPK)": {
+      tests: [
+        { name: "TROPONIN-T", unit: "", refRange: "NEGATIVE" },
+        { name: "TROPONIN-I", unit: "", refRange: "NEGATIVE" },
+        { name: "CPK-MB", unit: "IU/L", refRange: "upto 24" },
+        { name: "CPK", unit: "U/L", refRange: "22-198" },
+        { name: "NT-proBNP", unit: "pg/ml", refRange: "10-157" }
+      ],
+      defaultRemarks: "***End Of The Report***"
+    },
+    "Total Thyroid Profile": {
+      tests: [
+        { name: "T3", unit: "pmol/l", refRange: "0.9-2.5" },
+        { name: "Free Thyroxine (FT4)", unit: "pmol/l", refRange: "60-135" },
+        { name: "Thyroid Stimulation Hormone (TSH)", unit: "pmol/l", refRange: "0.25-5.0" }
+      ],
+      defaultRemarks: "Method: Enzyme linked fluorescent assay."
+    },
+    "Vitamin B-12 (Cyanocobalamin)": {
+      tests: [ { name: "VITAMIN B- 12", unit: "pg/ml", refRange: "211 – 911" } ],
+      defaultRemarks: "Note: To differentiate vitamin B12 & folate deficiency, measurement of Methyl malonic acid & Homocysteine levels in serum is suggested. The diagnosis of B12 deficiency cannot be solely based on serum B12 levels. Vitamin B12 performs many important functions in the body, but the most significant function is to act as co-enzyme for reducing ribonucleotides to deoxyribonucleotides. Cobalamine deficiency leads to Megaloblastic anemia and demyelination of large nerve fibers of spine cord."
+    },
+    "25 OH Vitamin D3": {
+      tests: [ { name: "25 OH VITAMIN D3", unit: "ng/ml", refRange: "30 – 100" } ],
+      defaultRemarks: "Note: Vitamin D is a group of fat – soluble secosteroids responsible for enhancing intestinal absorption of calcium and phosphate. In human, the most important compound in this group are vitamin D3 (also known as cholecalciferol) and vitamin D2 (ergocalciferol). The body can also synthesize vitamin D in skin from cholesterol, when sun exposure is adequate."
+    },
+    "Stool Examination": {
+      tests: [
+        { name: "COLOUR", unit: "", refRange: "BROWNISH" },
+        { name: "CONSISTANCY", unit: "", refRange: "SOFT" },
+        { name: "MUCOUS", unit: "", refRange: "NIL" },
+        { name: "PH", unit: "", refRange: "7.0 - 7.8" },
+        { name: "REACTION", unit: "", refRange: "ACIDIC/ALKALINE" },
+        { name: "PUS CELLS", unit: "/HPF", refRange: "0-1" },
+        { name: "RED BLOOD CELLS", unit: "/HPF", refRange: "NIL" },
+        { name: "OVA", unit: "", refRange: "NIL" },
+        { name: "CYST", unit: "", refRange: "NIL" },
+        { name: "BACTERIA", unit: "", refRange: "NIL" }
+      ],
+      defaultRemarks: "***End Of The Report***"
+    },
+    "Blood Group & Rh Factor": {
+      tests: [
+        { name: "Blood Group", unit: "", refRange: "" },
+        { name: "Rh Factor", unit: "", refRange: "" }
+      ],
+      defaultRemarks: "***End Of The Report***"
+    },
+    "HbA1c (Glycosylated Hemoglobin)": {
+      tests: [
+        { name: "HBA1C", unit: "%", refRange: "4.30-6.40" },
+        { name: "MEAN PLASMA GLUCOSE", unit: "mg/dl", refRange: "70-140" }
+      ],
+      defaultRemarks: "METHOD : HIGH PERFORMANCE LIQUID CHROMATOGRAPHY (HPLC)\nInterpretation(s): GOOD CONTROL (6.4-7.0), FAIR CONTROL (7.0-8.0), ACTION SUGGESTED (>8.0)\nREMARKS : In vitro quantitative determination of HbA1C in whole blood is Utilized in Long term monitoring of glycaemia. It is recommended that the determination of HbA1C be performed at intervals 10-12 weeks during diabetes mellitus therapy."
+    },
+    "Urine Ketone": {
+      tests: [ { name: "URINE KETONE", unit: "", refRange: "NEGATIVE" } ],
+      defaultRemarks: "***End Of The Report***"
+    },
+    "D-Dimer": {
+      tests: [ { name: "D-DIMER", unit: "µgFEU/mL", refRange: "<0.5" } ],
+      defaultRemarks: "Physiological basis: D-dimer is one of the terminal fibrin degradation products. The presence of D-dimers indicates that a fibrin clot was formed and subsequently degraded by plasmin.\nInterpretation: Increased in: Deep vein thrombosis (DVT), venous thrombo-embolism (VTE), pulmonary embolism (PE), disseminated intravascular coagulation (DIC), pregnancy, malignancy, surgery.\nComments: D-dimer assay is a very sensitive test for DIC, DVT and VTE or PE."
+    },
+    "Serum Amylase & Lipase": {
+      tests: [
+        { name: "S. AMYLASE", unit: "U/L", refRange: "30.0 – 220.0" },
+        { name: "S. LIPASE", unit: "U/L", refRange: "Upto 190.0" }
+      ],
+      defaultRemarks: "***End Of The Report***"
+    },
+    "Homocysteine (Quantitative)": {
+      tests: [ { name: "Homocysteine", unit: "umol/L", refRange: "5.45 – 16.20" } ],
+      defaultRemarks: "Comments: Homocysteine is a sulphur containing amino acid. There is an association between elevated levels of circulating homocysteine and various vascular and cardiovascular disorders. Clinically the measurement of homocysteine is considered important to diagnose homocystinuria. CVD patients with homocysteine levels > 15 umol/L belong to a high risk group."
+    },
+    "PSA (Prostate Specific Antigen)": {
+      tests: [ { name: "TOTAL, SERUM ( CMIA)", unit: "ng/mL", refRange: "< 4.00" } ],
+      defaultRemarks: "Note: False low/high results may be observed in patients receiving mouse monoclonal antibodies for diagnosis/therapy. Immediate PSA testing following digital rectal examination, ejaculation, prostatic massage, indwelling catheterization, and needle biopsy of prostate is not recommended as they falsely elevate levels. PSA values regardless of levels should not be interpreted as absolute evidence of the presence or absence of disease."
+    },
+    "Prothrombin Time (PT)": {
+      tests: [
+        { name: "Patient Time (PT)", unit: "Sec", refRange: "10.0 – 14.0" },
+        { name: "Control Time (PT)", unit: "Sec", refRange: "" },
+        { name: "International Normalized Ratio (INR)", unit: "", refRange: "0.8 - 1.2" }
+      ],
+      defaultRemarks: "Method: Viscosity Based Detection Assay"
+    },
+    "Activated Partial Thromboplastin Time (APTT)": {
+      tests: [
+        { name: "Patient Time (APTT)", unit: "Sec", refRange: "26.0 – 40.0" },
+        { name: "Control Time (APTT)", unit: "Sec", refRange: "" },
+        { name: "Ratio (APTT)", unit: "", refRange: "" }
+      ],
+      defaultRemarks: "Method: Viscosity Based Enhanced Coagulation"
+    },
+    "Adenosine Deaminase (ADA)": {
+      tests: [ { name: "ADENOSINE DEAMINASE (ADA)", unit: "U/L", refRange: "Normal <30 U/L" } ],
+      defaultRemarks: "Note :- Adenosine Deaminase (ADA) is an enzyme widely distributed in mammalian tissues, particularly in T lymphocytes. Increased levels of ADA are found in various forms of Tuberculosis, making it a marker for the same. ADA is also increased in various infections like infectious mononucleosis, Typhoid, Viral Hepatitis, initial stages of HIV, and in-cases of malignant tumours."
+    },
+    "Body Fluid For Cytology": {
+      tests: [
+        { name: "SPECIMEN", unit: "", refRange: "e.g. Ascitic fluid" },
+        { name: "CLINICAL NOTE", unit: "", refRange: "" },
+        { name: "MICROSCOPIC EXAMINATION", unit: "", refRange: "No granuloma or malignant cells seen." },
+        { name: "IMPRESSION", unit: "", refRange: "Negative for malignant cells." },
+        { name: "ADVICE", unit: "", refRange: "Clinicoradiological correlation" }
+      ],
+      defaultRemarks: "Disclaimer: The test result mentioned here should be interpreted in view of clinical condition of the patient."
+    },
+    "Body Fluid Routine Analysis": {
+      tests: [
+        { name: "Sample Type", unit: "", refRange: "e.g. ASCITIC FLUID" },
+        { name: "Volume", unit: "mL", refRange: ">1.5 mL" },
+        { name: "Colour", unit: "", refRange: "Light Yellow" },
+        { name: "Appearance", unit: "", refRange: "Slightly Turbid" },
+        { name: "Coagulum", unit: "", refRange: "Present/Absent" },
+        { name: "Blood", unit: "", refRange: "Negative" },
+        { name: "Glucose", unit: "mg/dL", refRange: "" },
+        { name: "Total Protein", unit: "gm/dL", refRange: "" },
+        { name: "TLC, Body Fluid", unit: "/cumm", refRange: "" },
+        { name: "Neutrophil", unit: "%", refRange: "" },
+        { name: "Lymphocyte", unit: "%", refRange: "" }
+      ],
+      defaultRemarks: "Disclaimer: The test result mentioned here should be interpreted in view of clinical condition of the patient."
+    },
+    "SAAG (Serum Ascites Albumin Gradient)": {
+      tests: [
+        { name: "Albumin, Serum", unit: "gm/dL", refRange: "3.50 – 5.50" },
+        { name: "Albumin, Fluid", unit: "gm/dL", refRange: "" },
+        { name: "SAAG", unit: "", refRange: "" }
+      ],
+      defaultRemarks: "Method: BCG. Disclaimer: The test result mentioned here should be interpreted in view of clinical condition of the patient."
+    },
+    "Iron Profile": {
+      tests: [
+        { name: "Iron, Serum", unit: "µg/dL", refRange: "49 – 181" },
+        { name: "TIBC", unit: "µg/dL", refRange: "261 – 462" },
+        { name: "Unsaturated Iron Binding Capacity", unit: "µg/dL", refRange: "110.0 – 370.0" },
+        { name: "Transferrin Saturation", unit: "%", refRange: "14 – 50" }
+      ],
+      defaultRemarks: "COMMENT: Serum iron measures the amount of circulating iron that is bound to transferrin. Total iron-binding capacity measures the extent to which iron-binding sites in the serum can be saturated. Taken together clinicians usually perform this test when they are concerned about anemia, iron deficiency or iron deficiency anemia."
+    },
+    "Blood Picture (Peripheral Smear)": {
+      tests: [ { name: "Impression", unit: "", refRange: "" } ],
+      defaultRemarks: "Red cells are reduced, cells are microcytic hypochromic with anisocytosis. Total leucocyte count is increased with increased neutrophils. Platelets are adequate in number. No haemoparasites seen. \nAdvice: Iron Profile."
+    },
+    "Anti-TPO (Thyroid Peroxidase Antibody)": {
+      tests: [ { name: "Anti-TPO", unit: "", refRange: "<0.9 not detected, 0.9-1.1 borderline" } ],
+      defaultRemarks: "INTERPRETATION: Thyroperoxidase (TPO) is an enzyme involved in thyroid hormone synthesis. Disorders of the thyroid gland are frequently caused by autoimmune mechanisms with the production of autoantibodies. Anti-TPO antibodies activate complement and are thought to be significantly involved in thyroid dysfunction and the pathogenesis of hypothyroidism. Chronic Hashimoto's thyroiditis is the most frequent cause of hypothyroidism."
+    },
+    "Bleeding Time (BT) & Clotting Time (CT)": {
+      tests: [
+        { name: "B T (Bleeding Time)", unit: "Min/Sec", refRange: "02 – 07" },
+        { name: "C T (Clotting Time)", unit: "Min/Sec", refRange: "04 – 09" }
+      ],
+      defaultRemarks: "***End Of The Report***"
+    }
+  };
 
 const NAV = [
   { id: "home",        label: "Home",         icon: "🏠" },
@@ -452,7 +792,24 @@ export default function ManagementAdminDashboard({ currentUser, db, onLogout }) 
   const addReport    = () => { if (!newReport.name) return; setEditRepPt(prev=>({...prev,reports:[...(prev.reports||[]),{id:Date.now(),...newReport}]})); setNewReport({name:"",date:"",result:""}); };
   const delReport    = (idx) => setEditRepPt(prev=>({...prev,reports:prev.reports.filter((_,i)=>i!==idx)}));
   const updateReport = (idx, field, val) => setEditRepPt(prev=>{ const r=[...prev.reports]; r[idx]={...r[idx],[field]:val}; return {...prev,reports:r}; });
-  const saveReports  = () => { updatePatient(viewBranch, editRepPt.uhid, p=>({...p,reports:editRepPt.reports})); toast("Reports saved"); setShowReportModal(false); setEditRepPt(null); };
+  const saveReports  = async () => { 
+    try {
+      const cleanAdm = String(editRepPt.admissions?.[0]?.admNo || 1).replace(/\D/g, "");
+      for (const rep of editRepPt.reports) {
+        await apiService.saveLabReport(editRepPt.uhid, cleanAdm, {
+           reportName: rep.reportName || rep.name,
+           reportType: rep.reportType || "Pathology",
+           date: rep.date,
+           remarks: rep.remarks || "",
+           tests: rep.tests || []
+        });
+      }
+      updatePatient(viewBranch, editRepPt.uhid, p=>({...p,reports:editRepPt.reports})); 
+      toast("Reports synced to Backend!"); 
+      setShowReportModal(false); 
+      setEditRepPt(null); 
+    } catch(e) { toast("Failed to sync reports.", "err"); }
+  };
 
   // ── TASK HELPERS ──────────────────────────────────────────────────────────
   const openNewTask  = () => {
@@ -1647,31 +2004,82 @@ export default function ManagementAdminDashboard({ currentUser, db, onLogout }) 
         </div>
       )}
 
-      {/* ══ REPORTS MODAL ══ */}
+      {/* ══ REPORTS MODAL (Admin Full Edit) ══ */}
       {showReportModal && editRepPt && (
         <div className="hms-modal-overlay" onClick={e=>e.target===e.currentTarget&&(setShowReportModal(false),setEditRepPt(null))}>
-          <div className="hms-modal-box" style={{ width:520 }}>
-            <div className="hms-modal-title">Reports — {editRepPt.patientName||editRepPt.name}</div>
-            <div className="hms-section-label">Existing Reports</div>
-            {!(editRepPt.reports||[]).length && <div className="hms-empty" style={{ padding:"1rem" }}>No reports yet.</div>}
-            {(editRepPt.reports||[]).map((r,i)=>(
-              <div key={i} style={{ display:"grid", gridTemplateColumns:"1fr 110px 1fr 28px", gap:6, marginBottom:6, alignItems:"center" }}>
-                <input className="hms-inp-sm" placeholder="Report name" value={r.name} onChange={e=>updateReport(i,"name",e.target.value)}/>
-                <input className="hms-inp-sm" type="date" value={r.date} onChange={e=>updateReport(i,"date",e.target.value)}/>
-                <input className="hms-inp-sm" placeholder="Result" value={r.result} onChange={e=>updateReport(i,"result",e.target.value)}/>
-                <ActionBtn col="#f87171" onClick={()=>delReport(i)}>✕</ActionBtn>
+          <div className="hms-modal-box" style={{ width:750, maxHeight: "90vh", overflowY: "auto" }}>
+            <div className="hms-modal-title" style={{ marginBottom: 16 }}>Lab Reports (Full Admin Access) — {editRepPt.patientName||editRepPt.name}</div>
+            
+            {!(editRepPt.reports||[]).length && <div className="hms-empty" style={{ padding:"1rem" }}>No reports found for this patient.</div>}
+            
+            {(editRepPt.reports||[]).map((rep, rIdx) => (
+              <div key={rIdx} style={{ background: isDark?"#080c18":"#f8fafc", border: `1px solid ${isDark?"#1a2540":"#e2e8f0"}`, borderRadius: 10, padding: 16, marginBottom: 16 }}>
+                <div style={{ display:"flex", justifyContent:"space-between", marginBottom: 12 }}>
+                  <input className="hms-inp" style={{ fontWeight: 700, fontSize: 15, width: "50%" }} value={rep.reportName || rep.name} onChange={e => { const r=[...editRepPt.reports]; r[rIdx].reportName=e.target.value; setEditRepPt({...editRepPt,reports:r}); }} placeholder="Report Name"/>
+                  <div style={{ display:"flex", gap: 10 }}>
+                    <input className="hms-inp" type="date" value={rep.date} onChange={e => { const r=[...editRepPt.reports]; r[rIdx].date=e.target.value; setEditRepPt({...editRepPt,reports:r}); }}/>
+                    <ActionBtn col="#f87171" onClick={()=>delReport(rIdx)}>✕ Delete Report</ActionBtn>
+                  </div>
+                </div>
+
+                <div style={{ overflowX: "auto", marginBottom: 10 }}>
+                  <table style={{ width: "100%", fontSize: 12, borderCollapse: "collapse" }}>
+                    <thead>
+                      <tr style={{ color: "#64748b", borderBottom: `1px solid ${isDark?"#1a2540":"#e2e8f0"}` }}>
+                        <th style={{ padding: 6, textAlign:"left" }}>Test Name</th>
+                        <th style={{ padding: 6, textAlign:"left" }}>Result</th>
+                        <th style={{ padding: 6, textAlign:"left" }}>Unit</th>
+                        <th style={{ padding: 6, textAlign:"left" }}>Ref Range</th>
+                        <th style={{ padding: 6 }}>✕</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(rep.tests || []).map((test, tIdx) => (
+                        <tr key={tIdx} style={{ borderBottom: `1px solid ${isDark?"#0f172a":"#f1f5f9"}` }}>
+                          <td style={{ padding: 4 }}><input className="hms-inp-sm" style={{ width:"100%" }} value={test.name} onChange={e=>{ const r=[...editRepPt.reports]; r[rIdx].tests[tIdx].name=e.target.value; setEditRepPt({...editRepPt,reports:r}); }}/></td>
+                          <td style={{ padding: 4 }}><input className="hms-inp-sm" style={{ width:"100%", color:"#38bdf8", fontWeight:600 }} value={test.result||test.value} onChange={e=>{ const r=[...editRepPt.reports]; r[rIdx].tests[tIdx].result=e.target.value; setEditRepPt({...editRepPt,reports:r}); }}/></td>
+                          <td style={{ padding: 4 }}><input className="hms-inp-sm" style={{ width:"100%" }} value={test.unit} onChange={e=>{ const r=[...editRepPt.reports]; r[rIdx].tests[tIdx].unit=e.target.value; setEditRepPt({...editRepPt,reports:r}); }}/></td>
+                          <td style={{ padding: 4 }}><input className="hms-inp-sm" style={{ width:"100%" }} value={test.refRange} onChange={e=>{ const r=[...editRepPt.reports]; r[rIdx].tests[tIdx].refRange=e.target.value; setEditRepPt({...editRepPt,reports:r}); }}/></td>
+                          <td style={{ padding: 4, textAlign:"center" }}><button style={{ background:"none", border:"none", color:"#f87171", cursor:"pointer" }} onClick={()=>{ const r=[...editRepPt.reports]; r[rIdx].tests.splice(tIdx,1); setEditRepPt({...editRepPt,reports:r}); }}>✕</button></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <button style={{ fontSize: 11, color: accent, background: "none", border: "none", marginTop: 8, cursor: "pointer", fontWeight: 600 }} onClick={()=>{ const r=[...editRepPt.reports]; if(!r[rIdx].tests) r[rIdx].tests=[]; r[rIdx].tests.push({name:"",result:"",unit:"",refRange:""}); setEditRepPt({...editRepPt,reports:r}); }}>+ Add Custom Test Row</button>
+                </div>
+                
+                <textarea className="hms-textarea" rows={2} placeholder="Remarks / Notes" value={rep.remarks} onChange={e=>{ const r=[...editRepPt.reports]; r[rIdx].remarks=e.target.value; setEditRepPt({...editRepPt,reports:r}); }} style={{ width: "100%", marginTop: 8 }}/>
               </div>
             ))}
-            <div className="hms-section-label" style={{ marginTop:8 }}>Add New Report</div>
-            <div className="hms-g3">
-              <input className="hms-inp-sm" placeholder="Name" value={newReport.name} onChange={e=>setNewReport(f=>({...f,name:e.target.value}))}/>
-              <input className="hms-inp-sm" type="date" value={newReport.date} onChange={e=>setNewReport(f=>({...f,date:e.target.value}))}/>
-              <input className="hms-inp-sm" placeholder="Result" value={newReport.result} onChange={e=>setNewReport(f=>({...f,result:e.target.value}))}/>
+
+            <div className="hms-section-label" style={{ marginTop:16 }}>Create New Blank Report</div>
+            <div className="hms-g3" style={{ alignItems: "center" }}>
+               <select className="hms-sel" value={newReport.type} onChange={e => {
+                  const type = e.target.value;
+                  const template = LAB_TEMPLATES[type] || { tests: [], defaultRemarks: "" };
+                  setNewReport({ 
+                    ...newReport, 
+                    type, 
+                    name: type, 
+                    tests: template.tests.map(t => ({ name: t.name, result: "", unit: t.unit, refRange: t.refRange })),
+                    remarks: template.defaultRemarks 
+                  });
+               }}>
+                 <option value="">-- Pre-fill Template --</option>
+                 {Object.keys(LAB_TEMPLATES).map(k=><option key={k} value={k}>{k}</option>)}
+               </select>
+               <input className="hms-inp" placeholder="Or type custom name..." value={newReport.name} onChange={e=>setNewReport(f=>({...f,name:e.target.value}))}/>
+               <ActionBtn col={accent} onClick={() => {
+                  if(!newReport.name) return;
+                  const newRep = { id: Date.now(), reportName: newReport.name, date: new Date().toISOString().slice(0,10), remarks: "", tests: newReport.tests || [] };
+                  setEditRepPt(prev=>({...prev, reports: [...(prev.reports||[]), newRep]}));
+                  setNewReport({ name:"", type:"", tests: [] });
+               }}>+ Add Custom Report</ActionBtn>
             </div>
-            <ActionBtn col={accent} onClick={addReport}>+ Add Report</ActionBtn>
-            <div className="hms-modal-foot" style={{ marginTop:14 }}>
+
+            <div className="hms-modal-foot" style={{ marginTop:24 }}>
               <button className="hms-cancel-btn" onClick={()=>{setShowReportModal(false);setEditRepPt(null);}}>Cancel</button>
-              <button className="hms-save-btn" onClick={saveReports}>Save Reports</button>
+              <button className="hms-save-btn" onClick={saveReports}>💾 Save All Reports</button>
             </div>
           </div>
         </div>
