@@ -17,7 +17,6 @@ const COLUMNS = [
 ];
 
 const DEPARTMENT = "opd";
-const STORAGE_KEY = "sangi_opd_entries";
 const accent      = "#f87171"; // red — OPD dept color
 
 const blankRow = (sNo) => ({
@@ -81,8 +80,6 @@ useEffect(() => {
     return () => { active = false; };
   }, [today]);
 
-  useEffect(() => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(allEntries)); } catch {} }, [allEntries]);
-
   const updateRow = (rowId, key, val) => {
     setRows(prev => prev.map(r => r.id === rowId ? { ...r, [key]: val } : r));
     setHasUnsaved(true);
@@ -132,6 +129,27 @@ if (filterMode === "today")       { start = today; end = today; }
     return allEntries.filter(e => { const d = entryDate(e); return d >= start && d <= end; })
       .sort((a, b) => (a.createdAt || "").localeCompare(b.createdAt || ""));
   })();
+
+  const handleDownload = () => {
+    const data = (filteredEntries.length ? filteredEntries : rows.filter((r) => r.uhid || r.claimId || r.opdNo || r.patientName))
+      .map((row, index) => ({
+        "S.No.": index + 1,
+        UHID: row.uhid || "",
+        "Claim ID": row.claimId || "",
+        "OPD No.": row.opdNo || "",
+        "Patient Name": row.patientName || "",
+        "OPD Date": row.opdDate || "",
+        "Upload Date": row.uploadDate || "",
+        Hospital: row.hospital || "",
+        "Prepare By": row.prepareBy || "",
+        Remarks: row.remarks || "",
+        "Added By": row.addedBy || "",
+      }));
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "OPD Logs");
+    XLSX.writeFile(wb, `Sangi_OPD_${filterMode}_${today}.xlsx`);
+  };
 
   const handleKeyDown = (e, rowIdx, colKey) => {
     const editableCols = COLUMNS.filter(c => !c.readOnly).map(c => c.key);

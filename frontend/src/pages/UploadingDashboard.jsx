@@ -21,7 +21,6 @@ const COLUMNS = [
 ];
 
 const DEPARTMENT = "uploading";
-const STORAGE_KEY = "sangi_uploading_entries";
 
 const blankRow = (sNo) => ({
   id: crypto.randomUUID(),
@@ -54,15 +53,9 @@ export default function UploadingDashboard({ currentUser, onLogout }) {
   const today = todayStr();
   const accent = "#818cf8";
 
-  const [allEntries, setAllEntries] = useState(() => {
-    try { const raw = localStorage.getItem(STORAGE_KEY); return raw ? JSON.parse(raw) : []; } catch { return []; }
-  });
+  const [allEntries, setAllEntries] = useState([]);
 
-  const [rows, setRows] = useState(() => {
-    const existing = (() => { try { const raw = localStorage.getItem(STORAGE_KEY); return raw ? JSON.parse(raw) : []; } catch { return []; } })();
-    const todayRows = existing.filter(e => e.uploadDate === todayStr() || e.createdAt?.slice(0, 10) === todayStr());
-    return todayRows.length > 0 ? todayRows : Array.from({ length: 10 }, (_, i) => blankRow(i + 1));
-  });
+  const [rows, setRows] = useState(() => Array.from({ length: 10 }, (_, i) => blankRow(i + 1)));
 
   const [filterMode, setFilterMode]   = useState("today");
   const [customStart, setCustomStart] = useState(today);
@@ -98,9 +91,6 @@ export default function UploadingDashboard({ currentUser, onLogout }) {
     loadEntries();
     return () => { active = false; };
   }, [today]);
-
-  // 2. Backup to LocalStorage (Frontend Dev's Code)
-  useEffect(() => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(allEntries)); } catch {} }, [allEntries]);
 
   // Mark unsaved on row change
   const updateRow = (rowId, key, val) => {

@@ -1,14 +1,59 @@
 import { T, LOCATIONS } from "../data/constants";
 import { Ico, IC } from "../components/ui/Icons";
 
+function isPathologyCategory(category = "") {
+  const normalized = String(category).toLowerCase();
+  return ["path", "lab", "bio", "haem", "micro", "sero", "histo", "radiology", "x-ray", "scan", "echo", "usg", "mri", "ct"].some((key) => normalized.includes(key));
+}
+
+function isMedicineCategory(category = "") {
+  const normalized = String(category).toLowerCase();
+  return ["med", "pharma", "drug"].some((key) => normalized.includes(key));
+}
+
 export default function PrintModal({uhid,patient,discharge,svcs,billing,locId,admNo,admission,onClose}){
-  const total=svcs.reduce((a,s)=>a+(parseFloat((s.rate ?? s.svcRate) || 0)||0)*(parseInt((s.qty ?? s.svcQty) || 0)||0),0);
+  const today=new Date().toLocaleDateString("en-IN",{day:"2-digit",month:"2-digit",year:"numeric"});
+  const nowTime=new Date().toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit",hour12:false});
+  const serviceRows = (svcs || [])
+    .filter((s) => (s.title || s.type || s.svcName) && !isPathologyCategory(s.type || s.svcCat) && !isMedicineCategory(s.type || s.svcCat))
+    .map((s, index) => ({
+      key: `svc-${index}`,
+      date: s.svcDate || s.date || today,
+      code: s.code || s.svcCode || "—",
+      description: s.title || s.type || s.svcName || "—",
+      quantity: parseInt((s.qty ?? s.svcQty) || 0, 10) || 1,
+      rate: parseFloat((s.rate ?? s.svcRate) || 0) || 0,
+      amount: parseFloat((s.total ?? s.svcTot) || ((parseFloat((s.rate ?? s.svcRate) || 0) || 0) * (parseInt((s.qty ?? s.svcQty) || 0) || 0))) || 0,
+    }));
+  const labRows = (admission?.labReports || []).map((report, index) => ({
+    key: `lab-${index}`,
+    date: report.date || report.report_date || today,
+    code: "LAB",
+    description: report.reportName || report.report_name || "Lab Report",
+    quantity: 1,
+    rate: parseFloat(report.amount || 0) || 0,
+    amount: parseFloat(report.amount || 0) || 0,
+  }));
+  const pharmacyRows = (admission?.pharmacyRecords || []).map((record, index) => {
+    const quantity = parseInt(record.quantity || 1, 10) || 1;
+    const rate = parseFloat(record.rate || 0) || 0;
+    const amount = parseFloat(record.amount ?? (quantity * rate)) || 0;
+    return {
+      key: `med-${index}`,
+      date: record.date || record.date_given || today,
+      code: "MED",
+      description: record.item || record.medicine_name || "Medicine",
+      quantity,
+      rate,
+      amount,
+    };
+  });
+  const billRows = [...serviceRows, ...labRows, ...pharmacyRows];
+  const total=billRows.reduce((a,row)=>a+row.amount,0);
   const disc=parseFloat(billing.discount)||0;
   const adv=parseFloat(billing.advance)||0;
   const paid=parseFloat(billing.paidNow)||0;
   const net=Math.max(0,total-disc-adv-paid);
-  const today=new Date().toLocaleDateString("en-IN",{day:"2-digit",month:"2-digit",year:"numeric"});
-  const nowTime=new Date().toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit",hour12:false});
   const loc=LOCATIONS.find(l=>l.id===locId)||{name:"Sangi",color:"#0EA5E9"};
   const branchInfo={
     "laxmi":{address:"Lakshmi Nagar, Mathura, Uttar Pradesh - 281004",phone1:"+91-9717444531",phone2:"+91-9717444532",email:"laxminagar@sangihospital.com"},
@@ -104,22 +149,22 @@ export default function PrintModal({uhid,patient,discharge,svcs,billing,locId,ad
               </tr>
             </thead>
             <tbody>
-              {svcs.filter(s=>s.title||s.type||s.svcName).length===0?(
+              {billRows.length===0?(
                 <tr><td colSpan={7} style={{border:"1px solid #000",padding:"16px",textAlign:"center",color:"#999",fontStyle:"italic"}}>No services added</td></tr>
-              ):svcs.filter(s=>s.title||s.type||s.svcName).map((s,i)=>(
+              ):billRows.map((row,i)=>(
                 <tr key={i} style={{background:i%2===0?"#fff":"#f9f9f9"}}>
                   <td style={{border:"1px solid #000",padding:"7px 10px"}}>{i+1}</td>
-                  <td style={{border:"1px solid #000",padding:"7px 10px"}}>{s.svcDate||today}</td>
-                  <td style={{border:"1px solid #000",padding:"7px 10px"}}>{s.code||s.svcCode||"—"}</td>
-                  <td style={{border:"1px solid #000",padding:"7px 10px",fontWeight:500}}>{(s.title||s.type||s.svcName||"—").toUpperCase()}</td>
-                  <td style={{border:"1px solid #000",padding:"7px 10px",textAlign:"center"}}>{s.qty||s.svcQty||1}</td>
-                  <td style={{border:"1px solid #000",padding:"7px 10px",textAlign:"right"}}>{parseFloat((s.rate ?? s.svcRate) || 0).toFixed(2)}</td>
-                  <td style={{border:"1px solid #000",padding:"7px 10px",textAlign:"right",fontWeight:600}}>{(parseFloat((s.total ?? s.svcTot) || ((parseFloat((s.rate ?? s.svcRate) || 0) || 0)*(parseInt((s.qty ?? s.svcQty) || 0) || 0))) || 0).toFixed(2)}</td>
+                  <td style={{border:"1px solid #000",padding:"7px 10px"}}>{row.date}</td>
+                  <td style={{border:"1px solid #000",padding:"7px 10px"}}>{row.code}</td>
+                  <td style={{border:"1px solid #000",padding:"7px 10px",fontWeight:500}}>{String(row.description || "—").toUpperCase()}</td>
+                  <td style={{border:"1px solid #000",padding:"7px 10px",textAlign:"center"}}>{row.quantity}</td>
+                  <td style={{border:"1px solid #000",padding:"7px 10px",textAlign:"right"}}>{row.rate.toFixed(2)}</td>
+                  <td style={{border:"1px solid #000",padding:"7px 10px",textAlign:"right",fontWeight:600}}>{row.amount.toFixed(2)}</td>
                 </tr>
               ))}
 
               {/* Empty rows for aesthetics */}
-              {Array.from({length:Math.max(0,5-svcs.filter(s=>s.title||s.type||s.svcName).length)}).map((_,i)=>(
+              {Array.from({length:Math.max(0,5-billRows.length)}).map((_,i)=>(
                 <tr key={"empty"+i}>
                   {Array.from({length:7}).map((_,j)=>(
                     <td key={j} style={{border:"1px solid #000",padding:"7px 10px"}}>&nbsp;</td>

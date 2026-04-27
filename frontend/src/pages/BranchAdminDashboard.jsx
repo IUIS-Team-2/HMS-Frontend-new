@@ -147,14 +147,30 @@ const MOCK_RECORDS = {
   ],
 };
 
+function isPathologyCategory(category = "") {
+  const normalized = String(category).toLowerCase();
+  return ["path", "lab", "bio", "haem", "micro", "sero", "histo", "radiology", "x-ray", "scan", "echo", "usg", "mri", "ct"].some((key) => normalized.includes(key));
+}
+
+function isMedicineCategory(category = "") {
+  const normalized = String(category).toLowerCase();
+  return ["med", "pharma", "drug"].some((key) => normalized.includes(key));
+}
+
 function admissionGross(admission) {
   const services = admission?.services || [];
-  const serviceTotal = services.reduce((sum, service) => (
+  const serviceTotal = services
+    .filter((service) => !isPathologyCategory(service.svcCat || service.type) && !isMedicineCategory(service.svcCat || service.type))
+    .reduce((sum, service) => (
     sum + Number(service.svcTot ?? service.total ?? ((service.svcRate ?? service.rate ?? 0) * (service.svcQty ?? service.qty ?? 1)))
+  ), 0);
+  const labTotal = (admission?.labReports || []).reduce((sum, report) => sum + Number(report.amount || 0), 0);
+  const pharmacyTotal = (admission?.pharmacyRecords || []).reduce((sum, record) => (
+    sum + Number(record.amount ?? (Number(record.quantity || 1) * Number(record.rate || 0)))
   ), 0);
   const billing = admission?.billing || {};
   const discount = Number(billing.discount || 0);
-  return Math.max(0, serviceTotal - discount);
+  return Math.max(0, serviceTotal + labTotal + pharmacyTotal - discount);
 }
 
 function admissionDue(admission) {
@@ -167,6 +183,8 @@ function buildPatientRecords(patient, admission) {
   const discharge = admission?.discharge || {};
   const medical = admission?.medicalHistory || {};
   const services = admission?.services || [];
+  const reports = Array.isArray(admission?.labReports) ? admission.labReports : [];
+  const pharmacyRecords = Array.isArray(admission?.pharmacyRecords) ? admission.pharmacyRecords : [];
   const treatingDoctor = discharge.doctorName || medical.treatingDoctor || "—";
   const admissionDate = (admission?.dateTime || discharge?.doa || "").slice(0, 10);
 
@@ -176,19 +194,46 @@ function buildPatientRecords(patient, admission) {
       summary: discharge.diagnosis || "—",
       doctor: treatingDoctor,
       nextVisit: discharge.expectedDod || "—",
-      instructions: discharge.notes || "—",
+      instructions: discharge.instructions || discharge.notes || "—",
     }] : [],
-    reports: [],
-    medicines: services
-      .filter((service) => String(service.svcCat || "").toLowerCase().includes("med"))
-      .map((service) => ({
-        date: service.svcDate || admissionDate,
-        medicine: service.svcName || "Medicine",
-        dosage: String(service.svcQty || 1),
-        frequency: "—",
-        duration: "—",
-        prescribedBy: treatingDoctor,
-      })),
+    reports: reports.length
+      ? reports.map((report) => ({
+          date: report.date || report.report_date || admissionDate,
+          reportType: report.reportType || report.report_type || report.report_name || "Report",
+          result: report.remarks || "Saved in billing reports",
+          lab: report.reportCategory || report.report_category || "Lab",
+          doctor: report.orderedBy || report.ordered_by || treatingDoctor,
+          fileUrl: "",
+        }))
+      : services
+          .filter((service) => isPathologyCategory(service.svcCat || service.type))
+          .map((service) => ({
+            date: service.svcDate || admissionDate,
+            reportType: service.svcName || "Report",
+            result: "Legacy service entry",
+            lab: service.svcCat || "Lab",
+            doctor: treatingDoctor,
+            fileUrl: "",
+          })),
+    medicines: pharmacyRecords.length
+      ? pharmacyRecords.map((record) => ({
+          date: record.date || record.date_given || admissionDate,
+          medicine: record.item || record.medicine_name || "Medicine",
+          dosage: String(record.quantity || 1),
+          frequency: "—",
+          duration: "—",
+          prescribedBy: treatingDoctor,
+        }))
+      : services
+          .filter((service) => isMedicineCategory(service.svcCat || service.type))
+          .map((service) => ({
+            date: service.svcDate || admissionDate,
+            medicine: service.svcName || "Medicine",
+            dosage: String(service.svcQty || 1),
+            frequency: "—",
+            duration: "—",
+            prescribedBy: treatingDoctor,
+          })),
     admission_note: medical.previousDiagnosis || medical.notes ? [{
       date: admissionDate,
       note: medical.notes || medical.previousDiagnosis || "—",
@@ -206,15 +251,33 @@ function buildPatientRecords(patient, admission) {
   };
 }
 
+function mapBranchUsers(users = [], resolvedBranchKey = "laxmi") {
+  const branchCode = resolvedBranchKey === "raya" ? "RYM" : "LNM";
+  return users
+    .filter((user) => user.branch === branchCode)
+    .map((user) => ({
+      id: user.id,
+      employeeId: user.emp_id || user.username,
+      username: user.username,
+      name: `${user.first_name} ${user.last_name}`.trim() || user.username,
+      designation: user.role.replaceAll("_", " ").toUpperCase(),
+      email: user.email || "—",
+      phone: user.phone_number || "—",
+      role: user.role === "admin" ? "Admin" : user.role === "billing" ? "Billing" : user.role === "hod" ? "HOD" : user.role.replaceAll("_", " ").replace(/\b\w/g, (ch) => ch.toUpperCase()),
+      departmentName: user.role.replaceAll("_", " ").toUpperCase(),
+      joinedDate: user.date_joined?.slice(0, 10) || "—",
+    }));
+}
+
 function mapLiveBranchPatients(patients = []) {
   return patients.flatMap((patient) => {
     const admissions = Array.isArray(patient.admissions) ? patient.admissions : [];
     return admissions.map((admission) => {
       const discharge = admission?.discharge || {};
-      const paymentModeRaw = String(patient.payMode || "").toLowerCase();
+      const paymentModeRaw = String(patient.payMode || admission?.billing?.paymentMode || admission?.billing?.bill_type || "").toLowerCase();
       const paymentMode = paymentModeRaw.includes("cashless") ? "cashless" : "cash";
       const paymentType = paymentMode === "cashless"
-        ? (patient.cashlessType || (patient.tpa ? "TPA" : (patient.tpaCard || patient.tpaPanelCardNo ? "Card" : "")))
+        ? (admission?.billing?.insuranceType || patient.cashlessType || (patient.tpa ? "TPA" : (patient.tpaCard || patient.tpaPanelCardNo ? "Card" : "")))
         : "";
       const records = buildPatientRecords(patient, admission);
       return {
@@ -421,7 +484,8 @@ export default function BranchAdminDashboard({
   const [search,    setSearch]    = useState("");
   const [statusFil, setStatusFil] = useState("all");
 
-  const [empForm, setEmpForm] = useState({ name:"", email:"", phone:"", role:"", employeeId:"", designation:"", departmentName:"" });
+  const [empForm, setEmpForm] = useState({ name:"", username:"", email:"", phone:"", role:"", employeeId:"", designation:"", departmentName:"", password:"", confirmPassword:"" });
+  const [empError, setEmpError] = useState("");
   const [modal,   setModal]   = useState(null);
 
   // ─── Load mock data ───────────────────────────────────────────────────────
@@ -432,8 +496,8 @@ export default function BranchAdminDashboard({
       setStatusFil("all");
       if (nav !== "records") setSelPatient(null);
 
-      const branchPatients = db ? (db[resolvedBranchKey] || []) : null;
-      const mappedPatients = db ? mapLiveBranchPatients(branchPatients || []) : MOCK_PATIENTS;
+      const branchPatients = Array.isArray(db?.[resolvedBranchKey]) ? db[resolvedBranchKey] : [];
+      const mappedPatients = mapLiveBranchPatients(branchPatients);
       if (!active) return;
 
       setPatients(mappedPatients);
@@ -444,20 +508,7 @@ export default function BranchAdminDashboard({
       try {
         const users = await apiService.getUsers();
         if (!active) return;
-        const branchCode = resolvedBranchKey === "raya" ? "RYM" : "LNM";
-        const branchUsers = users
-          .filter(user => user.branch === branchCode)
-          .map(user => ({
-            id: user.id,
-            employeeId: user.emp_id || user.username,
-            name: `${user.first_name} ${user.last_name}`.trim() || user.username,
-            designation: user.role.replaceAll("_", " ").toUpperCase(),
-            email: user.email,
-            phone: user.phone_number || "—",
-            role: user.role === "admin" ? "Admin" : user.role === "billing" ? "Billing" : user.role === "hod" ? "HOD" : user.role.charAt(0).toUpperCase() + user.role.slice(1),
-            departmentName: user.role.replaceAll("_", " ").toUpperCase(),
-            joinedDate: user.date_joined?.slice(0, 10) || "—",
-          }));
+        const branchUsers = mapBranchUsers(users, resolvedBranchKey);
         setEmployees(branchUsers);
         setOverview(buildOverviewData(mappedPatients, branchUsers));
       } catch (error) {
@@ -473,7 +524,7 @@ export default function BranchAdminDashboard({
 
   useEffect(() => {
     if (nav === "records" && selPatient) {
-      setRecords(selPatient.records?.[recTab] || MOCK_RECORDS[recTab] || []);
+      setRecords(selPatient.records?.[recTab] || []);
     }
   }, [selPatient, recTab, nav]);
 
@@ -485,16 +536,61 @@ export default function BranchAdminDashboard({
   });
 
   // ─── Mutations (frontend-only) ────────────────────────────────────────────
-  function addEmployee(e) {
+  async function addEmployee(e) {
     e.preventDefault();
-    const newEmp = { ...empForm, id: employees.length + 1, joinedDate: new Date().toISOString().split("T")[0] };
-    setEmployees(prev => [...prev, newEmp]);
-    setModal(null);
-    setEmpForm({ name:"", email:"", phone:"", role:"", employeeId:"", designation:"", departmentName:"" });
+    setEmpError("");
+    if (!empForm.name || !empForm.username || !empForm.role || !empForm.password) {
+      setEmpError("Fill all required fields."); return;
+    }
+    if (empForm.password !== empForm.confirmPassword) {
+      setEmpError("Passwords do not match."); return;
+    }
+
+    const [firstName, ...rest] = empForm.name.trim().split(/\s+/);
+    const roleMap = {
+      Billing: "billing",
+      Receptionist: "receptionist",
+      HOD: "hod",
+      OPD: "opd",
+      Intimation: "intimation",
+      Query: "query",
+      Uploading: "uploading",
+    };
+
+    try {
+      await apiService.createUser({
+        username: empForm.username,
+        email: empForm.email || `${empForm.username}@sangihospital.com`,
+        first_name: firstName || empForm.username,
+        last_name: rest.join(" ") || ".",
+        emp_id: empForm.employeeId || empForm.username,
+        phone_number: empForm.phone,
+        role: roleMap[empForm.role] || "receptionist",
+        branch: resolvedBranchKey === "raya" ? "RYM" : "LNM",
+        password: empForm.password,
+        confirm_password: empForm.confirmPassword,
+      });
+      const users = await apiService.getUsers();
+      const branchUsers = mapBranchUsers(users, resolvedBranchKey);
+      setEmployees(branchUsers);
+      setOverview(buildOverviewData(patients, branchUsers));
+      setModal(null);
+      setEmpForm({ name:"", username:"", email:"", phone:"", role:"", employeeId:"", designation:"", departmentName:"", password:"", confirmPassword:"" });
+    } catch (error) {
+      const data = error.response?.data || {};
+      setEmpError(data.username?.[0] || data.emp_id?.[0] || data.password?.[0] || "Failed to create employee.");
+    }
   }
-  function deleteEmp(id) {
+  async function deleteEmp(id) {
     if (!window.confirm("Remove this employee?")) return;
-    setEmployees(prev => prev.filter(e => e.id !== id));
+    try {
+      await apiService.deleteUser(id);
+      const nextEmployees = employees.filter((employee) => employee.id !== id);
+      setEmployees(nextEmployees);
+      setOverview(buildOverviewData(patients, nextEmployees));
+    } catch (error) {
+      window.alert("Failed to remove employee from backend.");
+    }
   }
 
   // ─── Patient row for Excel ────────────────────────────────────────────────
@@ -1006,20 +1102,24 @@ export default function BranchAdminDashboard({
         <ModalWrap title="Add Employee" onClose={()=>setModal(null)} onSubmit={addEmployee}>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"0 16px" }}>
             <FRow label="Full Name"><input style={fi} value={empForm.name} onChange={e=>setEmpForm({...empForm,name:e.target.value})} required /></FRow>
+            <FRow label="Username"><input style={fi} value={empForm.username} onChange={e=>setEmpForm({...empForm,username:e.target.value})} required /></FRow>
             <FRow label="Employee ID"><input style={fi} value={empForm.employeeId} onChange={e=>setEmpForm({...empForm,employeeId:e.target.value})} placeholder="EMP-001" /></FRow>
             <FRow label="Email"><input type="email" style={fi} value={empForm.email} onChange={e=>setEmpForm({...empForm,email:e.target.value})} required /></FRow>
             <FRow label="Phone"><input style={fi} value={empForm.phone} onChange={e=>setEmpForm({...empForm,phone:e.target.value})} /></FRow>
             <FRow label="Role">
               <select style={fs} value={empForm.role} onChange={e=>setEmpForm({...empForm,role:e.target.value})} required>
                 <option value="">Select role</option>
-                {["Doctor","Nurse","Admin","Billing","Receptionist","Lab Technician","Pharmacist","HOD","Radiologist"].map(r=><option key={r} value={r}>{r}</option>)}
+                {["Billing","Receptionist","HOD","OPD","Intimation","Query","Uploading"].map(r=><option key={r} value={r}>{r}</option>)}
               </select>
             </FRow>
             <FRow label="Designation"><input style={fi} value={empForm.designation} onChange={e=>setEmpForm({...empForm,designation:e.target.value})} placeholder="e.g. Senior Consultant" /></FRow>
+            <FRow label="Password"><input type="password" style={fi} value={empForm.password} onChange={e=>setEmpForm({...empForm,password:e.target.value})} required /></FRow>
+            <FRow label="Confirm Password"><input type="password" style={fi} value={empForm.confirmPassword} onChange={e=>setEmpForm({...empForm,confirmPassword:e.target.value})} required /></FRow>
           </div>
           <FRow label="Department Name">
             <input style={fi} value={empForm.departmentName} onChange={e=>setEmpForm({...empForm,departmentName:e.target.value})} placeholder="e.g. Cardiology, ICU" required />
           </FRow>
+          {empError && <div style={{ color:T.danger, fontSize:"12px", marginTop:"8px" }}>{empError}</div>}
         </ModalWrap>
       )}
 

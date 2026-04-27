@@ -457,11 +457,12 @@ export default function App() {
 
   const handleSaveServices = async (updatedSvcs, updatedBilling) => {
     try {
-      for (const svc of updatedSvcs) await apiService.addService(uhid, admNo, svc);
+      const serviceResponse = await apiService.saveServicesBulk(uhid, admNo, updatedSvcs);
       await apiService.updateBilling(uhid, admNo, updatedBilling);
-      setSvcs(updatedSvcs);
+      const savedServices = serviceResponse?.services || updatedSvcs;
+      setSvcs(savedServices);
       setBilling(updatedBilling);
-      syncDb(uhid, admNo, 'services', updatedSvcs);
+      syncDb(uhid, admNo, 'services', savedServices);
       syncDb(uhid, admNo, 'billing', updatedBilling);
       setServicesDone(true);
       setPage("summary");

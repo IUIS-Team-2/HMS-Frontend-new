@@ -17,7 +17,6 @@ const COLUMNS = [
 ];
 
 const DEPARTMENT = "query";
-const STORAGE_KEY = "sangi_query_entries";
 const accent      = "#f59e0b"; // amber — Query dept color
 
 const blankRow = (sNo) => ({
@@ -81,8 +80,6 @@ useEffect(() => {
     return () => { active = false; };
   }, [today]);
 
-  useEffect(() => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(allEntries)); } catch {} }, [allEntries]);
-
   const updateRow = (rowId, key, val) => {
     setRows(prev => prev.map(r => r.id === rowId ? { ...r, [key]: val } : r));
     setHasUnsaved(true);
@@ -131,6 +128,27 @@ if (filterMode === "today")       { start = today; end = today; }
     return allEntries.filter(e => { const d = entryDate(e); return d >= start && d <= end; })
       .sort((a, b) => (a.createdAt || "").localeCompare(b.createdAt || ""));
   })();
+
+  const handleDownload = () => {
+    const data = (filteredEntries.length ? filteredEntries : rows.filter((r) => r.uhid || r.claimId || r.patientName))
+      .map((row, index) => ({
+        "S.No.": index + 1,
+        UHID: row.uhid || "",
+        "Claim ID": row.claimId || "",
+        "Patient Name": row.patientName || "",
+        "Raise Date": row.raiseDate || "",
+        "Query Rep Date": row.queryRepDate || "",
+        Hospital: row.hospital || "",
+        "Justify By": row.justifyBy || "",
+        "Reply By": row.replyBy || "",
+        Remarks: row.remarks || "",
+        "Added By": row.addedBy || "",
+      }));
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Query Logs");
+    XLSX.writeFile(wb, `Sangi_Query_${filterMode}_${today}.xlsx`);
+  };
 
   const handleKeyDown = (e, rowIdx, colKey) => {
     const editableCols = COLUMNS.filter(c => !c.readOnly).map(c => c.key);

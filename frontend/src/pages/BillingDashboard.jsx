@@ -2,6 +2,16 @@ import { useState, useEffect } from "react";
 import { apiService } from "../services/apiService";
 
 const CURRENT_USER = { name: "Priya Sharma", empId: "EMP-2041" };
+const INSURANCE_TYPES = ["Self Pay", "TPA", "ECHS", "ECI", "FCI", "Ayushman Bharat", "Northern Railways"];
+const TPA_DOCS = [
+  { key: "final_bill", label: "Final Bill" },
+  { key: "pharmacy_bill", label: "Pharmacy Bill" },
+  { key: "pathology_bill", label: "Pathology Bill" },
+  { key: "radiology_bill", label: "Radiology Bill" },
+  { key: "discharge_summary", label: "Discharge Summary" },
+  { key: "reports", label: "Reports" },
+  { key: "admission_note", label: "Admission Note" },
+];
 
 const MOCK_PATIENTS = [
   {
@@ -184,7 +194,8 @@ function calcTotals(svcs, labReports, med, billing) {
   const gross = s + p + m;
   const disc = Number(billing?.discount || 0);
   const adv  = Number(billing?.advance  || 0);
-  return { s, p, m, gross, disc, adv, net: gross - disc, due: gross - disc - adv };
+  const paid = Number(billing?.paidNow || 0);
+  return { s, p, m, gross, disc, adv, paid, net: gross - disc, due: gross - disc - adv - paid };
 }
 
 function normalizeServices(services = []) {
@@ -199,23 +210,181 @@ function normalizeServices(services = []) {
   }));
 }
 
-function mapLivePatients(records = []) {
+function hasAnyValue(value) {
+  if (value === null || value === undefined) return false;
+  if (typeof value === "number") return value !== 0;
+  if (typeof value === "string") return value.trim() !== "";
+  if (Array.isArray(value)) return value.some(hasAnyValue);
+  if (typeof value === "object") return Object.values(value).some(hasAnyValue);
+  return Boolean(value);
+}
+
+function isPathologyCategory(category = "") {
+  const normalized = String(category).toLowerCase();
+  return ["path", "lab", "bio", "haem", "micro", "sero", "histo", "radiology", "x-ray", "scan", "echo", "usg", "mri", "ct"].some((key) => normalized.includes(key));
+}
+
+function isMedicineCategory(category = "") {
+  const normalized = String(category).toLowerCase();
+  return ["med", "pharma", "drug"].some((key) => normalized.includes(key));
+}
+
+function normalizeLabReports(reports = [], fallbackServices = []) {
+  if (reports.length) {
+    return reports.map((report, index) => ({
+      id: report.id || `report-${index}`,
+      reportName: report.reportName || report.report_name || "",
+      reportType: report.reportType || report.report_type || "Pathology",
+      reportCategory: report.reportCategory || report.report_category || "",
+      date: report.date || report.report_date || new Date().toISOString().slice(0, 10),
+      orderedBy: report.orderedBy || report.ordered_by || "",
+      amount: Number(report.amount || 0),
+      remarks: report.remarks || "",
+      modalityDetails: report.modalityDetails || report.modality_details || {},
+      tests: Array.isArray(report.tests)
+        ? report.tests
+        : Array.isArray(report.table_data)
+          ? report.table_data
+          : [{ id: Date.now() + index, name: "", value: "", unit: "", refRange: "", status: "Normal" }],
+    }));
+  }
+
+  return fallbackServices
+    .filter((service) => isPathologyCategory(service.category))
+    .map((service, index) => ({
+      id: service.id || `legacy-report-${index}`,
+      reportName: service.name,
+      reportType: service.category || "Pathology",
+      reportCategory: "legacy",
+      date: service.date || new Date().toISOString().slice(0, 10),
+      orderedBy: "",
+      amount: Number(service.amount || 0),
+      remarks: "",
+      modalityDetails: {},
+      tests: [{ id: Date.now() + index, name: service.name, value: "", unit: "", refRange: "", status: "Normal" }],
+    }));
+}
+
+function normalizePharmacyRecords(records = [], fallbackServices = []) {
+  if (records.length) {
+    return records.map((record, index) => ({
+      id: record.id || `pharmacy-${index}`,
+      item: record.item || record.medicine_name || "",
+      date: record.date || record.date_given || new Date().toISOString().slice(0, 10),
+      amount: Number(record.amount ?? (Number(record.quantity || 1) * Number(record.rate || 0))),
+      quantity: Number(record.quantity || 1),
+      rate: Number(record.rate || 0),
+      batchNo: record.batchNo || record.batch_no || "",
+      expiryDate: record.expiryDate || record.expiry_date || "",
+    }));
+  }
+
+  return fallbackServices
+    .filter((service) => isMedicineCategory(service.category))
+    .map((service, index) => ({
+      id: service.id || `legacy-pharmacy-${index}`,
+      item: service.name,
+      date: service.date || new Date().toISOString().slice(0, 10),
+      amount: Number(service.amount || 0),
+      quantity: Number(service.qty || 1),
+      rate: Number(service.rate || 0),
+      batchNo: "",
+      expiryDate: "",
+    }));
+}
+
+function deriveInsuranceType(patient, billing) {
+  if (billing?.insuranceType) return billing.insuranceType;
+  const payMode = String(patient?.payMode || "").toLowerCase();
+  if (payMode.includes("cashless")) return patient?.cashlessType || patient?.tpa || "TPA";
+  return "Self Pay";
+}
+
+function deriveSavedState(discharge, medicalHistory, labReports, pharmacyRecords, billing, services) {
+  return {
+    discharge: hasAnyValue({
+      diagnosis: discharge?.diagnosis,
+      doctor: discharge?.doctor,
+      ward: discharge?.ward,
+      bed: discharge?.bed,
+      doa: discharge?.doa,
+      dod: discharge?.dod,
+      expectedDod: discharge?.expectedDod,
+      condition: discharge?.condition,
+      instructions: discharge?.instructions,
+      notes: discharge?.notes,
+    }),
+    admission: hasAnyValue(medicalHistory),
+    reports: labReports.length > 0,
+    medicines: pharmacyRecords.length > 0,
+    billing: services.length > 0 || hasAnyValue({
+      discount: billing?.discount,
+      advance: billing?.advance,
+      paidNow: billing?.paidNow,
+      paymentMode: billing?.paymentMode,
+      remarks: billing?.remarks,
+      insuranceType: billing?.insuranceType,
+      tpaInfo: billing?.tpaInfo,
+      tpaDocStatus: billing?.tpaDocStatus,
+    }),
+  };
+}
+
+function mapLivePatients(records = [], branchKey = "laxmi") {
+  const branchName = branchKey === "raya" ? "Raya Branch" : "Laxmi Nagar Branch";
   return records.flatMap((patient) => {
     const admissions = Array.isArray(patient.admissions) ? patient.admissions : [];
     return admissions.map((adm, index) => {
       const allServices = normalizeServices(adm.services || []);
-      const pathologyBill = allServices.filter((service) => String(service.category || "").toLowerCase().includes("path"));
-      const medicalBill = allServices.filter((service) => String(service.category || "").toLowerCase().includes("med"));
+      const labReports = normalizeLabReports(adm.labReports || [], allServices);
+      const medicalBill = normalizePharmacyRecords(adm.pharmacyRecords || [], allServices);
       const directServices = allServices.filter((service) => {
-        const category = String(service.category || "").toLowerCase();
-        return !category.includes("path") && !category.includes("med");
+        return !isPathologyCategory(service.category) && !isMedicineCategory(service.category);
       });
       const discharge = adm.discharge || {};
       const medicalHistory = adm.medicalHistory || {};
+      const billingInfo = {
+        id: adm.billing?.id,
+        discount: Number(adm.billing?.discount || 0),
+        advance: Number(adm.billing?.advance || 0),
+        paidNow: Number(adm.billing?.paidNow || 0),
+        paymentMode: adm.billing?.paymentMode || "",
+        remarks: adm.billing?.remarks || "",
+        insuranceType: deriveInsuranceType(patient, adm.billing),
+        tpaInfo: adm.billing?.tpaInfo || {
+          tpaName: patient?.tpa || "",
+          policyNo: patient?.tpaCard || "",
+          claimNo: patient?.tpaPanelCardNo || "",
+          authNo: "",
+        },
+        tpaDocStatus: adm.billing?.tpaDocStatus || {},
+        printStatus: adm.billing?.printStatus || "DRAFT",
+      };
+      const savedState = deriveSavedState(
+        {
+          doa: discharge.doa || adm.dateTime || "",
+          dod: discharge.dod || "",
+          expectedDod: discharge.expectedDod || "",
+          ward: discharge.wardName || "",
+          bed: discharge.bedNo || discharge.roomNo || "",
+          doctor: discharge.doctorName || "",
+          diagnosis: discharge.diagnosis || "",
+          condition: discharge.dischargeStatus || "",
+          instructions: discharge.instructions || "",
+          notes: discharge.notes || "",
+        },
+        medicalHistory,
+        labReports,
+        medicalBill,
+        billingInfo,
+        directServices,
+      );
+      const printStatus = billingInfo.printStatus;
       return {
         uhid: patient.uhid,
         admNo: adm.admNo,
         assignedTo: "billing_user",
+        branch: branchName,
         patientName: patient.patientName,
         age: patient.ageYY || patient.age || "—",
         gender: patient.gender,
@@ -223,15 +392,18 @@ function mapLivePatients(records = []) {
         address: patient.address,
         doa: discharge.doa || adm.dateTime || "",
         dod: discharge.dod || "",
+        expectedDod: discharge.expectedDod || "",
         ward: discharge.wardName || "",
         bed: discharge.bedNo || discharge.roomNo || "",
         doctor: discharge.doctorName || medicalHistory.treatingDoctor || "",
         diagnosis: discharge.diagnosis || medicalHistory.previousDiagnosis || "",
         status: discharge.dod ? "discharged" : "admitted",
-        taskStatus: ["PENDING", "APPROVED"].includes(adm.billing?.printStatus) ? "submitted" : "pending",
+        taskStatus: printStatus === "APPROVED" ? "completed" : printStatus === "PENDING" ? "submitted" : "pending",
+        saved: savedState,
         discharge: {
           doa: discharge.doa || adm.dateTime || "",
           dod: discharge.dod || "",
+          expectedDod: discharge.expectedDod || "",
           ward: discharge.wardName || "",
           bed: discharge.bedNo || discharge.roomNo || "",
           doctor: discharge.doctorName || "",
@@ -253,27 +425,9 @@ function mapLivePatients(records = []) {
           notes: medicalHistory.notes || "",
         },
         services: directServices,
-        pathologyBill: pathologyBill.map((service) => ({
-          id: service.id,
-          test: service.name,
-          date: service.date,
-          amount: service.amount,
-        })),
-        medicalBill: medicalBill.map((service) => ({
-          id: service.id,
-          item: service.name,
-          date: service.date,
-          amount: service.amount,
-        })),
-        billing: {
-          id: adm.billing?.id,
-          discount: Number(adm.billing?.discount || 0),
-          advance: Number(adm.billing?.advance || 0),
-          paidNow: Number(adm.billing?.paidNow || 0),
-          paymentMode: adm.billing?.paymentMode || "",
-          remarks: adm.billing?.remarks || "",
-          printStatus: adm.billing?.printStatus || "DRAFT",
-        },
+        labReports,
+        medicalBill,
+        billing: billingInfo,
       };
     });
   });
@@ -283,12 +437,14 @@ function buildDischargePayload(form) {
   return {
     doa: form.doa || "",
     dod: form.dod || "",
+    expectedDod: form.expectedDod ? String(form.expectedDod).slice(0, 10) : "",
     wardName: form.ward || "",
     bedNo: form.bed || "",
     roomNo: form.bed || "",
     doctorName: form.doctor || "",
     diagnosis: form.diagnosis || "",
     dischargeStatus: form.condition || "",
+    instructions: form.instructions || "",
     notes: form.notes || "",
   };
 }
@@ -302,8 +458,34 @@ function buildServicePayload(service, fallbackCategory) {
     svcQty: qty,
     svcRate: rate,
     svcDate: service.date || new Date().toISOString().slice(0, 10),
+    pricing_type: service.pricing_type,
     rate,
     qty,
+  };
+}
+
+function buildLabReportPayload(report) {
+  return {
+    reportName: report.reportName || "",
+    reportType: report.reportType || "Pathology",
+    reportCategory: report.reportCategory || "",
+    date: report.date || new Date().toISOString().slice(0, 10),
+    orderedBy: report.orderedBy || "",
+    amount: Number(report.amount || 0),
+    remarks: report.remarks || "",
+    modalityDetails: report.modalityDetails || {},
+    tests: Array.isArray(report.tests) ? report.tests : [],
+  };
+}
+
+function buildPharmacyPayload(record) {
+  return {
+    medicine_name: record.item || "",
+    date_given: record.date || new Date().toISOString().slice(0, 10),
+    quantity: Number(record.quantity || 1),
+    rate: Number(record.rate || (record.amount || 0)),
+    batch_no: record.batchNo || "",
+    expiry_date: record.expiryDate || "",
   };
 }
 
@@ -532,8 +714,9 @@ body{background:var(--bg);color:var(--text);font-family:'Plus Jakarta Sans',sans
 }
 `;
 
-export default function BillingDashboard({ currentUser, onLogout, propDb, branch = "Sangi Hospital" }) {
-  const [patients, setPatients]   = useState(MOCK_PATIENTS);
+export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
+  const resolvedBranchKey = locId || (String(currentUser?.branch || "").toUpperCase() === "RYM" ? "raya" : "laxmi");
+  const [patients, setPatients]   = useState([]);
   const [view, setView]           = useState("tasks");
   const [sel, setSel]             = useState(null);
   const [activeTab, setActiveTab] = useState("discharge");
@@ -550,10 +733,10 @@ export default function BillingDashboard({ currentUser, onLogout, propDb, branch
   const [eSaved, setESaved]     = useState({}); 
 
   useEffect(() => {
-    const src = propDb ? mapLivePatients(propDb[branch] || []) : (MOCK_PATIENTS[branch] || []);
+    const src = Array.isArray(db?.[resolvedBranchKey]) ? mapLivePatients(db[resolvedBranchKey], resolvedBranchKey) : [];
     setPatients(src);
     setView("tasks"); setSel(null);
-  }, [branch, propDb]);
+  }, [db, resolvedBranchKey]);
 
   const toast = (msg, type = "s") => {
     const id = _tid++;
@@ -568,23 +751,51 @@ export default function BillingDashboard({ currentUser, onLogout, propDb, branch
     setESvc(JSON.parse(JSON.stringify(p.services)));
     setELabRep(JSON.parse(JSON.stringify(p.labReports)));
     setEMedBill(JSON.parse(JSON.stringify(p.medicalBill)));
-    setEBilling({ ...p.billing });
+    setEBilling({ tpaInfo: {}, tpaDocStatus: {}, ...p.billing });
     setESaved({ ...p.saved });
     setRepFilter("All");
     setActiveTab("discharge");
     setView("patient");
   };
 
-  const syncSelectedPatient = () => {
+  const syncSelectedPatient = (overrides = {}) => {
+    const nextSaved = overrides.saved || eSaved;
+    const nextDischarge = overrides.discharge || eDis;
+    const nextMedical = overrides.medicalHistory || eMed;
+    const nextServices = overrides.services || eSvc;
+    const nextReports = overrides.labReports || eLabRep;
+    const nextMedicalBill = overrides.medicalBill || eMedBill;
+    const nextBilling = overrides.billing || eBilling;
+    const nextTaskStatus = overrides.taskStatus || sel?.taskStatus;
     setPatients(prev => prev.map(p =>
       p.uhid === sel.uhid && p.admNo === sel.admNo
-        ? { ...p, saved: { ...eSaved }, discharge: { ...eDis }, medicalHistory: { ...eMed }, services: [...eSvc], labReports: JSON.parse(JSON.stringify(eLabRep)), medicalBill: [...eMedBill], billing: { ...eBilling } }
+        ? {
+            ...p,
+            taskStatus: nextTaskStatus,
+            saved: { ...nextSaved },
+            discharge: { ...nextDischarge },
+            medicalHistory: { ...nextMedical },
+            services: [...nextServices],
+            labReports: JSON.parse(JSON.stringify(nextReports)),
+            medicalBill: [...nextMedicalBill],
+            billing: { ...nextBilling },
+          }
         : p
     ));
-    setSel(prev => prev ? ({ ...prev, saved: { ...eSaved }, discharge: { ...eDis }, medicalHistory: { ...eMed }, services: [...eSvc], labReports: JSON.parse(JSON.stringify(eLabRep)), medicalBill: [...eMedBill], billing: { ...eBilling } }) : prev);
+    setSel(prev => prev ? ({
+      ...prev,
+      taskStatus: nextTaskStatus,
+      saved: { ...nextSaved },
+      discharge: { ...nextDischarge },
+      medicalHistory: { ...nextMedical },
+      services: [...nextServices],
+      labReports: JSON.parse(JSON.stringify(nextReports)),
+      medicalBill: [...nextMedicalBill],
+      billing: { ...nextBilling },
+    }) : prev);
   };
 
-  const saveSection = async (label) => {
+  const saveSection = async (sectionKey, label = sectionKey) => {
     if (!sel) return;
     try {
       if (activeTab === "discharge") {
@@ -592,21 +803,33 @@ export default function BillingDashboard({ currentUser, onLogout, propDb, branch
       } else if (activeTab === "medical") {
         await apiService.updateMedicalHistory(sel.uhid, sel.admNo, eMed);
       } else if (activeTab === "finalbill") {
-        for (const service of eSvc.filter(row => row.name)) {
-          await apiService.addService(sel.uhid, sel.admNo, buildServicePayload(service, service.category || "GENERAL SERVICES"));
-        }
+        const serviceRows = eSvc.filter((row) => row.name);
+        await apiService.saveServicesBulk(
+          sel.uhid,
+          sel.admNo,
+          serviceRows.map((service) => buildServicePayload({
+            ...service,
+            pricing_type: eBilling?.insuranceType && eBilling.insuranceType !== "Self Pay" ? "CASHLESS" : "CASH",
+          }, service.category || "GENERAL SERVICES"))
+        );
         await apiService.updateBilling(sel.uhid, sel.admNo, eBilling);
       } else if (activeTab === "reports") {
-        for (const row of eLabRep) {
-          await apiService.addService(sel.uhid, sel.admNo, buildServicePayload({ name: row.reportName, category: row.reportType || "PATHOLOGY", qty: 1, rate: row.amount, date: row.date }, "PATHOLOGY"));
-        }
+        await apiService.saveLabReportsBulk(
+          sel.uhid,
+          sel.admNo,
+          eLabRep.filter((row) => row.reportName).map(buildLabReportPayload)
+        );
       } else if (activeTab === "med_bill") {
-        for (const row of eMedBill.filter(item => item.item)) {
-          await apiService.addService(sel.uhid, sel.admNo, buildServicePayload({ name: row.item, category: "MEDICINE", qty: 1, rate: row.amount, date: row.date }, "MEDICINE"));
-        }
+        await apiService.savePharmacyRecordsBulk(
+          sel.uhid,
+          sel.admNo,
+          eMedBill.filter((item) => item.item).map(buildPharmacyPayload)
+        );
       }
 
-      syncSelectedPatient();
+      const nextSaved = { ...eSaved, [sectionKey]: true };
+      setESaved(nextSaved);
+      syncSelectedPatient({ saved: nextSaved });
       toast(`${label} saved ✓`);
     } catch (error) {
       toast(`Failed to save ${label}`, "e");
@@ -893,7 +1116,7 @@ export default function BillingDashboard({ currentUser, onLogout, propDb, branch
                           </div>
                           <div className="fg">
                             <label className="flbl">Expected Discharge Date</label>
-                            <input className="finp" type="datetime-local" value={eDis?.expectedDod || ""} onChange={e => setEDis(p => ({ ...p, expectedDod: e.target.value }))} />
+                            <input className="finp" type="date" value={eDis?.expectedDod ? String(eDis.expectedDod).slice(0, 10) : ""} onChange={e => setEDis(p => ({ ...p, expectedDod: e.target.value }))} />
                           </div>
                           <div className="fg">
                             <label className="flbl">Actual Discharge Date</label>
@@ -1149,7 +1372,7 @@ export default function BillingDashboard({ currentUser, onLogout, propDb, branch
                           <div className="sech"><div className="sect">💳 Payment Details</div></div>
                           <div className="secb">
                             <div style={{ display: "flex", flexDirection: "column", gap: 13 }}>
-                              {[{ k: "discount", lbl: "Discount (Rs.)" }, { k: "advance", lbl: "Advance Paid (Rs.)" }].map(f => (
+                              {[{ k: "discount", lbl: "Discount (Rs.)" }, { k: "advance", lbl: "Advance Paid (Rs.)" }, { k: "paidNow", lbl: "Paid Now (Rs.)" }].map(f => (
                                 <div key={f.k} className="fg">
                                   <label className="flbl">{f.lbl}</label>
                                   <input className="finp" type="number" value={eBilling?.[f.k] || 0} onChange={e => setEBilling(p => ({ ...p, [f.k]: e.target.value }))} />
@@ -1161,6 +1384,53 @@ export default function BillingDashboard({ currentUser, onLogout, propDb, branch
                                   {["Cash", "UPI", "Card", "Insurance", "NEFT", "Cheque"].map(m => <option key={m}>{m}</option>)}
                                 </select>
                               </div>
+                              <div className="fg">
+                                <label className="flbl">Insurance Type</label>
+                                <select className="fsel" value={eBilling?.insuranceType || "Self Pay"} onChange={e => setEBilling(p => ({ ...p, insuranceType: e.target.value }))}>
+                                  {INSURANCE_TYPES.map(type => <option key={type}>{type}</option>)}
+                                </select>
+                              </div>
+                              {eBilling?.insuranceType && eBilling.insuranceType !== "Self Pay" && (
+                                <>
+                                  <div className="fg">
+                                    <label className="flbl">TPA / Panel Name</label>
+                                    <input className="finp" value={eBilling?.tpaInfo?.tpaName || ""} onChange={e => setEBilling(p => ({ ...p, tpaInfo: { ...(p.tpaInfo || {}), tpaName: e.target.value } }))} />
+                                  </div>
+                                  <div className="fg">
+                                    <label className="flbl">Policy / Card Number</label>
+                                    <input className="finp" value={eBilling?.tpaInfo?.policyNo || ""} onChange={e => setEBilling(p => ({ ...p, tpaInfo: { ...(p.tpaInfo || {}), policyNo: e.target.value } }))} />
+                                  </div>
+                                  <div className="fg">
+                                    <label className="flbl">Claim Number</label>
+                                    <input className="finp" value={eBilling?.tpaInfo?.claimNo || ""} onChange={e => setEBilling(p => ({ ...p, tpaInfo: { ...(p.tpaInfo || {}), claimNo: e.target.value } }))} />
+                                  </div>
+                                  <div className="fg">
+                                    <label className="flbl">Authorization Number</label>
+                                    <input className="finp" value={eBilling?.tpaInfo?.authNo || ""} onChange={e => setEBilling(p => ({ ...p, tpaInfo: { ...(p.tpaInfo || {}), authNo: e.target.value } }))} />
+                                  </div>
+                                  <div className="fg full">
+                                    <label className="flbl">TPA Documents</label>
+                                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 8 }}>
+                                      {TPA_DOCS.map((doc) => (
+                                        <label key={doc.key} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "var(--text2)", background: "var(--bg)", border: "1px solid var(--border)", borderRadius: 8, padding: "8px 10px" }}>
+                                          <input
+                                            type="checkbox"
+                                            checked={Boolean(eBilling?.tpaDocStatus?.[doc.key])}
+                                            onChange={(event) => setEBilling((p) => ({
+                                              ...p,
+                                              tpaDocStatus: {
+                                                ...(p.tpaDocStatus || {}),
+                                                [doc.key]: event.target.checked,
+                                              },
+                                            }))}
+                                          />
+                                          <span>{doc.label}</span>
+                                        </label>
+                                      ))}
+                                    </div>
+                                  </div>
+                                </>
+                              )}
                               <div className="fg">
                                 <label className="flbl">Remarks</label>
                                 <input className="finp" value={eBilling?.remarks || ""} onChange={e => setEBilling(p => ({ ...p, remarks: e.target.value }))} />
@@ -1175,6 +1445,7 @@ export default function BillingDashboard({ currentUser, onLogout, propDb, branch
                                 <div className="tr2" style={{ color: "var(--red)" }}><span className="trl">Discount</span><span className="trv">- {fmt(totals.disc)}</span></div>
                                 <div className="tr2"><span className="trl">Net Payable</span><span className="trv">{fmt(totals.net)}</span></div>
                                 <div className="tr2" style={{ color: "var(--teal)" }}><span className="trl">Advance Paid</span><span className="trv">- {fmt(totals.adv)}</span></div>
+                                <div className="tr2" style={{ color: "var(--teal)" }}><span className="trl">Paid Now</span><span className="trv">- {fmt(totals.paid)}</span></div>
                                 <div className="tr2 fin"><span>Balance Due</span><span>{fmt(totals.due)}</span></div>
                               </div>
                             )}

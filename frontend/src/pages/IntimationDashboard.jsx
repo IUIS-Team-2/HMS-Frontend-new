@@ -17,7 +17,6 @@ const COLUMNS = [
 ];
 
 const DEPARTMENT = "intimation";
-const STORAGE_KEY = "sangi_intimation_entries";
 const accent      = "#10b981"; // emerald green
 const accentSoft  = "#34d399";
 const accentDim   = "#065f46";
@@ -83,8 +82,6 @@ useEffect(() => {
     return () => { active = false; };
   }, [today]);
 
-  useEffect(() => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(allEntries)); } catch {} }, [allEntries]);
-
   const updateRow = (rowId, key, val) => {
     setRows(prev => prev.map(r => r.id === rowId ? { ...r, [key]: val } : r));
     setHasUnsaved(true);
@@ -134,6 +131,27 @@ if (filterMode === "today")       { start = today; end = today; }
     return allEntries.filter(e => { const d = entryDate(e); return d >= start && d <= end; })
       .sort((a, b) => (a.createdAt || "").localeCompare(b.createdAt || ""));
   })();
+
+  const handleDownload = () => {
+    const data = (filteredEntries.length ? filteredEntries : rows.filter((r) => r.uhid || r.claimId || r.patientName))
+      .map((row, index) => ({
+        "S.No.": index + 1,
+        UHID: row.uhid || "",
+        "Claim ID": row.claimId || "",
+        "Patient Name": row.patientName || "",
+        DOA: row.doa || "",
+        "Upload Date": row.uploadDate || "",
+        Hospital: row.hospital || "",
+        "Intimation By": row.intimationBy || "",
+        "Pri.HOS/Dr.": row.priHosdr || "",
+        Remarks: row.remarks || "",
+        "Added By": row.addedBy || "",
+      }));
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Intimation Logs");
+    XLSX.writeFile(wb, `Sangi_Intimation_${filterMode}_${today}.xlsx`);
+  };
 
   const handleKeyDown = (e, rowIdx, colKey) => {
     const editableCols = COLUMNS.filter(c => !c.readOnly).map(c => c.key);

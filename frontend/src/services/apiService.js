@@ -98,6 +98,11 @@ export const apiService = {
         return response.data;
     },
 
+    saveServicesBulk: async (uhid, admNo, services) => {
+        const response = await axios.post(`${BASE_URL}/patients/${uhid}/admissions/${admNo}/services/bulk-save/`, { services });
+        return response.data;
+    },
+
     dischargePatient: async (uhid, admNo, dischargeData) => {
         const response = await axios.patch(`${BASE_URL}/patients/${uhid}/discharge/`, { admNo, dischargeData });
         return response.data;
@@ -190,6 +195,26 @@ export const apiService = {
 
     saveLabReport: async (uhid, admNo, reportData) => {
         const response = await axios.post(`${BASE_URL}/patients/${uhid}/admissions/${admNo}/lab-reports/`, reportData);
+        return response.data;
+    },
+
+    saveLabReportsBulk: async (uhid, admNo, reports) => {
+        const response = await axios.post(`${BASE_URL}/patients/${uhid}/admissions/${admNo}/lab-reports/bulk-save/`, { reports });
+        return response.data;
+    },
+
+    getPharmacyRecords: async (uhid, admNo) => {
+        const response = await axios.get(`${BASE_URL}/patients/${uhid}/admissions/${admNo}/pharmacy-records/`);
+        return response.data;
+    },
+
+    savePharmacyRecord: async (uhid, admNo, recordData) => {
+        const response = await axios.post(`${BASE_URL}/patients/${uhid}/admissions/${admNo}/pharmacy-records/`, recordData);
+        return response.data;
+    },
+
+    savePharmacyRecordsBulk: async (uhid, admNo, records) => {
+        const response = await axios.post(`${BASE_URL}/patients/${uhid}/admissions/${admNo}/pharmacy-records/bulk-save/`, { records });
         return response.data;
     }
 };
