@@ -1,6 +1,22 @@
 
 import { useState, useEffect } from "react";
 import { apiService } from "../services/apiService";
+import ThemeModeDock from "../components/ui/ThemeModeDock";
+
+const UI_FONT_STACK = "var(--ui-font-sans)";
+const UI_MONO_STACK = "var(--ui-font-mono)";
+const EMPTY_EMP_FORM = {
+  name: "",
+  username: "",
+  email: "",
+  phone: "",
+  role: "",
+  employeeId: "",
+  designation: "",
+  departmentName: "",
+  password: "",
+  confirmPassword: "",
+};
 
 // ─── Branch Theme Map ──────────────────────────────────────────────────────────
 const BRANCH_THEMES = {
@@ -426,7 +442,7 @@ const mkBadge = (type) => {
 
 const mkInput = () => ({
   background: T.surfaceRaised, border:`1px solid ${T.border}`, color:T.text,
-  padding:"8px 13px", borderRadius:"7px", fontSize:"12px", fontFamily:"inherit", outline:"none",
+  padding:"10px 14px", borderRadius:"10px", fontSize:"13px", fontFamily:UI_FONT_STACK, outline:"none",
 });
 
 const mkBtn = (v, theme) => {
@@ -443,8 +459,8 @@ const mkBtn = (v, theme) => {
   };
   const [bg, c, b] = defs[v] || defs.ghost;
   return {
-    padding:"8px 18px", borderRadius:"7px", fontSize:"12px", fontFamily:"inherit",
-    cursor:"pointer", fontWeight:"500", border:`1px solid ${b}`,
+    padding:"9px 18px", borderRadius:"10px", fontSize:"13px", fontFamily:UI_FONT_STACK,
+    cursor:"pointer", fontWeight:"600", border:`1px solid ${b}`,
     background:bg, color:c, transition:"all 0.15s",
     display:"inline-flex", alignItems:"center", gap:"6px", whiteSpace:"nowrap",
   };
@@ -484,7 +500,7 @@ export default function BranchAdminDashboard({
   const [search,    setSearch]    = useState("");
   const [statusFil, setStatusFil] = useState("all");
 
-  const [empForm, setEmpForm] = useState({ name:"", username:"", email:"", phone:"", role:"", employeeId:"", designation:"", departmentName:"", password:"", confirmPassword:"" });
+  const [empForm, setEmpForm] = useState(EMPTY_EMP_FORM);
   const [empError, setEmpError] = useState("");
   const [modal,   setModal]   = useState(null);
 
@@ -575,11 +591,15 @@ export default function BranchAdminDashboard({
       setEmployees(branchUsers);
       setOverview(buildOverviewData(patients, branchUsers));
       setModal(null);
-      setEmpForm({ name:"", username:"", email:"", phone:"", role:"", employeeId:"", designation:"", departmentName:"", password:"", confirmPassword:"" });
+      setEmpForm(EMPTY_EMP_FORM);
     } catch (error) {
       const data = error.response?.data || {};
       setEmpError(data.username?.[0] || data.emp_id?.[0] || data.password?.[0] || "Failed to create employee.");
     }
+  }
+  function updateEmpField(field, value) {
+    setEmpForm((currentForm) => ({ ...currentForm, [field]: value }));
+    if (empError) setEmpError("");
   }
   async function deleteEmp(id) {
     if (!window.confirm("Remove this employee?")) return;
@@ -968,44 +988,12 @@ export default function BranchAdminDashboard({
     );
   }
 
-  // ─── Modal ────────────────────────────────────────────────────────────────
-  function ModalWrap({ title, onClose, onSubmit, children }) {
-    return (
-      <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.82)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:1000, backdropFilter:"blur(4px)" }}
-        onClick={onClose}>
-        <div style={{ background:T.card, border:`1px solid ${T.borderLight}`, borderRadius:"14px", padding:"30px", width:"530px", maxHeight:"85vh", overflowY:"auto", boxShadow:`0 30px 70px rgba(0,0,0,0.7), 0 0 0 1px ${theme.primary}28` }}
-          onClick={e => e.stopPropagation()}>
-          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:"26px" }}>
-            <div>
-              <div style={{ fontSize:"9px", letterSpacing:"3px", color:theme.primary, textTransform:"uppercase", marginBottom:"3px" }}>{resolvedBranchName}</div>
-              <div style={{ fontSize:"16px", fontWeight:"700", color:T.text }}>{title}</div>
-            </div>
-            <button style={{ ...mkBtn("ghost",theme), padding:"6px 10px" }} onClick={onClose}>✕</button>
-          </div>
-          <form onSubmit={onSubmit}>
-            {children}
-            <div style={{ display:"flex", gap:"10px", justifyContent:"flex-end", marginTop:"24px", paddingTop:"18px", borderTop:`1px solid ${T.border}` }}>
-              <button type="button" style={mkBtn("ghost",theme)} onClick={onClose}>Cancel</button>
-              <button type="submit" style={mkBtn("primary",theme)}>Confirm</button>
-            </div>
-          </form>
-        </div>
-      </div>
-    );
-  }
-
-  const FRow = ({ label, children }) => (
-    <div style={{ marginBottom:"15px" }}>
-      <label style={{ display:"block", fontSize:"9px", letterSpacing:"2px", color:T.textMuted, textTransform:"uppercase", marginBottom:"6px" }}>{label}</label>
-      {children}
-    </div>
-  );
   const fi = { ...mkInput(), width:"100%" };
   const fs = { ...mkInput(), width:"100%", cursor:"pointer" };
 
   // ─── Render ───────────────────────────────────────────────────────────────
   return (
-    <div style={{ display:"flex", height:"100vh", background:T.bg, color:T.text, fontFamily:"'DM Mono','JetBrains Mono','Fira Code','Courier New',monospace", overflow:"hidden" }}>
+    <div style={{ display:"flex", height:"100vh", background:T.bg, color:T.text, fontFamily:UI_FONT_STACK, overflow:"hidden" }}>
 
       {/* ── Sidebar ─────────────────────────────────────────────────────── */}
       <aside style={{ width:"256px", minWidth:"256px", background:T.surface, borderRight:`1px solid ${T.border}`, display:"flex", flexDirection:"column" }}>
@@ -1082,6 +1070,7 @@ export default function BranchAdminDashboard({
             <input type="date" style={{ ...mkInput(), fontSize:"11px" }} value={fromDate} onChange={e=>setFromDate(e.target.value)} title="From Date" />
             <span style={{ color:T.textMuted }}>→</span>
             <input type="date" style={{ ...mkInput(), fontSize:"11px" }} value={toDate} onChange={e=>setToDate(e.target.value)} title="To Date" />
+            <ThemeModeDock variant="inline" />
           </div>
         </div>
 
@@ -1099,28 +1088,80 @@ export default function BranchAdminDashboard({
 
       {/* ── Employee Modal ───────────────────────────────────────────────── */}
       {modal==="emp" && (
-        <ModalWrap title="Add Employee" onClose={()=>setModal(null)} onSubmit={addEmployee}>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"0 16px" }}>
-            <FRow label="Full Name"><input style={fi} value={empForm.name} onChange={e=>setEmpForm({...empForm,name:e.target.value})} required /></FRow>
-            <FRow label="Username"><input style={fi} value={empForm.username} onChange={e=>setEmpForm({...empForm,username:e.target.value})} required /></FRow>
-            <FRow label="Employee ID"><input style={fi} value={empForm.employeeId} onChange={e=>setEmpForm({...empForm,employeeId:e.target.value})} placeholder="EMP-001" /></FRow>
-            <FRow label="Email"><input type="email" style={fi} value={empForm.email} onChange={e=>setEmpForm({...empForm,email:e.target.value})} required /></FRow>
-            <FRow label="Phone"><input style={fi} value={empForm.phone} onChange={e=>setEmpForm({...empForm,phone:e.target.value})} /></FRow>
-            <FRow label="Role">
-              <select style={fs} value={empForm.role} onChange={e=>setEmpForm({...empForm,role:e.target.value})} required>
-                <option value="">Select role</option>
-                {["Billing","Receptionist","HOD","OPD","Intimation","Query","Uploading"].map(r=><option key={r} value={r}>{r}</option>)}
-              </select>
-            </FRow>
-            <FRow label="Designation"><input style={fi} value={empForm.designation} onChange={e=>setEmpForm({...empForm,designation:e.target.value})} placeholder="e.g. Senior Consultant" /></FRow>
-            <FRow label="Password"><input type="password" style={fi} value={empForm.password} onChange={e=>setEmpForm({...empForm,password:e.target.value})} required /></FRow>
-            <FRow label="Confirm Password"><input type="password" style={fi} value={empForm.confirmPassword} onChange={e=>setEmpForm({...empForm,confirmPassword:e.target.value})} required /></FRow>
+        <div
+          style={{ position:"fixed", inset:0, background:"rgba(3,8,18,0.72)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:1000, backdropFilter:"blur(8px)" }}
+          onClick={() => setModal(null)}
+        >
+          <div
+            style={{ background:T.surface, border:`1px solid ${T.borderLight}`, borderRadius:"18px", padding:"32px", width:"560px", maxHeight:"88vh", overflowY:"auto", boxShadow:`0 30px 80px rgba(0,0,0,0.55), 0 0 0 1px ${theme.primary}24` }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:"24px" }}>
+              <div>
+                <div style={{ fontSize:"11px", letterSpacing:"0.18em", color:theme.primary, textTransform:"uppercase", marginBottom:"6px", fontWeight:"700" }}>{resolvedBranchName}</div>
+                <div style={{ fontSize:"28px", fontWeight:"800", color:T.text, lineHeight:1.1 }}>Add Employee</div>
+                <div style={{ fontSize:"13px", color:T.textSub, marginTop:"6px" }}>Create a staff account for this branch with the same form behavior and styling used across the admin dashboards.</div>
+              </div>
+              <button type="button" style={{ ...mkBtn("ghost",theme), padding:"8px 11px" }} onClick={() => setModal(null)}>✕</button>
+            </div>
+
+            <form onSubmit={addEmployee}>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"16px 18px" }}>
+                <div>
+                  <label style={{ display:"block", fontSize:"12px", fontWeight:"700", color:T.textSub, marginBottom:"7px" }}>Full Name</label>
+                  <input style={fi} value={empForm.name} onChange={e => updateEmpField("name", e.target.value)} placeholder="Aman Kumar" required />
+                </div>
+                <div>
+                  <label style={{ display:"block", fontSize:"12px", fontWeight:"700", color:T.textSub, marginBottom:"7px" }}>Username</label>
+                  <input style={fi} value={empForm.username} onChange={e => updateEmpField("username", e.target.value)} placeholder="aman.kumar" required />
+                </div>
+                <div>
+                  <label style={{ display:"block", fontSize:"12px", fontWeight:"700", color:T.textSub, marginBottom:"7px" }}>Employee ID</label>
+                  <input style={{ ...fi, fontFamily:UI_MONO_STACK }} value={empForm.employeeId} onChange={e => updateEmpField("employeeId", e.target.value)} placeholder="EMP-001" />
+                </div>
+                <div>
+                  <label style={{ display:"block", fontSize:"12px", fontWeight:"700", color:T.textSub, marginBottom:"7px" }}>Email</label>
+                  <input type="email" style={fi} value={empForm.email} onChange={e => updateEmpField("email", e.target.value)} placeholder="aman@sangihospital.com" required />
+                </div>
+                <div>
+                  <label style={{ display:"block", fontSize:"12px", fontWeight:"700", color:T.textSub, marginBottom:"7px" }}>Phone</label>
+                  <input style={fi} value={empForm.phone} onChange={e => updateEmpField("phone", e.target.value)} placeholder="+91 98765 43210" />
+                </div>
+                <div>
+                  <label style={{ display:"block", fontSize:"12px", fontWeight:"700", color:T.textSub, marginBottom:"7px" }}>Role</label>
+                  <select style={fs} value={empForm.role} onChange={e => updateEmpField("role", e.target.value)} required>
+                    <option value="">Select role</option>
+                    {["Billing","Receptionist","HOD","OPD","Intimation","Query","Uploading"].map(r => <option key={r} value={r}>{r}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={{ display:"block", fontSize:"12px", fontWeight:"700", color:T.textSub, marginBottom:"7px" }}>Designation</label>
+                  <input style={fi} value={empForm.designation} onChange={e => updateEmpField("designation", e.target.value)} placeholder="Senior Consultant" />
+                </div>
+                <div>
+                  <label style={{ display:"block", fontSize:"12px", fontWeight:"700", color:T.textSub, marginBottom:"7px" }}>Password</label>
+                  <input type="password" style={fi} value={empForm.password} onChange={e => updateEmpField("password", e.target.value)} placeholder="Create a password" required />
+                </div>
+                <div>
+                  <label style={{ display:"block", fontSize:"12px", fontWeight:"700", color:T.textSub, marginBottom:"7px" }}>Confirm Password</label>
+                  <input type="password" style={fi} value={empForm.confirmPassword} onChange={e => updateEmpField("confirmPassword", e.target.value)} placeholder="Repeat the password" required />
+                </div>
+              </div>
+
+              <div style={{ marginTop:"16px" }}>
+                <label style={{ display:"block", fontSize:"12px", fontWeight:"700", color:T.textSub, marginBottom:"7px" }}>Department Name</label>
+                <input style={fi} value={empForm.departmentName} onChange={e => updateEmpField("departmentName", e.target.value)} placeholder="Cardiology, ICU" required />
+              </div>
+
+              {empError && <div style={{ color:T.danger, fontSize:"12px", marginTop:"12px" }}>{empError}</div>}
+
+              <div style={{ display:"flex", gap:"10px", justifyContent:"flex-end", marginTop:"24px", paddingTop:"18px", borderTop:`1px solid ${T.border}` }}>
+                <button type="button" style={mkBtn("ghost",theme)} onClick={() => setModal(null)}>Cancel</button>
+                <button type="submit" style={mkBtn("primary",theme)}>Create Employee</button>
+              </div>
+            </form>
           </div>
-          <FRow label="Department Name">
-            <input style={fi} value={empForm.departmentName} onChange={e=>setEmpForm({...empForm,departmentName:e.target.value})} placeholder="e.g. Cardiology, ICU" required />
-          </FRow>
-          {empError && <div style={{ color:T.danger, fontSize:"12px", marginTop:"8px" }}>{empError}</div>}
-        </ModalWrap>
+        </div>
       )}
 
       <style>{`

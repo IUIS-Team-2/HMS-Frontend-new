@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import ThemeModeDock from "../components/ui/ThemeModeDock";
 
 const DEPARTMENTS = ["Billing", "Uploading", "Query", "OPD", "Intimation"];
 
@@ -46,6 +47,8 @@ const VIEW_ICONS = {
   employees: "👥",
 };
 
+const API_ORIGIN = process.env.REACT_APP_API_ORIGIN || "http://127.0.0.1:8000";
+
 export default function HodDashboard({ currentUser, onLogout }) {
   const [activeDept, setActiveDept] = useState("Billing");
   const [activeView, setActiveView] = useState("tasks");
@@ -90,7 +93,7 @@ export default function HodDashboard({ currentUser, onLogout }) {
   const [editingTask, setEditingTask] = useState(null);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
-  const API = "/api/hod";
+  const API = `${API_ORIGIN}/api/hod`;
 
   function normalizeApiPath(path) {
     const [pathname, search = ""] = String(path || "/").split("?");
@@ -110,7 +113,15 @@ export default function HodDashboard({ currentUser, onLogout }) {
         },
         ...options,
       });
-      if (!res.ok) throw new Error(`API error: ${res.status}`);
+      const contentType = res.headers.get("content-type") || "";
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || `API error: ${res.status}`);
+      }
+      if (!contentType.includes("application/json")) {
+        const text = await res.text();
+        throw new Error(text || "API did not return JSON.");
+      }
       return await res.json();
     } catch (e) {
       setError(e.message);
@@ -217,7 +228,7 @@ export default function HodDashboard({ currentUser, onLogout }) {
       height: "100vh",
       background: "#060a10",
       color: "#e2e8f0",
-      fontFamily: "'IBM Plex Mono', 'Courier New', monospace",
+      fontFamily: "var(--ui-font-sans)",
       overflow: "hidden",
     },
     sidebar: {
@@ -773,7 +784,7 @@ export default function HodDashboard({ currentUser, onLogout }) {
           <span style={s.filterLabel}>Filter:</span>
           <select style={s.select} value={filterEmployee} onChange={(e) => setFilterEmployee(e.target.value)}>
             <option value="">All Employees</option>
-            {employees.map((emp) => <option key={emp.id} value={emp.id}>{emp.name}</option>)}
+            {employees.map((emp) => <option key={emp.id} value={emp.id}>{`${emp.name} (${emp.employeeCode || `ID-${emp.id}`})`}</option>)}
           </select>
           <select style={s.select} value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
             <option value="">All Status</option>
@@ -869,7 +880,7 @@ export default function HodDashboard({ currentUser, onLogout }) {
           </select>
           <select style={s.select} value={filterEmployee} onChange={(e) => setFilterEmployee(e.target.value)}>
             <option value="">All Employees</option>
-            {employees.map(emp => <option key={emp.id} value={emp.id}>{emp.name}</option>)}
+            {employees.map(emp => <option key={emp.id} value={emp.id}>{`${emp.name} (${emp.employeeCode || `ID-${emp.id}`})`}</option>)}
           </select>
           <input type="date" style={s.input} value={filterDate} onChange={(e) => setFilterDate(e.target.value)} />
           <button style={{ ...s.btn("ghost"), marginLeft: "auto" }} onClick={handleDownloadReport}>↓ Download Report</button>
@@ -1110,6 +1121,7 @@ export default function HodDashboard({ currentUser, onLogout }) {
               </div>
             )}
             <button style={s.btn("ghost")} onClick={() => { fetchTasks(); fetchEmployees(); }}>↻</button>
+            <ThemeModeDock variant="inline" />
           </div>
         </div>
 
@@ -1132,7 +1144,7 @@ export default function HodDashboard({ currentUser, onLogout }) {
                 <label style={s.label}>Employee</label>
                 <select style={{ ...s.select, width: "100%" }} value={taskForm.employeeId} onChange={(e) => setTaskForm({ ...taskForm, employeeId: e.target.value })} required>
                   <option value="">Select Employee</option>
-                  {employees.map(emp => <option key={emp.id} value={emp.id}>{emp.name}</option>)}
+                  {employees.map(emp => <option key={emp.id} value={emp.id}>{`${emp.name} (${emp.employeeCode || `ID-${emp.id}`})`}</option>)}
                 </select>
               </div>
 

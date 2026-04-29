@@ -109,7 +109,7 @@ export const NAV_PAGES = [
 //
 //  HOW THE ROLE SYSTEM WORKS:
 //  ──────────────────────────
-//  superadmin  →  Sees both branches, all data, creates admins, approves print bills
+//  superadmin  →  Sees all hospitals, all data, creates admins, approves print bills
 //  admin       →  Sees their assigned branch only, creates depts & dept users
 //  opd/ipd/billing/pharmacy/doctor/nursing/lab/radiology/reception
 //              →  Dept-level users created by admin in the Admin Panel
@@ -122,4 +122,3 @@ export const NAV_PAGES = [
 //
 //  Below USERS is the SEED — used only if localStorage is empty.
 // ─────────────────────────────────────────────────────────────────────────────
-

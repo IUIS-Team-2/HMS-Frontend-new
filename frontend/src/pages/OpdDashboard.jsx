@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import * as XLSX from "xlsx";
 import { apiService } from "../services/apiService";
+import ThemeModeDock from "../components/ui/ThemeModeDock";
 
 const COLUMNS = [
   { key: "sNo",         label: "S.No.",        width: 60,  readOnly: true },
@@ -172,7 +173,7 @@ const todayCount  = allEntries.filter(e => entryDate(e) === today).length;
   const filledToday = rows.filter(r => r.uhid || r.claimId || r.opdNo || r.patientName).length;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: "#fff1f2", color: "#1c0a0a", fontFamily: "'Inter', 'Segoe UI', sans-serif", overflow: "hidden" }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: "#fff1f2", color: "#1c0a0a", fontFamily: "var(--ui-font-sans)", overflow: "hidden" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
         * { box-sizing: border-box; }
@@ -180,7 +181,7 @@ const todayCount  = allEntries.filter(e => entryDate(e) === today).length;
         ::-webkit-scrollbar-track { background: #ffe4e6; }
         ::-webkit-scrollbar-thumb { background: #fca5a5; border-radius: 3px; }
         .ogrid-cell:focus { outline: 2px solid ${accent}; outline-offset: -2px; background: #ffe4e6 !important; z-index: 2; position: relative; }
-        .ogrid-cell { transition: background 0.1s; font-family: 'DM Mono', monospace; }
+        .ogrid-cell { transition: background 0.1s; font-family: var(--ui-font-sans); }
         .ogrid-cell:hover { background: #fff1f2 !important; }
         .otab-btn:hover { color: ${accent} !important; background: #ffe4e6 !important; }
         .ofilter-chip:hover { border-color: ${accent} !important; color: ${accent} !important; background: #ffe4e6 !important; }
@@ -198,26 +199,27 @@ const todayCount  = allEntries.filter(e => entryDate(e) === today).length;
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
           <div style={{ width: 38, height: 38, borderRadius: 10, background: `linear-gradient(135deg, ${accent}, #ef4444)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, color: "#fff", fontWeight: 700, boxShadow: `0 4px 12px ${accent}50` }}>🏥</div>
           <div>
-            <div style={{ fontSize: 9, letterSpacing: "4px", color: "#fca5a5", textTransform: "uppercase", fontFamily: "'DM Mono', monospace", fontWeight: 500 }}>Sangi Hospital</div>
+            <div style={{ fontSize: 9, letterSpacing: "4px", color: "#fca5a5", textTransform: "uppercase", fontFamily: "var(--ui-font-sans)", fontWeight: 500 }}>Sangi Hospital</div>
             <div style={{ fontSize: 16, fontWeight: 700, color: "#1c0a0a", letterSpacing: "-0.3px" }}>OPD Department</div>
           </div>
-          <div style={{ marginLeft: 10, padding: "4px 14px", borderRadius: 20, background: "#ffe4e6", border: `1.5px solid ${accent}`, fontSize: 10, color: accent, fontFamily: "'DM Mono', monospace", fontWeight: 600 }}>{today}</div>
+          <div style={{ marginLeft: 10, padding: "4px 14px", borderRadius: 20, background: "#ffe4e6", border: `1.5px solid ${accent}`, fontSize: 10, color: accent, fontFamily: "var(--ui-font-sans)", fontWeight: 600 }}>{today}</div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           {[{ label: "Today", val: todayCount, col: "#10b981" }, { label: "This Week", val: weekCount, col: accent }, { label: "This Month", val: monthCount, col: "#f59e0b" }].map(({ label, val, col }) => (
             <div key={label} style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 14px", borderRadius: 20, background: `${col}12`, border: `1.5px solid ${col}40`, fontSize: 11 }}>
-              <span style={{ color: col, fontWeight: 700, fontFamily: "'DM Mono', monospace" }}>{val}</span>
+              <span style={{ color: col, fontWeight: 700, fontFamily: "var(--ui-font-sans)" }}>{val}</span>
               <span style={{ color: "#6b7280", fontWeight: 600 }}>{label}</span>
             </div>
           ))}
+          <ThemeModeDock variant="inline" />
           {currentUser && (
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: 8, paddingLeft: 14, borderLeft: "2px solid #fecdd3" }}>
               <div style={{ width: 32, height: 32, borderRadius: 8, background: `${accent}20`, border: `1.5px solid ${accent}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, color: accent, fontWeight: 700 }}>{currentUser.name?.[0] || "O"}</div>
               <div>
                 <div style={{ fontSize: 12, color: "#1c0a0a", fontWeight: 700 }}>{currentUser.name}</div>
-                <div style={{ fontSize: 9, color: "#fca5a5", letterSpacing: "1.5px", textTransform: "uppercase", fontFamily: "'DM Mono', monospace" }}>OPD Staff</div>
+                <div style={{ fontSize: 9, color: "#fca5a5", letterSpacing: "1.5px", textTransform: "uppercase", fontFamily: "var(--ui-font-sans)" }}>OPD Staff</div>
               </div>
-              <button onClick={onLogout} style={{ marginLeft: 6, padding: "5px 14px", borderRadius: 8, background: "#fff1f2", border: "1.5px solid #fecaca", color: "#ef4444", fontSize: 10, cursor: "pointer", fontFamily: "'Inter', sans-serif", fontWeight: 700 }}>⎋ Logout</button>
+              <button onClick={onLogout} style={{ marginLeft: 6, padding: "5px 14px", borderRadius: 8, background: "#fff1f2", border: "1.5px solid #fecaca", color: "#ef4444", fontSize: 10, cursor: "pointer", fontFamily: "var(--ui-font-sans)", fontWeight: 700 }}>⎋ Logout</button>
             </div>
           )}
         </div>
@@ -228,7 +230,7 @@ const todayCount  = allEntries.filter(e => entryDate(e) === today).length;
         <div style={{ display: "flex", gap: 4 }}>
           {[{ id: "entry", label: "📋 Daily Entry" }, { id: "records", label: "🗂 Records" }].map(tab => (
             <button key={tab.id} className="otab-btn" onClick={() => setViewTab(tab.id)}
-              style={{ padding: "7px 20px", borderRadius: "8px 8px 0 0", fontSize: 12, fontFamily: "'Inter', sans-serif", cursor: "pointer", border: "none", background: viewTab === tab.id ? "#ffffff" : "transparent", color: viewTab === tab.id ? accent : "#9ca3af", borderBottom: viewTab === tab.id ? `3px solid ${accent}` : "3px solid transparent", fontWeight: viewTab === tab.id ? 700 : 600, transition: "all 0.15s" }}>
+              style={{ padding: "7px 20px", borderRadius: "8px 8px 0 0", fontSize: 12, fontFamily: "var(--ui-font-sans)", cursor: "pointer", border: "none", background: viewTab === tab.id ? "#ffffff" : "transparent", color: viewTab === tab.id ? accent : "#9ca3af", borderBottom: viewTab === tab.id ? `3px solid ${accent}` : "3px solid transparent", fontWeight: viewTab === tab.id ? 700 : 600, transition: "all 0.15s" }}>
               {tab.label}
             </button>
           ))}
@@ -237,11 +239,11 @@ const todayCount  = allEntries.filter(e => entryDate(e) === today).length;
           {viewTab === "entry" && (
             <>
 {syncError && <div style={{ fontSize: 10, color: "#f87171", fontWeight: 600 }}>{syncError}</div>}
-              {hasUnsaved && <div style={{ fontSize: 10, color: accent, animation: "opulse 2s infinite", fontFamily: "'DM Mono', monospace", fontWeight: 600 }}>● Unsaved changes</div>}
-              {savedAt && !hasUnsaved && <div style={{ fontSize: 10, color: "#10b981", fontFamily: "'DM Mono', monospace", fontWeight: 600 }}>✓ Saved at {savedAt}</div>}
-              <button className="oaction-btn" onClick={() => addRows(5)} style={{ padding: "6px 16px", borderRadius: 8, fontSize: 11, fontFamily: "'Inter', sans-serif", cursor: "pointer", background: "#fff", border: "1.5px solid #fecdd3", color: "#6b7280", fontWeight: 600 }}>+ 5 Rows</button>
-              <button className="oaction-btn" onClick={handleSave} style={{ padding: "6px 20px", borderRadius: 8, fontSize: 12, fontFamily: "'Inter', sans-serif", cursor: "pointer", background: `linear-gradient(135deg, ${accent}, #ef4444)`, border: "none", color: "#fff", fontWeight: 700, boxShadow: `0 4px 14px ${accent}50` }}>💾 Save</button>
-              <button className="oaction-btn" onClick={handleDownload} style={{ padding: "6px 16px", borderRadius: 8, fontSize: 11, fontFamily: "'Inter', sans-serif", cursor: "pointer", background: "#064e3b", border: "1.5px solid #065f46", color: "#34d399", fontWeight: 600 }}>↓ Export Today</button>
+              {hasUnsaved && <div style={{ fontSize: 10, color: accent, animation: "opulse 2s infinite", fontFamily: "var(--ui-font-sans)", fontWeight: 600 }}>● Unsaved changes</div>}
+              {savedAt && !hasUnsaved && <div style={{ fontSize: 10, color: "#10b981", fontFamily: "var(--ui-font-sans)", fontWeight: 600 }}>✓ Saved at {savedAt}</div>}
+              <button className="oaction-btn" onClick={() => addRows(5)} style={{ padding: "6px 16px", borderRadius: 8, fontSize: 11, fontFamily: "var(--ui-font-sans)", cursor: "pointer", background: "#fff", border: "1.5px solid #fecdd3", color: "#6b7280", fontWeight: 600 }}>+ 5 Rows</button>
+              <button className="oaction-btn" onClick={handleSave} style={{ padding: "6px 20px", borderRadius: 8, fontSize: 12, fontFamily: "var(--ui-font-sans)", cursor: "pointer", background: `linear-gradient(135deg, ${accent}, #ef4444)`, border: "none", color: "#fff", fontWeight: 700, boxShadow: `0 4px 14px ${accent}50` }}>💾 Save</button>
+              <button className="oaction-btn" onClick={handleDownload} style={{ padding: "6px 16px", borderRadius: 8, fontSize: 11, fontFamily: "var(--ui-font-sans)", cursor: "pointer", background: "#064e3b", border: "1.5px solid #065f46", color: "#34d399", fontWeight: 600 }}>↓ Export Today</button>
             </>
           )}
         </div>
@@ -255,9 +257,9 @@ const todayCount  = allEntries.filter(e => entryDate(e) === today).length;
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, padding: "14px 20px", background: "#ffffff", border: `1.5px solid ${accent}40`, borderRadius: 12, borderLeft: `5px solid ${accent}`, boxShadow: "0 2px 8px #f8717110" }}>
               <div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: "#1c0a0a" }}>Today's OPD Log — {today}</div>
-                <div style={{ fontSize: 10, color: "#9ca3af", marginTop: 3, fontFamily: "'DM Mono', monospace" }}>{filledToday} of {rows.length} rows filled · Tab to move right · Enter to move down</div>
+                <div style={{ fontSize: 10, color: "#9ca3af", marginTop: 3, fontFamily: "var(--ui-font-sans)" }}>{filledToday} of {rows.length} rows filled · Tab to move right · Enter to move down</div>
               </div>
-              <div style={{ fontSize: 28, fontWeight: 700, color: accent, fontFamily: "'DM Mono', monospace" }}>{filledToday}</div>
+              <div style={{ fontSize: 28, fontWeight: 700, color: accent, fontFamily: "var(--ui-font-sans)" }}>{filledToday}</div>
             </div>
 
             <div style={{ overflowX: "auto", background: "#ffffff", border: "1.5px solid #fecdd3", borderRadius: 12, overflow: "hidden", boxShadow: "0 2px 12px #f8717108" }}>
@@ -265,7 +267,7 @@ const todayCount  = allEntries.filter(e => entryDate(e) === today).length;
                 <thead>
                   <tr style={{ background: "#ffe4e6" }}>
                     {COLUMNS.map(col => (
-                      <th key={col.key} style={{ padding: "11px 14px", textAlign: "left", fontSize: 9, letterSpacing: "2px", color: "#be123c", textTransform: "uppercase", borderBottom: "2px solid #fecdd3", whiteSpace: "nowrap", minWidth: col.width, fontFamily: "'Inter', sans-serif", fontWeight: 700, borderRight: "1px solid #fecdd3" }}>
+                      <th key={col.key} style={{ padding: "11px 14px", textAlign: "left", fontSize: 9, letterSpacing: "2px", color: "#be123c", textTransform: "uppercase", borderBottom: "2px solid #fecdd3", whiteSpace: "nowrap", minWidth: col.width, fontFamily: "var(--ui-font-sans)", fontWeight: 700, borderRight: "1px solid #fecdd3" }}>
                         {col.label}
                       </th>
                     ))}
@@ -280,7 +282,7 @@ const todayCount  = allEntries.filter(e => entryDate(e) === today).length;
                         {COLUMNS.map(col => (
                           <td key={col.key} style={{ padding: 0, borderRight: "1px solid #ffe4e6" }}>
                             {col.readOnly ? (
-                              <div style={{ padding: "9px 14px", color: "#fca5a5", fontSize: 11, userSelect: "none", fontFamily: "'DM Mono', monospace" }}>{row[col.key]}</div>
+                              <div style={{ padding: "9px 14px", color: "#fca5a5", fontSize: 11, userSelect: "none", fontFamily: "var(--ui-font-sans)" }}>{row[col.key]}</div>
                             ) : (
                               <input
                                 id={`cell-${rowIdx}-${col.key}`}
@@ -289,7 +291,7 @@ const todayCount  = allEntries.filter(e => entryDate(e) === today).length;
                                 value={row[col.key] || ""}
                                 onChange={e => updateRow(row.id, col.key, e.target.value)}
                                 onKeyDown={e => handleKeyDown(e, rowIdx, col.key)}
-                                style={{ width: "100%", padding: "10px 14px", background: "transparent", border: "none", color: col.key === "patientName" ? "#1c0a0a" : "#374151", fontSize: 11, fontFamily: "'DM Mono', monospace", outline: "none", minWidth: col.width, cursor: "text", fontWeight: col.key === "patientName" ? 600 : 400 }}
+                                style={{ width: "100%", padding: "10px 14px", background: "transparent", border: "none", color: col.key === "patientName" ? "#1c0a0a" : "#374151", fontSize: 11, fontFamily: "var(--ui-font-sans)", outline: "none", minWidth: col.width, cursor: "text", fontWeight: col.key === "patientName" ? 600 : 400 }}
                                 placeholder={col.type === "date" ? "yyyy-mm-dd" : "—"}
                               />
                             )}
@@ -304,28 +306,28 @@ const todayCount  = allEntries.filter(e => entryDate(e) === today).length;
                 </tbody>
               </table>
             </div>
-            <button onClick={() => addRows(1)} style={{ marginTop: 14, padding: "10px 20px", borderRadius: 10, background: "transparent", border: `1.5px dashed ${accent}60`, color: accent, fontSize: 12, cursor: "pointer", fontFamily: "'Inter', sans-serif", fontWeight: 700, width: "100%" }}>+ Add Row</button>
+            <button onClick={() => addRows(1)} style={{ marginTop: 14, padding: "10px 20px", borderRadius: 10, background: "transparent", border: `1.5px dashed ${accent}60`, color: accent, fontSize: 12, cursor: "pointer", fontFamily: "var(--ui-font-sans)", fontWeight: 700, width: "100%" }}>+ Add Row</button>
           </div>
         )}
 
         {viewTab === "records" && (
           <div style={{ flex: 1, overflow: "auto", padding: "20px 28px" }} className="ofade-in">
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20, padding: "14px 20px", background: "#ffffff", border: "1.5px solid #fecdd3", borderRadius: 12, flexWrap: "wrap", boxShadow: "0 2px 8px #f8717108" }}>
-              <span style={{ fontSize: 9, color: "#fca5a5", letterSpacing: "2.5px", textTransform: "uppercase", marginRight: 4, fontFamily: "'DM Mono', monospace", fontWeight: 600 }}>Period:</span>
+              <span style={{ fontSize: 9, color: "#fca5a5", letterSpacing: "2.5px", textTransform: "uppercase", marginRight: 4, fontFamily: "var(--ui-font-sans)", fontWeight: 600 }}>Period:</span>
               {[{ id: "today", label: "Today" }, { id: "week", label: "This Week" }, { id: "month", label: "This Month" }, { id: "year", label: "This Year" }, { id: "custom", label: "Custom" }].map(f => (
                 <button key={f.id} className="ofilter-chip" onClick={() => setFilterMode(f.id)}
-                  style={{ padding: "6px 16px", borderRadius: 20, fontSize: 11, fontFamily: "'Inter', sans-serif", cursor: "pointer", background: filterMode === f.id ? `${accent}15` : "#f9fafb", border: `1.5px solid ${filterMode === f.id ? accent : "#fecdd3"}`, color: filterMode === f.id ? accent : "#6b7280", fontWeight: filterMode === f.id ? 700 : 600, transition: "all 0.15s" }}>
+                  style={{ padding: "6px 16px", borderRadius: 20, fontSize: 11, fontFamily: "var(--ui-font-sans)", cursor: "pointer", background: filterMode === f.id ? `${accent}15` : "#f9fafb", border: `1.5px solid ${filterMode === f.id ? accent : "#fecdd3"}`, color: filterMode === f.id ? accent : "#6b7280", fontWeight: filterMode === f.id ? 700 : 600, transition: "all 0.15s" }}>
                   {f.label}
                 </button>
               ))}
               {filterMode === "custom" && (
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: 8 }}>
-                  <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)} style={{ background: "#fff1f2", border: "1.5px solid #fecdd3", color: "#1c0a0a", padding: "6px 12px", borderRadius: 8, fontSize: 11, fontFamily: "'DM Mono', monospace", outline: "none" }} />
+                  <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)} style={{ background: "#fff1f2", border: "1.5px solid #fecdd3", color: "#1c0a0a", padding: "6px 12px", borderRadius: 8, fontSize: 11, fontFamily: "var(--ui-font-sans)", outline: "none" }} />
                   <span style={{ color: "#9ca3af", fontSize: 10 }}>to</span>
-                  <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)} style={{ background: "#fff1f2", border: "1.5px solid #fecdd3", color: "#1c0a0a", padding: "6px 12px", borderRadius: 8, fontSize: 11, fontFamily: "'DM Mono', monospace", outline: "none" }} />
+                  <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)} style={{ background: "#fff1f2", border: "1.5px solid #fecdd3", color: "#1c0a0a", padding: "6px 12px", borderRadius: 8, fontSize: 11, fontFamily: "var(--ui-font-sans)", outline: "none" }} />
                 </div>
               )}
-              <div style={{ marginLeft: "auto", padding: "5px 16px", borderRadius: 20, background: `${accent}15`, border: `1.5px solid ${accent}`, fontSize: 12, color: accent, fontWeight: 700, fontFamily: "'DM Mono', monospace" }}>{filteredEntries.length} records</div>
+              <div style={{ marginLeft: "auto", padding: "5px 16px", borderRadius: 20, background: `${accent}15`, border: `1.5px solid ${accent}`, fontSize: 12, color: accent, fontWeight: 700, fontFamily: "var(--ui-font-sans)" }}>{filteredEntries.length} records</div>
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 20 }}>
@@ -337,14 +339,14 @@ const todayCount  = allEntries.filter(e => entryDate(e) === today).length;
               ].map(({ label, val, col }) => (
                 <div key={label} style={{ background: "#ffffff", border: "1.5px solid #fecdd3", borderTop: `4px solid ${col}`, borderRadius: 12, padding: "16px 18px", position: "relative", overflow: "hidden", boxShadow: "0 2px 8px #f8717108" }}>
                   <div style={{ position: "absolute", top: 0, right: 0, width: 80, height: 80, borderRadius: "50%", background: `${col}08`, transform: "translate(30%,-30%)" }} />
-                  <div style={{ fontSize: 8, letterSpacing: "2.5px", color: "#9ca3af", textTransform: "uppercase", marginBottom: 8, fontFamily: "'Inter', sans-serif", fontWeight: 700 }}>{label}</div>
-                  <div style={{ fontSize: 30, fontWeight: 700, color: col, lineHeight: 1, fontFamily: "'DM Mono', monospace" }}>{val}</div>
+                  <div style={{ fontSize: 8, letterSpacing: "2.5px", color: "#9ca3af", textTransform: "uppercase", marginBottom: 8, fontFamily: "var(--ui-font-sans)", fontWeight: 700 }}>{label}</div>
+                  <div style={{ fontSize: 30, fontWeight: 700, color: col, lineHeight: 1, fontFamily: "var(--ui-font-sans)" }}>{val}</div>
                 </div>
               ))}
             </div>
 
             {filteredEntries.length === 0 ? (
-              <div style={{ textAlign: "center", padding: 60, color: "#fecdd3", fontSize: 12, letterSpacing: "3px", background: "#ffffff", border: "1.5px solid #fecdd3", borderRadius: 12, fontFamily: "'Inter', sans-serif", fontWeight: 700 }}>NO RECORDS FOUND FOR THIS PERIOD</div>
+              <div style={{ textAlign: "center", padding: 60, color: "#fecdd3", fontSize: 12, letterSpacing: "3px", background: "#ffffff", border: "1.5px solid #fecdd3", borderRadius: 12, fontFamily: "var(--ui-font-sans)", fontWeight: 700 }}>NO RECORDS FOUND FOR THIS PERIOD</div>
             ) : (
               <div style={{ background: "#ffffff", border: "1.5px solid #fecdd3", borderRadius: 12, overflow: "hidden" }}>
                 <div style={{ overflowX: "auto" }}>
@@ -352,21 +354,21 @@ const todayCount  = allEntries.filter(e => entryDate(e) === today).length;
                     <thead>
                       <tr style={{ background: "#ffe4e6" }}>
                         {COLUMNS.map(col => (
-                          <th key={col.key} style={{ padding: "11px 14px", textAlign: "left", fontSize: 9, letterSpacing: "2px", color: "#be123c", textTransform: "uppercase", borderBottom: "2px solid #fecdd3", whiteSpace: "nowrap", fontFamily: "'Inter', sans-serif", fontWeight: 700, borderRight: "1px solid #fecdd3" }}>{col.label}</th>
+                          <th key={col.key} style={{ padding: "11px 14px", textAlign: "left", fontSize: 9, letterSpacing: "2px", color: "#be123c", textTransform: "uppercase", borderBottom: "2px solid #fecdd3", whiteSpace: "nowrap", fontFamily: "var(--ui-font-sans)", fontWeight: 700, borderRight: "1px solid #fecdd3" }}>{col.label}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
                       {filteredEntries.map((row, i) => (
                         <tr key={row.id || i} style={{ borderBottom: "1px solid #ffe4e6" }}>
-                          <td style={{ padding: "10px 14px", color: "#fca5a5", fontSize: 10, borderRight: "1px solid #ffe4e6", fontFamily: "'DM Mono', monospace" }}>{i + 1}</td>
-                          <td style={{ padding: "10px 14px", color: "#0ea5e9", fontFamily: "'DM Mono', monospace", borderRight: "1px solid #ffe4e6", fontWeight: 600 }}>{row.uhid || "—"}</td>
-                          <td style={{ padding: "10px 14px", color: accent, fontFamily: "'DM Mono', monospace", borderRight: "1px solid #ffe4e6", fontWeight: 600 }}>{row.claimId || "—"}</td>
-                          <td style={{ padding: "10px 14px", color: "#374151", fontFamily: "'DM Mono', monospace", borderRight: "1px solid #ffe4e6" }}>{row.opdNo || "—"}</td>
+                          <td style={{ padding: "10px 14px", color: "#fca5a5", fontSize: 10, borderRight: "1px solid #ffe4e6", fontFamily: "var(--ui-font-sans)" }}>{i + 1}</td>
+                          <td style={{ padding: "10px 14px", color: "#0ea5e9", fontFamily: "var(--ui-font-sans)", borderRight: "1px solid #ffe4e6", fontWeight: 600 }}>{row.uhid || "—"}</td>
+                          <td style={{ padding: "10px 14px", color: accent, fontFamily: "var(--ui-font-sans)", borderRight: "1px solid #ffe4e6", fontWeight: 600 }}>{row.claimId || "—"}</td>
+                          <td style={{ padding: "10px 14px", color: "#374151", fontFamily: "var(--ui-font-sans)", borderRight: "1px solid #ffe4e6" }}>{row.opdNo || "—"}</td>
                           <td style={{ padding: "10px 14px", color: "#1c0a0a", fontWeight: 700, borderRight: "1px solid #ffe4e6" }}>{row.patientName || "—"}</td>
-                          <td style={{ padding: "10px 14px", color: "#6b7280", fontSize: 11, borderRight: "1px solid #ffe4e6", fontFamily: "'DM Mono', monospace" }}>{row.opdDate || "—"}</td>
+                          <td style={{ padding: "10px 14px", color: "#6b7280", fontSize: 11, borderRight: "1px solid #ffe4e6", fontFamily: "var(--ui-font-sans)" }}>{row.opdDate || "—"}</td>
                           <td style={{ padding: "10px 14px", borderRight: "1px solid #ffe4e6" }}>
-                            <span style={{ padding: "3px 10px", borderRadius: 6, background: `${accent}15`, color: accent, fontSize: 10, fontFamily: "'DM Mono', monospace", fontWeight: 600 }}>{row.uploadDate || "—"}</span>
+                            <span style={{ padding: "3px 10px", borderRadius: 6, background: `${accent}15`, color: accent, fontSize: 10, fontFamily: "var(--ui-font-sans)", fontWeight: 600 }}>{row.uploadDate || "—"}</span>
                           </td>
                           <td style={{ padding: "10px 14px", color: "#374151", borderRight: "1px solid #ffe4e6" }}>{row.hospital || "—"}</td>
                           <td style={{ padding: "10px 14px", color: "#374151", borderRight: "1px solid #ffe4e6" }}>{row.prepareBy || "—"}</td>

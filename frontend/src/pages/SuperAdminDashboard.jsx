@@ -1,8 +1,9 @@
 import { useState, useMemo, useEffect, useRef, createContext, useContext } from "react";
 import { useTheme } from "../context/ThemeContext";
 import * as XLSX from "xlsx";
-import { apiService } from "../services/apiService";
+import { apiService, BASE_URL } from "../services/apiService";
 import { toast } from "react-toastify";
+import ThemeModeDock from "../components/ui/ThemeModeDock";
 
 /* ══════════════════════════════════════════════════════════════
    DESIGN TOKENS & HELPERS
@@ -47,8 +48,10 @@ const useT = () => useContext(TC);
 
 const SD = "0 4px 32px rgba(0,0,0,.5)";
 const cardStyle = (t) => ({ background: t.card, borderRadius: 14, padding: 20, boxShadow: SD });
-const bColor = (loc, t) => loc === "laxmi" ? t.laxmi : t.raya;
-const bName  = loc => loc === "laxmi" ? "Lakshmi Nagar" : "Raya";
+const ALL_HOSPITALS_LABEL = "All Hospitals";
+const isGlobalAccessUser = (user) => user?.role === "superadmin" || user?.role === "office_admin" || user?.branch === "ALL";
+const bColor = (loc, t) => loc === "ALL" ? t.amber : (loc === "laxmi" ? t.laxmi : t.raya);
+const bName  = loc => loc === "ALL" ? ALL_HOSPITALS_LABEL : (loc === "laxmi" ? "Lakshmi Nagar" : "Raya");
 const fmt    = d  => { try { const dt=new Date(d); return isNaN(dt)?"--":dt.toLocaleDateString("en-IN"); } catch { return "--"; } };
 const inr    = v  => "Rs." + Number(v||0).toLocaleString("en-IN");
 
@@ -340,7 +343,7 @@ function PatientModal({ p, onClose }) {
                     <>
                       <button onClick={() => setDocTemplate(null)} style={{ padding: "5px 12px", borderRadius: 7, background: "transparent", border: `1px solid ${T.border2}`, color: T.dim, fontSize: 12, cursor: "pointer" }}>Close Editor</button>
                       <button onClick={handleSaveDocument} style={{ padding: "5px 12px", borderRadius: 7, background: T.green, color: "#000", border: "none", fontSize: 12, fontWeight: 800, cursor: "pointer" }}>Save Document</button>
-                      <button onClick={() => window.open(`http://localhost:8000/api/patients/${p.uhid}/admissions/${p.admNo}/dynamic-summary/print/`, "_blank")} style={{ padding: "5px 12px", borderRadius: 7, background: T.white, color: "#000", border: "none", fontSize: 12, fontWeight: 800, cursor: "pointer" }}>Print Document</button>
+                      <button onClick={() => window.open(`${BASE_URL}/patients/${p.uhid}/admissions/${p.admNo}/dynamic-summary/print/`, "_blank")} style={{ padding: "5px 12px", borderRadius: 7, background: T.white, color: "#000", border: "none", fontSize: 12, fontWeight: 800, cursor: "pointer" }}>Print Document</button>
                     </>
                   )}
                 </div>
@@ -557,7 +560,7 @@ function DashboardTab({ all, laxmi, raya }) {
         ))}
       </div>
       <STitle action={<XlsBtn onClick={()=>exportXLSX(all,PT_COLS,"overview_all.xlsx")}/>}>
-        Recent Admissions - Both Branches
+        Recent Admissions - All Hospitals
       </STitle>
       <div style={{ ...cardStyle(T),padding:0,overflow:"hidden" }}>
         <table style={{ width:"100%",borderCollapse:"collapse" }}>
@@ -619,7 +622,7 @@ function AllPatientsTab({ all }) {
         <StatCard icon="💰" label="Combined Revenue" value={inr(all.reduce((s,p)=>s+p.grand,0))} color={T.green}/>
       </div>
       <div style={{ display:"flex",gap:8,marginBottom:12 }}>
-        <FilterSelect value={branch} onChange={setBranch} options={[["all","All Branches"],["laxmi","Lakshmi Nagar"],["raya","Raya"]]}/>
+        <FilterSelect value={branch} onChange={setBranch} options={[["all","All Hospitals"],["laxmi","Lakshmi Nagar"],["raya","Raya"]]}/>
       </div>
       <PTable rows={rows} showBranch={branch==="all"} filename="all_patients.xlsx"/>
     </div>
@@ -659,7 +662,7 @@ function BillingTab({ all }) {
         <StatCard icon="📊" label="Records" value={rows.length} color={T.laxmi}/>
       </div>
       <div style={{ display:"flex",gap:8,flexWrap:"wrap",alignItems:"center",marginBottom:12 }}>
-        <FilterSelect value={branch} onChange={setBranch} options={[["all","All Branches"],["laxmi","Lakshmi Nagar"],["raya","Raya"]]}/>
+        <FilterSelect value={branch} onChange={setBranch} options={[["all","All Hospitals"],["laxmi","Lakshmi Nagar"],["raya","Raya"]]}/>
         <FilterSelect value={typeF} onChange={setTypeF} options={[["all","All Types"],["cash","Cash"],["cashless","Cashless / TPA"]]}/>
         <XlsBtn onClick={()=>exportXLSX(rows,BCOLS,"billing_all.xlsx")}/>
       </div>
@@ -706,7 +709,7 @@ function InvoicesTab({ printRequests, onApprovePrint }) {
         <div style={{ ...cardStyle(T),textAlign:"center",padding:80 }}>
           <div style={{ fontSize:52,marginBottom:14 }}>✅</div>
           <div style={{ fontSize:18,fontWeight:800,color:T.white }}>All clear</div>
-          <div style={{ fontSize:13,color:T.dim,marginTop:6 }}>Invoice print requests from both branches will appear here</div>
+          <div style={{ fontSize:13,color:T.dim,marginTop:6 }}>Invoice print requests from all hospitals will appear here</div>
         </div>
       ) : reqs.map((req,i)=>{
         const col = bColor(req.locId, T);
@@ -776,7 +779,7 @@ function MedicalTab({ all }) {
         <StatCard icon="🏨" label="Raya" value={withMed.filter(p=>p._branch==="raya").length} color={T.raya}/>
       </div>
       <div style={{ display:"flex",gap:8,marginBottom:12,alignItems:"center" }}>
-        <FilterSelect value={branch} onChange={setBranch} options={[["all","All Branches"],["laxmi","Lakshmi Nagar"],["raya","Raya"]]}/>
+        <FilterSelect value={branch} onChange={setBranch} options={[["all","All Hospitals"],["laxmi","Lakshmi Nagar"],["raya","Raya"]]}/>
         <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search name or UHID..."
           style={{ marginLeft:"auto",padding:"7px 13px",borderRadius:8,border:`1px solid ${T.border2}`,
             background:T.card,color:T.white,fontSize:13,outline:"none",width:240 }}/>
@@ -834,7 +837,7 @@ function DischargeTab({ all }) {
         <StatCard icon="💰" label="Revenue" value={inr(disch.reduce((s,p)=>s+p.grand,0))} color={T.amber}/>
       </div>
       <div style={{ display:"flex",gap:8,marginBottom:12,alignItems:"center" }}>
-        <FilterSelect value={branch} onChange={setBranch} options={[["all","All Branches"],["laxmi","Lakshmi Nagar"],["raya","Raya"]]}/>
+        <FilterSelect value={branch} onChange={setBranch} options={[["all","All Hospitals"],["laxmi","Lakshmi Nagar"],["raya","Raya"]]}/>
         <XlsBtn onClick={()=>exportXLSX(rows,DCOLS,"discharge_summary.xlsx")}/>
       </div>
       <div style={{ ...cardStyle(T),padding:0,overflow:"hidden" }}>
@@ -912,7 +915,7 @@ function ReportsTab({ all }) {
   return (
     <div>
       <div style={{ display:"flex",gap:8,marginBottom:20 }}>
-        <FilterSelect value={branch} onChange={setBranch} options={[["all","All Branches"],["laxmi","Lakshmi Nagar"],["raya","Raya"]]}/>
+        <FilterSelect value={branch} onChange={setBranch} options={[["all","All Hospitals"],["laxmi","Lakshmi Nagar"],["raya","Raya"]]}/>
       </div>
       <div style={{ display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14 }}>
         {REPORTS.map(r=>(
@@ -949,7 +952,7 @@ function AdminsTab() {
   const [search,      setSearch]      = useState("");
 
   /* ── form states ── */
-  const EMPTY_FORM = { id:"", name:"", password:"", confirmPassword:"", role:"office_admin", branch:"laxmi" };
+  const EMPTY_FORM = { id:"", name:"", password:"", confirmPassword:"", role:"office_admin", branch:"ALL" };
   const [form,        setForm]        = useState(EMPTY_FORM);
   const [editForm,    setEditForm]    = useState({});
   const [showPass,    setShowPass]    = useState(false);
@@ -966,10 +969,13 @@ function AdminsTab() {
         ...u,
         id: u.id,
         username: u.username,
-        name: `${u.first_name} ${u.last_name}`,
+        name: `${u.first_name} ${u.last_name}`.trim() || u.username,
         role: u.role === 'admin' ? 'branch_admin' : u.role, 
-        branch: u.branch === 'LNM' ? 'laxmi' : (u.branch === 'RYM' ? 'raya' : 'ALL'),
+        branch: ['superadmin', 'office_admin'].includes(u.role)
+          ? 'ALL'
+          : (u.branch === 'LNM' ? 'laxmi' : (u.branch === 'RYM' ? 'raya' : 'ALL')),
         isActive: u.is_active,
+        lastLogin: u.last_login,
       }));
       setUsers(formatted);
     } catch (error) {
@@ -1003,7 +1009,7 @@ function AdminsTab() {
   const sef = k => e => setEditForm(f=>({...f,[k]:e.target.value}));
 
   const handleRoleChange = val =>
-    setForm(f => ({ ...f, role: val, branch: val === "office_admin" ? "laxmi" : f.branch }));
+    setForm(f => ({ ...f, role: val, branch: val === "office_admin" ? "ALL" : (f.branch === "ALL" ? "laxmi" : f.branch) }));
 
   /* ── CREATE ── */
   const handleCreate = async () => {
@@ -1174,7 +1180,7 @@ function AdminsTab() {
         <StatCard icon="👥" label="Total Users"    value={users.length}        color={T.laxmi}/>
         <StatCard icon="🟢" label="Active"          value={activeCount}          sub="Can log in"          color={T.green}/>
         <StatCard icon="🔴" label="Deactivated"     value={deactCount}           sub="Blocked from login"  color={T.red}/>
-        <StatCard icon="🏢" label="Office Admins"   value={officeAdmins.length}  sub="Both branches"       color={T.laxmi}/>
+        <StatCard icon="🏢" label="Office Admins"   value={officeAdmins.length}  sub="All hospitals"       color={T.laxmi}/>
         <StatCard icon="🏥" label="Branch Admins"   value={branchAdmins.length}  sub="Single branch"       color={T.raya}/>
       </div>
 
@@ -1183,7 +1189,13 @@ function AdminsTab() {
         <div style={{ display:"flex", alignItems:"flex-start", gap:10 }}>
           <Pill color={T.laxmi}>Office Admin</Pill>
           <div style={{ fontSize:12, color:T.dim, maxWidth:240 }}>
-            Single admin for <strong style={{ color:T.white }}>both branches</strong>. Has a branch switcher.
+            Global operational authority across <strong style={{ color:T.white }}>all hospitals</strong>. New hospitals should inherit this same office-admin access model.
+          </div>
+        </div>
+        <div style={{ display:"flex", alignItems:"flex-start", gap:10 }}>
+          <Pill color={T.amber}>Super Admin</Pill>
+          <div style={{ fontSize:12, color:T.dim, maxWidth:260 }}>
+            Full system control across <strong style={{ color:T.white }}>all hospitals</strong>, including top-level user governance and platform-wide visibility.
           </div>
         </div>
         <div style={{ display:"flex", alignItems:"flex-start", gap:10 }}>
@@ -1250,11 +1262,8 @@ function AdminsTab() {
                 </td>
                 {/* Branch */}
                 <td style={{ padding:"10px 12px" }}>
-                  {u.role === "office_admin"
-                    ? <div style={{ display:"flex", gap:4 }}>
-                        <Pill color={T.laxmi}>Lakshmi Nagar</Pill>
-                        <Pill color={T.raya}>Raya</Pill>
-                      </div>
+                  {isGlobalAccessUser(u)
+                    ? <Pill color={u.role === "superadmin" ? T.amber : T.laxmi}>{ALL_HOSPITALS_LABEL}</Pill>
                     : u.branch
                       ? <Pill color={bColor(u.branch, T)}>{bName(u.branch)}</Pill>
                       : <span style={{ color:T.dim }}>--</span>
@@ -1351,12 +1360,12 @@ function AdminsTab() {
               <label style={labelSt}>Role</label>
               <select value={form.role} onChange={e=>handleRoleChange(e.target.value)}
                 style={{ ...inputSt, cursor:"pointer" }}>
-                <option value="office_admin">Office Admin (Both Branches)</option>
+                <option value="office_admin">Office Admin (All Hospitals)</option>
                 <option value="branch_admin">Branch Admin (Single Branch)</option>
               </select>
               <div style={{ fontSize:11, color:T.dim, marginTop:5, padding:"6px 10px", background:T.bg, borderRadius:6 }}>
                 {form.role==="office_admin"
-                  ? "⚡ Office Admin has access to both branches with a branch switcher."
+                  ? "⚡ Office Admin has authority across all hospitals and should automatically cover future hospitals too."
                   : "🏥 Branch Admin is restricted to the single branch below."}
               </div>
             </div>
@@ -1364,13 +1373,12 @@ function AdminsTab() {
             <div style={{ marginBottom:18 }}>
               <label style={labelSt}>
                 Branch {form.role==="office_admin" &&
-                  <span style={{ color:T.green, textTransform:"none", letterSpacing:0, fontWeight:500 }}>(auto: both)</span>}
+                  <span style={{ color:T.green, textTransform:"none", letterSpacing:0, fontWeight:500 }}>(auto: all hospitals)</span>}
               </label>
               {form.role==="office_admin" ? (
                 <div style={{ padding:"9px 13px", borderRadius:8, border:`1px solid ${T.border}`,
                   background:T.bg, color:T.dim, fontSize:13, display:"flex", gap:8 }}>
-                  <Pill color={T.laxmi}>Lakshmi Nagar</Pill>
-                  <Pill color={T.raya}>Raya</Pill>
+                  <Pill color={T.laxmi}>{ALL_HOSPITALS_LABEL}</Pill>
                 </div>
               ) : (
                 <select value={form.branch} onChange={sf("branch")}
@@ -1423,9 +1431,9 @@ function AdminsTab() {
             <div style={{ marginBottom:12 }}>
               <label style={labelSt}>Role</label>
               <select value={editForm.role}
-                onChange={e => setEditForm(f=>({ ...f, role:e.target.value, branch: e.target.value==="office_admin"?"laxmi":f.branch }))}
+                onChange={e => setEditForm(f=>({ ...f, role:e.target.value, branch: e.target.value==="office_admin"?"ALL":(f.branch==="ALL"?"laxmi":f.branch) }))}
                 style={{ ...inputSt, cursor:"pointer" }}>
-                <option value="office_admin">Office Admin (Both Branches)</option>
+                <option value="office_admin">Office Admin (All Hospitals)</option>
                 <option value="branch_admin">Branch Admin (Single Branch)</option>
               </select>
             </div>
@@ -1433,13 +1441,12 @@ function AdminsTab() {
             <div style={{ marginBottom:12 }}>
               <label style={labelSt}>
                 Branch {editForm.role==="office_admin" &&
-                  <span style={{ color:T.green, textTransform:"none", letterSpacing:0, fontWeight:500 }}>(auto: both)</span>}
+                  <span style={{ color:T.green, textTransform:"none", letterSpacing:0, fontWeight:500 }}>(auto: all hospitals)</span>}
               </label>
               {editForm.role==="office_admin" ? (
                 <div style={{ padding:"9px 13px", borderRadius:8, border:`1px solid ${T.border}`,
                   background:T.bg, display:"flex", gap:8 }}>
-                  <Pill color={T.laxmi}>Lakshmi Nagar</Pill>
-                  <Pill color={T.raya}>Raya</Pill>
+                  <Pill color={T.laxmi}>{ALL_HOSPITALS_LABEL}</Pill>
                 </div>
               ) : (
                 <select value={editForm.branch} onChange={sef("branch")}
@@ -1935,7 +1942,7 @@ function TaskPerformanceTab() {
             }}>{lbl}</button>
           ))}
         </div>
-        <FilterSelect value={branchF} onChange={setBranchF} options={[["all","All Branches"],["laxmi","Lakshmi Nagar"],["raya","Raya"]]}/>
+        <FilterSelect value={branchF} onChange={setBranchF} options={[["all","All Hospitals"],["laxmi","Lakshmi Nagar"],["raya","Raya"]]}/>
         <FilterSelect value={deptF}   onChange={setDeptF}   options={[["all","All Departments"],...DEPARTMENTS.map(d=>[d,d])]}/>
         <FilterSelect value={ratingF} onChange={setRatingF} options={[["all","All Ratings"],["5","★★★★★ Excellent"],["4","★★★★ Good"],["3","★★★ Average"],["2","★★ Below Avg"],["1","★ Poor"]]}/>
         <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search staff, task, dept..."
@@ -2036,7 +2043,7 @@ const DEMO_PERFORMANCES = [
    MAIN EXPORT
 ══════════════════════════════════════════════════════════════ */
 export default function SuperAdminDashboard({ db={}, printRequests=[], onApprovePrint, onLogout }) {
-  const { isDark, toggle } = useTheme();
+  const { isDark } = useTheme();
   // eslint-disable-next-line no-global-assign
   T = isDark ? T_DARK : T_LIGHT;
   const [tab, setTab] = useState("dashboard");
@@ -2121,7 +2128,7 @@ export default function SuperAdminDashboard({ db={}, printRequests=[], onApprove
               display:"flex", alignItems:"center", justifyContent:"center", color:T.laxmi, fontWeight:900, fontSize:13 }}>S</div>
             <div style={{ flex:1 }}>
               <div style={{ fontSize:12, color:T.white, fontWeight:700 }}>Super Admin</div>
-              <div style={{ fontSize:10, color:T.dim }}>All branches</div>
+              <div style={{ fontSize:10, color:T.dim }}>All hospitals</div>
             </div>
           </div>
         </div>
@@ -2133,10 +2140,7 @@ export default function SuperAdminDashboard({ db={}, printRequests=[], onApprove
           borderBottom:`1px solid ${T.border}`, background:T.sidebar, position:"sticky", top:0, zIndex:40 }}>
           <div style={{ fontSize:13, fontWeight:700, color:T.white }}>{activeLabel?.icon} {activeLabel?.label}</div>
           <div style={{ display:"flex", alignItems:"center", gap:12 }}>
-            <button onClick={toggle} style={{ background:"transparent", border:`1px solid ${T.border}`, color:T.dim,
-              padding:"5px 12px", borderRadius:8, cursor:"pointer", fontSize:12, fontWeight:600 }}>
-              {isDark?"☀ Light":"☾ Dark"}
-            </button>
+            <ThemeModeDock variant="inline" />
             <div style={{ display:"flex", alignItems:"center", gap:8, background:"rgba(255,255,255,0.05)",
               borderRadius:20, padding:"3px 6px 3px 12px", border:`1px solid ${T.border}` }}>
               <span style={{ fontSize:11, color:T.dim, fontWeight:500 }}>Super Admin</span>

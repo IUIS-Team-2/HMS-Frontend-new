@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { apiService } from "../services/apiService";
+import { apiService, BASE_URL } from "../services/apiService";
 import appIcon from '../assets/app_icon.png';
 
 export default function LoginPage({ onLogin }) {
@@ -31,17 +31,25 @@ export default function LoginPage({ onLogin }) {
       let frontendBranch = payload.branch;
       if (frontendBranch === "LNM") frontendBranch = "laxmi";
       if (frontendBranch === "RYM") frontendBranch = "raya";
+      if (frontendBranch === "ALL") frontendBranch = "all";
+
+      const isGlobalUser =
+        payload.access_scope === "all_hospitals" ||
+        frontendBranch === "all" ||
+        ["superadmin", "office_admin"].includes(payload.role);
+      const userLocations = isGlobalUser ? ["laxmi", "raya"] : [frontendBranch];
 
       const loggedInUser = {
         id: payload.username,
         username: payload.username,
         name: payload.name,
         role: payload.role,
-        branch: frontendBranch,
-        locations: [frontendBranch]
+        branch: isGlobalUser ? null : frontendBranch,
+        accessScope: isGlobalUser ? "all_hospitals" : "single_hospital",
+        locations: userLocations,
       };
 
-      onLogin(loggedInUser, frontendBranch || "laxmi");
+      onLogin(loggedInUser, isGlobalUser ? "laxmi" : (frontendBranch || "laxmi"));
     } catch (err) {
       setError(err.response?.data?.detail || "Invalid username or password");
     }
@@ -56,7 +64,7 @@ export default function LoginPage({ onLogin }) {
     setForgotLoading(true);
 
     try {
-      const res = await fetch('http://localhost:8000/api/users/request-reset-otp/', {
+      const res = await fetch(`${BASE_URL}/users/request-reset-otp/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: forgotEmail }),
@@ -81,7 +89,7 @@ export default function LoginPage({ onLogin }) {
     setForgotLoading(true);
 
     try {
-      const res = await fetch('http://localhost:8000/api/users/verify-reset-otp/', {
+      const res = await fetch(`${BASE_URL}/users/verify-reset-otp/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: forgotEmail, otp: otp, new_password: newPassword }),

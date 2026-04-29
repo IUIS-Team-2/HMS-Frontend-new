@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { apiService } from "../services/apiService";
+import ThemeModeDock from "../components/ui/ThemeModeDock";
 
 const CURRENT_USER = { name: "Priya Sharma", empId: "EMP-2041" };
 const INSURANCE_TYPES = ["Self Pay", "TPA", "ECHS", "ECI", "FCI", "Ayushman Bharat", "Northern Railways"];
@@ -514,13 +515,13 @@ const CSS = `
   --r:10px;--r2:14px;
   --sh:0 2px 16px rgba(11,25,41,.10);--sh2:0 6px 32px rgba(11,25,41,.14);
 }
-body{background:var(--bg);color:var(--text);font-family:'Plus Jakarta Sans',sans-serif;font-size:14px}
+body{background:var(--bg);color:var(--text);font-family:var(--ui-font-sans);font-size:14px}
 .app{display:flex;flex-direction:column;min-height:100vh}
 .layout{display:flex;flex:1}
 .main{flex:1;overflow-y:auto;padding:28px 32px}
 
 .topbar{height:60px;background:var(--navy);display:flex;align-items:center;padding:0 28px;justify-content:space-between;position:sticky;top:0;z-index:200;box-shadow:0 2px 12px rgba(0,0,0,.25)}
-.logo{width:38px;height:38px;border-radius:9px;background:linear-gradient(135deg,#0d7c72,#14b8a6);display:flex;align-items:center;justify-content:center;font-family:'Instrument Serif',serif;font-style:italic;color:#fff;font-size:17px;flex-shrink:0}
+.logo{width:38px;height:38px;border-radius:9px;background:linear-gradient(135deg,#0d7c72,#14b8a6);display:flex;align-items:center;justify-content:center;font-family:var(--ui-font-sans);color:#fff;font-size:17px;font-weight:800;flex-shrink:0}
 .brand-name{font-size:15px;font-weight:700;color:#fff}
 .brand-sub{font-size:11px;color:rgba(255,255,255,.4);letter-spacing:.05em;text-transform:uppercase}
 .user-av{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#0d7c72,#1d4ed8);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff}
@@ -542,7 +543,7 @@ body{background:var(--bg);color:var(--text);font-family:'Plus Jakarta Sans',sans
 .smrl{color:var(--text3)}
 
 .pgh{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:22px}
-.pgt{font-family:'Instrument Serif',serif;font-size:24px;color:var(--navy)}
+.pgt{font-family:var(--ui-font-sans);font-size:24px;color:var(--navy);font-weight:800;letter-spacing:-.02em}
 .pgs{font-size:12px;color:var(--text3);margin-top:3px}
 .dchip{padding:7px 14px;border-radius:8px;font-size:12px;font-weight:600;background:var(--white);border:1px solid var(--border);color:var(--text2);white-space:nowrap}
 
@@ -550,7 +551,7 @@ body{background:var(--bg);color:var(--text);font-family:'Plus Jakarta Sans',sans
 .sc{background:var(--white);border:1px solid var(--border);border-radius:var(--r2);padding:18px 20px;position:relative;overflow:hidden}
 .sc::after{content:'';position:absolute;bottom:0;left:0;right:0;height:3px}
 .sc.c1::after{background:var(--teal)}.sc.c2::after{background:var(--amber)}.sc.c3::after{background:var(--blue)}
-.scv{font-family:'Instrument Serif',serif;font-size:30px;line-height:1;margin-bottom:4px}
+.scv{font-family:var(--ui-font-sans);font-size:30px;line-height:1;margin-bottom:4px;font-weight:800}
 .sc.c1 .scv{color:var(--teal)}.sc.c2 .scv{color:var(--amber)}.sc.c3 .scv{color:var(--blue)}
 .scl{font-size:12px;color:var(--text3);font-weight:500}
 
@@ -589,7 +590,7 @@ body{background:var(--bg);color:var(--text);font-family:'Plus Jakarta Sans',sans
 .back-btn:hover{color:var(--navy);border-color:var(--navy)}
 
 .dhdr{background:var(--white);border:1px solid var(--border);border-radius:var(--r2);padding:20px 24px;margin-bottom:10px}
-.dname{font-family:'Instrument Serif',serif;font-size:22px;color:var(--navy);margin-bottom:4px}
+.dname{font-family:var(--ui-font-sans);font-size:22px;color:var(--navy);margin-bottom:4px;font-weight:800}
 .dmeta{font-size:13px;color:var(--text2);margin-bottom:10px}
 .dmeta strong{color:var(--navy)}
 .dod-strip{display:flex;gap:0;background:var(--bg);border-radius:10px;border:1px solid var(--border);overflow:hidden;margin-top:12px}
@@ -691,7 +692,7 @@ body{background:var(--bg);color:var(--text);font-family:'Plus Jakarta Sans',sans
 .mclose{position:absolute;top:16px;right:16px;width:28px;height:28px;border-radius:6px;background:var(--bg);border:1px solid var(--border);cursor:pointer;font-size:13px;color:var(--text2);display:flex;align-items:center;justify-content:center}
 .mclose:hover{background:var(--redBg);color:var(--red)}
 .mico{font-size:42px;text-align:center;margin-bottom:12px}
-.mtitle{font-family:'Instrument Serif',serif;font-size:21px;color:var(--navy);text-align:center;margin-bottom:6px}
+.mtitle{font-family:var(--ui-font-sans);font-size:21px;color:var(--navy);text-align:center;margin-bottom:6px;font-weight:800}
 .msub{font-size:13px;color:var(--text2);text-align:center;line-height:1.65;margin-bottom:20px}
 .mcl{background:var(--bg);border-radius:var(--r);padding:16px;margin-bottom:20px;display:flex;flex-direction:column;gap:8px}
 .mclr{display:flex;align-items:center;gap:10px;font-size:13px}
@@ -891,6 +892,7 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <ThemeModeDock variant="inline" />
             <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
               {/* 🌟 FIXED: Now uses the actual logged-in user prop */}
               <div className="user-av">{currentUser?.name?.[0] || "B"}</div>
@@ -1214,7 +1216,7 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
                                 value={rep.reportName}
                                 placeholder="Report Name (e.g. Complete Blood Count)"
                                 onChange={e => updRep(ri, "reportName", e.target.value)}
-                                style={{ background: "transparent", border: "none", outline: "none", color: "#fff", fontFamily: "'Instrument Serif',serif", fontSize: 16, width: "100%", fontStyle: "italic" }}
+                                style={{ background: "transparent", border: "none", outline: "none", color: "#fff", fontFamily: "var(--ui-font-sans)", fontSize: 16, width: "100%", fontWeight: 700 }}
                               />
                               <div className="prmt">
                                 <span>

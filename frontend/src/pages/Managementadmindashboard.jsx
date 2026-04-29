@@ -2,6 +2,8 @@ import * as XLSX from "xlsx";
 import MedDrawer from "../components/MedDrawer";
 import { useState, useMemo, useEffect } from "react";
 import { apiService } from "../services/apiService";
+import { useTheme } from "../context/ThemeContext";
+import ThemeModeDock from "../components/ui/ThemeModeDock";
 
 const LOCATION_DB = {
   laxmi: [],
@@ -15,10 +17,13 @@ const BC = {
   raya:  { label: "Raya",        accent: "#818cf8", dim: "#818cf818", border: "#818cf830" },
 };
 const BRANCH_KEYS = ["laxmi", "raya"];
+const BRANCH_KEY_TO_CODE = { laxmi: "LNM", raya: "RYM" };
+const BRANCH_CODE_TO_KEY = { LNM: "laxmi", RYM: "raya" };
 const DEPT_OPTIONS = ["HOD", "Billing", "Uploading", "Intimation", "Query", "OPD"];
 const TASK_STATUS   = ["Pending", "In Progress", "Completed", "On Hold", "Overdue"];
 const TASK_PRIORITY = ["Low", "Medium", "High", "Urgent"];
 const SUMMARY_TYPES = ["Normal", "LAMA", "Refer", "Death", "DAMA"];
+const EMPLOYEE_ID_PREFIXES = { LNM: "LAK", RYM: "RAY", ALL: "OFF" };
 const LAB_TEMPLATES = {
     "Complete Blood Count (CBC)": {
       tests: [
@@ -397,6 +402,25 @@ const TASK_PRIORITY_META = {
 };
 const DEPT_ICONS = { HOD:"👔", Billing:"💳", Uploading:"☁️", Intimation:"📢", Query:"❓", OPD:"🏥" };
 const DEPT_ACCENT_CYCLE = ["#34d399","#818cf8","#f59e0b","#38bdf8","#f87171","#c084fc","#22d3ee"];
+const EMPLOYEE_ROLE_OPTIONS = [
+  { value: "receptionist", label: "Receptionist" },
+  { value: "hod", label: "HOD" },
+  { value: "billing", label: "Billing" },
+  { value: "opd", label: "OPD" },
+  { value: "intimation", label: "Intimation" },
+  { value: "query", label: "Query" },
+  { value: "uploading", label: "Uploading" },
+];
+const DEPARTMENT_ROLE_MAP = {
+  HOD: "hod",
+  Billing: "billing",
+  OPD: "opd",
+  Intimation: "intimation",
+  Query: "query",
+  Uploading: "uploading",
+  Receptionist: "receptionist",
+};
+const TASK_ASSIGNABLE_ROLES = new Set(["receptionist", "billing", "hod", "opd", "intimation", "query", "uploading", "admin", "office_admin"]);
 
 // ── UTILS ─────────────────────────────────────────────────────────────────────
 const fmt    = (n)   => "₹" + Number(n).toLocaleString("en-IN");
@@ -418,8 +442,8 @@ const mapTaskFromApi = (task) => ({
   createdAt: task.created_at,
   updatedAt: task.updated_at,
   completedAt: task.status === "Completed" ? task.updated_at : "",
-  patientName: task.patient_names?.[0] || "",
-  patientUhid: task.patient_uhids?.[0] || "",
+  patientName: task.patient_name || task.patient_names?.[0] || "",
+  patientUhid: task.patient_uhid || task.patient_uhids?.[0] || "",
   createdBy: task.assigned_by_name || "—",
 });
 
@@ -512,10 +536,6 @@ const DYNAMIC_CSS = (accent, isDark) => `
   }
   .hms-avatar-name { color: ${isDark ? "#94a3b8" : "#475569"}; }
   .hms-logout-btn {
-    border: 1px solid ${isDark ? "#1e2a3a" : "#dde8f5"};
-    color: ${isDark ? "#64748b" : "#64748b"};
-  }
-  .hms-theme-btn {
     border: 1px solid ${isDark ? "#1e2a3a" : "#dde8f5"};
     color: ${isDark ? "#64748b" : "#64748b"};
   }
@@ -657,16 +677,29 @@ const DYNAMIC_CSS = (accent, isDark) => `
 `;
 
 // ── MAIN COMPONENT ─────────────────────────────────────────────────────────────
-export default function ManagementAdminDashboard({ currentUser, db, onLogout }) {
-  const homeBranch = currentUser?.branch || currentUser?.locations?.[0] || "laxmi";
+export default function ManagementAdminDashboard({ currentUser, db, locId, onLogout }) {
+  const { isDark } = useTheme();
+  const userBranchKey = BRANCH_CODE_TO_KEY[String(currentUser?.branch || "").toUpperCase()];
+  const locBranchKey = BRANCH_KEYS.includes(locId) ? locId : null;
+  const homeBranch = userBranchKey || locBranchKey || (currentUser?.locations?.find(location => BRANCH_KEYS.includes(location)) || "laxmi");
+  const isOfficeAdmin = String(currentUser?.role || "").toLowerCase() === "office_admin";
+  const isSuperAdmin = String(currentUser?.role || "").toLowerCase() === "superadmin";
+  const allowedBranchKeys = BRANCH_KEYS;
   const [viewBranch,  setViewBranch]  = useState(homeBranch);
+  const activeBranchCode = BRANCH_KEY_TO_CODE[viewBranch] || "LNM";
   const bc     = BC[viewBranch] || BC.laxmi;
   const accent = bc.accent;
+
+  useEffect(() => {
+    if (!allowedBranchKeys.includes(viewBranch)) {
+      setViewBranch(homeBranch);
+    }
+  }, [allowedBranchKeys, viewBranch, homeBranch]);
 
   const [activeTab,  setActiveTab]  = useState("home");
   const [collapsed,  setCollapsed]  = useState(false);
   const [notif,      setNotif]      = useState(null);
-  const [isDark,     setIsDark]     = useState(true);
+  const [profileForm, setProfileForm] = useState({ first_name: "", last_name: "", email: "", phone_number: "", emp_id: "" });
 
   // 1. Keep the state so your edit buttons still work
   const [allPatients, setAllPatients] = useState({ laxmi: [], raya: [] });
@@ -675,12 +708,12 @@ export default function ManagementAdminDashboard({ currentUser, db, onLogout }) 
   const [employees,      setEmployees]      = useState([]);
   const [showEmpModal,   setShowEmpModal]   = useState(false);
   const [editEmpId,      setEditEmpId]      = useState(null); 
-  const [empForm,        setEmpForm]        = useState({ fullName:"", username:"", empId:"", dept:"HOD", email:"", phone:"", role:"", password:"", confirmPassword:"" });
+  const [empForm,        setEmpForm]        = useState({ fullName:"", username:"", empId:"", dept:"HOD", email:"", phone:"", role:"hod", password:"", confirmPassword:"" });
 
   // 2. Automatically load the real, secure data!
   useEffect(() => {
     if (db) setAllPatients(db);
-    
+
     // 🌟 THE FIX: Fetch real employees from Django so we have their real integer IDs!
     const loadEmployees = async () => {
         try {
@@ -693,11 +726,26 @@ export default function ManagementAdminDashboard({ currentUser, db, onLogout }) 
                 email: u.email,
                 phone: u.phone_number,
                 role: u.role,
-                dept: u.role.toUpperCase(),
+                branch: u.branch,
+                dept: u.role.replaceAll("_", " ").replace(/\b\w/g, (ch) => ch.toUpperCase()),
                 status: u.is_active ? "Active" : "Inactive"
             }));
             setEmployees(mapped);
         } catch (err) { console.error("Failed to fetch employees", err); }
+    };
+    const loadProfile = async () => {
+      try {
+        const profile = await apiService.getMyProfile();
+        setProfileForm({
+          first_name: profile.first_name || "",
+          last_name: profile.last_name || "",
+          email: profile.email || "",
+          phone_number: profile.phone_number || "",
+          emp_id: profile.emp_id || "",
+        });
+      } catch (err) {
+        console.error("Failed to fetch profile", err);
+      }
     };
     const loadTasks = async () => {
       try {
@@ -710,6 +758,7 @@ export default function ManagementAdminDashboard({ currentUser, db, onLogout }) 
     };
     loadEmployees();
     loadTasks();
+    loadProfile();
   }, [db]);
 
   // Departments
@@ -724,7 +773,7 @@ export default function ManagementAdminDashboard({ currentUser, db, onLogout }) 
   const [tasks,           setTasks]           = useState([]);
   const [showTaskModal,   setShowTaskModal]   = useState(false);
   const [editTask,        setEditTask]        = useState(null);
-  const [taskForm,        setTaskForm]        = useState({ title:"", description:"", assignedTo:"", department:"HOD", priority:"Medium", status:"Pending", dueDate:"", patientUhid:"", patientName:"" });
+  const [taskForm,        setTaskForm]        = useState({ title:"", description:"", assignedToId:"", department:"HOD", priority:"Medium", status:"Pending", dueDate:"", patientUhid:"", patientName:"" });
   const [taskPatientSearch, setTaskPatientSearch] = useState("");
   const [taskReportFilter,setTaskReportFilter]= useState({ period:"all", dept:"All", status:"All", empName:"" });
 
@@ -751,14 +800,14 @@ export default function ManagementAdminDashboard({ currentUser, db, onLogout }) 
   useEffect(() => safeSave("hms_mgmt_departments", departments), [departments]);
   useEffect(() => safeSave("hms_mgmt_employees",   employees),   [employees]);
 
-  const locationPatients  = allPatients[viewBranch] || [];
+  const allPatientsFlat   = useMemo(() => BRANCH_KEYS.flatMap(bk => (allPatients[bk]||[]).map(p=>({...p,_branch:bk,_branchLabel:BC[bk].label}))), [allPatients]);
+  const allDeptOptions    = [...DEPT_OPTIONS, ...departments.filter(d=>!DEPT_OPTIONS.includes(d.name)).map(d=>d.name)];
+  const locationPatients  = isOfficeAdmin ? allPatientsFlat : (allPatients[viewBranch] || []);
   const allAdmissions     = useMemo(() => locationPatients.flatMap(p => (p.admissions||[]).map(a => ({...a, patientName:p.patientName||p.name, uhid:p.uhid, gender:p.gender, bloodGroup:p.bloodGroup, phone:p.phone}))), [locationPatients]);
   const currentlyAdmitted = allAdmissions.filter(a => !a.discharge?.dod).length;
   const discharged        = allAdmissions.filter(a =>  a.discharge?.dod).length;
-  const allPatientsFlat   = useMemo(() => BRANCH_KEYS.flatMap(bk => (allPatients[bk]||[]).map(p=>({...p,_branch:bk,_branchLabel:BC[bk].label}))), [allPatients]);
-  const allDeptOptions    = [...DEPT_OPTIONS, ...departments.filter(d=>!DEPT_OPTIONS.includes(d.name)).map(d=>d.name)];
 
-  // All patients across both branches for task assignment
+  // Office admin can assign from all hospitals.
   const allPatientsForTask = useMemo(() => allPatientsFlat.map(p => ({
     id: p.id,
     uhid: p.uhid,
@@ -772,6 +821,72 @@ export default function ManagementAdminDashboard({ currentUser, db, onLogout }) 
     const q = taskPatientSearch.toLowerCase();
     return allPatientsForTask.filter(p => p.name.toLowerCase().includes(q) || p.uhid.toLowerCase().includes(q));
   }, [allPatientsForTask, taskPatientSearch]);
+
+  const taskAssignableEmployees = useMemo(
+    () => employees.filter((employee) => TASK_ASSIGNABLE_ROLES.has(String(employee.role || "").toLowerCase())),
+    [employees]
+  );
+
+  const getEmployeeBranchCode = () => {
+    if (isOfficeAdmin) return "ALL";
+    if (isSuperAdmin) return activeBranchCode;
+    return String(currentUser?.branch || activeBranchCode || "LNM").toUpperCase();
+  };
+
+  const buildEmployeeId = (branchCode) => {
+    const prefix = EMPLOYEE_ID_PREFIXES[branchCode] || "EMP";
+    const highestSuffix = employees.reduce((max, employee) => {
+      const candidate = String(employee.empId || "").trim().toUpperCase();
+      if (!candidate.startsWith(prefix)) return max;
+      const suffix = candidate.slice(prefix.length);
+      const numericSuffix = Number(suffix);
+      return Number.isInteger(numericSuffix) ? Math.max(max, numericSuffix) : max;
+    }, 0);
+    return `${prefix}${String(highestSuffix + 1).padStart(4, "0")}`;
+  };
+
+  const currentDisplayName = `${profileForm.first_name || ""} ${profileForm.last_name || ""}`.trim() || currentUser?.name;
+
+  const saveMyProfile = async () => {
+    try {
+      const payload = {
+        first_name: profileForm.first_name,
+        last_name: profileForm.last_name,
+        email: profileForm.email,
+        phone_number: profileForm.phone_number,
+        emp_id: profileForm.emp_id,
+      };
+      const updated = await apiService.updateMyProfile(payload);
+      setProfileForm({
+        first_name: updated.first_name || "",
+        last_name: updated.last_name || "",
+        email: updated.email || "",
+        phone_number: updated.phone_number || "",
+        emp_id: updated.emp_id || "",
+      });
+      try {
+        const raw = sessionStorage.getItem("hms_currentUser");
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          const merged = {
+            ...parsed,
+            name: `${updated.first_name || ""} ${updated.last_name || ""}`.trim() || parsed.name,
+            email: updated.email || parsed.email,
+            emp_id: updated.emp_id || parsed.emp_id,
+            phone_number: updated.phone_number || parsed.phone_number,
+          };
+          sessionStorage.setItem("hms_currentUser", JSON.stringify(merged));
+        }
+      } catch (e) {
+        console.error("Failed to sync session profile", e);
+      }
+      toast("Profile updated");
+    } catch (error) {
+      const apiError = error.response?.data || {};
+      const message = apiError.email?.[0] || apiError.phone_number?.[0] || apiError.emp_id?.[0] || apiError.detail || "Failed to update profile";
+      toast(message, "err");
+    }
+  };
 
   const updatePatient = (branchKey, uhid, updater) => setAllPatients(prev => ({...prev,[branchKey]:prev[branchKey].map(p=>p.uhid===uhid?updater(p):p)}));
 
@@ -814,38 +929,32 @@ export default function ManagementAdminDashboard({ currentUser, db, onLogout }) 
   // ── TASK HELPERS ──────────────────────────────────────────────────────────
   const openNewTask  = () => {
     setEditTask(null);
-    setTaskForm({title:"",description:"",assignedTo:"",department:"HOD",priority:"Medium",status:"Pending",dueDate:"",patientUhid:"",patientName:""});
+    setTaskForm({title:"",description:"",assignedToId:"",department:"HOD",priority:"Medium",status:"Pending",dueDate:"",patientUhid:"",patientName:""});
     setTaskPatientSearch("");
     setShowTaskModal(true);
   };
   const openEditTask = (t) => {
     setEditTask(t);
-    setTaskForm({title:t.title,description:t.description||"",assignedTo:t.assignedTo,department:t.department,priority:t.priority,status:t.status,dueDate:t.dueDate||"",patientUhid:t.patientUhid||"",patientName:t.patientName||""});
+    setTaskForm({title:t.title,description:t.description||"",assignedToId:t.assignedToId ? String(t.assignedToId) : "",department:t.department,priority:t.priority,status:t.status,dueDate:t.dueDate||"",patientUhid:t.patientUhid||"",patientName:t.patientName||""});
     setTaskPatientSearch("");
     setShowTaskModal(true);
   };
   const saveTask = async () => {
-    if (!taskForm.title || !taskForm.assignedTo) { toast("Title and Assigned To are required","err"); return; }
+    if (!taskForm.title || !taskForm.assignedToId) { toast("Title and Assigned To are required","err"); return; }
 
-    const assignedEmployee = employees.find((employee) => {
-      const fullName = (employee.fullName || employee.name || "").toLowerCase();
-      const username = String(employee.username || "").toLowerCase();
-      const empId = String(employee.empId || "").toLowerCase();
-      const search = taskForm.assignedTo.toLowerCase();
-      return fullName === search || username === search || empId === search;
-    });
+    const assignedEmployee = taskAssignableEmployees.find((employee) => String(employee.id) === String(taskForm.assignedToId));
     if (!assignedEmployee) { toast("Select a valid employee from the live employee list","err"); return; }
 
     const linkedPatient = allPatientsForTask.find(patient => patient.uhid === taskForm.patientUhid);
     const payload = {
       title: taskForm.title,
       description: taskForm.description,
-      assigned_to: assignedEmployee.id,
+      assigned_to: Number(taskForm.assignedToId),
       department: taskForm.department,
       priority: taskForm.priority,
       status: taskForm.status,
       due_date: taskForm.dueDate ? `${taskForm.dueDate}T23:59:00Z` : null,
-      patients: linkedPatient?.id ? [linkedPatient.id] : [],
+      patient: linkedPatient?.id || null,
     };
 
     try {
@@ -861,7 +970,9 @@ export default function ManagementAdminDashboard({ currentUser, db, onLogout }) 
       setShowTaskModal(false);
       setEditTask(null);
     } catch (error) {
-      toast("Failed to save task","err");
+      const apiError = error.response?.data;
+      const message = apiError?.patient?.[0] || apiError?.assigned_to?.[0] || apiError?.detail || apiError?.error || "Failed to save task";
+      toast(message,"err");
     }
   };
   const deleteTask = async (id) => {
@@ -914,7 +1025,7 @@ export default function ManagementAdminDashboard({ currentUser, db, onLogout }) 
   };
 
   const saveEmployee = async () => {
-    if (!empForm.fullName||!empForm.username||!empForm.empId||!empForm.email||!empForm.phone||!empForm.dept) { 
+    if (!empForm.fullName||!empForm.username||!empForm.email||!empForm.phone||!empForm.dept) { 
       setEmpPassErr("Please fill all required fields"); return; 
     }
     if (empForm.password !== empForm.confirmPassword) { 
@@ -926,23 +1037,14 @@ export default function ManagementAdminDashboard({ currentUser, db, onLogout }) 
 
     try {
       const [firstName, ...lastNameArr] = empForm.fullName.split(' ');
-      
-      let mappedRole = 'receptionist';
-      const combined = (String(empForm.role) + " " + String(empForm.dept)).toLowerCase();
-      if (combined.includes('office')) mappedRole = 'office_admin';
-      else if (combined.includes('branch') || combined.includes('admin')) mappedRole = 'admin';
-      else if (combined.includes('hod')) mappedRole = 'hod';
-      else if (combined.includes('bill')) mappedRole = 'billing';
-      else if (combined.includes('opd')) mappedRole = 'opd';
-      else if (combined.includes('intimation')) mappedRole = 'intimation';
-      else if (combined.includes('query')) mappedRole = 'query';
-      else if (combined.includes('uploading')) mappedRole = 'uploading';
+      const mappedRole = empForm.role || DEPARTMENT_ROLE_MAP[empForm.dept] || 'receptionist';
+      const branchCode = getEmployeeBranchCode();
 
       const payload = {
         username: empForm.username, email: empForm.email, first_name: firstName,
-        last_name: lastNameArr.join(' ') || "", emp_id: empForm.empId,
+        last_name: lastNameArr.join(' ') || "", emp_id: empForm.empId || buildEmployeeId(branchCode),
         phone_number: empForm.phone, role: mappedRole, 
-        branch: viewBranch === 'laxmi' ? 'LNM' : 'RYM' 
+        branch: branchCode 
       };
 
       // Only send password to Django if they typed a new one!
@@ -963,14 +1065,24 @@ export default function ManagementAdminDashboard({ currentUser, db, onLogout }) 
       setEmployees(users.map(u => ({
           id: u.id, empId: u.emp_id || "—", username: u.username,
           fullName: `${u.first_name} ${u.last_name}`.trim(), email: u.email,
-          phone: u.phone_number, role: u.role, dept: u.role.toUpperCase(),
+          phone: u.phone_number, role: u.role,
+          dept: u.role.replaceAll("_", " ").replace(/\b\w/g, (ch) => ch.toUpperCase()),
           status: u.is_active ? "Active" : "Inactive"
       })));
 
       setShowEmpModal(false); setEditEmpId(null);
-      setEmpForm({fullName:"",username:"",empId:"",dept:"HOD",email:"",phone:"",role:"",password:"",confirmPassword:""}); 
+      setEmpForm({fullName:"",username:"",empId:"",dept:"HOD",email:"",phone:"",role:"hod",password:"",confirmPassword:""}); 
     } catch (error) {
-      setEmpPassErr(error.response?.data?.detail || "Failed to save user. Username or Emp ID might exist.");
+      const apiError = error.response?.data || {};
+      setEmpPassErr(
+        apiError.detail ||
+        apiError.error ||
+        apiError.username?.[0] ||
+        apiError.emp_id?.[0] ||
+        apiError.branch?.[0] ||
+        apiError.role?.[0] ||
+        "Failed to save user. Username or Emp ID might exist."
+      );
     }
   };
 
@@ -1025,7 +1137,7 @@ export default function ManagementAdminDashboard({ currentUser, db, onLogout }) 
     <div style={{ marginBottom:18 }}>
       <div className="hms-pg-label">{title}</div>
       <span className="hms-branch-pill" style={{ background:bc.dim, border:`1px solid ${bc.border}`, color:accent }}>
-        <span className="hms-branch-dot" style={{ width:7,height:7,borderRadius:"50%",background:accent,display:"inline-block" }}/> {bc.label}
+        <span className="hms-branch-dot" style={{ width:7,height:7,borderRadius:"50%",background:accent,display:"inline-block" }}/> {isOfficeAdmin ? "All Hospitals" : bc.label}
       </span>
     </div>
   );
@@ -1356,7 +1468,7 @@ export default function ManagementAdminDashboard({ currentUser, db, onLogout }) 
             <div className="hms-section-label">Filters</div>
             <label className="hms-lbl">Branch</label>
             <select className="hms-sel" value={exportBranchFilter} onChange={e=>setExportBranchFilter(e.target.value)}>
-              <option value="All">All Branches</option><option value="Laxmi Nagar">Laxmi Nagar</option><option value="Raya">Raya</option>
+              <option value="All">All Hospitals</option><option value="Laxmi Nagar">Laxmi Nagar</option><option value="Raya">Raya</option>
             </select>
             <label className="hms-lbl">Summary Type</label>
             <select className="hms-sel" value={exportSumType} onChange={e=>setExportSumType(e.target.value)}>
@@ -1606,7 +1718,18 @@ export default function ManagementAdminDashboard({ currentUser, db, onLogout }) 
     <div>
       <PageHeader title="Employee Management" subtitle="Manage staff accounts and credentials"/>
       <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:16 }}>
-        <button className="hms-add-btn-lg" onClick={()=>setShowEmpModal(true)}>+ Create Employee</button>
+        <button
+          className="hms-add-btn-lg"
+          onClick={() => {
+            setEditEmpId(null);
+            setEmpPassErr("");
+            const branchCode = getEmployeeBranchCode();
+            setEmpForm({fullName:"",username:"",empId:buildEmployeeId(branchCode),dept:"HOD",email:"",phone:"",role:"hod",password:"",confirmPassword:""});
+            setShowEmpModal(true);
+          }}
+        >
+          + Create Employee
+        </button>
       </div>
       {!employees.length ? <EmptyState icon="👤" label="No employees yet" sub='Click "Create Employee" to add your first employee'/> : (
         <div className="hms-card" style={{ padding:0, overflow:"hidden" }}>
@@ -1642,24 +1765,47 @@ export default function ManagementAdminDashboard({ currentUser, db, onLogout }) 
     <div>
       <BranchHeader title="My Profile"/>
       <div className="hms-prof-card" style={{ display:"flex",flexDirection:"column",alignItems:"center",textAlign:"center", border:`1px solid ${accent}30` }}>
-        <div style={{ width:70,height:70,borderRadius:"50%",background:`linear-gradient(135deg,${accent},#818cf8)`,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:22,color:"#fff",marginBottom:12 }}>{initials(currentUser?.name)}</div>
-        <div style={{ fontSize:16, fontWeight:700, marginBottom:3 }}>{currentUser?.name}</div>
+        <div style={{ width:70,height:70,borderRadius:"50%",background:`linear-gradient(135deg,${accent},#818cf8)`,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:22,color:"#fff",marginBottom:12 }}>{initials(currentDisplayName)}</div>
+        <div style={{ fontSize:16, fontWeight:700, marginBottom:3 }}>{currentDisplayName}</div>
         <div style={{ fontSize:11, color:accent, fontWeight:600, marginBottom:4 }}>{currentUser?.dept||currentUser?.role?.toUpperCase()}</div>
         <div style={{ fontSize:10, color:"#64748b", marginBottom:10 }}>{bc.label} Branch</div>
         <Badge col="#34d399">Active</Badge>
       </div>
       <div className="hms-card">
         <div className="hms-card-title" style={{ marginBottom:14 }}>Account Details</div>
-        <table className="hms-tbl">
-          <tbody>
-            {[["Employee ID",currentUser?.id],["Full Name",currentUser?.name],["Department",currentUser?.dept||"—"],["Role",currentUser?.role],["Home Branch",BC[homeBranch]?.label||homeBranch],["Status","Active"],["Created By",currentUser?.createdBy||"Admin"]].map(([k,v])=>(
-              <tr key={k}>
-                <Td sm style={{ width:150, fontWeight:700, textTransform:"uppercase", letterSpacing:".06em" }}>{k}</Td>
-                <Td style={{ fontFamily:k==="Employee ID"?"monospace":"inherit" }}>{v||"—"}</Td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div className="hms-g2">
+          <div>
+            <label className="hms-lbl">First Name</label>
+            <input className="hms-inp" value={profileForm.first_name} onChange={(e)=>setProfileForm((f)=>({...f, first_name: e.target.value}))} />
+          </div>
+          <div>
+            <label className="hms-lbl">Last Name</label>
+            <input className="hms-inp" value={profileForm.last_name} onChange={(e)=>setProfileForm((f)=>({...f, last_name: e.target.value}))} />
+          </div>
+        </div>
+        <div className="hms-g2">
+          <div>
+            <label className="hms-lbl">Email</label>
+            <input className="hms-inp" type="email" value={profileForm.email} onChange={(e)=>setProfileForm((f)=>({...f, email: e.target.value}))} />
+          </div>
+          <div>
+            <label className="hms-lbl">Phone</label>
+            <input className="hms-inp" value={profileForm.phone_number} onChange={(e)=>setProfileForm((f)=>({...f, phone_number: e.target.value}))} />
+          </div>
+        </div>
+        <div className="hms-g2">
+          <div>
+            <label className="hms-lbl">Employee Code</label>
+            <input className="hms-inp" value={profileForm.emp_id} onChange={(e)=>setProfileForm((f)=>({...f, emp_id: e.target.value}))} />
+          </div>
+          <div>
+            <label className="hms-lbl">Role</label>
+            <input className="hms-inp" value={currentUser?.role || ""} readOnly />
+          </div>
+        </div>
+        <div className="hms-modal-foot" style={{ justifyContent:"flex-end" }}>
+          <button className="hms-save-btn" onClick={saveMyProfile}>Save Profile</button>
+        </div>
       </div>
     </div>
   );
@@ -1704,10 +1850,10 @@ export default function ManagementAdminDashboard({ currentUser, db, onLogout }) 
         </div>
         <div className="hms-hdr-right">
           <span className="hms-role-badge">{currentUser?.role?.toUpperCase()}</span>
-          <button className="hms-theme-btn" onClick={()=>setIsDark(d=>!d)} title={isDark?"Light Mode":"Dark Mode"}>{isDark?"☀":"☾"}</button>
+          <ThemeModeDock variant="inline" />
           <div className="hms-avatar-pill">
-            <span className="hms-avatar-name">{currentUser?.name}</span>
-            <div className="hms-avatar">{initials(currentUser?.name)}</div>
+            <span className="hms-avatar-name">{currentDisplayName}</span>
+            <div className="hms-avatar">{initials(currentDisplayName)}</div>
           </div>
           <button className="hms-logout-btn" onClick={onLogout}>↪ Logout</button>
         </div>
@@ -1720,7 +1866,7 @@ export default function ManagementAdminDashboard({ currentUser, db, onLogout }) 
             {!collapsed && <div className="hms-branch-label">Branch</div>}
             {collapsed ? (
               <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
-                {BRANCH_KEYS.map(bk=>(
+                {allowedBranchKeys.map(bk=>(
                   <button key={bk} className="hms-branch-dot-btn" onClick={()=>setViewBranch(bk)} style={{ background:viewBranch===bk?BC[bk].dim:"transparent" }}>
                     <div className="hms-branch-dot" style={{ background:BC[bk].accent }}/>
                   </button>
@@ -1728,7 +1874,7 @@ export default function ManagementAdminDashboard({ currentUser, db, onLogout }) 
               </div>
             ) : (
               <select className="hms-branch-select" value={viewBranch} onChange={e=>setViewBranch(e.target.value)}>
-                {BRANCH_KEYS.map(bk=><option key={bk} value={bk}>{BC[bk].label}</option>)}
+                {allowedBranchKeys.map(bk=><option key={bk} value={bk}>{BC[bk].label}</option>)}
               </select>
             )}
           </div>
@@ -1748,7 +1894,7 @@ export default function ManagementAdminDashboard({ currentUser, db, onLogout }) 
           {!collapsed && (
             <div style={{ padding:"10px 12px", borderTop:"1px solid #1e2030", borderBottom:"1px solid #1e2030" }}>
               <div className="hms-signed-in">Signed in as</div>
-              <div className="hms-signed-name">{currentUser?.name}</div>
+              <div className="hms-signed-name">{currentDisplayName}</div>
               <div className="hms-signed-role">{currentUser?.dept||currentUser?.role}</div>
             </div>
           )}
@@ -1776,8 +1922,18 @@ export default function ManagementAdminDashboard({ currentUser, db, onLogout }) 
             <div className="hms-g2">
               <div>
                 <label className="hms-lbl">Assigned To *</label>
-                <input className="hms-inp" placeholder="Employee name" value={taskForm.assignedTo} onChange={e=>setTaskForm(f=>({...f,assignedTo:e.target.value}))} list="emp-list"/>
-                <datalist id="emp-list">{employees.map((e,i)=><option key={i} value={e.fullName||e.name}/>)}</datalist>
+                <select className="hms-sel" value={taskForm.assignedToId} onChange={e=>setTaskForm(f=>({...f,assignedToId:e.target.value}))}>
+                  <option value="">Select employee</option>
+                  {taskAssignableEmployees.map((employee) => {
+                    const fullName = employee.fullName || employee.name || employee.username;
+                    const identity = employee.empId || employee.username || `ID-${employee.id}`;
+                    return (
+                      <option key={employee.id} value={String(employee.id)}>
+                        {`${fullName} (${identity})`}
+                      </option>
+                    );
+                  })}
+                </select>
               </div>
               <div>
                 <label className="hms-lbl">Department</label>
@@ -1872,13 +2028,25 @@ export default function ManagementAdminDashboard({ currentUser, db, onLogout }) 
           <div className="hms-modal-box" style={{ width:520 }}>
             <div className="hms-modal-title">{editEmpId ? "Edit Employee Details" : "Create New Employee"}</div>
             <div className="hms-g2">
-              {[["Full Name","fullName","text","Jane Doe"],["Username","username","text","jane.doe"],["Employee ID","empId","text","EMP-001"],["Email","email","email","jane@hospital.com"],["Phone","phone","tel","+91 98765 43210"],["Role","role","text","Staff / HOD / etc."]].map(([lbl,k,type,ph])=>(
+              {[["Full Name","fullName","text","Jane Doe"],["Username","username","text","jane.doe"],["Employee ID","empId","text","EMP-001"],["Email","email","email","jane@hospital.com"],["Phone","phone","tel","+91 98765 43210"]].map(([lbl,k,type,ph])=>(
                 <div key={k}>
                   <label className="hms-lbl">{lbl}</label>
-                  <input type={type} placeholder={ph} value={empForm[k]} className="hms-inp" onChange={e=>{setEmpForm(f=>({...f,[k]:e.target.value}));setEmpPassErr("");}} disabled={k==="username" && editEmpId}/>
+                  <input type={type} placeholder={ph} value={empForm[k]} className="hms-inp" onChange={e=>{setEmpForm(f=>({...f,[k]:e.target.value}));setEmpPassErr("");}} disabled={k==="username" && editEmpId || (k==="empId" && !editEmpId)}/>
                 </div>
               ))}
             </div>
+            <label className="hms-lbl">Access Role</label>
+            <select
+              className="hms-sel"
+              value={empForm.role}
+              onChange={e => {
+                const nextRole = e.target.value;
+                const nextDept = EMPLOYEE_ROLE_OPTIONS.find(option => option.value === nextRole)?.label || empForm.dept;
+                setEmpForm(f => ({ ...f, role: nextRole, dept: nextDept, empId: editEmpId ? f.empId : buildEmployeeId(getEmployeeBranchCode()) }));
+              }}
+            >
+              {EMPLOYEE_ROLE_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+            </select>
             <label className="hms-lbl">Department</label>
             <select className="hms-sel" value={empForm.dept} onChange={e=>setEmpForm(f=>({...f,dept:e.target.value}))}>
               {allDeptOptions.map(d=><option key={d}>{d}</option>)}

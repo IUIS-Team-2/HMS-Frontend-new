@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { BASE_URL } from "../services/apiService";
 
 export default function ForgotPassword({ onBack }) {
   const [email, setEmail] = useState("");
@@ -12,7 +13,7 @@ export default function ForgotPassword({ onBack }) {
     
     try {
       // 🌟 FIXED: Pointing to your actual Django OTP endpoint
-      const res = await fetch("http://localhost:8000/api/users/request-reset-otp/", {
+      const res = await fetch(`${BASE_URL}/users/request-reset-otp/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: email }),

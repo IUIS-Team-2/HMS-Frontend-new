@@ -1,6 +1,7 @@
 import axios from 'axios';
 
-const BASE_URL = 'http://localhost:8000/api'; 
+export const API_ORIGIN = process.env.REACT_APP_API_ORIGIN || 'http://127.0.0.1:8000';
+export const BASE_URL = `${API_ORIGIN}/api`;
 
 // 🌟 NEW: Automatically attach the JWT token to EVERY request
 axios.interceptors.request.use(
@@ -22,9 +23,9 @@ export const apiService = {
         return response.data;
     },
 
-    getUsers: async () => {
-        const response = await axios.get(`${BASE_URL}/users/manage/`);
-        return response.data;
+    getUsers: async (params = {}) => {
+        const response = await axios.get(`${BASE_URL}/users/manage/`, { params });
+        return Array.isArray(response.data) ? response.data : (response.data?.results || response.data || []);
     },
 
     createUser: async (userData) => {
@@ -44,6 +45,16 @@ export const apiService = {
 
     reactivateUser: async (userId) => {
         const response = await axios.patch(`${BASE_URL}/users/manage/${userId}/`, { is_active: true });
+        return response.data;
+    },
+
+    getMyProfile: async () => {
+        const response = await axios.get(`${BASE_URL}/users/me/`);
+        return response.data;
+    },
+
+    updateMyProfile: async (profileData) => {
+        const response = await axios.patch(`${BASE_URL}/users/me/`, profileData);
         return response.data;
     },
 

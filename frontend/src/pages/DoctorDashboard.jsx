@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import ThemeModeDock from "../components/ui/ThemeModeDock";
 
 // ── Utilities ──────────────────────────────────────────────────────────────────
 function todayStr() { return new Date().toISOString().slice(0, 10); }
@@ -233,13 +234,13 @@ export default function DoctorDashboard({ currentUser, onLogout }) {
   const filledToday = rows.filter(r => r.claimId || r.uhid || r.patientName).length;
 
   if (loading) return (
-    <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh", background:"#0c0e14", color:COLOR, fontSize:14, fontFamily:"'DM Sans',sans-serif" }}>
+    <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh", background:"#0c0e14", color:COLOR, fontSize:14, fontFamily:"var(--ui-font-sans)" }}>
       Loading…
     </div>
   );
 
   return (
-    <div style={{ display:"flex", flexDirection:"column", height:"100vh", background:"#0c0e14", color:"#edf0f7", fontFamily:"'DM Sans',sans-serif", overflow:"hidden" }}>
+    <div style={{ display:"flex", flexDirection:"column", height:"100vh", background:"#0c0e14", color:"#edf0f7", fontFamily:"var(--ui-font-sans)", overflow:"hidden" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
         * { box-sizing:border-box; }
@@ -288,6 +289,7 @@ export default function DoctorDashboard({ currentUser, onLogout }) {
               <span style={{ color:"#6875a0", fontWeight:500 }}>{lbl}</span>
             </div>
           ))}
+          <ThemeModeDock variant="inline" />
 
           {currentUser && (
             <div style={{ display:"flex", alignItems:"center", gap:9, marginLeft:8, paddingLeft:14, borderLeft:"1px solid #1e2334" }}>
