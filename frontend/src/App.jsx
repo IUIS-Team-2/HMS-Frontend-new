@@ -1,10 +1,10 @@
 import { useState, useEffect, createContext } from "react";
-import { T, NAV_PAGES } from "./data/constants";
+import { NAV_PAGES } from "./data/constants";
 import { blankPatient, blankDischarge, blankBilling } from "./utils/helpers";
 import { Ico, IC, PAGE_ICONS } from "./components/ui/Icons";
 import './App.css'; // Add this missing import!
 
-// 🌟 Toast notifications
+// Toast notifications
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
@@ -32,14 +32,22 @@ import BranchAdminDashboard from "./pages/BranchAdminDashboard";
 import BillingDashboard from "./pages/BillingDashboard";
 import DoctorDashboard from "./pages/DoctorDashboard";
 import NursingDashboard from "./pages/NursingDashboard";
-import { ThemeProvider } from "./context/ThemeContext";
+import { ThemeProvider, useTheme } from "./context/ThemeContext";
 import ThemeModeDock from "./components/ui/ThemeModeDock";
-import ThemeCompatFrame from "./components/ui/ThemeCompatFrame";
 
 // Modals
 import UHIDScreen from "./modals/UHIDScreen";
 import PrintModal from "./modals/PrintModal";
 import PatientDetailModal from "./modals/PatientDetailModal";
+
+/**
+ * Theme-aware Toast container — flips between light and dark to match
+ * the active theme. Lives inside <ThemeProvider> so it can use useTheme().
+ */
+function ToastBridge() {
+  const { isDark } = useTheme();
+  return <ToastContainer position="bottom-right" theme={isDark ? "dark" : "light"} />;
+}
 
 // ─── Root App ─────────────────────────────────────────────────────────────────
 export default function App() {
@@ -518,9 +526,10 @@ export default function App() {
   const renderRoute = () => {
     if (!loggedIn) {
       return (
-        <ThemeCompatFrame nativeMode="light">
+        <>
           <LoginPage onLogin={handleLogin} />
-        </ThemeCompatFrame>
+          <ToastBridge />
+        </>
       );
     }
 
@@ -540,7 +549,7 @@ export default function App() {
             onViewBill={handleViewBill}
             onLogout={handleLogout}
           />
-          <ToastContainer position="bottom-right" />
+          <ToastBridge />
         </>
       );
     }
@@ -554,98 +563,98 @@ export default function App() {
             locId={locId}
             onLogout={handleLogout}
           />
-          <ToastContainer position="bottom-right" />
+          <ToastBridge />
         </>
       );
     }
 
     if (page === "hod") {
       return (
-        <ThemeCompatFrame nativeMode="dark">
+        <>
           <HodDashboard
             currentUser={currentUser}
             db={db}
             onLogout={handleLogout}
           />
-          <ToastContainer position="bottom-right" />
-        </ThemeCompatFrame>
+          <ToastBridge />
+        </>
       );
     }
 
     if (page === "uploading") {
       return (
-        <ThemeCompatFrame nativeMode="light">
+        <>
           <UploadingDashboard currentUser={currentUser} onLogout={handleLogout} />
-          <ToastContainer position="bottom-right" />
-        </ThemeCompatFrame>
+          <ToastBridge />
+        </>
       );
     }
 
     if (page === "query") {
       return (
-        <ThemeCompatFrame nativeMode="light">
+        <>
           <QueryDashboard currentUser={currentUser} onLogout={handleLogout} />
-          <ToastContainer position="bottom-right" />
-        </ThemeCompatFrame>
+          <ToastBridge />
+        </>
       );
     }
 
     if (page === "opd") {
       return (
-        <ThemeCompatFrame nativeMode="light">
+        <>
           <OpdDashboard currentUser={currentUser} onLogout={handleLogout} />
-          <ToastContainer position="bottom-right" />
-        </ThemeCompatFrame>
+          <ToastBridge />
+        </>
       );
     }
 
     if (page === "intimation") {
       return (
-        <ThemeCompatFrame nativeMode="light">
+        <>
           <IntimationDashboard currentUser={currentUser} onLogout={handleLogout} />
-          <ToastContainer position="bottom-right" />
-        </ThemeCompatFrame>
+          <ToastBridge />
+        </>
       );
     }
 
     if (page === "branchadmin") {
       return (
-        <ThemeCompatFrame nativeMode="dark">
+        <>
           <BranchAdminDashboard currentUser={currentUser} db={db} locId={locId} onLogout={handleLogout} />
-          <ToastContainer position="bottom-right" />
-        </ThemeCompatFrame>
+          <ToastBridge />
+        </>
       );
     }
 
     if (page === "billing") {
       return (
-        <ThemeCompatFrame nativeMode="light">
+        <>
           <BillingDashboard currentUser={currentUser} db={db} locId={locId} onLogout={handleLogout} />
-          <ToastContainer position="bottom-right" />
-        </ThemeCompatFrame>
+          <ToastBridge />
+        </>
       );
     }
 
     if (page === "doctor") {
       return (
-        <ThemeCompatFrame nativeMode="dark">
+        <>
           <DoctorDashboard currentUser={currentUser} onLogout={handleLogout} />
-          <ToastContainer position="bottom-right" />
-        </ThemeCompatFrame>
+          <ToastBridge />
+        </>
       );
     }
 
     if (page === "nursing") {
       return (
-        <ThemeCompatFrame nativeMode="dark">
+        <>
           <NursingDashboard currentUser={currentUser} onLogout={handleLogout} />
-          <ToastContainer position="bottom-right" />
-        </ThemeCompatFrame>
+          <ToastBridge />
+        </>
       );
     }
 
     return (
-      <ThemeCompatFrame nativeMode="light">
+      <>
         {showPrint && (
           <PrintModal uhid={uhid} patient={patient} discharge={discharge}
             svcs={svcs} billing={billing} locId={locId} admNo={admNo} admission={activeAdmission}
@@ -675,13 +684,13 @@ export default function App() {
             {currentUser && (
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginLeft: 12 }}>
                 <div style={{ fontSize: 12, lineHeight: 1.4, textAlign: "right" }}>
-                  <div style={{ fontWeight: 700, color: "#fff" }}>{currentUser.name}</div>
-                  <div style={{ color: "rgba(255,255,255,.5)" }}>
+                  <div style={{ fontWeight: 700, color: "var(--hdr-text)" }}>{currentUser.name}</div>
+                  <div style={{ color: "var(--hdr-sub)" }}>
                     {locId === "laxmi" ? "Laxmi Nagar Branch" : "Raya Branch"}
                   </div>
                 </div>
                 <button onClick={handleLogout}
-                  style={{ padding: "6px 14px", borderRadius: 8, background: "rgba(255,255,255,.1)", border: "1px solid rgba(255,255,255,.2)", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                  style={{ padding: "6px 14px", borderRadius: 8, background: "var(--hdr-chip-bg)", border: "1px solid var(--hdr-chip-border)", color: "var(--hdr-text)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
                   Logout
                 </button>
               </div>
@@ -709,7 +718,7 @@ export default function App() {
                     <span className="nav-label">{p.label}</span>
                     <span className="nav-step-num">
                       {p.id === "medical" && !medicalDone && patientDone
-                        ? <span style={{ fontSize: 9, color: T.amber }}>!</span>
+                        ? <span style={{ fontSize: 9, color: "var(--warning)" }}>!</span>
                         : done
                           ? <Ico d={IC.check} size={10} sw={2.5} />
                           : i + 1}
@@ -737,7 +746,7 @@ export default function App() {
                   </div>
                 </div>
                 <button onClick={endSession}
-                  style={{ width: "100%", padding: "10px", borderRadius: "10px", background: T.redTint, color: T.red, border: `1px solid ${T.red}`, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
+                  style={{ width: "100%", padding: "10px", borderRadius: "10px", background: "var(--danger-soft)", color: "var(--danger)", border: "1px solid var(--danger-border)", fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
                   <Ico d={IC.cross} size={14} sw={2.5} /> Close Patient
                 </button>
               </div>
@@ -755,8 +764,8 @@ export default function App() {
             {page === "history"   && <PatientsHistoryPage db={currentDb} locId={locId} onBack={() => setPage("patient")} onDischarge={handleDischargeFromHistory} onGenerateBill={handleGenerateBillFromHistory} onSetExpectedDod={handleSetExpectedDod} onViewPatient={p => setShowPatientDetail(p)} onSaveMedHistory={handleSaveMedHistoryFromHistory} onViewMedical={handleMedicalFromHistory} />}
           </main>
         </div>
-        <ToastContainer position="bottom-right" />
-      </ThemeCompatFrame>
+        <ToastBridge />
+      </>
     );
   };
 

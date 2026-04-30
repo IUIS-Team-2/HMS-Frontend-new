@@ -6,7 +6,7 @@ const THEME_MODES = ["system", "light", "dark"];
 
 function getSystemPrefersDark() {
   if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
-    return true;
+    return false;
   }
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
 }
@@ -50,13 +50,13 @@ export function ThemeProvider({ children }) {
     }
 
     if (typeof document !== "undefined") {
-      document.documentElement.dataset.themeMode = mode;
-      document.documentElement.dataset.themeResolved = resolvedMode;
-      document.documentElement.style.colorScheme = resolvedMode;
-      document.body.style.backgroundColor = theme.bg;
-      document.body.style.color = theme.text;
+      const root = document.documentElement;
+      root.dataset.themeMode = mode;
+      root.dataset.themeResolved = resolvedMode;
+      root.dataset.theme = resolvedMode;
+      root.style.colorScheme = resolvedMode;
     }
-  }, [mode, resolvedMode, theme.bg, theme.text]);
+  }, [mode, resolvedMode]);
 
   const cycleMode = () => {
     setMode((currentMode) => {
@@ -85,88 +85,125 @@ export function useTheme() {
   return useContext(ThemeContext);
 }
 
-// ── PURPLE/VIOLET DARK THEME ─────────────────────────────────
-const DARK = {
-  accent:      "#a78bfa",
-  accentDim:   "#a78bfa18",
-  accentBorder:"#a78bfa35",
-  accentHover: "#c4b5fd",
-  accent2:     "#7c3aed",
+/* ─────────────────────────────────────────────────────────────────────────────
+   Clinical light-blue + slate palette. Mirrors the CSS variables in index.css so
+   pages that style inline via `useTheme().theme` and pages that use CSS
+   variables stay in lockstep.
+   ───────────────────────────────────────────────────────────────────────────── */
 
-  bg:          "#0d0b14",
-  surface:     "#120f1e",
-  card:        "#1a1628",
-  card2:       "#201c30",
-  border:      "#2a2040",
-  border2:     "#362a52",
+const LIGHT = {
+  // Brand
+  accent:        "#3b82f6",
+  accentDim:     "rgba(59,130,246,0.14)",
+  accentBorder:  "#93c5fd",
+  accentHover:   "#2563eb",
+  accent2:       "#1d4ed8",
+  accentSoft:    "#dbeafe",
+  textOnAccent:  "#ffffff",
 
-  text:        "#f0ebff",
-  textMid:     "#c4b5fd",
-  textMuted:   "#7c6fa0",
-  textDim:     "#4a3f6b",
+  // Surfaces
+  bg:            "#f6f8fb",
+  bgElev:        "#eef2f7",
+  surface:       "#ffffff",
+  card:          "#ffffff",
+  card2:         "#f8fafc",
+  border:        "#e2e8f0",
+  border2:       "#cbd5e1",
 
-  green:       "#34d399",
-  greenDim:    "#34d39918",
-  amber:       "#fbbf24",
-  amberDim:    "#fbbf2418",
-  red:         "#f87171",
-  redDim:      "#f8717118",
-  cyan:        "#22d3ee",
-  cyanDim:     "#22d3ee18",
+  // Text
+  text:          "#0f172a",
+  textMid:       "#334155",
+  textMuted:     "#64748b",
+  textDim:       "#94a3b8",
 
-  sidebar:     "#0a0814",
-  sidebarBorder:"#1e1830",
-  hdr:         "#0d0b14",
-  hdrBorder:   "#1e1830",
+  // Semantic
+  green:         "#059669",
+  greenDim:      "#05966914",
+  greenTint:     "#ecfdf5",
+  greenBorder:   "#a7f3d0",
+  amber:         "#d97706",
+  amberDim:      "#d9770614",
+  amberTint:     "#fef3c7",
+  red:           "#dc2626",
+  redDim:        "#dc262614",
+  redTint:       "#fef2f2",
+  redBorder:     "#fecaca",
+  cyan:          "#0284c7",
+  cyanDim:       "#0284c714",
 
-  inputBg:     "#120f1e",
-  inputBorder: "#2a2040",
-  modalBg:     "#1a1628",
-  modalBorder: "#2a2040",
+  // Sidebar / header
+  sidebar:       "#ffffff",
+  sidebarBorder: "#e2e8f0",
+  hdr:           "#3b82f6",
+  hdrBorder:     "rgba(255,255,255,0.14)",
 
-  badge: (col) => ({ background: col+"20", color: col, border: `1px solid ${col}40` }),
-  shadow: "0 4px 24px rgba(0,0,0,0.5)",
+  // Inputs
+  inputBg:       "#ffffff",
+  inputBorder:   "#cbd5e1",
+  modalBg:       "#ffffff",
+  modalBorder:   "#e2e8f0",
+
+  // Helpers (kept for back-compat with pages that call theme.badge(...))
+  badge: (col) => ({ background: col + "15", color: col, border: `1px solid ${col}35` }),
+  shadow:    "0 4px 16px rgba(15, 23, 42, 0.08)",
+  shadowMd:  "0 8px 24px rgba(15, 23, 42, 0.10)",
+  shadowLg:  "0 16px 40px rgba(15, 23, 42, 0.12)",
 };
 
-// ── PURPLE/VIOLET LIGHT THEME ─────────────────────────────────
-const LIGHT = {
-  accent:      "#7c3aed",
-  accentDim:   "#7c3aed12",
-  accentBorder:"#7c3aed30",
-  accentHover: "#6d28d9",
-  accent2:     "#5b21b6",
+const DARK = {
+  // Brand
+  accent:        "#60a5fa",
+  accentDim:     "rgba(96,165,250,0.20)",
+  accentBorder:  "rgba(96,165,250,0.45)",
+  accentHover:   "#93c5fd",
+  accent2:       "#bfdbfe",
+  accentSoft:    "rgba(59,130,246,0.16)",
+  textOnAccent:  "#0b1f44",
 
-  bg:          "#f5f3ff",
-  surface:     "#ffffff",
-  card:        "#ffffff",
-  card2:       "#faf8ff",
-  border:      "#e9e3ff",
-  border2:     "#d4c8ff",
+  // Surfaces
+  bg:            "#0b1220",
+  bgElev:        "#0f172a",
+  surface:       "#111827",
+  card:          "#131c2c",
+  card2:         "#182236",
+  border:        "#1f2a3d",
+  border2:       "#2d3a52",
 
-  text:        "#1e1033",
-  textMid:     "#4c1d95",
-  textMuted:   "#7c6fa0",
-  textDim:     "#c4b5fd",
+  // Text
+  text:          "#e2e8f0",
+  textMid:       "#cbd5e1",
+  textMuted:     "#94a3b8",
+  textDim:       "#64748b",
 
-  green:       "#059669",
-  greenDim:    "#05966912",
-  amber:       "#d97706",
-  amberDim:    "#d9770612",
-  red:         "#dc2626",
-  redDim:      "#dc262612",
-  cyan:        "#0891b2",
-  cyanDim:     "#0891b212",
+  // Semantic
+  green:         "#34d399",
+  greenDim:      "rgba(52,211,153,0.14)",
+  greenTint:     "rgba(52,211,153,0.10)",
+  greenBorder:   "rgba(52,211,153,0.35)",
+  amber:         "#fbbf24",
+  amberDim:      "rgba(251,191,36,0.14)",
+  amberTint:     "rgba(251,191,36,0.10)",
+  red:           "#f87171",
+  redDim:        "rgba(248,113,113,0.16)",
+  redTint:       "rgba(248,113,113,0.10)",
+  redBorder:     "rgba(248,113,113,0.35)",
+  cyan:          "#38bdf8",
+  cyanDim:       "rgba(56,189,248,0.14)",
 
-  sidebar:     "#ffffff",
-  sidebarBorder:"#e9e3ff",
-  hdr:         "#ffffff",
-  hdrBorder:   "#e9e3ff",
+  // Sidebar / header
+  sidebar:       "#0d1424",
+  sidebarBorder: "#1f2a3d",
+  hdr:           "#1e3a8a",
+  hdrBorder:     "rgba(96,165,250,0.22)",
 
-  inputBg:     "#faf8ff",
-  inputBorder: "#d4c8ff",
-  modalBg:     "#ffffff",
-  modalBorder: "#e9e3ff",
+  // Inputs
+  inputBg:       "#131c2c",
+  inputBorder:   "#2d3a52",
+  modalBg:       "#131c2c",
+  modalBorder:   "#2d3a52",
 
-  badge: (col) => ({ background: col+"15", color: col, border: `1px solid ${col}35` }),
-  shadow: "0 4px 24px rgba(109,40,217,0.08)",
+  badge: (col) => ({ background: col + "22", color: col, border: `1px solid ${col}55` }),
+  shadow:    "0 6px 20px rgba(0, 0, 0, 0.45)",
+  shadowMd:  "0 12px 30px rgba(0, 0, 0, 0.55)",
+  shadowLg:  "0 24px 56px rgba(0, 0, 0, 0.65)",
 };

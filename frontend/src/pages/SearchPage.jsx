@@ -3,6 +3,7 @@ import { useState } from "react";
 import { T, LOCATIONS } from "../data/constants";
 import { Ico, IC } from "../components/ui/Icons";
 import { initials } from "../utils/helpers";
+import { Hospital, Stethoscope, Moon, AlertTriangle, Search, ClipboardList, Zap } from "lucide-react";
 
 export default function SearchPage({db,locId,onNewAdmission,onNewPatient}){
   const [searchType,setSearchType]=useState("phone");
@@ -36,16 +37,16 @@ export default function SearchPage({db,locId,onNewAdmission,onNewPatient}){
           <label style={{fontSize:11,fontWeight:700,color:T.textLight,textTransform:"uppercase",letterSpacing:".07em",display:"block",marginBottom:8}}>Admission Type</label>
           <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
             {[
-              {id:"IPD",label:"IPD",sub:"In Patient Department",icon:"🏥",color:"#0B2545",bg:"#E0F2FE"},
-              {id:"OPD",label:"OPD",sub:"Out Patient Department",icon:"🩺",color:"#059669",bg:"#ECFDF5"},
-              {id:"DayCare",label:"Day Care",sub:"Day Care Admission",icon:"🌙",color:"#D97706",bg:"#FEF3C7"},
+              {id:"IPD",label:"IPD",sub:"In Patient Department",icon:Hospital,color:"var(--info)",bg:"var(--info-soft)"},
+              {id:"OPD",label:"OPD",sub:"Out Patient Department",icon:Stethoscope,color:"var(--success)",bg:"var(--success-soft)"},
+              {id:"DayCare",label:"Day Care",sub:"Day Care Admission",icon:Moon,color:"var(--warning)",bg:"var(--warning-soft)"},
             ].map(t=>(
               <button key={t.id} onClick={()=>setAdmissionType(t.id)}
                 style={{display:"flex",alignItems:"center",gap:12,padding:"12px 20px",borderRadius:12,
                   border:`2px solid ${admissionType===t.id?t.color:T.border}`,
                   background:admissionType===t.id?t.bg:T.white,
                   cursor:"pointer",transition:"all .18s",minWidth:160,textAlign:"left",fontFamily:"inherit"}}>
-                <span style={{fontSize:22}}>{t.icon}</span>
+                <span style={{display:"inline-flex", color:admissionType===t.id?t.color:T.textMuted}}>{t.icon ? <t.icon size={20} strokeWidth={1.9} /> : null}</span>
                 <div>
                   <div style={{fontSize:14,fontWeight:700,color:admissionType===t.id?t.color:T.primary}}>{t.label}</div>
                   <div style={{fontSize:11,color:T.textMuted,marginTop:1}}>{t.sub}</div>
@@ -56,7 +57,7 @@ export default function SearchPage({db,locId,onNewAdmission,onNewPatient}){
               </button>
             ))}
           </div>
-          {!admissionType&&<p style={{fontSize:12,color:T.red,marginTop:6,fontWeight:500}}>⚠ Please select an admission type to continue</p>}
+          {!admissionType&&<p style={{fontSize:12,color:T.red,marginTop:6,fontWeight:500,display:"inline-flex",alignItems:"center",gap:6}}><AlertTriangle size={14} strokeWidth={2}/> Please select an admission type to continue</p>}
         </div>
         <div className="search-toggle">
           <button className={`tgl-btn${searchType==="phone"?" active":""}`} onClick={()=>{setSearchType("phone");clear();}}><Ico d={IC.phone} size={14} sw={2}/> Phone Number</button>
@@ -110,7 +111,7 @@ export default function SearchPage({db,locId,onNewAdmission,onNewPatient}){
       {searched&&!result&&(<div className="not-found"><div className="not-found-icon"><Ico d={IC.search} size={28} sw={1.5}/></div><h3 style={{fontFamily:"'DM Serif Display',serif",fontSize:20,color:T.primary,marginBottom:8}}>No patient found</h3><p style={{fontSize:14,color:T.textMuted,marginBottom:28,maxWidth:340,margin:"0 auto 28px",lineHeight:1.6}}>No record matches <strong>"{query}"</strong> at this branch.</p><button className="btn btn-accent" style={{margin:"0 auto"}} onClick={()=>{if(!admissionType){toast.warn("Please select an admission type first!");return;}onNewPatient(admissionType);}}><Ico d={IC.plus} size={15} sw={2.5}/> Register New Patient</button></div>)}
       {!searched&&(
         <div className="info-grid">
-          {[{icon:"🔍",bg:"#EFF6FF",title:"Search First",desc:"Always search by phone or National ID before registering — avoids duplicate records."},{icon:"📋",bg:"#F0FDF4",title:"Patients History",desc:"Use Patients History in the sidebar to view all admissions, discharge status and bills."},{icon:"⚡",bg:"#FFF7ED",title:"Same UHID",desc:"Returning patients keep their original UHID — only a new admission is added."}].map(c=>(<div className="info-card" key={c.title}><div className="info-card-icon" style={{background:c.bg}}>{c.icon}</div><div className="info-card-title">{c.title}</div><p className="info-card-desc">{c.desc}</p></div>))}
+          {[{icon:Search,bg:"var(--info-soft)",title:"Search First",desc:"Always search by phone or National ID before registering — avoids duplicate records."},{icon:ClipboardList,bg:"var(--success-soft)",title:"Patients History",desc:"Use Patients History in the sidebar to view all admissions, discharge status and bills."},{icon:Zap,bg:"var(--warning-soft)",title:"Same UHID",desc:"Returning patients keep their original UHID — only a new admission is added."}].map(c=>(<div className="info-card" key={c.title}><div className="info-card-icon" style={{background:c.bg}}>{c.icon ? <c.icon size={20} strokeWidth={1.9}/> : null}</div><div className="info-card-title">{c.title}</div><p className="info-card-desc">{c.desc}</p></div>))}
         </div>
       )}
     </div>

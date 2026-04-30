@@ -1,33 +1,45 @@
+/**
+ * Legacy palette token. Prefer `useTheme().theme` from `context/ThemeContext`
+ * for any new code so light/dark mode flips automatically.
+ *
+ * Values below mirror the LIGHT palette in ThemeContext (clinical light-blue +
+ * slate). They are kept here for back-compat with components that still
+ * reference `T.x` inside inline `style={{ ... }}` props.
+ *
+ * NOTE: this object is static (light-mode values only). Components consuming
+ * `T` will not flip automatically when the user picks dark mode — migrate
+ * those call sites to `useTheme().theme` over time.
+ */
 export const T = {
-  primary: "#0B2545",
-  primaryDark: "#071830",
-  primaryMid: "#1A4A7A",
-  primaryLight: "#2563A8",
-  accent: "#38BDF8",
-  accentDark: "#0EA5E9",
-  accentDeep: "#0284C7",
-  accentLight: "#BAE6FD",
-  bgPage: "#EBF6FD",
-  bgTint: "#E0F2FE",
-  bgTint2: "#BAE6FD",
-  white: "#FFFFFF",
-  offwhite: "#F0F9FF",
-  border: "#BFDBEE",
-  borderHov: "#90C4E4",
-  text: "#0B2040",
-  textMid: "#1E4976",
-  textMuted: "#4A7FA5",
-  textLight: "#88B4CC",
-  red: "#DC2626",
-  redTint: "#FEF2F2",
-  green: "#059669",
-  greenTint: "#ECFDF5",
-  greenBorder: "#A7F3D0",
-  amber: "#D97706",
-  amberTint: "#FEF3C7",
-  shadow: "0 1px 4px rgba(11,37,69,.07), 0 6px 20px rgba(11,37,69,.06)",
-  shadowMd: "0 4px 12px rgba(11,37,69,.1), 0 12px 32px rgba(11,37,69,.08)",
-  shadowLg: "0 8px 24px rgba(11,37,69,.14), 0 24px 56px rgba(11,37,69,.1)"
+  primary:      "#3b82f6",
+  primaryDark:  "#1d4ed8",
+  primaryMid:   "#2563eb",
+  primaryLight: "#60a5fa",
+  accent:       "#3b82f6",
+  accentDark:   "#2563eb",
+  accentDeep:   "#1d4ed8",
+  accentLight:  "#93c5fd",
+  bgPage:       "#f6f8fb",
+  bgTint:       "#eff6ff",
+  bgTint2:      "#dbeafe",
+  white:        "#ffffff",
+  offwhite:     "#f8fafc",
+  border:       "#e2e8f0",
+  borderHov:    "#cbd5e1",
+  text:         "#0f172a",
+  textMid:      "#334155",
+  textMuted:    "#64748b",
+  textLight:    "#94a3b8",
+  red:          "#dc2626",
+  redTint:      "#fef2f2",
+  green:        "#059669",
+  greenTint:    "#ecfdf5",
+  greenBorder:  "#a7f3d0",
+  amber:        "#d97706",
+  amberTint:    "#fef3c7",
+  shadow:    "0 1px 2px rgba(15,23,42,.06), 0 4px 16px rgba(15,23,42,.08)",
+  shadowMd:  "0 4px 12px rgba(15,23,42,.10), 0 12px 32px rgba(15,23,42,.08)",
+  shadowLg:  "0 8px 24px rgba(15,23,42,.14), 0 24px 56px rgba(15,23,42,.12)"
 };
 
 export const LOCATIONS = [
