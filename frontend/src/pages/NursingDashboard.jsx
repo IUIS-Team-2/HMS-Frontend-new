@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from "react";
-import ThemeModeDock from "../components/ui/ThemeModeDock";
 
 // ── Utilities ──────────────────────────────────────────────────────────────────
 function todayStr() { return new Date().toISOString().slice(0, 10); }
@@ -21,12 +20,21 @@ function yearRange() {
   return { start: `${y}-01-01`, end: `${y}-12-31` };
 }
 
-// ── Config ─────────────────────────────────────────────────────────────────────
-const COLOR       = "#34d399";   // emerald green — Nursing dept
-const GLOW        = "#34d39935";
-const BG_ACTIVE   = "#021a0e";
+// ── Ocean Blue Config ──────────────────────────────────────────────────────────
+const COLOR       = "#2563eb";   // ocean blue — matches Sangi Hospital portal
+const COLOR_LIGHT = "#3b82f6";
+const COLOR_PALE  = "#dbeafe";
+const BG_MAIN     = "#f0f4f8";
+const BG_WHITE    = "#ffffff";
+const BG_HEADER   = "#1e3a5f";   // deep navy — matches screenshot header
+const TEXT_DARK   = "#1e293b";
+const TEXT_MID    = "#475569";
+const TEXT_LIGHT  = "#94a3b8";
+const BORDER      = "#e2e8f0";
+const BORDER_MID  = "#cbd5e1";
+
 const STORAGE_KEY = "sangi_nursing_v2";
-const SUBMIT_KEY  = "sangi_nursing_submitted"; // shared: visible to HOD & Admin
+const SUBMIT_KEY  = "sangi_nursing_submitted";
 
 const COLUMNS = [
   { key: "sNo",         label: "S.No.",        width: 55,  readOnly: true },
@@ -73,10 +81,9 @@ export default function NursingDashboard({ currentUser, onLogout }) {
   const [savedAt, setSavedAt]         = useState(null);
   const [hasUnsaved, setHasUnsaved]   = useState(false);
   const [loading, setLoading]         = useState(true);
-  const [submitStatus, setSubmitStatus]   = useState(null); // null | "sending" | "done" | "error"
+  const [submitStatus, setSubmitStatus]   = useState(null);
   const [submittedToday, setSubmittedToday] = useState(false);
 
-  // ── Load from storage ──────────────────────────────────────────────────────
   useEffect(() => {
     (async () => {
       try {
@@ -88,7 +95,6 @@ export default function NursingDashboard({ currentUser, onLogout }) {
           const todayRows = entries.filter(e => e.createdAt?.slice(0, 10) === today);
           if (todayRows.length > 0) setRows(todayRows);
         }
-        // Check if already submitted today
         try {
           const subRes = await window.storage.get(SUBMIT_KEY, true);
           if (subRes) {
@@ -105,7 +111,6 @@ export default function NursingDashboard({ currentUser, onLogout }) {
     try { await window.storage.set(STORAGE_KEY, JSON.stringify({ allEntries: entries })); } catch {}
   }, []);
 
-  // ── Row ops ────────────────────────────────────────────────────────────────
   const updateRow = (rowId, key, val) => {
     setRows(prev => prev.map(r => r.id === rowId ? { ...r, [key]: val } : r));
     setHasUnsaved(true);
@@ -125,7 +130,6 @@ export default function NursingDashboard({ currentUser, onLogout }) {
 
   const isFilled = (r) => !!(r.claimId || r.uhid || r.ipdNo || r.patientName);
 
-  // ── Save locally ──────────────────────────────────────────────────────────
   const handleSave = async () => {
     const filled = rows.filter(isFilled);
     if (!filled.length) return;
@@ -136,19 +140,16 @@ export default function NursingDashboard({ currentUser, onLogout }) {
     setHasUnsaved(false);
   };
 
-  // ── Submit to HOD & Admin (shared storage) ────────────────────────────────
   const handleSubmit = async () => {
     const filled = rows.filter(isFilled);
     if (!filled.length) { setSubmitStatus("error"); setTimeout(() => setSubmitStatus(null), 2500); return; }
 
     setSubmitStatus("sending");
     try {
-      // Save locally first
       const updated = [...allEntries.filter(e => e.createdAt?.slice(0, 10) !== today), ...filled];
       setAllEntries(updated);
       await persist(updated);
 
-      // Push to shared key — HOD & Admin read this
       let existingShared = [];
       try {
         const sharedRes = await window.storage.get(SUBMIT_KEY, true);
@@ -184,7 +185,6 @@ export default function NursingDashboard({ currentUser, onLogout }) {
     }
   };
 
-  // ── Filtered records ──────────────────────────────────────────────────────
   const filteredEntries = (() => {
     let start, end;
     if (filterMode === "today")      { start = today; end = today; }
@@ -197,7 +197,6 @@ export default function NursingDashboard({ currentUser, onLogout }) {
       .sort((a, b) => (a.createdAt || "").localeCompare(b.createdAt || ""));
   })();
 
-  // ── Keyboard nav ──────────────────────────────────────────────────────────
   const handleKeyDown = (e, ri, colKey) => {
     const editable = COLUMNS.filter(c => !c.readOnly).map(c => c.key);
     const ci = editable.indexOf(colKey);
@@ -213,78 +212,102 @@ export default function NursingDashboard({ currentUser, onLogout }) {
     }
   };
 
-  // ── Stats ─────────────────────────────────────────────────────────────────
   const todayCount  = allEntries.filter(e => e.createdAt?.slice(0, 10) === today).length;
   const weekCount   = (() => { const { start, end } = weekRange(); return allEntries.filter(e => { const d = e.createdAt?.slice(0,10)||""; return d>=start&&d<=end; }).length; })();
   const monthCount  = (() => { const { start, end } = monthRange(); return allEntries.filter(e => { const d = e.createdAt?.slice(0,10)||""; return d>=start&&d<=end; }).length; })();
   const filledToday = rows.filter(isFilled).length;
 
   if (loading) return (
-    <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh", background:"#0c0e14", color:COLOR, fontSize:14, fontFamily:"var(--ui-font-sans)" }}>
+    <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh", background:BG_MAIN, color:COLOR, fontSize:14, fontFamily:"'Inter',sans-serif" }}>
       Loading…
     </div>
   );
 
   return (
-    <div style={{ display:"flex", flexDirection:"column", height:"100vh", background:"#0c0e14", color:"#edf0f7", fontFamily:"var(--ui-font-sans)", overflow:"hidden" }}>
+    <div style={{ display:"flex", flexDirection:"column", height:"100vh", background:BG_MAIN, color:TEXT_DARK, fontFamily:"'Inter',sans-serif", overflow:"hidden" }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
         * { box-sizing:border-box; }
         ::-webkit-scrollbar { width:5px; height:5px; }
-        ::-webkit-scrollbar-thumb { background:#2a2f3e; border-radius:4px; }
-        .ns_cell:focus  { outline:2px solid ${COLOR}; outline-offset:-2px; background:${BG_ACTIVE} !important; }
-        .ns_cell:hover  { background:#0d1c14 !important; }
-        .ns_cell        { transition:background 0.1s; color:#dde3f0; font-family:'JetBrains Mono',monospace; font-size:12px; }
-        .ns_row_rm      { opacity:0; transition:opacity 0.15s; }
+        ::-webkit-scrollbar-thumb { background:#cbd5e1; border-radius:4px; }
+        ::-webkit-scrollbar-track { background:#f1f5f9; }
+
+        .ns_cell { transition:background 0.1s; color:${TEXT_DARK}; font-family:'JetBrains Mono',monospace; font-size:12px; }
+        .ns_cell:focus { outline:2px solid ${COLOR}; outline-offset:-2px; background:#eff6ff !important; }
+        .ns_cell:hover { background:#f0f9ff !important; }
+
+        .ns_row_rm { opacity:0; transition:opacity 0.15s; }
         tr:hover .ns_row_rm { opacity:1; }
-        .ns_tr:hover > td   { background:#0e1a15 !important; }
-        @keyframes ns_up { from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none} }
-        .ns_fade { animation:ns_up 0.25s ease both; }
-        @keyframes blink { 0%,100%{opacity:1}50%{opacity:0.3} }
-        .btn_h:hover { filter:brightness(1.12); transform:translateY(-1px); }
+        .ns_tr:hover > td { background:#f8fafc !important; }
+
+        @keyframes ns_up { from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none} }
+        .ns_fade { animation:ns_up 0.22s ease both; }
+        @keyframes blink { 0%,100%{opacity:1}50%{opacity:0.4} }
+
+        .btn_h:hover { filter:brightness(0.94); transform:translateY(-1px); }
         .btn_h { transition:all 0.15s; }
-        .chip_h:hover { border-color:${COLOR} !important; color:${COLOR} !important; }
+        .chip_h:hover { border-color:${COLOR} !important; color:${COLOR} !important; background:${COLOR_PALE} !important; }
+
+        .tab_active { color:${COLOR} !important; border-bottom:2.5px solid ${COLOR} !important; background:#fff !important; font-weight:600 !important; }
+        .tab_inactive { color:${TEXT_MID} !important; border-bottom:2.5px solid transparent !important; }
+        .tab_inactive:hover { color:${COLOR_LIGHT} !important; background:#f0f9ff !important; }
+
+        input[type="date"]::-webkit-calendar-picker-indicator { opacity: 0.5; cursor: pointer; }
       `}</style>
 
-      {/* ── Topbar ── */}
-      <header style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0 26px", height:64, borderBottom:"1px solid #1e2334", background:"#0f1118", flexShrink:0 }}>
+      {/* ── Topbar (navy blue header matching screenshot) ── */}
+      <header style={{
+        display:"flex", alignItems:"center", justifyContent:"space-between",
+        padding:"0 28px", height:64,
+        background:BG_HEADER,
+        boxShadow:"0 2px 8px rgba(30,58,95,0.18)",
+        flexShrink:0,
+      }}>
         <div style={{ display:"flex", alignItems:"center", gap:14 }}>
-          <div style={{ width:42, height:42, borderRadius:12, background:`${COLOR}20`, border:`2px solid ${COLOR}55`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:22 }}>
-            🩹
+          {/* Hospital logo block */}
+          <div style={{ width:40, height:40, borderRadius:10, background:"#fff", display:"flex", alignItems:"center", justifyContent:"center", fontSize:22, boxShadow:"0 2px 8px rgba(0,0,0,0.15)" }}>
+            🏥
           </div>
           <div>
-            <div style={{ fontSize:10, fontWeight:600, color:"#3a4060", textTransform:"uppercase", letterSpacing:"2.5px" }}>Sangi Hospital</div>
-            <div style={{ fontSize:18, fontWeight:700, color:"#f4f6ff", letterSpacing:"-0.4px", marginTop:1 }}>Nursing Dashboard</div>
-          </div>
-          <div style={{ marginLeft:6, padding:"4px 14px", borderRadius:20, background:`${COLOR}18`, border:`1px solid ${COLOR}45`, fontSize:11, fontWeight:600, color:COLOR, fontFamily:"'JetBrains Mono',monospace" }}>
-            {today}
+            <div style={{ fontSize:17, fontWeight:700, color:"#ffffff", letterSpacing:"-0.3px" }}>Sangi Hospital</div>
+            <div style={{ fontSize:11, color:"#93c5fd", fontWeight:500, marginTop:1 }}>IPD Portal · Nursing Department</div>
           </div>
         </div>
 
-        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+        {/* Center stats */}
+        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
           {[
-            { lbl:"Today", val:todayCount, col:"#4ade80" },
-            { lbl:"Week",  val:weekCount,  col:COLOR },
-            { lbl:"Month", val:monthCount, col:"#facc15" },
+            { lbl:"Today",  val:todayCount,  col:"#4ade80" },
+            { lbl:"Week",   val:weekCount,   col:"#60a5fa" },
+            { lbl:"Month",  val:monthCount,  col:"#fbbf24" },
           ].map(({ lbl, val, col }) => (
-            <div key={lbl} style={{ display:"flex", alignItems:"center", gap:6, padding:"6px 14px", borderRadius:20, background:"#161b28", border:"1px solid #2a3049", fontSize:12 }}>
-              <span style={{ color:col, fontWeight:700, fontSize:15, fontFamily:"'JetBrains Mono',monospace" }}>{val}</span>
-              <span style={{ color:"#6875a0", fontWeight:500 }}>{lbl}</span>
+            <div key={lbl} style={{ display:"flex", alignItems:"center", gap:6, padding:"5px 14px", borderRadius:20, background:"rgba(255,255,255,0.1)", border:"1px solid rgba(255,255,255,0.15)", fontSize:12 }}>
+              <span style={{ color:col, fontWeight:700, fontSize:14, fontFamily:"'JetBrains Mono',monospace" }}>{val}</span>
+              <span style={{ color:"#bfdbfe", fontWeight:500 }}>{lbl}</span>
             </div>
           ))}
-          <ThemeModeDock variant="inline" />
+        </div>
+
+        {/* Right — date + user */}
+        <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:6, padding:"6px 14px", borderRadius:8, background:"rgba(255,255,255,0.1)", border:"1px solid rgba(255,255,255,0.2)" }}>
+            <span style={{ fontSize:13, color:"#bfdbfe" }}>📅</span>
+            <span style={{ fontSize:12, color:"#e0f2fe", fontFamily:"'JetBrains Mono',monospace", fontWeight:500 }}>
+              {new Date().toLocaleDateString("en-IN", { weekday:"short", day:"2-digit", month:"short", year:"numeric" })}
+            </span>
+          </div>
 
           {currentUser && (
-            <div style={{ display:"flex", alignItems:"center", gap:9, marginLeft:8, paddingLeft:14, borderLeft:"1px solid #1e2334" }}>
-              <div style={{ width:34, height:34, borderRadius:10, background:`${COLOR}25`, border:`2px solid ${COLOR}50`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:15, color:COLOR, fontWeight:700 }}>
+            <div style={{ display:"flex", alignItems:"center", gap:9, paddingLeft:12, borderLeft:"1px solid rgba(255,255,255,0.15)" }}>
+              <div style={{ width:34, height:34, borderRadius:9, background:COLOR, display:"flex", alignItems:"center", justifyContent:"center", fontSize:14, color:"#fff", fontWeight:700 }}>
                 {currentUser.name?.[0]?.toUpperCase() || "N"}
               </div>
               <div>
-                <div style={{ fontSize:13, color:"#edf0f7", fontWeight:600 }}>{currentUser.name}</div>
-                <div style={{ fontSize:10, color:"#3a4060", textTransform:"uppercase", letterSpacing:"1px", fontWeight:500 }}>Nursing Staff</div>
+                <div style={{ fontSize:13, color:"#ffffff", fontWeight:600 }}>{currentUser.name}</div>
+                <div style={{ fontSize:10, color:"#93c5fd", fontWeight:500 }}>Nursing Staff</div>
               </div>
               <button onClick={onLogout} className="btn_h"
-                style={{ marginLeft:4, padding:"6px 14px", borderRadius:7, background:"#1e0e0e", border:"1px solid #6b2020", color:"#f87171", fontSize:11, cursor:"pointer", fontFamily:"inherit", fontWeight:600 }}>
+                style={{ marginLeft:4, padding:"6px 14px", borderRadius:7, background:"rgba(239,68,68,0.15)", border:"1px solid rgba(239,68,68,0.4)", color:"#fca5a5", fontSize:11, cursor:"pointer", fontFamily:"inherit", fontWeight:600 }}>
                 Logout
               </button>
             </div>
@@ -292,12 +315,27 @@ export default function NursingDashboard({ currentUser, onLogout }) {
         </div>
       </header>
 
-      {/* ── Sub-nav ── */}
-      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0 26px", height:52, borderBottom:"1px solid #1e2334", background:"#0f1118", flexShrink:0 }}>
-        <div style={{ display:"flex", gap:2 }}>
-          {[{ id:"entry", label:"📋 Daily Entry" }, { id:"records", label:"🗂 Records" }].map(tab => (
-            <button key={tab.id} onClick={() => setViewTab(tab.id)}
-              style={{ padding:"8px 22px", borderRadius:"7px 7px 0 0", fontSize:13, fontFamily:"inherit", cursor:"pointer", border:"none", background: viewTab===tab.id ? "#0c0e14" : "transparent", color: viewTab===tab.id ? COLOR : "#4f5875", borderBottom: viewTab===tab.id ? `2px solid ${COLOR}` : "2px solid transparent", fontWeight: viewTab===tab.id ? 600 : 400, transition:"all 0.15s" }}>
+      {/* ── Sub-nav (white tab bar) ── */}
+      <div style={{
+        display:"flex", alignItems:"center", justifyContent:"space-between",
+        padding:"0 28px", height:50,
+        background:BG_WHITE,
+        borderBottom:`2px solid ${BORDER}`,
+        flexShrink:0,
+        boxShadow:"0 1px 4px rgba(30,58,95,0.06)",
+      }}>
+        <div style={{ display:"flex", gap:0, height:"100%" }}>
+          {[{ id:"entry", label:"📋  Daily Entry" }, { id:"records", label:"🗂  Records" }].map(tab => (
+            <button key={tab.id}
+              onClick={() => setViewTab(tab.id)}
+              className={viewTab === tab.id ? "tab_active" : "tab_inactive"}
+              style={{
+                padding:"0 22px", height:"100%",
+                fontSize:13, fontFamily:"inherit", cursor:"pointer",
+                background:"transparent", border:"none",
+                borderBottom:"2.5px solid transparent",
+                transition:"all 0.15s",
+              }}>
               {tab.label}
             </button>
           ))}
@@ -305,35 +343,34 @@ export default function NursingDashboard({ currentUser, onLogout }) {
 
         {viewTab === "entry" && (
           <div style={{ display:"flex", gap:8, alignItems:"center" }}>
-            {hasUnsaved && <span style={{ fontSize:12, color:"#facc15", fontWeight:600, animation:"blink 2s infinite" }}>● Unsaved changes</span>}
-            {savedAt && !hasUnsaved && <span style={{ fontSize:12, color:"#4ade80", fontWeight:500 }}>✓ Saved {savedAt}</span>}
+            {hasUnsaved && <span style={{ fontSize:12, color:"#f59e0b", fontWeight:600, animation:"blink 2s infinite" }}>● Unsaved changes</span>}
+            {savedAt && !hasUnsaved && <span style={{ fontSize:12, color:"#16a34a", fontWeight:500 }}>✓ Saved {savedAt}</span>}
 
             <button onClick={() => addRows(5)} className="btn_h"
-              style={{ padding:"7px 16px", borderRadius:7, fontSize:12, fontFamily:"inherit", cursor:"pointer", background:"#161b28", border:"1px solid #2a3049", color:"#8b96c0", fontWeight:500 }}>
+              style={{ padding:"7px 16px", borderRadius:7, fontSize:12, fontFamily:"inherit", cursor:"pointer", background:BG_MAIN, border:`1px solid ${BORDER_MID}`, color:TEXT_MID, fontWeight:500 }}>
               + 5 Rows
             </button>
 
             <button onClick={handleSave} className="btn_h"
-              style={{ padding:"7px 20px", borderRadius:7, fontSize:13, fontFamily:"inherit", cursor:"pointer", background:"#1e2334", border:`1px solid ${COLOR}40`, color:COLOR, fontWeight:600 }}>
+              style={{ padding:"7px 20px", borderRadius:7, fontSize:12, fontFamily:"inherit", cursor:"pointer", background:BG_WHITE, border:`1.5px solid ${COLOR}`, color:COLOR, fontWeight:600 }}>
               💾 Save Draft
             </button>
 
-            {/* Submit to HOD & Admin */}
             <button onClick={handleSubmit} className="btn_h" disabled={submitStatus === "sending"}
               style={{
                 padding:"7px 22px", borderRadius:7, fontSize:13, fontFamily:"inherit",
                 cursor: submitStatus === "sending" ? "wait" : "pointer",
-                background: submitStatus === "done"  ? "#14532d"
-                          : submitStatus === "error" ? "#4a0e0e"
+                background: submitStatus === "done"  ? "#dcfce7"
+                          : submitStatus === "error" ? "#fee2e2"
                           : COLOR,
                 border:"none",
-                color: submitStatus === "done"  ? "#4ade80"
-                     : submitStatus === "error" ? "#f87171"
-                     : "#0a0c12",
+                color: submitStatus === "done"  ? "#15803d"
+                     : submitStatus === "error" ? "#b91c1c"
+                     : "#ffffff",
                 fontWeight:700,
-                boxShadow: submitStatus ? "none" : `0 0 18px ${GLOW}`,
-                opacity: submitStatus === "sending" ? 0.7 : 1,
-                minWidth: 185,
+                boxShadow: submitStatus ? "none" : `0 2px 12px rgba(37,99,235,0.3)`,
+                opacity: submitStatus === "sending" ? 0.75 : 1,
+                minWidth:185,
               }}>
               {submitStatus === "sending" ? "⟳ Submitting…"
                : submitStatus === "done"  ? "✓ Submitted to HOD & Admin"
@@ -347,10 +384,10 @@ export default function NursingDashboard({ currentUser, onLogout }) {
 
       {/* ── Submitted banner ── */}
       {submittedToday && viewTab === "entry" && (
-        <div style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 26px", background:"#0a1a0e", borderBottom:"1px solid #14532d", flexShrink:0 }}>
-          <span style={{ fontSize:16 }}>✅</span>
-          <span style={{ fontSize:12, color:"#4ade80", fontWeight:600 }}>Today's records have been submitted to HOD & Admin Management</span>
-          <span style={{ fontSize:11, color:"#2a5a3a", marginLeft:4 }}>· You can re-submit anytime to update</span>
+        <div style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 28px", background:"#f0fdf4", borderBottom:"1px solid #bbf7d0", flexShrink:0 }}>
+          <span style={{ fontSize:15 }}>✅</span>
+          <span style={{ fontSize:12, color:"#15803d", fontWeight:600 }}>Today's records have been submitted to HOD & Admin Management</span>
+          <span style={{ fontSize:11, color:"#86efac", marginLeft:4 }}>· You can re-submit anytime to update</span>
         </div>
       )}
 
@@ -359,48 +396,64 @@ export default function NursingDashboard({ currentUser, onLogout }) {
 
         {/* ════ ENTRY TAB ════ */}
         {viewTab === "entry" && (
-          <div style={{ flex:1, overflow:"auto", padding:"20px 26px" }} className="ns_fade">
+          <div style={{ flex:1, overflow:"auto", padding:"20px 28px" }} className="ns_fade">
 
-            {/* Banner */}
-            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:18, padding:"14px 22px", background:"#0f1118", border:`1px solid ${COLOR}35`, borderRadius:12, borderLeft:`4px solid ${COLOR}` }}>
+            {/* Banner card */}
+            <div style={{
+              display:"flex", alignItems:"center", justifyContent:"space-between",
+              marginBottom:18, padding:"16px 24px",
+              background:BG_WHITE,
+              border:`1px solid ${BORDER}`,
+              borderLeft:`4px solid ${COLOR}`,
+              borderRadius:10,
+              boxShadow:"0 1px 6px rgba(30,58,95,0.07)",
+            }}>
               <div>
-                <div style={{ fontSize:14, fontWeight:700, color:"#f4f6ff" }}>Daily Nursing Log — {today}</div>
-                <div style={{ fontSize:12, color:"#4f5875", marginTop:4, fontWeight:500 }}>
+                <div style={{ fontSize:14, fontWeight:700, color:TEXT_DARK }}>Daily Nursing Log — {today}</div>
+                <div style={{ fontSize:12, color:TEXT_LIGHT, marginTop:4, fontWeight:500 }}>
                   <span style={{ color:COLOR, fontWeight:700 }}>{filledToday}</span>
-                  <span style={{ color:"#6875a0" }}> of {rows.length} rows filled</span>
-                  <span style={{ color:"#3a4060", marginLeft:12 }}>Tab = next column · Enter = next row</span>
+                  <span style={{ color:TEXT_MID }}> of {rows.length} rows filled</span>
+                  <span style={{ color:TEXT_LIGHT, marginLeft:12 }}>Tab = next column · Enter = next row</span>
                 </div>
               </div>
               <div style={{ textAlign:"right" }}>
-                <div style={{ fontSize:36, fontWeight:700, color:COLOR, fontFamily:"'JetBrains Mono',monospace", lineHeight:1 }}>{filledToday}</div>
-                <div style={{ fontSize:10, color:"#3a4060", marginTop:3, fontWeight:500, textTransform:"uppercase", letterSpacing:"1px" }}>Patients</div>
+                <div style={{ fontSize:38, fontWeight:700, color:COLOR, fontFamily:"'JetBrains Mono',monospace", lineHeight:1 }}>{filledToday}</div>
+                <div style={{ fontSize:10, color:TEXT_LIGHT, marginTop:3, fontWeight:600, textTransform:"uppercase", letterSpacing:"1px" }}>Patients</div>
               </div>
             </div>
 
             {/* Grid */}
-            <div style={{ background:"#0f1118", border:"1px solid #1e2334", borderRadius:12, overflow:"hidden" }}>
+            <div style={{ background:BG_WHITE, border:`1px solid ${BORDER}`, borderRadius:10, overflow:"hidden", boxShadow:"0 1px 6px rgba(30,58,95,0.06)" }}>
               <div style={{ overflowX:"auto" }}>
                 <table style={{ borderCollapse:"collapse", width:"100%", minWidth:"max-content" }}>
                   <thead>
-                    <tr style={{ background:"#0a0c14" }}>
+                    <tr style={{ background:"#f8fafc" }}>
                       {COLUMNS.map(col => (
-                        <th key={col.key} style={{ padding:"12px 14px", textAlign:"left", fontSize:10, fontWeight:700, color:"#6875a0", textTransform:"uppercase", letterSpacing:"1.2px", borderBottom:"2px solid #1e2334", whiteSpace:"nowrap", minWidth:col.width, fontFamily:"'DM Sans',sans-serif", borderRight:"1px solid #181d2c" }}>
+                        <th key={col.key} style={{
+                          padding:"11px 14px", textAlign:"left",
+                          fontSize:10, fontWeight:700, color:"#64748b",
+                          textTransform:"uppercase", letterSpacing:"1px",
+                          borderBottom:`2px solid ${BORDER}`,
+                          whiteSpace:"nowrap", minWidth:col.width,
+                          fontFamily:"'Inter',sans-serif",
+                          borderRight:`1px solid ${BORDER}`,
+                        }}>
                           {col.label}
-                          {col.key === "uhid" && <span style={{ marginLeft:5, padding:"1px 6px", borderRadius:4, background:`${COLOR}22`, color:COLOR, fontSize:9, fontWeight:700 }}>KEY</span>}
+                          {col.key === "uhid" && <span style={{ marginLeft:5, padding:"1px 6px", borderRadius:4, background:COLOR_PALE, color:COLOR, fontSize:9, fontWeight:700 }}>KEY</span>}
                         </th>
                       ))}
-                      <th style={{ padding:"12px 8px", borderBottom:"2px solid #1e2334", width:34 }}></th>
+                      <th style={{ padding:"11px 8px", borderBottom:`2px solid ${BORDER}`, width:34, background:"#f8fafc" }}></th>
                     </tr>
                   </thead>
                   <tbody>
                     {rows.map((row, ri) => {
                       const filled = isFilled(row);
                       return (
-                        <tr key={row.id} className="ns_tr" style={{ background: filled ? "#0d1a12" : "transparent", borderBottom:"1px solid #181d2c" }}>
+                        <tr key={row.id} className="ns_tr" style={{ background: filled ? "#f0f9ff" : BG_WHITE, borderBottom:`1px solid ${BORDER}` }}>
                           {COLUMNS.map(col => (
-                            <td key={col.key} style={{ padding:0, borderRight:"1px solid #181d2c" }}>
+                            <td key={col.key} style={{ padding:0, borderRight:`1px solid ${BORDER}` }}>
                               {col.readOnly ? (
-                                <div style={{ padding:"9px 14px", color:"#2e3654", fontSize:12, fontWeight:600, fontFamily:"'JetBrains Mono',monospace", userSelect:"none" }}>{row[col.key]}</div>
+                                <div style={{ padding:"9px 14px", color:TEXT_LIGHT, fontSize:12, fontWeight:600, fontFamily:"'JetBrains Mono',monospace", userSelect:"none" }}>{row[col.key]}</div>
                               ) : (
                                 <input
                                   id={`ns_${ri}_${col.key}`}
@@ -411,11 +464,11 @@ export default function NursingDashboard({ currentUser, onLogout }) {
                                   onKeyDown={e => handleKeyDown(e, ri, col.key)}
                                   style={{
                                     width:"100%", padding:"9px 14px", background:"transparent", border:"none",
-                                    color: col.key === "patientName" ? "#f4f6ff"
+                                    color: col.key === "patientName" ? TEXT_DARK
                                          : col.key === "claimId"     ? COLOR
-                                         : col.key === "uhid"        ? "#a7f3d0"
-                                         : col.key === "patStay"     ? "#60a5fa"
-                                         : "#b8c2e0",
+                                         : col.key === "uhid"        ? "#0369a1"
+                                         : col.key === "patStay"     ? "#0891b2"
+                                         : TEXT_MID,
                                     fontSize:12, fontFamily:"'JetBrains Mono',monospace", outline:"none", minWidth:col.width,
                                     fontWeight: col.key === "patientName" ? 600 : col.key === "uhid" ? 500 : 400,
                                     textAlign: col.key === "patStay" ? "center" : "left",
@@ -425,9 +478,9 @@ export default function NursingDashboard({ currentUser, onLogout }) {
                               )}
                             </td>
                           ))}
-                          <td style={{ padding:"0 6px", textAlign:"center" }}>
+                          <td style={{ padding:"0 6px", textAlign:"center", background: filled ? "#f0f9ff" : BG_WHITE }}>
                             <button className="ns_row_rm" onClick={() => removeRow(row.id)}
-                              style={{ background:"none", border:"none", color:"#f87171", cursor:"pointer", fontSize:14, padding:"2px 5px" }}>
+                              style={{ background:"none", border:"none", color:"#ef4444", cursor:"pointer", fontSize:13, padding:"2px 5px" }}>
                               ✕
                             </button>
                           </td>
@@ -440,19 +493,21 @@ export default function NursingDashboard({ currentUser, onLogout }) {
             </div>
 
             <button onClick={() => addRows(1)}
-              style={{ marginTop:10, padding:"10px 20px", borderRadius:10, background:"transparent", border:`1.5px dashed ${COLOR}30`, color:COLOR, fontSize:12, cursor:"pointer", fontFamily:"inherit", width:"100%", fontWeight:600, letterSpacing:"0.5px" }}>
+              style={{ marginTop:10, padding:"10px 20px", borderRadius:9, background:"transparent", border:`1.5px dashed ${BORDER_MID}`, color:COLOR, fontSize:12, cursor:"pointer", fontFamily:"inherit", width:"100%", fontWeight:600, letterSpacing:"0.5px", transition:"all 0.15s" }}
+              onMouseEnter={e => { e.target.style.borderColor = COLOR; e.target.style.background = COLOR_PALE; }}
+              onMouseLeave={e => { e.target.style.borderColor = BORDER_MID; e.target.style.background = "transparent"; }}>
               + Add Row
             </button>
 
-            {/* Reminder to submit */}
+            {/* Reminder */}
             {filledToday > 0 && !submittedToday && (
-              <div style={{ marginTop:16, padding:"14px 20px", background:"#1a1200", border:"1px solid #713f12", borderRadius:10, display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+              <div style={{ marginTop:16, padding:"14px 20px", background:"#fffbeb", border:"1px solid #fde68a", borderRadius:10, display:"flex", alignItems:"center", justifyContent:"space-between" }}>
                 <div>
-                  <div style={{ fontSize:13, fontWeight:600, color:"#fde68a" }}>Don't forget to submit today's records</div>
-                  <div style={{ fontSize:11, color:"#92400e", marginTop:2 }}>{filledToday} record{filledToday !== 1 ? "s" : ""} ready · HOD & Admin are waiting for today's summary</div>
+                  <div style={{ fontSize:13, fontWeight:600, color:"#92400e" }}>Don't forget to submit today's records</div>
+                  <div style={{ fontSize:11, color:"#a16207", marginTop:2 }}>{filledToday} record{filledToday !== 1 ? "s" : ""} ready · HOD & Admin are waiting for today's summary</div>
                 </div>
                 <button onClick={handleSubmit} className="btn_h"
-                  style={{ padding:"8px 22px", borderRadius:8, fontSize:13, fontFamily:"inherit", cursor:"pointer", background:COLOR, border:"none", color:"#0a0c12", fontWeight:700, boxShadow:`0 0 16px ${GLOW}` }}>
+                  style={{ padding:"8px 22px", borderRadius:8, fontSize:13, fontFamily:"inherit", cursor:"pointer", background:COLOR, border:"none", color:"#fff", fontWeight:700, boxShadow:"0 2px 10px rgba(37,99,235,0.25)" }}>
                   Submit Now →
                 </button>
               </div>
@@ -462,27 +517,34 @@ export default function NursingDashboard({ currentUser, onLogout }) {
 
         {/* ════ RECORDS TAB ════ */}
         {viewTab === "records" && (
-          <div style={{ flex:1, overflow:"auto", padding:"20px 26px" }} className="ns_fade">
+          <div style={{ flex:1, overflow:"auto", padding:"20px 28px" }} className="ns_fade">
 
             {/* Filter bar */}
-            <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:20, padding:"14px 20px", background:"#0f1118", border:"1px solid #1e2334", borderRadius:12, flexWrap:"wrap" }}>
-              <span style={{ fontSize:11, fontWeight:700, color:"#3a4060", textTransform:"uppercase", letterSpacing:"1.5px", marginRight:4 }}>Period</span>
+            <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:20, padding:"14px 20px", background:BG_WHITE, border:`1px solid ${BORDER}`, borderRadius:10, flexWrap:"wrap", boxShadow:"0 1px 4px rgba(30,58,95,0.06)" }}>
+              <span style={{ fontSize:11, fontWeight:700, color:TEXT_LIGHT, textTransform:"uppercase", letterSpacing:"1.5px", marginRight:4 }}>Period</span>
               {[{id:"today",lbl:"Today"},{id:"week",lbl:"Week"},{id:"month",lbl:"Month"},{id:"year",lbl:"Year"},{id:"custom",lbl:"Custom"}].map(f => (
                 <button key={f.id} onClick={() => setFilterMode(f.id)} className="chip_h"
-                  style={{ padding:"6px 16px", borderRadius:20, fontSize:12, fontFamily:"inherit", cursor:"pointer", background: filterMode===f.id ? `${COLOR}20` : "#161b28", border:`1px solid ${filterMode===f.id ? COLOR : "#2a3049"}`, color: filterMode===f.id ? COLOR : "#6875a0", fontWeight: filterMode===f.id ? 600 : 400, transition:"all 0.15s" }}>
+                  style={{
+                    padding:"6px 16px", borderRadius:20, fontSize:12, fontFamily:"inherit", cursor:"pointer",
+                    background: filterMode===f.id ? COLOR_PALE : BG_MAIN,
+                    border:`1px solid ${filterMode===f.id ? COLOR : BORDER_MID}`,
+                    color: filterMode===f.id ? COLOR : TEXT_MID,
+                    fontWeight: filterMode===f.id ? 600 : 400,
+                    transition:"all 0.15s",
+                  }}>
                   {f.lbl}
                 </button>
               ))}
               {filterMode === "custom" && (
                 <div style={{ display:"flex", alignItems:"center", gap:8, marginLeft:8 }}>
                   <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)}
-                    style={{ background:"#0c0e14", border:"1px solid #2a3049", color:"#b8c2e0", padding:"6px 10px", borderRadius:7, fontSize:12, fontFamily:"'JetBrains Mono',monospace", outline:"none" }} />
-                  <span style={{ color:"#3a4060" }}>→</span>
+                    style={{ background:BG_WHITE, border:`1px solid ${BORDER_MID}`, color:TEXT_DARK, padding:"6px 10px", borderRadius:7, fontSize:12, fontFamily:"'JetBrains Mono',monospace", outline:"none" }} />
+                  <span style={{ color:TEXT_LIGHT }}>→</span>
                   <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)}
-                    style={{ background:"#0c0e14", border:"1px solid #2a3049", color:"#b8c2e0", padding:"6px 10px", borderRadius:7, fontSize:12, fontFamily:"'JetBrains Mono',monospace", outline:"none" }} />
+                    style={{ background:BG_WHITE, border:`1px solid ${BORDER_MID}`, color:TEXT_DARK, padding:"6px 10px", borderRadius:7, fontSize:12, fontFamily:"'JetBrains Mono',monospace", outline:"none" }} />
                 </div>
               )}
-              <div style={{ marginLeft:"auto", padding:"5px 16px", borderRadius:20, background:`${COLOR}18`, border:`1px solid ${COLOR}40`, fontSize:12, color:COLOR, fontWeight:700, fontFamily:"'JetBrains Mono',monospace" }}>
+              <div style={{ marginLeft:"auto", padding:"5px 16px", borderRadius:20, background:COLOR_PALE, border:`1px solid #bfdbfe`, fontSize:12, color:COLOR, fontWeight:700, fontFamily:"'JetBrains Mono',monospace" }}>
                 {filteredEntries.length} records
               </div>
             </div>
@@ -490,13 +552,13 @@ export default function NursingDashboard({ currentUser, onLogout }) {
             {/* Summary cards */}
             <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:14, marginBottom:22 }}>
               {[
-                { lbl:"Total Records",    val:filteredEntries.length,                                              col:COLOR },
-                { lbl:"Unique Patients",  val:new Set(filteredEntries.map(e => e.patientName)).size,               col:"#4ade80" },
-                { lbl:"Unique Hospitals", val:new Set(filteredEntries.map(e => e.hospital).filter(Boolean)).size,  col:"#facc15" },
-                { lbl:"Days Covered",     val:new Set(filteredEntries.map(e => e.createdAt?.slice(0,10))).size,    col:"#60a5fa" },
-              ].map(({ lbl, val, col }) => (
-                <div key={lbl} style={{ background:"#0f1118", border:"1px solid #1e2334", borderTop:`3px solid ${col}`, borderRadius:12, padding:"16px 20px" }}>
-                  <div style={{ fontSize:10, fontWeight:700, color:"#3a4060", textTransform:"uppercase", letterSpacing:"1px", marginBottom:10 }}>{lbl}</div>
+                { lbl:"Total Records",    val:filteredEntries.length,                                              col:COLOR,     bg:"#eff6ff", border:"#bfdbfe" },
+                { lbl:"Unique Patients",  val:new Set(filteredEntries.map(e => e.patientName)).size,               col:"#16a34a",  bg:"#f0fdf4", border:"#bbf7d0" },
+                { lbl:"Unique Hospitals", val:new Set(filteredEntries.map(e => e.hospital).filter(Boolean)).size,  col:"#d97706",  bg:"#fffbeb", border:"#fde68a" },
+                { lbl:"Days Covered",     val:new Set(filteredEntries.map(e => e.createdAt?.slice(0,10))).size,    col:"#0891b2",  bg:"#ecfeff", border:"#a5f3fc" },
+              ].map(({ lbl, val, col, bg, border }) => (
+                <div key={lbl} style={{ background:bg, border:`1px solid ${border}`, borderTop:`3px solid ${col}`, borderRadius:10, padding:"16px 20px", boxShadow:"0 1px 4px rgba(30,58,95,0.05)" }}>
+                  <div style={{ fontSize:10, fontWeight:700, color:TEXT_LIGHT, textTransform:"uppercase", letterSpacing:"1px", marginBottom:10 }}>{lbl}</div>
                   <div style={{ fontSize:34, fontWeight:700, color:col, lineHeight:1, fontFamily:"'JetBrains Mono',monospace" }}>{val}</div>
                 </div>
               ))}
@@ -504,17 +566,17 @@ export default function NursingDashboard({ currentUser, onLogout }) {
 
             {/* Table */}
             {filteredEntries.length === 0 ? (
-              <div style={{ textAlign:"center", padding:60, color:"#2a3049", fontSize:14, fontWeight:600, background:"#0f1118", border:"1px solid #1e2334", borderRadius:12 }}>
+              <div style={{ textAlign:"center", padding:60, color:TEXT_LIGHT, fontSize:14, fontWeight:600, background:BG_WHITE, border:`1px solid ${BORDER}`, borderRadius:10 }}>
                 No records found for this period
               </div>
             ) : (
-              <div style={{ background:"#0f1118", border:"1px solid #1e2334", borderRadius:12, overflow:"hidden" }}>
+              <div style={{ background:BG_WHITE, border:`1px solid ${BORDER}`, borderRadius:10, overflow:"hidden", boxShadow:"0 1px 6px rgba(30,58,95,0.06)" }}>
                 <div style={{ overflowX:"auto" }}>
                   <table style={{ borderCollapse:"collapse", width:"100%", minWidth:"max-content" }}>
                     <thead>
-                      <tr style={{ background:"#0a0c14" }}>
+                      <tr style={{ background:"#f8fafc" }}>
                         {COLUMNS.map(col => (
-                          <th key={col.key} style={{ padding:"11px 14px", textAlign:"left", fontSize:10, fontWeight:700, color:"#6875a0", textTransform:"uppercase", letterSpacing:"1px", borderBottom:"2px solid #1e2334", whiteSpace:"nowrap", fontFamily:"'DM Sans',sans-serif", borderRight:"1px solid #181d2c" }}>
+                          <th key={col.key} style={{ padding:"11px 14px", textAlign:"left", fontSize:10, fontWeight:700, color:"#64748b", textTransform:"uppercase", letterSpacing:"1px", borderBottom:`2px solid ${BORDER}`, whiteSpace:"nowrap", fontFamily:"'Inter',sans-serif", borderRight:`1px solid ${BORDER}` }}>
                             {col.label}
                           </th>
                         ))}
@@ -522,22 +584,22 @@ export default function NursingDashboard({ currentUser, onLogout }) {
                     </thead>
                     <tbody>
                       {filteredEntries.map((row, i) => (
-                        <tr key={row.id||i} className="ns_tr" style={{ borderBottom:"1px solid #181d2c" }}>
-                          <td style={{ padding:"10px 14px", color:"#2e3654", fontSize:12, fontFamily:"'JetBrains Mono',monospace", borderRight:"1px solid #181d2c" }}>{i+1}</td>
-                          <td style={{ padding:"10px 14px", color:"#a7f3d0", fontSize:12, fontFamily:"'JetBrains Mono',monospace", fontWeight:500, borderRight:"1px solid #181d2c" }}>{row.uhid || "—"}</td>
-                          <td style={{ padding:"10px 14px", color:COLOR, fontSize:12, fontFamily:"'JetBrains Mono',monospace", borderRight:"1px solid #181d2c" }}>{row.claimId || "—"}</td>
-                          <td style={{ padding:"10px 14px", color:"#8b96c0", fontSize:12, fontFamily:"'JetBrains Mono',monospace", borderRight:"1px solid #181d2c" }}>{row.ipdNo || "—"}</td>
-                          <td style={{ padding:"10px 14px", color:"#f4f6ff", fontSize:13, fontWeight:600, borderRight:"1px solid #181d2c" }}>{row.patientName || "—"}</td>
-                          <td style={{ padding:"10px 14px", color:"#6875a0", fontSize:11, fontFamily:"'JetBrains Mono',monospace", borderRight:"1px solid #181d2c" }}>{row.dod || "—"}</td>
-                          <td style={{ padding:"10px 14px", color:"#b8c2e0", fontSize:12, borderRight:"1px solid #181d2c" }}>{row.hospital || "—"}</td>
-                          <td style={{ padding:"10px 14px", color:"#b8c2e0", fontSize:12, borderRight:"1px solid #181d2c" }}>{row.prepareBy || "—"}</td>
-                          <td style={{ padding:"10px 14px", borderRight:"1px solid #181d2c" }}>
+                        <tr key={row.id||i} className="ns_tr" style={{ borderBottom:`1px solid ${BORDER}`, background:BG_WHITE }}>
+                          <td style={{ padding:"10px 14px", color:TEXT_LIGHT, fontSize:12, fontFamily:"'JetBrains Mono',monospace", borderRight:`1px solid ${BORDER}` }}>{i+1}</td>
+                          <td style={{ padding:"10px 14px", color:"#0369a1", fontSize:12, fontFamily:"'JetBrains Mono',monospace", fontWeight:500, borderRight:`1px solid ${BORDER}` }}>{row.uhid || "—"}</td>
+                          <td style={{ padding:"10px 14px", color:COLOR, fontSize:12, fontFamily:"'JetBrains Mono',monospace", borderRight:`1px solid ${BORDER}` }}>{row.claimId || "—"}</td>
+                          <td style={{ padding:"10px 14px", color:TEXT_MID, fontSize:12, fontFamily:"'JetBrains Mono',monospace", borderRight:`1px solid ${BORDER}` }}>{row.ipdNo || "—"}</td>
+                          <td style={{ padding:"10px 14px", color:TEXT_DARK, fontSize:13, fontWeight:600, borderRight:`1px solid ${BORDER}` }}>{row.patientName || "—"}</td>
+                          <td style={{ padding:"10px 14px", color:TEXT_MID, fontSize:11, fontFamily:"'JetBrains Mono',monospace", borderRight:`1px solid ${BORDER}` }}>{row.dod || "—"}</td>
+                          <td style={{ padding:"10px 14px", color:TEXT_MID, fontSize:12, borderRight:`1px solid ${BORDER}` }}>{row.hospital || "—"}</td>
+                          <td style={{ padding:"10px 14px", color:TEXT_MID, fontSize:12, borderRight:`1px solid ${BORDER}` }}>{row.prepareBy || "—"}</td>
+                          <td style={{ padding:"10px 14px", borderRight:`1px solid ${BORDER}` }}>
                             {row.patStay
-                              ? <span style={{ padding:"2px 10px", borderRadius:5, background:"#1e2d4a", color:"#60a5fa", fontSize:12, fontFamily:"'JetBrains Mono',monospace", fontWeight:600 }}>{row.patStay}</span>
-                              : <span style={{ color:"#2e3654" }}>—</span>}
+                              ? <span style={{ padding:"2px 10px", borderRadius:5, background:"#e0f2fe", color:"#0369a1", fontSize:12, fontFamily:"'JetBrains Mono',monospace", fontWeight:600 }}>{row.patStay}</span>
+                              : <span style={{ color:TEXT_LIGHT }}>—</span>}
                           </td>
-                          <td style={{ padding:"10px 14px", color:"#6875a0", fontSize:12, maxWidth:200, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", borderRight:"1px solid #181d2c" }}>{row.remarks || "—"}</td>
-                          <td style={{ padding:"10px 14px", color:"#8b96c0", fontSize:12 }}>{row.addedBy || "—"}</td>
+                          <td style={{ padding:"10px 14px", color:TEXT_MID, fontSize:12, maxWidth:200, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", borderRight:`1px solid ${BORDER}` }}>{row.remarks || "—"}</td>
+                          <td style={{ padding:"10px 14px", color:TEXT_MID, fontSize:12 }}>{row.addedBy || "—"}</td>
                         </tr>
                       ))}
                     </tbody>

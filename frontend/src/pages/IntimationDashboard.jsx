@@ -1,7 +1,5 @@
 import { useState, useEffect } from "react";
 import * as XLSX from "xlsx";
-import { apiService } from "../services/apiService";
-import ThemeModeDock from "../components/ui/ThemeModeDock";
 
 const COLUMNS = [
   { key: "sNo",           label: "S.No.",          width: 60,  readOnly: true },
@@ -17,38 +15,59 @@ const COLUMNS = [
   { key: "addedBy",       label: "Added By",        width: 130 },
 ];
 
-const DEPARTMENT = "intimation";
-const accent      = "#10b981"; // emerald green
-const accentSoft  = "#34d399";
-const accentDim   = "#065f46";
+const STORAGE_KEY = "sangi_intimation_entries";
+
+// ── Ocean Blue Palette ──────────────────────────────────────────────────────
+const accent      = "#0ea5e9";   // sky-500
+const accentDeep  = "#0284c7";   // sky-600
+const accentDark  = "#0c4a6e";   // sky-900
+const pageBg      = "#f0f9ff";   // sky-50
+const borderLight = "#e0f2fe";   // sky-100
+const borderMid   = "#bae6fd";   // sky-200
+const rowHover    = "#e0f2fe";
+const headBg      = "#e0f2fe";
+const cellFocus   = "#f0f9ff";
+const softBg      = "#e0f2fe";
+// ───────────────────────────────────────────────────────────────────────────
 
 const blankRow = (sNo) => ({
   id: crypto.randomUUID(),
   sNo,
-  uhid: "",
-  claimId: "",
-  patientName: "",
+  uhid: "", claimId: "", patientName: "",
   doa: "",
   uploadDate: new Date().toISOString().slice(0, 10),
-  hospital: "",
-  intimationBy: "",
-  priHosdr: "",
-  remarks: "",
-  addedBy: "",
+  hospital: "", intimationBy: "", priHosdr: "", remarks: "", addedBy: "",
   createdAt: new Date().toISOString(),
 });
 
-function todayStr() { return new Date().toISOString().slice(0, 10); }
-function weekRange()  { const now = new Date(); const day = now.getDay(); const mon = new Date(now); mon.setDate(now.getDate() - ((day + 6) % 7)); const sun = new Date(mon); sun.setDate(mon.getDate() + 6); return { start: mon.toISOString().slice(0, 10), end: sun.toISOString().slice(0, 10) }; }
-function monthRange() { const now = new Date(); return { start: new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10), end: new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10) }; }
-function yearRange()  { const y = new Date().getFullYear(); return { start: `${y}-01-01`, end: `${y}-12-31` }; }
-function entryDate(entry) { return entry.uploadDate || entry.createdAt?.slice(0, 10) || entry.doa || ""; }
+function todayStr()  { return new Date().toISOString().slice(0, 10); }
+function weekRange() {
+  const now = new Date(); const day = now.getDay();
+  const mon = new Date(now); mon.setDate(now.getDate() - ((day + 6) % 7));
+  const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+  return { start: mon.toISOString().slice(0, 10), end: sun.toISOString().slice(0, 10) };
+}
+function monthRange() {
+  const now = new Date();
+  return { start: new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10), end: new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10) };
+}
+function yearRange() {
+  const y = new Date().getFullYear();
+  return { start: `${y}-01-01`, end: `${y}-12-31` };
+}
 
 export default function IntimationDashboard({ currentUser, onLogout }) {
   const today = todayStr();
 
-  const [allEntries, setAllEntries] = useState([]);
-  const [rows, setRows] = useState(() => Array.from({ length: 10 }, (_, i) => blankRow(i + 1)));
+  const [allEntries, setAllEntries] = useState(() => {
+    try { const raw = localStorage.getItem(STORAGE_KEY); return raw ? JSON.parse(raw) : []; } catch { return []; }
+  });
+
+  const [rows, setRows] = useState(() => {
+    const existing = (() => { try { const raw = localStorage.getItem(STORAGE_KEY); return raw ? JSON.parse(raw) : []; } catch { return []; } })();
+    const todayRows = existing.filter(e => e.createdAt?.slice(0, 10) === todayStr());
+    return todayRows.length > 0 ? todayRows : Array.from({ length: 10 }, (_, i) => blankRow(i + 1));
+  });
 
   const [filterMode, setFilterMode]   = useState("today");
   const [customStart, setCustomStart] = useState(today);
@@ -56,32 +75,8 @@ export default function IntimationDashboard({ currentUser, onLogout }) {
   const [viewTab, setViewTab]         = useState("entry");
   const [savedAt, setSavedAt]         = useState(null);
   const [hasUnsaved, setHasUnsaved]   = useState(false);
-  const [syncError, setSyncError]     = useState("");
 
-useEffect(() => {
-    let active = true;
-    const loadEntries = async () => {
-      try {
-        setSyncError("");
-        const response = await apiService.getDepartmentLogs(DEPARTMENT);
-        const normalized = (Array.isArray(response) ? response : []).map((entry, index) => ({
-          id: entry.id ? `intimation-${entry.id}` : crypto.randomUUID(),
-          ...entry.data,
-          createdAt: entry.data?.createdAt || `${entry.record_date}T00:00:00`,
-          sNo: index + 1,
-        }));
-        if (!active) return;
-        setAllEntries(normalized);
-        const todayRows = normalized.filter(entry => entryDate(entry) === today);
-        setRows(todayRows.length ? todayRows.map((entry, index) => ({ ...entry, sNo: index + 1 })) : Array.from({ length: 10 }, (_, i) => blankRow(i + 1)));
-      } catch (error) {
-        if (!active) return;
-        setSyncError("Unable to load saved intimation logs.");
-      }
-    };
-    loadEntries();
-    return () => { active = false; };
-  }, [today]);
+  useEffect(() => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(allEntries)); } catch {} }, [allEntries]);
 
   const updateRow = (rowId, key, val) => {
     setRows(prev => prev.map(r => r.id === rowId ? { ...r, [key]: val } : r));
@@ -97,62 +92,28 @@ useEffect(() => {
     setHasUnsaved(true);
   };
 
-const handleSave = async () => {
-    const filled = rows
-      .filter(r => r.uhid || r.claimId || r.patientName)
-      .map((row, index) => ({
-        ...row,
-        sNo: index + 1,
-        uploadDate: row.uploadDate || today,
-        addedBy: row.addedBy || currentUser?.name || "",
-        createdAt: row.createdAt || new Date().toISOString(),
-      }));
+  const handleSave = () => {
+    const filled = rows.filter(r => r.claimId || r.patientName || r.uhid);
     if (!filled.length) return;
-    try {
-      setSyncError("");
-      await apiService.saveDepartmentLogs(DEPARTMENT, filled);
-      setAllEntries(prev => {
-        const withoutToday = prev.filter(entry => entryDate(entry) !== today);
-        return [...withoutToday, ...filled];
-      });
-      setSavedAt(new Date().toLocaleTimeString());
-      setHasUnsaved(false);
-    } catch (error) {
-      setSyncError("Save failed. Intimation logs were not synced.");
-    }
+    setAllEntries(prev => {
+      const withoutToday = prev.filter(e => e.createdAt?.slice(0, 10) !== today);
+      return [...withoutToday, ...filled];
+    });
+    setSavedAt(new Date().toLocaleTimeString());
+    setHasUnsaved(false);
   };
 
   const filteredEntries = (() => {
     let start, end;
-if (filterMode === "today")       { start = today; end = today; }
-    else if (filterMode === "week")   { ({ start, end } = weekRange()); }
-    else if (filterMode === "month")  { ({ start, end } = monthRange()); }
-    else if (filterMode === "year")   { ({ start, end } = yearRange()); }
-    else                              { start = customStart; end = customEnd; }
-    return allEntries.filter(e => { const d = entryDate(e); return d >= start && d <= end; })
+    if (filterMode === "today")      { start = today; end = today; }
+    else if (filterMode === "week")  { ({ start, end } = weekRange()); }
+    else if (filterMode === "month") { ({ start, end } = monthRange()); }
+    else if (filterMode === "year")  { ({ start, end } = yearRange()); }
+    else                             { start = customStart; end = customEnd; }
+    return allEntries
+      .filter(e => { const d = e.createdAt?.slice(0, 10) || ""; return d >= start && d <= end; })
       .sort((a, b) => (a.createdAt || "").localeCompare(b.createdAt || ""));
   })();
-
-  const handleDownload = () => {
-    const data = (filteredEntries.length ? filteredEntries : rows.filter((r) => r.uhid || r.claimId || r.patientName))
-      .map((row, index) => ({
-        "S.No.": index + 1,
-        UHID: row.uhid || "",
-        "Claim ID": row.claimId || "",
-        "Patient Name": row.patientName || "",
-        DOA: row.doa || "",
-        "Upload Date": row.uploadDate || "",
-        Hospital: row.hospital || "",
-        "Intimation By": row.intimationBy || "",
-        "Pri.HOS/Dr.": row.priHosdr || "",
-        Remarks: row.remarks || "",
-        "Added By": row.addedBy || "",
-      }));
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Intimation Logs");
-    XLSX.writeFile(wb, `Sangi_Intimation_${filterMode}_${today}.xlsx`);
-  };
 
   const handleKeyDown = (e, rowIdx, colKey) => {
     const editableCols = COLUMNS.filter(c => !c.readOnly).map(c => c.key);
@@ -169,125 +130,191 @@ if (filterMode === "today")       { start = today; end = today; }
     }
   };
 
-const todayCount  = allEntries.filter(e => entryDate(e) === today).length;
-  const weekCount   = (() => { const { start, end } = weekRange(); return allEntries.filter(e => { const d = entryDate(e); return d>=start&&d<=end; }).length; })();
-  const monthCount  = (() => { const { start, end } = monthRange(); return allEntries.filter(e => { const d = entryDate(e); return d>=start&&d<=end; }).length; })();
-  const filledToday = rows.filter(r => r.uhid || r.claimId || r.patientName).length;
+  const todayCount  = allEntries.filter(e => e.createdAt?.slice(0, 10) === today).length;
+  const weekCount   = (() => { const { start, end } = weekRange(); return allEntries.filter(e => { const d = e.createdAt?.slice(0,10)||""; return d>=start&&d<=end; }).length; })();
+  const monthCount  = (() => { const { start, end } = monthRange(); return allEntries.filter(e => { const d = e.createdAt?.slice(0,10)||""; return d>=start&&d<=end; }).length; })();
+  const filledToday = rows.filter(r => r.claimId || r.patientName || r.uhid).length;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: "#f0fdf4", color: "#1a2e22", fontFamily: "var(--ui-font-sans)", overflow: "hidden" }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: pageBg, color: accentDark, fontFamily: "'Inter', 'Segoe UI', sans-serif", overflow: "hidden" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
         * { box-sizing: border-box; }
         ::-webkit-scrollbar { width: 5px; height: 5px; }
-        ::-webkit-scrollbar-track { background: #d1fae5; }
-        ::-webkit-scrollbar-thumb { background: #6ee7b7; border-radius: 3px; }
-        .igrid-cell:focus { outline: 2px solid ${accent}; outline-offset: -2px; background: #ecfdf5 !important; z-index: 2; position: relative; }
-        .igrid-cell { transition: background 0.1s; font-family: var(--ui-font-sans); }
-        .igrid-cell:hover { background: #f0fdf4 !important; }
-        .itab-btn:hover { color: ${accent} !important; background: #d1fae5 !important; }
-        .ifilter-chip:hover { border-color: ${accent} !important; color: ${accent} !important; background: #ecfdf5 !important; }
+        ::-webkit-scrollbar-track { background: ${borderLight}; }
+        ::-webkit-scrollbar-thumb { background: ${borderMid}; border-radius: 3px; }
+        .igrid-cell:focus { outline: 2px solid ${accent}; outline-offset: -2px; background: ${cellFocus} !important; z-index: 2; position: relative; }
+        .igrid-cell { transition: background 0.1s; font-family: 'DM Mono', monospace; }
+        .igrid-cell:hover { background: ${pageBg} !important; }
+        .itab-btn:hover { color: ${accent} !important; background: ${borderLight} !important; }
+        .ifilter-chip:hover { border-color: ${accent} !important; color: ${accent} !important; background: ${softBg} !important; }
         .iaction-btn:hover { filter: brightness(1.08); transform: translateY(-1px); }
         .irow-remove { opacity: 0; transition: opacity 0.15s; }
         tr:hover .irow-remove { opacity: 1; }
-        tr:hover td { background: #ecfdf5 !important; }
+        tr:hover td { background: ${rowHover} !important; }
         @keyframes ifadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
         .ifade-in { animation: ifadeIn 0.3s ease; }
         @keyframes ipulse { 0%,100%{opacity:1}50%{opacity:.4} }
-        .mono { font-family: var(--ui-font-sans) !important; }
+        .mono { font-family: 'DM Mono', monospace !important; }
       `}</style>
 
-      {/* Topbar */}
-      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 28px", height: 62, borderBottom: "2px solid #a7f3d0", background: "#ffffff", flexShrink: 0, boxShadow: "0 2px 12px #10b98115" }}>
+      {/* ── Topbar ─────────────────────────────────────────────────────────── */}
+      <header style={{
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        padding: "0 28px", height: 62,
+        borderBottom: `2px solid ${borderMid}`,
+        background: "#ffffff",
+        flexShrink: 0,
+        boxShadow: `0 2px 16px ${accent}18`
+      }}>
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <div style={{ width: 38, height: 38, borderRadius: 10, background: `linear-gradient(135deg, ${accent}, #059669)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, color: "#fff", fontWeight: 700, boxShadow: `0 4px 12px ${accent}50` }}>📋</div>
+          {/* Logo badge */}
+          <div style={{
+            width: 38, height: 38, borderRadius: 10,
+            background: `linear-gradient(135deg, ${accent}, ${accentDeep})`,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 18, color: "#fff", fontWeight: 700,
+            boxShadow: `0 4px 14px ${accent}55`
+          }}>📋</div>
+
           <div>
-            <div style={{ fontSize: 9, letterSpacing: "4px", color: "#6ee7b7", textTransform: "uppercase", fontFamily: "var(--ui-font-sans)", fontWeight: 500 }}>Sangi Hospital</div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: "#064e3b", letterSpacing: "-0.3px" }}>Intimation Department</div>
+            <div style={{ fontSize: 9, letterSpacing: "4px", color: accent, textTransform: "uppercase", fontFamily: "'DM Mono', monospace", fontWeight: 600 }}>Sangi Hospital</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: accentDark, letterSpacing: "-0.3px" }}>Intimation Department</div>
           </div>
-          <div style={{ marginLeft: 10, padding: "4px 14px", borderRadius: 20, background: "#ecfdf5", border: `1.5px solid ${accent}`, fontSize: 10, color: accent, letterSpacing: "1px", fontFamily: "var(--ui-font-sans)", fontWeight: 600 }}>{today}</div>
+
+          {/* Date chip */}
+          <div style={{
+            marginLeft: 10, padding: "4px 14px", borderRadius: 20,
+            background: softBg, border: `1.5px solid ${accent}`,
+            fontSize: 10, color: accent,
+            letterSpacing: "1px", fontFamily: "'DM Mono', monospace", fontWeight: 600
+          }}>{today}</div>
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          {[{ label: "Today", val: todayCount, col: accent }, { label: "This Week", val: weekCount, col: "#0ea5e9" }, { label: "This Month", val: monthCount, col: "#f59e0b" }].map(({ label, val, col }) => (
-            <div key={label} style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 14px", borderRadius: 20, background: `${col}12`, border: `1.5px solid ${col}40`, fontSize: 11 }}>
-              <span style={{ color: col, fontWeight: 700, fontFamily: "var(--ui-font-sans)" }}>{val}</span>
+          {/* Stat pills */}
+          {[
+            { label: "Today",      val: todayCount, col: accent },
+            { label: "This Week",  val: weekCount,  col: "#6366f1" },
+            { label: "This Month", val: monthCount, col: "#f59e0b" },
+          ].map(({ label, val, col }) => (
+            <div key={label} style={{
+              display: "flex", alignItems: "center", gap: 6,
+              padding: "5px 14px", borderRadius: 20,
+              background: `${col}12`, border: `1.5px solid ${col}40`, fontSize: 11
+            }}>
+              <span style={{ color: col, fontWeight: 700, fontFamily: "'DM Mono', monospace" }}>{val}</span>
               <span style={{ color: "#6b7280", fontWeight: 600 }}>{label}</span>
             </div>
           ))}
-          <ThemeModeDock variant="inline" />
+
+          {/* User block */}
           {currentUser && (
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: 8, paddingLeft: 14, borderLeft: "2px solid #d1fae5" }}>
-              <div style={{ width: 32, height: 32, borderRadius: 8, background: `linear-gradient(135deg, ${accent}30, #059669)`, border: `1.5px solid ${accent}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, color: accent, fontWeight: 700 }}>{currentUser.name?.[0] || "I"}</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: 8, paddingLeft: 14, borderLeft: `2px solid ${borderLight}` }}>
+              <div style={{
+                width: 32, height: 32, borderRadius: 8,
+                background: `linear-gradient(135deg, ${accent}30, ${accentDeep})`,
+                border: `1.5px solid ${accent}`,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 13, color: accent, fontWeight: 700
+              }}>{currentUser.name?.[0] || "I"}</div>
               <div>
-                <div style={{ fontSize: 12, color: "#064e3b", fontWeight: 700 }}>{currentUser.name}</div>
-                <div style={{ fontSize: 9, color: "#a7f3d0", letterSpacing: "1.5px", textTransform: "uppercase", fontFamily: "var(--ui-font-sans)" }}>Intimation Staff</div>
+                <div style={{ fontSize: 12, color: accentDark, fontWeight: 700 }}>{currentUser.name}</div>
+                <div style={{ fontSize: 9, color: borderMid, letterSpacing: "1.5px", textTransform: "uppercase", fontFamily: "'DM Mono', monospace" }}>Intimation Staff</div>
               </div>
-              <button onClick={onLogout} style={{ marginLeft: 6, padding: "5px 14px", borderRadius: 8, background: "#fff1f2", border: "1.5px solid #fecaca", color: "#ef4444", fontSize: 10, cursor: "pointer", fontFamily: "var(--ui-font-sans)", fontWeight: 700, transition: "all 0.15s" }}>⎋ Logout</button>
+              <button onClick={onLogout} style={{ marginLeft: 6, padding: "5px 14px", borderRadius: 8, background: "#fff1f2", border: "1.5px solid #fecaca", color: "#ef4444", fontSize: 10, cursor: "pointer", fontFamily: "'Inter', sans-serif", fontWeight: 700, transition: "all 0.15s" }}>⎋ Logout</button>
             </div>
           )}
         </div>
       </header>
 
-      {/* Sub-nav */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 28px", height: 48, borderBottom: "1.5px solid #d1fae5", background: "#f0fdf4", flexShrink: 0 }}>
+      {/* ── Sub-nav ────────────────────────────────────────────────────────── */}
+      <div style={{
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        padding: "0 28px", height: 48,
+        borderBottom: `1.5px solid ${borderLight}`,
+        background: pageBg, flexShrink: 0
+      }}>
         <div style={{ display: "flex", gap: 4 }}>
           {[{ id: "entry", label: "📋 Daily Entry" }, { id: "records", label: "🗂 Records" }].map(tab => (
-            <button key={tab.id} className="itab-btn" onClick={() => setViewTab(tab.id)}
-              style={{ padding: "7px 20px", borderRadius: "8px 8px 0 0", fontSize: 12, fontFamily: "var(--ui-font-sans)", cursor: "pointer", border: "none", background: viewTab === tab.id ? "#ffffff" : "transparent", color: viewTab === tab.id ? accent : "#9ca3af", borderBottom: viewTab === tab.id ? `3px solid ${accent}` : "3px solid transparent", fontWeight: viewTab === tab.id ? 700 : 600, transition: "all 0.15s", letterSpacing: "0.3px" }}>
-              {tab.label}
-            </button>
+            <button key={tab.id} className="itab-btn" onClick={() => setViewTab(tab.id)} style={{
+              padding: "7px 20px", borderRadius: "8px 8px 0 0", fontSize: 12,
+              fontFamily: "'Inter', sans-serif", cursor: "pointer", border: "none",
+              background: viewTab === tab.id ? "#ffffff" : "transparent",
+              color: viewTab === tab.id ? accent : "#9ca3af",
+              borderBottom: viewTab === tab.id ? `3px solid ${accent}` : "3px solid transparent",
+              fontWeight: viewTab === tab.id ? 700 : 600,
+              transition: "all 0.15s", letterSpacing: "0.3px"
+            }}>{tab.label}</button>
           ))}
         </div>
+
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           {viewTab === "entry" && (
             <>
-{syncError && <div style={{ fontSize: 10, color: "#f87171", fontWeight: 600 }}>{syncError}</div>}
-              {hasUnsaved && <div style={{ fontSize: 10, color: "#f59e0b", animation: "ipulse 2s infinite", fontFamily: "var(--ui-font-sans)", fontWeight: 600 }}>● Unsaved changes</div>}
-              {savedAt && !hasUnsaved && <div style={{ fontSize: 10, color: accent, fontFamily: "var(--ui-font-sans)", fontWeight: 600 }}>✓ Saved at {savedAt}</div>}
-              <button className="iaction-btn" onClick={() => addRows(5)} style={{ padding: "6px 16px", borderRadius: 8, fontSize: 11, fontFamily: "var(--ui-font-sans)", cursor: "pointer", background: "#fff", border: "1.5px solid #d1fae5", color: "#6b7280", fontWeight: 600, transition: "all 0.15s" }}>+ 5 Rows</button>
-              <button className="iaction-btn" onClick={handleSave} style={{ padding: "6px 20px", borderRadius: 8, fontSize: 12, fontFamily: "var(--ui-font-sans)", cursor: "pointer", background: `linear-gradient(135deg, ${accent}, #059669)`, border: "none", color: "#fff", fontWeight: 700, boxShadow: `0 4px 14px ${accent}50`, transition: "all 0.15s" }}>💾 Save</button>
-              <button className="iaction-btn" onClick={handleDownload} style={{ padding: "6px 16px", borderRadius: 8, fontSize: 11, fontFamily: "var(--ui-font-sans)", cursor: "pointer", background: "#064e3b", border: "1.5px solid #065f46", color: "#34d399", fontWeight: 600, transition: "all 0.15s" }}>↓ Export Today</button>
+              {hasUnsaved && <div style={{ fontSize: 10, color: "#f59e0b", animation: "ipulse 2s infinite", fontFamily: "'DM Mono', monospace", fontWeight: 600 }}>● Unsaved changes</div>}
+              {savedAt && !hasUnsaved && <div style={{ fontSize: 10, color: accent, fontFamily: "'DM Mono', monospace", fontWeight: 600 }}>✓ Saved at {savedAt}</div>}
+              <button className="iaction-btn" onClick={() => addRows(5)} style={{ padding: "6px 16px", borderRadius: 8, fontSize: 11, fontFamily: "'Inter', sans-serif", cursor: "pointer", background: "#fff", border: `1.5px solid ${borderLight}`, color: "#6b7280", fontWeight: 600, transition: "all 0.15s" }}>+ 5 Rows</button>
+              <button className="iaction-btn" onClick={handleSave} style={{
+                padding: "6px 20px", borderRadius: 8, fontSize: 12,
+                fontFamily: "'Inter', sans-serif", cursor: "pointer",
+                background: `linear-gradient(135deg, ${accent}, ${accentDeep})`,
+                border: "none", color: "#fff", fontWeight: 700,
+                boxShadow: `0 4px 14px ${accent}55`, transition: "all 0.15s"
+              }}>💾 Save</button>
             </>
           )}
         </div>
       </div>
 
-      {/* Content */}
+      {/* ── Content ────────────────────────────────────────────────────────── */}
       <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
 
         {/* ENTRY TAB */}
         {viewTab === "entry" && (
           <div style={{ flex: 1, overflow: "auto", padding: "20px 28px" }} className="ifade-in">
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, padding: "14px 20px", background: "#ffffff", border: `1.5px solid ${accent}40`, borderRadius: 12, borderLeft: `5px solid ${accent}`, boxShadow: "0 2px 8px #10b98110" }}>
+
+            {/* Info banner */}
+            <div style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              marginBottom: 16, padding: "14px 20px",
+              background: "#ffffff", border: `1.5px solid ${accent}40`,
+              borderRadius: 12, borderLeft: `5px solid ${accent}`,
+              boxShadow: `0 2px 8px ${accent}10`
+            }}>
               <div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: "#064e3b" }}>Today's Intimation Log — {today}</div>
-                <div style={{ fontSize: 10, color: "#9ca3af", marginTop: 3, fontFamily: "var(--ui-font-sans)" }}>{filledToday} of {rows.length} rows filled · Tab to move right · Enter to move down</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: accentDark }}>Today's Intimation Log — {today}</div>
+                <div style={{ fontSize: 10, color: "#9ca3af", marginTop: 3, fontFamily: "'DM Mono', monospace" }}>{filledToday} of {rows.length} rows filled · Tab to move right · Enter to move down</div>
               </div>
-              <div style={{ fontSize: 28, fontWeight: 700, color: accent, fontFamily: "var(--ui-font-sans)" }}>{filledToday}</div>
+              <div style={{ fontSize: 28, fontWeight: 700, color: accent, fontFamily: "'DM Mono', monospace" }}>{filledToday}</div>
             </div>
 
-            <div style={{ overflowX: "auto", background: "#ffffff", border: "1.5px solid #d1fae5", borderRadius: 12, overflow: "hidden", boxShadow: "0 2px 12px #10b98108" }}>
+            {/* Grid */}
+            <div style={{ overflowX: "auto", background: "#ffffff", border: `1.5px solid ${borderLight}`, borderRadius: 12, overflow: "hidden", boxShadow: `0 2px 12px ${accent}08` }}>
               <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 12 }}>
                 <thead>
-                  <tr style={{ background: "#ecfdf5" }}>
+                  <tr style={{ background: headBg }}>
                     {COLUMNS.map(col => (
-                      <th key={col.key} style={{ padding: "11px 14px", textAlign: "left", fontSize: 9, letterSpacing: "2px", color: "#059669", textTransform: "uppercase", borderBottom: "2px solid #a7f3d0", whiteSpace: "nowrap", minWidth: col.width, fontFamily: "var(--ui-font-sans)", fontWeight: 700, borderRight: "1px solid #d1fae5" }}>
-                        {col.label}
-                      </th>
+                      <th key={col.key} style={{
+                        padding: "11px 14px", textAlign: "left", fontSize: 9,
+                        letterSpacing: "2px", color: accentDeep, textTransform: "uppercase",
+                        borderBottom: `2px solid ${borderMid}`, whiteSpace: "nowrap",
+                        minWidth: col.width, fontFamily: "'Inter', sans-serif", fontWeight: 700,
+                        borderRight: `1px solid ${borderLight}`
+                      }}>{col.label}</th>
                     ))}
-                    <th style={{ padding: "11px 8px", fontSize: 9, color: "#059669", borderBottom: "2px solid #a7f3d0", borderRight: "1px solid #d1fae5" }}></th>
+                    <th style={{ padding: "11px 8px", fontSize: 9, color: accentDeep, borderBottom: `2px solid ${borderMid}`, borderRight: `1px solid ${borderLight}` }}></th>
                   </tr>
                 </thead>
                 <tbody>
                   {rows.map((row, rowIdx) => {
                     const filled = !!(row.claimId || row.patientName || row.uhid);
                     return (
-                      <tr key={row.id} style={{ background: filled ? "#f0fdf4" : "#ffffff", borderBottom: "1px solid #ecfdf5", transition: "background 0.1s" }}>
+                      <tr key={row.id} style={{ background: filled ? "#f0f9ff" : "#ffffff", borderBottom: `1px solid ${borderLight}`, transition: "background 0.1s" }}>
                         {COLUMNS.map(col => (
-                          <td key={col.key} style={{ padding: 0, borderRight: "1px solid #ecfdf5" }}>
+                          <td key={col.key} style={{ padding: 0, borderRight: `1px solid ${borderLight}` }}>
                             {col.readOnly ? (
-                              <div style={{ padding: "9px 14px", color: "#a7f3d0", fontSize: 11, userSelect: "none", fontFamily: "var(--ui-font-sans)" }}>{row[col.key]}</div>
+                              <div style={{ padding: "9px 14px", color: borderMid, fontSize: 11, userSelect: "none", fontFamily: "'DM Mono', monospace" }}>{row[col.key]}</div>
                             ) : (
                               <input
                                 id={`cell-${rowIdx}-${col.key}`}
@@ -296,13 +323,20 @@ const todayCount  = allEntries.filter(e => entryDate(e) === today).length;
                                 value={row[col.key] || ""}
                                 onChange={e => updateRow(row.id, col.key, e.target.value)}
                                 onKeyDown={e => handleKeyDown(e, rowIdx, col.key)}
-                                style={{ width: "100%", padding: "10px 14px", background: "transparent", border: "none", color: col.key === "patientName" ? "#064e3b" : "#374151", fontSize: 11, fontFamily: "var(--ui-font-sans)", outline: "none", minWidth: col.width, cursor: "text", fontWeight: col.key === "patientName" ? 600 : 400 }}
+                                style={{
+                                  width: "100%", padding: "10px 14px", background: "transparent",
+                                  border: "none",
+                                  color: col.key === "patientName" ? accentDark : "#374151",
+                                  fontSize: 11, fontFamily: "'DM Mono', monospace",
+                                  outline: "none", minWidth: col.width, cursor: "text",
+                                  fontWeight: col.key === "patientName" ? 600 : 400
+                                }}
                                 placeholder={col.type === "date" ? "yyyy-mm-dd" : "—"}
                               />
                             )}
                           </td>
                         ))}
-                        <td style={{ padding: "0 8px", borderRight: "1px solid #ecfdf5", textAlign: "center" }}>
+                        <td style={{ padding: "0 8px", borderRight: `1px solid ${borderLight}`, textAlign: "center" }}>
                           <button className="irow-remove" onClick={() => removeRow(row.id)} style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", fontSize: 14, padding: "0 4px" }}>✕</button>
                         </td>
                       </tr>
@@ -311,74 +345,94 @@ const todayCount  = allEntries.filter(e => entryDate(e) === today).length;
                 </tbody>
               </table>
             </div>
-            <button onClick={() => addRows(1)} style={{ marginTop: 14, padding: "10px 20px", borderRadius: 10, background: "transparent", border: `1.5px dashed ${accent}60`, color: accent, fontSize: 12, cursor: "pointer", fontFamily: "var(--ui-font-sans)", fontWeight: 700, width: "100%", letterSpacing: "1px", transition: "all 0.15s" }}>+ Add Row</button>
+
+            <button onClick={() => addRows(1)} style={{
+              marginTop: 14, padding: "10px 20px", borderRadius: 10,
+              background: "transparent", border: `1.5px dashed ${accent}70`,
+              color: accent, fontSize: 12, cursor: "pointer",
+              fontFamily: "'Inter', sans-serif", fontWeight: 700,
+              width: "100%", letterSpacing: "1px", transition: "all 0.15s"
+            }}>+ Add Row</button>
           </div>
         )}
 
         {/* RECORDS TAB */}
         {viewTab === "records" && (
           <div style={{ flex: 1, overflow: "auto", padding: "20px 28px" }} className="ifade-in">
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20, padding: "14px 20px", background: "#ffffff", border: "1.5px solid #d1fae5", borderRadius: 12, flexWrap: "wrap", boxShadow: "0 2px 8px #10b98108" }}>
-              <span style={{ fontSize: 9, color: "#a7f3d0", letterSpacing: "2.5px", textTransform: "uppercase", marginRight: 4, fontFamily: "var(--ui-font-sans)", fontWeight: 600 }}>Period:</span>
+
+            {/* Filter bar */}
+            <div style={{
+              display: "flex", alignItems: "center", gap: 10, marginBottom: 20,
+              padding: "14px 20px", background: "#ffffff",
+              border: `1.5px solid ${borderLight}`, borderRadius: 12,
+              flexWrap: "wrap", boxShadow: `0 2px 8px ${accent}08`
+            }}>
+              <span style={{ fontSize: 9, color: borderMid, letterSpacing: "2.5px", textTransform: "uppercase", marginRight: 4, fontFamily: "'DM Mono', monospace", fontWeight: 600 }}>Period:</span>
               {[{ id: "today", label: "Today" }, { id: "week", label: "This Week" }, { id: "month", label: "This Month" }, { id: "year", label: "This Year" }, { id: "custom", label: "Custom" }].map(f => (
-                <button key={f.id} className="ifilter-chip" onClick={() => setFilterMode(f.id)}
-                  style={{ padding: "6px 16px", borderRadius: 20, fontSize: 11, fontFamily: "var(--ui-font-sans)", cursor: "pointer", background: filterMode === f.id ? `${accent}15` : "#f9fafb", border: `1.5px solid ${filterMode === f.id ? accent : "#d1fae5"}`, color: filterMode === f.id ? accent : "#6b7280", fontWeight: filterMode === f.id ? 700 : 600, letterSpacing: "0.3px", transition: "all 0.15s" }}>
-                  {f.label}
-                </button>
+                <button key={f.id} className="ifilter-chip" onClick={() => setFilterMode(f.id)} style={{
+                  padding: "6px 16px", borderRadius: 20, fontSize: 11,
+                  fontFamily: "'Inter', sans-serif", cursor: "pointer",
+                  background: filterMode === f.id ? `${accent}15` : "#f9fafb",
+                  border: `1.5px solid ${filterMode === f.id ? accent : borderLight}`,
+                  color: filterMode === f.id ? accent : "#6b7280",
+                  fontWeight: filterMode === f.id ? 700 : 600, letterSpacing: "0.3px", transition: "all 0.15s"
+                }}>{f.label}</button>
               ))}
               {filterMode === "custom" && (
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: 8 }}>
-                  <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)} style={{ background: "#f0fdf4", border: "1.5px solid #a7f3d0", color: "#064e3b", padding: "6px 12px", borderRadius: 8, fontSize: 11, fontFamily: "var(--ui-font-sans)", outline: "none" }} />
+                  <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)} style={{ background: pageBg, border: `1.5px solid ${borderMid}`, color: accentDark, padding: "6px 12px", borderRadius: 8, fontSize: 11, fontFamily: "'DM Mono', monospace", outline: "none" }} />
                   <span style={{ color: "#9ca3af", fontSize: 10 }}>to</span>
-                  <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)} style={{ background: "#f0fdf4", border: "1.5px solid #a7f3d0", color: "#064e3b", padding: "6px 12px", borderRadius: 8, fontSize: 11, fontFamily: "var(--ui-font-sans)", outline: "none" }} />
+                  <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)} style={{ background: pageBg, border: `1.5px solid ${borderMid}`, color: accentDark, padding: "6px 12px", borderRadius: 8, fontSize: 11, fontFamily: "'DM Mono', monospace", outline: "none" }} />
                 </div>
               )}
-              <div style={{ marginLeft: "auto", padding: "5px 16px", borderRadius: 20, background: `${accent}15`, border: `1.5px solid ${accent}`, fontSize: 12, color: accent, fontWeight: 700, fontFamily: "var(--ui-font-sans)" }}>{filteredEntries.length} records</div>
+              <div style={{ marginLeft: "auto", padding: "5px 16px", borderRadius: 20, background: `${accent}15`, border: `1.5px solid ${accent}`, fontSize: 12, color: accent, fontWeight: 700, fontFamily: "'DM Mono', monospace" }}>{filteredEntries.length} records</div>
             </div>
 
+            {/* Stat cards */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 20 }}>
               {[
                 { label: "Total Records",    val: filteredEntries.length,                                              col: accent },
-                { label: "Unique Patients",  val: new Set(filteredEntries.map(e => e.patientName)).size,               col: "#0ea5e9" },
+                { label: "Unique Patients",  val: new Set(filteredEntries.map(e => e.patientName)).size,               col: "#6366f1" },
                 { label: "Unique Hospitals", val: new Set(filteredEntries.map(e => e.hospital).filter(Boolean)).size,  col: "#f59e0b" },
                 { label: "Days Covered",     val: new Set(filteredEntries.map(e => e.createdAt?.slice(0,10))).size,    col: "#8b5cf6" },
               ].map(({ label, val, col }) => (
-                <div key={label} style={{ background: "#ffffff", border: "1.5px solid #d1fae5", borderTop: `4px solid ${col}`, borderRadius: 12, padding: "16px 18px", position: "relative", overflow: "hidden", boxShadow: "0 2px 8px #10b98108" }}>
+                <div key={label} style={{ background: "#ffffff", border: `1.5px solid ${borderLight}`, borderTop: `4px solid ${col}`, borderRadius: 12, padding: "16px 18px", position: "relative", overflow: "hidden", boxShadow: `0 2px 8px ${accent}08` }}>
                   <div style={{ position: "absolute", top: 0, right: 0, width: 80, height: 80, borderRadius: "50%", background: `${col}08`, transform: "translate(30%,-30%)" }} />
-                  <div style={{ fontSize: 8, letterSpacing: "2.5px", color: "#9ca3af", textTransform: "uppercase", marginBottom: 8, fontFamily: "var(--ui-font-sans)", fontWeight: 700 }}>{label}</div>
-                  <div style={{ fontSize: 30, fontWeight: 700, color: col, lineHeight: 1, fontFamily: "var(--ui-font-sans)" }}>{val}</div>
+                  <div style={{ fontSize: 8, letterSpacing: "2.5px", color: "#9ca3af", textTransform: "uppercase", marginBottom: 8, fontFamily: "'Inter', sans-serif", fontWeight: 700 }}>{label}</div>
+                  <div style={{ fontSize: 30, fontWeight: 700, color: col, lineHeight: 1, fontFamily: "'DM Mono', monospace" }}>{val}</div>
                 </div>
               ))}
             </div>
 
+            {/* Records table */}
             {filteredEntries.length === 0 ? (
-              <div style={{ textAlign: "center", padding: 60, color: "#d1fae5", fontSize: 12, letterSpacing: "3px", background: "#ffffff", border: "1.5px solid #d1fae5", borderRadius: 12, fontFamily: "var(--ui-font-sans)", fontWeight: 700 }}>NO RECORDS FOUND FOR THIS PERIOD</div>
+              <div style={{ textAlign: "center", padding: 60, color: borderMid, fontSize: 12, letterSpacing: "3px", background: "#ffffff", border: `1.5px solid ${borderLight}`, borderRadius: 12, fontFamily: "'Inter', sans-serif", fontWeight: 700 }}>NO RECORDS FOUND FOR THIS PERIOD</div>
             ) : (
-              <div style={{ background: "#ffffff", border: "1.5px solid #d1fae5", borderRadius: 12, overflow: "hidden", boxShadow: "0 2px 12px #10b98108" }}>
+              <div style={{ background: "#ffffff", border: `1.5px solid ${borderLight}`, borderRadius: 12, overflow: "hidden", boxShadow: `0 2px 12px ${accent}08` }}>
                 <div style={{ overflowX: "auto" }}>
                   <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 12 }}>
                     <thead>
-                      <tr style={{ background: "#ecfdf5" }}>
+                      <tr style={{ background: headBg }}>
                         {COLUMNS.map(col => (
-                          <th key={col.key} style={{ padding: "11px 14px", textAlign: "left", fontSize: 9, letterSpacing: "2px", color: "#059669", textTransform: "uppercase", borderBottom: "2px solid #a7f3d0", whiteSpace: "nowrap", fontFamily: "var(--ui-font-sans)", fontWeight: 700, borderRight: "1px solid #d1fae5" }}>{col.label}</th>
+                          <th key={col.key} style={{ padding: "11px 14px", textAlign: "left", fontSize: 9, letterSpacing: "2px", color: accentDeep, textTransform: "uppercase", borderBottom: `2px solid ${borderMid}`, whiteSpace: "nowrap", fontFamily: "'Inter', sans-serif", fontWeight: 700, borderRight: `1px solid ${borderLight}` }}>{col.label}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
                       {filteredEntries.map((row, i) => (
-                        <tr key={row.id || i} style={{ borderBottom: "1px solid #ecfdf5" }}>
-                          <td style={{ padding: "10px 14px", color: "#a7f3d0", fontSize: 10, borderRight: "1px solid #ecfdf5", fontFamily: "var(--ui-font-sans)" }}>{i + 1}</td>
-                          <td style={{ padding: "10px 14px", color: "#0ea5e9", fontFamily: "var(--ui-font-sans)", borderRight: "1px solid #ecfdf5", fontWeight: 600 }}>{row.uhid || "—"}</td>
-                          <td style={{ padding: "10px 14px", color: accent, fontFamily: "var(--ui-font-sans)", borderRight: "1px solid #ecfdf5", fontWeight: 600 }}>{row.claimId || "—"}</td>
-                          <td style={{ padding: "10px 14px", color: "#064e3b", fontWeight: 700, borderRight: "1px solid #ecfdf5" }}>{row.patientName || "—"}</td>
-                          <td style={{ padding: "10px 14px", color: "#6b7280", fontSize: 11, borderRight: "1px solid #ecfdf5", fontFamily: "var(--ui-font-sans)" }}>{row.doa || "—"}</td>
-                          <td style={{ padding: "10px 14px", borderRight: "1px solid #ecfdf5" }}>
-                            <span style={{ padding: "3px 10px", borderRadius: 6, background: `${accent}15`, color: accent, fontSize: 10, fontFamily: "var(--ui-font-sans)", fontWeight: 600 }}>{row.uploadDate || "—"}</span>
+                        <tr key={row.id || i} style={{ borderBottom: `1px solid ${borderLight}` }}>
+                          <td style={{ padding: "10px 14px", color: borderMid, fontSize: 10, borderRight: `1px solid ${borderLight}`, fontFamily: "'DM Mono', monospace" }}>{i + 1}</td>
+                          <td style={{ padding: "10px 14px", color: "#6366f1", fontFamily: "'DM Mono', monospace", borderRight: `1px solid ${borderLight}`, fontWeight: 600 }}>{row.uhid || "—"}</td>
+                          <td style={{ padding: "10px 14px", color: accent, fontFamily: "'DM Mono', monospace", borderRight: `1px solid ${borderLight}`, fontWeight: 600 }}>{row.claimId || "—"}</td>
+                          <td style={{ padding: "10px 14px", color: accentDark, fontWeight: 700, borderRight: `1px solid ${borderLight}` }}>{row.patientName || "—"}</td>
+                          <td style={{ padding: "10px 14px", color: "#6b7280", fontSize: 11, borderRight: `1px solid ${borderLight}`, fontFamily: "'DM Mono', monospace" }}>{row.doa || "—"}</td>
+                          <td style={{ padding: "10px 14px", borderRight: `1px solid ${borderLight}` }}>
+                            <span style={{ padding: "3px 10px", borderRadius: 6, background: `${accent}15`, color: accent, fontSize: 10, fontFamily: "'DM Mono', monospace", fontWeight: 600 }}>{row.uploadDate || "—"}</span>
                           </td>
-                          <td style={{ padding: "10px 14px", color: "#374151", borderRight: "1px solid #ecfdf5" }}>{row.hospital || "—"}</td>
-                          <td style={{ padding: "10px 14px", color: "#374151", borderRight: "1px solid #ecfdf5" }}>{row.intimationBy || "—"}</td>
-                          <td style={{ padding: "10px 14px", color: "#374151", borderRight: "1px solid #ecfdf5" }}>{row.priHosdr || "—"}</td>
-                          <td style={{ padding: "10px 14px", color: "#6b7280", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", borderRight: "1px solid #ecfdf5" }}>{row.remarks || "—"}</td>
+                          <td style={{ padding: "10px 14px", color: "#374151", borderRight: `1px solid ${borderLight}` }}>{row.hospital || "—"}</td>
+                          <td style={{ padding: "10px 14px", color: "#374151", borderRight: `1px solid ${borderLight}` }}>{row.intimationBy || "—"}</td>
+                          <td style={{ padding: "10px 14px", color: "#374151", borderRight: `1px solid ${borderLight}` }}>{row.priHosdr || "—"}</td>
+                          <td style={{ padding: "10px 14px", color: "#6b7280", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", borderRight: `1px solid ${borderLight}` }}>{row.remarks || "—"}</td>
                           <td style={{ padding: "10px 14px", color: "#374151" }}>{row.addedBy || "—"}</td>
                         </tr>
                       ))}

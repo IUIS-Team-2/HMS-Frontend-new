@@ -1,7 +1,4 @@
 import { useState, useEffect } from "react";
-import * as XLSX from "xlsx";
-import { apiService } from "../services/apiService";
-import ThemeModeDock from "../components/ui/ThemeModeDock";
 
 const COLUMNS = [
   { key: "sNo",         label: "S.No.",        width: 60,  readOnly: true },
@@ -17,8 +14,20 @@ const COLUMNS = [
   { key: "addedBy",     label: "Added By",      width: 130 },
 ];
 
-const DEPARTMENT = "opd";
-const accent      = "#f87171"; // red — OPD dept color
+const STORAGE_KEY = "sangi_opd_entries";
+
+// ── Ocean Blue Theme ───────────────────────────────────────────────────────────
+const COLOR       = "#2563eb";
+const COLOR_LIGHT = "#3b82f6";
+const COLOR_PALE  = "#dbeafe";
+const BG_MAIN     = "#f0f4f8";
+const BG_WHITE    = "#ffffff";
+const BG_HEADER   = "#1e3a5f";
+const TEXT_DARK   = "#1e293b";
+const TEXT_MID    = "#475569";
+const TEXT_LIGHT  = "#94a3b8";
+const BORDER      = "#e2e8f0";
+const BORDER_MID  = "#cbd5e1";
 
 const blankRow = (sNo) => ({
   id: crypto.randomUUID(),
@@ -40,13 +49,19 @@ function todayStr() { return new Date().toISOString().slice(0, 10); }
 function weekRange()  { const now = new Date(); const day = now.getDay(); const mon = new Date(now); mon.setDate(now.getDate() - ((day + 6) % 7)); const sun = new Date(mon); sun.setDate(mon.getDate() + 6); return { start: mon.toISOString().slice(0, 10), end: sun.toISOString().slice(0, 10) }; }
 function monthRange() { const now = new Date(); return { start: new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10), end: new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10) }; }
 function yearRange()  { const y = new Date().getFullYear(); return { start: `${y}-01-01`, end: `${y}-12-31` }; }
-function entryDate(entry) { return entry.uploadDate || entry.createdAt?.slice(0, 10) || entry.opdDate || ""; }
 
 export default function OpdDashboard({ currentUser, onLogout }) {
   const today = todayStr();
 
-  const [allEntries, setAllEntries] = useState([]);
-  const [rows, setRows] = useState(() => Array.from({ length: 10 }, (_, i) => blankRow(i + 1)));
+  const [allEntries, setAllEntries] = useState(() => {
+    try { const raw = localStorage.getItem(STORAGE_KEY); return raw ? JSON.parse(raw) : []; } catch { return []; }
+  });
+
+  const [rows, setRows] = useState(() => {
+    const existing = (() => { try { const raw = localStorage.getItem(STORAGE_KEY); return raw ? JSON.parse(raw) : []; } catch { return []; } })();
+    const todayRows = existing.filter(e => e.createdAt?.slice(0, 10) === todayStr());
+    return todayRows.length > 0 ? todayRows : Array.from({ length: 10 }, (_, i) => blankRow(i + 1));
+  });
 
   const [filterMode, setFilterMode]   = useState("today");
   const [customStart, setCustomStart] = useState(today);
@@ -54,32 +69,8 @@ export default function OpdDashboard({ currentUser, onLogout }) {
   const [viewTab, setViewTab]         = useState("entry");
   const [savedAt, setSavedAt]         = useState(null);
   const [hasUnsaved, setHasUnsaved]   = useState(false);
-  const [syncError, setSyncError]     = useState("");
 
-useEffect(() => {
-    let active = true;
-    const loadEntries = async () => {
-      try {
-        setSyncError("");
-        const response = await apiService.getDepartmentLogs(DEPARTMENT);
-        const normalized = (Array.isArray(response) ? response : []).map((entry, index) => ({
-          id: entry.id ? `opd-${entry.id}` : crypto.randomUUID(),
-          ...entry.data,
-          createdAt: entry.data?.createdAt || `${entry.record_date}T00:00:00`,
-          sNo: index + 1,
-        }));
-        if (!active) return;
-        setAllEntries(normalized);
-        const todayRows = normalized.filter(entry => entryDate(entry) === today);
-        setRows(todayRows.length ? todayRows.map((entry, index) => ({ ...entry, sNo: index + 1 })) : Array.from({ length: 10 }, (_, i) => blankRow(i + 1)));
-      } catch (error) {
-        if (!active) return;
-        setSyncError("Unable to load saved OPD logs.");
-      }
-    };
-    loadEntries();
-    return () => { active = false; };
-  }, [today]);
+  useEffect(() => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(allEntries)); } catch {} }, [allEntries]);
 
   const updateRow = (rowId, key, val) => {
     setRows(prev => prev.map(r => r.id === rowId ? { ...r, [key]: val } : r));
@@ -95,62 +86,27 @@ useEffect(() => {
     setHasUnsaved(true);
   };
 
-const handleSave = async () => {
-    const filled = rows
-      .filter(r => r.uhid || r.claimId || r.opdNo || r.patientName)
-      .map((row, index) => ({
-        ...row,
-        sNo: index + 1,
-        uploadDate: row.uploadDate || today,
-        addedBy: row.addedBy || currentUser?.name || "",
-        createdAt: row.createdAt || new Date().toISOString(),
-      }));
+  const handleSave = () => {
+    const filled = rows.filter(r => r.uhid || r.claimId || r.opdNo || r.patientName);
     if (!filled.length) return;
-    try {
-      setSyncError("");
-      await apiService.saveDepartmentLogs(DEPARTMENT, filled);
-      setAllEntries(prev => {
-        const withoutToday = prev.filter(entry => entryDate(entry) !== today);
-        return [...withoutToday, ...filled];
-      });
-      setSavedAt(new Date().toLocaleTimeString());
-      setHasUnsaved(false);
-    } catch (error) {
-      setSyncError("Save failed. OPD logs were not synced.");
-    }
+    setAllEntries(prev => {
+      const withoutToday = prev.filter(e => e.createdAt?.slice(0, 10) !== today);
+      return [...withoutToday, ...filled];
+    });
+    setSavedAt(new Date().toLocaleTimeString());
+    setHasUnsaved(false);
   };
 
   const filteredEntries = (() => {
     let start, end;
-if (filterMode === "today")       { start = today; end = today; }
-    else if (filterMode === "week")   { ({ start, end } = weekRange()); }
-    else if (filterMode === "month")  { ({ start, end } = monthRange()); }
-    else if (filterMode === "year")   { ({ start, end } = yearRange()); }
-    else                              { start = customStart; end = customEnd; }
-    return allEntries.filter(e => { const d = entryDate(e); return d >= start && d <= end; })
+    if (filterMode === "today")      { start = today; end = today; }
+    else if (filterMode === "week")  { ({ start, end } = weekRange()); }
+    else if (filterMode === "month") { ({ start, end } = monthRange()); }
+    else if (filterMode === "year")  { ({ start, end } = yearRange()); }
+    else                             { start = customStart; end = customEnd; }
+    return allEntries.filter(e => { const d = e.createdAt?.slice(0, 10) || ""; return d >= start && d <= end; })
       .sort((a, b) => (a.createdAt || "").localeCompare(b.createdAt || ""));
   })();
-
-  const handleDownload = () => {
-    const data = (filteredEntries.length ? filteredEntries : rows.filter((r) => r.uhid || r.claimId || r.opdNo || r.patientName))
-      .map((row, index) => ({
-        "S.No.": index + 1,
-        UHID: row.uhid || "",
-        "Claim ID": row.claimId || "",
-        "OPD No.": row.opdNo || "",
-        "Patient Name": row.patientName || "",
-        "OPD Date": row.opdDate || "",
-        "Upload Date": row.uploadDate || "",
-        Hospital: row.hospital || "",
-        "Prepare By": row.prepareBy || "",
-        Remarks: row.remarks || "",
-        "Added By": row.addedBy || "",
-      }));
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "OPD Logs");
-    XLSX.writeFile(wb, `Sangi_OPD_${filterMode}_${today}.xlsx`);
-  };
 
   const handleKeyDown = (e, rowIdx, colKey) => {
     const editableCols = COLUMNS.filter(c => !c.readOnly).map(c => c.key);
@@ -167,213 +123,334 @@ if (filterMode === "today")       { start = today; end = today; }
     }
   };
 
-const todayCount  = allEntries.filter(e => entryDate(e) === today).length;
-  const weekCount   = (() => { const { start, end } = weekRange(); return allEntries.filter(e => { const d = entryDate(e); return d>=start&&d<=end; }).length; })();
-  const monthCount  = (() => { const { start, end } = monthRange(); return allEntries.filter(e => { const d = entryDate(e); return d>=start&&d<=end; }).length; })();
+  const todayCount  = allEntries.filter(e => e.createdAt?.slice(0, 10) === today).length;
+  const weekCount   = (() => { const { start, end } = weekRange(); return allEntries.filter(e => { const d = e.createdAt?.slice(0,10)||""; return d>=start&&d<=end; }).length; })();
+  const monthCount  = (() => { const { start, end } = monthRange(); return allEntries.filter(e => { const d = e.createdAt?.slice(0,10)||""; return d>=start&&d<=end; }).length; })();
   const filledToday = rows.filter(r => r.uhid || r.claimId || r.opdNo || r.patientName).length;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: "#fff1f2", color: "#1c0a0a", fontFamily: "var(--ui-font-sans)", overflow: "hidden" }}>
+    <div style={{ display:"flex", flexDirection:"column", height:"100vh", background:BG_MAIN, color:TEXT_DARK, fontFamily:"'Inter',sans-serif", overflow:"hidden" }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
-        * { box-sizing: border-box; }
-        ::-webkit-scrollbar { width: 5px; height: 5px; }
-        ::-webkit-scrollbar-track { background: #ffe4e6; }
-        ::-webkit-scrollbar-thumb { background: #fca5a5; border-radius: 3px; }
-        .ogrid-cell:focus { outline: 2px solid ${accent}; outline-offset: -2px; background: #ffe4e6 !important; z-index: 2; position: relative; }
-        .ogrid-cell { transition: background 0.1s; font-family: var(--ui-font-sans); }
-        .ogrid-cell:hover { background: #fff1f2 !important; }
-        .otab-btn:hover { color: ${accent} !important; background: #ffe4e6 !important; }
-        .ofilter-chip:hover { border-color: ${accent} !important; color: ${accent} !important; background: #ffe4e6 !important; }
-        .oaction-btn:hover { filter: brightness(1.08); transform: translateY(-1px); }
-        .orow-remove { opacity: 0; transition: opacity 0.15s; }
-        tr:hover .orow-remove { opacity: 1; }
-        tr:hover td { background: #ffe4e6 !important; }
-        @keyframes ofadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
-        .ofade-in { animation: ofadeIn 0.3s ease; }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+        * { box-sizing:border-box; }
+        ::-webkit-scrollbar { width:5px; height:5px; }
+        ::-webkit-scrollbar-track { background:#f1f5f9; }
+        ::-webkit-scrollbar-thumb { background:#cbd5e1; border-radius:4px; }
+
+        .ogrid-cell { transition:background 0.1s; font-family:'JetBrains Mono',monospace; color:${TEXT_DARK}; }
+        .ogrid-cell:focus { outline:2px solid ${COLOR}; outline-offset:-2px; background:#eff6ff !important; z-index:2; position:relative; }
+        .ogrid-cell:hover { background:#f0f9ff !important; }
+
+        .orow-remove { opacity:0; transition:opacity 0.15s; }
+        tr:hover .orow-remove { opacity:1; }
+        .ns_tr:hover > td { background:#f8fafc !important; }
+
+        .otab-btn:hover { color:${COLOR} !important; background:#f0f9ff !important; }
+        .ofilter-chip:hover { border-color:${COLOR} !important; color:${COLOR} !important; background:${COLOR_PALE} !important; }
+        .oaction-btn:hover { filter:brightness(0.94); transform:translateY(-1px); }
+        .oaction-btn { transition:all 0.15s; }
+
+        @keyframes ofadeIn { from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none} }
+        .ofade-in { animation:ofadeIn 0.22s ease; }
         @keyframes opulse { 0%,100%{opacity:1}50%{opacity:.4} }
+
+        input[type="date"]::-webkit-calendar-picker-indicator { opacity:0.5; cursor:pointer; }
       `}</style>
 
-      {/* Topbar */}
-      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 28px", height: 62, borderBottom: "2px solid #fecdd3", background: "#ffffff", flexShrink: 0, boxShadow: "0 2px 12px #f8717115" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <div style={{ width: 38, height: 38, borderRadius: 10, background: `linear-gradient(135deg, ${accent}, #ef4444)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, color: "#fff", fontWeight: 700, boxShadow: `0 4px 12px ${accent}50` }}>🏥</div>
-          <div>
-            <div style={{ fontSize: 9, letterSpacing: "4px", color: "#fca5a5", textTransform: "uppercase", fontFamily: "var(--ui-font-sans)", fontWeight: 500 }}>Sangi Hospital</div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: "#1c0a0a", letterSpacing: "-0.3px" }}>OPD Department</div>
+      {/* ── Topbar (deep navy header) ── */}
+      <header style={{
+        display:"flex", alignItems:"center", justifyContent:"space-between",
+        padding:"0 28px", height:64,
+        background:BG_HEADER,
+        boxShadow:"0 2px 8px rgba(30,58,95,0.18)",
+        flexShrink:0,
+      }}>
+        <div style={{ display:"flex", alignItems:"center", gap:14 }}>
+          <div style={{ width:40, height:40, borderRadius:10, background:"#fff", display:"flex", alignItems:"center", justifyContent:"center", fontSize:22, boxShadow:"0 2px 8px rgba(0,0,0,0.15)" }}>
+            🏥
           </div>
-          <div style={{ marginLeft: 10, padding: "4px 14px", borderRadius: 20, background: "#ffe4e6", border: `1.5px solid ${accent}`, fontSize: 10, color: accent, fontFamily: "var(--ui-font-sans)", fontWeight: 600 }}>{today}</div>
+          <div>
+            <div style={{ fontSize:17, fontWeight:700, color:"#ffffff", letterSpacing:"-0.3px" }}>Sangi Hospital</div>
+            <div style={{ fontSize:11, color:"#93c5fd", fontWeight:500, marginTop:1 }}>IPD Portal · OPD Department</div>
+          </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          {[{ label: "Today", val: todayCount, col: "#10b981" }, { label: "This Week", val: weekCount, col: accent }, { label: "This Month", val: monthCount, col: "#f59e0b" }].map(({ label, val, col }) => (
-            <div key={label} style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 14px", borderRadius: 20, background: `${col}12`, border: `1.5px solid ${col}40`, fontSize: 11 }}>
-              <span style={{ color: col, fontWeight: 700, fontFamily: "var(--ui-font-sans)" }}>{val}</span>
-              <span style={{ color: "#6b7280", fontWeight: 600 }}>{label}</span>
+
+        {/* Center stats */}
+        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+          {[
+            { label:"Today",      val:todayCount,  col:"#4ade80" },
+            { label:"This Week",  val:weekCount,   col:"#60a5fa" },
+            { label:"This Month", val:monthCount,  col:"#fbbf24" },
+          ].map(({ label, val, col }) => (
+            <div key={label} style={{ display:"flex", alignItems:"center", gap:6, padding:"5px 14px", borderRadius:20, background:"rgba(255,255,255,0.1)", border:"1px solid rgba(255,255,255,0.15)", fontSize:12 }}>
+              <span style={{ color:col, fontWeight:700, fontSize:14, fontFamily:"'JetBrains Mono',monospace" }}>{val}</span>
+              <span style={{ color:"#bfdbfe", fontWeight:500 }}>{label}</span>
             </div>
           ))}
-          <ThemeModeDock variant="inline" />
+        </div>
+
+        {/* Right — date + user */}
+        <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:6, padding:"6px 14px", borderRadius:8, background:"rgba(255,255,255,0.1)", border:"1px solid rgba(255,255,255,0.2)" }}>
+            <span style={{ fontSize:13, color:"#bfdbfe" }}>📅</span>
+            <span style={{ fontSize:12, color:"#e0f2fe", fontFamily:"'JetBrains Mono',monospace", fontWeight:500 }}>
+              {new Date().toLocaleDateString("en-IN", { weekday:"short", day:"2-digit", month:"short", year:"numeric" })}
+            </span>
+          </div>
+
           {currentUser && (
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: 8, paddingLeft: 14, borderLeft: "2px solid #fecdd3" }}>
-              <div style={{ width: 32, height: 32, borderRadius: 8, background: `${accent}20`, border: `1.5px solid ${accent}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, color: accent, fontWeight: 700 }}>{currentUser.name?.[0] || "O"}</div>
-              <div>
-                <div style={{ fontSize: 12, color: "#1c0a0a", fontWeight: 700 }}>{currentUser.name}</div>
-                <div style={{ fontSize: 9, color: "#fca5a5", letterSpacing: "1.5px", textTransform: "uppercase", fontFamily: "var(--ui-font-sans)" }}>OPD Staff</div>
+            <div style={{ display:"flex", alignItems:"center", gap:9, paddingLeft:12, borderLeft:"1px solid rgba(255,255,255,0.15)" }}>
+              <div style={{ width:34, height:34, borderRadius:9, background:COLOR, display:"flex", alignItems:"center", justifyContent:"center", fontSize:14, color:"#fff", fontWeight:700 }}>
+                {currentUser.name?.[0]?.toUpperCase() || "O"}
               </div>
-              <button onClick={onLogout} style={{ marginLeft: 6, padding: "5px 14px", borderRadius: 8, background: "#fff1f2", border: "1.5px solid #fecaca", color: "#ef4444", fontSize: 10, cursor: "pointer", fontFamily: "var(--ui-font-sans)", fontWeight: 700 }}>⎋ Logout</button>
+              <div>
+                <div style={{ fontSize:13, color:"#ffffff", fontWeight:600 }}>{currentUser.name}</div>
+                <div style={{ fontSize:10, color:"#93c5fd", fontWeight:500 }}>OPD Staff</div>
+              </div>
+              <button onClick={onLogout} className="oaction-btn"
+                style={{ marginLeft:4, padding:"6px 14px", borderRadius:7, background:"rgba(239,68,68,0.15)", border:"1px solid rgba(239,68,68,0.4)", color:"#fca5a5", fontSize:11, cursor:"pointer", fontFamily:"inherit", fontWeight:600 }}>
+                Logout
+              </button>
             </div>
           )}
         </div>
       </header>
 
-      {/* Sub-nav */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 28px", height: 48, borderBottom: "1.5px solid #fecdd3", background: "#fff1f2", flexShrink: 0 }}>
-        <div style={{ display: "flex", gap: 4 }}>
-          {[{ id: "entry", label: "📋 Daily Entry" }, { id: "records", label: "🗂 Records" }].map(tab => (
+      {/* ── Sub-nav (white tab bar) ── */}
+      <div style={{
+        display:"flex", alignItems:"center", justifyContent:"space-between",
+        padding:"0 28px", height:50,
+        background:BG_WHITE,
+        borderBottom:`2px solid ${BORDER}`,
+        flexShrink:0,
+        boxShadow:"0 1px 4px rgba(30,58,95,0.06)",
+      }}>
+        <div style={{ display:"flex", gap:0, height:"100%" }}>
+          {[{ id:"entry", label:"📋  Daily Entry" }, { id:"records", label:"🗂  Records" }].map(tab => (
             <button key={tab.id} className="otab-btn" onClick={() => setViewTab(tab.id)}
-              style={{ padding: "7px 20px", borderRadius: "8px 8px 0 0", fontSize: 12, fontFamily: "var(--ui-font-sans)", cursor: "pointer", border: "none", background: viewTab === tab.id ? "#ffffff" : "transparent", color: viewTab === tab.id ? accent : "#9ca3af", borderBottom: viewTab === tab.id ? `3px solid ${accent}` : "3px solid transparent", fontWeight: viewTab === tab.id ? 700 : 600, transition: "all 0.15s" }}>
+              style={{
+                padding:"0 22px", height:"100%",
+                fontSize:13, fontFamily:"inherit", cursor:"pointer",
+                background:"transparent", border:"none",
+                borderBottom: viewTab===tab.id ? `2.5px solid ${COLOR}` : "2.5px solid transparent",
+                color: viewTab===tab.id ? COLOR : TEXT_MID,
+                fontWeight: viewTab===tab.id ? 600 : 400,
+                transition:"all 0.15s",
+              }}>
               {tab.label}
             </button>
           ))}
         </div>
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          {viewTab === "entry" && (
-            <>
-{syncError && <div style={{ fontSize: 10, color: "#f87171", fontWeight: 600 }}>{syncError}</div>}
-              {hasUnsaved && <div style={{ fontSize: 10, color: accent, animation: "opulse 2s infinite", fontFamily: "var(--ui-font-sans)", fontWeight: 600 }}>● Unsaved changes</div>}
-              {savedAt && !hasUnsaved && <div style={{ fontSize: 10, color: "#10b981", fontFamily: "var(--ui-font-sans)", fontWeight: 600 }}>✓ Saved at {savedAt}</div>}
-              <button className="oaction-btn" onClick={() => addRows(5)} style={{ padding: "6px 16px", borderRadius: 8, fontSize: 11, fontFamily: "var(--ui-font-sans)", cursor: "pointer", background: "#fff", border: "1.5px solid #fecdd3", color: "#6b7280", fontWeight: 600 }}>+ 5 Rows</button>
-              <button className="oaction-btn" onClick={handleSave} style={{ padding: "6px 20px", borderRadius: 8, fontSize: 12, fontFamily: "var(--ui-font-sans)", cursor: "pointer", background: `linear-gradient(135deg, ${accent}, #ef4444)`, border: "none", color: "#fff", fontWeight: 700, boxShadow: `0 4px 14px ${accent}50` }}>💾 Save</button>
-              <button className="oaction-btn" onClick={handleDownload} style={{ padding: "6px 16px", borderRadius: 8, fontSize: 11, fontFamily: "var(--ui-font-sans)", cursor: "pointer", background: "#064e3b", border: "1.5px solid #065f46", color: "#34d399", fontWeight: 600 }}>↓ Export Today</button>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* Content */}
-      <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
 
         {viewTab === "entry" && (
-          <div style={{ flex: 1, overflow: "auto", padding: "20px 28px" }} className="ofade-in">
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, padding: "14px 20px", background: "#ffffff", border: `1.5px solid ${accent}40`, borderRadius: 12, borderLeft: `5px solid ${accent}`, boxShadow: "0 2px 8px #f8717110" }}>
+          <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+            {hasUnsaved && <span style={{ fontSize:12, color:"#f59e0b", fontWeight:600, animation:"opulse 2s infinite" }}>● Unsaved changes</span>}
+            {savedAt && !hasUnsaved && <span style={{ fontSize:12, color:"#16a34a", fontWeight:500 }}>✓ Saved at {savedAt}</span>}
+            <button className="oaction-btn" onClick={() => addRows(5)}
+              style={{ padding:"7px 16px", borderRadius:7, fontSize:12, fontFamily:"inherit", cursor:"pointer", background:BG_MAIN, border:`1px solid ${BORDER_MID}`, color:TEXT_MID, fontWeight:500 }}>
+              + 5 Rows
+            </button>
+            <button className="oaction-btn" onClick={handleSave}
+              style={{ padding:"7px 22px", borderRadius:7, fontSize:13, fontFamily:"inherit", cursor:"pointer", background:COLOR, border:"none", color:"#fff", fontWeight:700, boxShadow:`0 2px 12px rgba(37,99,235,0.3)` }}>
+              💾 Save
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* ── Content ── */}
+      <div style={{ flex:1, overflow:"hidden", display:"flex", flexDirection:"column" }}>
+
+        {/* ════ ENTRY TAB ════ */}
+        {viewTab === "entry" && (
+          <div style={{ flex:1, overflow:"auto", padding:"20px 28px" }} className="ofade-in">
+
+            {/* Banner card */}
+            <div style={{
+              display:"flex", alignItems:"center", justifyContent:"space-between",
+              marginBottom:18, padding:"16px 24px",
+              background:BG_WHITE,
+              border:`1px solid ${BORDER}`,
+              borderLeft:`4px solid ${COLOR}`,
+              borderRadius:10,
+              boxShadow:"0 1px 6px rgba(30,58,95,0.07)",
+            }}>
               <div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: "#1c0a0a" }}>Today's OPD Log — {today}</div>
-                <div style={{ fontSize: 10, color: "#9ca3af", marginTop: 3, fontFamily: "var(--ui-font-sans)" }}>{filledToday} of {rows.length} rows filled · Tab to move right · Enter to move down</div>
+                <div style={{ fontSize:14, fontWeight:700, color:TEXT_DARK }}>Today's OPD Log — {today}</div>
+                <div style={{ fontSize:12, color:TEXT_LIGHT, marginTop:4, fontFamily:"'JetBrains Mono',monospace" }}>
+                  <span style={{ color:COLOR, fontWeight:700 }}>{filledToday}</span>
+                  <span style={{ color:TEXT_MID }}> of {rows.length} rows filled</span>
+                  <span style={{ color:TEXT_LIGHT, marginLeft:12 }}>Tab = next column · Enter = next row</span>
+                </div>
               </div>
-              <div style={{ fontSize: 28, fontWeight: 700, color: accent, fontFamily: "var(--ui-font-sans)" }}>{filledToday}</div>
+              <div style={{ textAlign:"right" }}>
+                <div style={{ fontSize:38, fontWeight:700, color:COLOR, fontFamily:"'JetBrains Mono',monospace", lineHeight:1 }}>{filledToday}</div>
+                <div style={{ fontSize:10, color:TEXT_LIGHT, marginTop:3, fontWeight:600, textTransform:"uppercase", letterSpacing:"1px" }}>Patients</div>
+              </div>
             </div>
 
-            <div style={{ overflowX: "auto", background: "#ffffff", border: "1.5px solid #fecdd3", borderRadius: 12, overflow: "hidden", boxShadow: "0 2px 12px #f8717108" }}>
-              <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 12 }}>
-                <thead>
-                  <tr style={{ background: "#ffe4e6" }}>
-                    {COLUMNS.map(col => (
-                      <th key={col.key} style={{ padding: "11px 14px", textAlign: "left", fontSize: 9, letterSpacing: "2px", color: "#be123c", textTransform: "uppercase", borderBottom: "2px solid #fecdd3", whiteSpace: "nowrap", minWidth: col.width, fontFamily: "var(--ui-font-sans)", fontWeight: 700, borderRight: "1px solid #fecdd3" }}>
-                        {col.label}
-                      </th>
-                    ))}
-                    <th style={{ padding: "11px 8px", fontSize: 9, color: "#be123c", borderBottom: "2px solid #fecdd3", borderRight: "1px solid #fecdd3" }}></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((row, rowIdx) => {
-                    const filled = !!(row.uhid || row.claimId || row.opdNo || row.patientName);
-                    return (
-                      <tr key={row.id} style={{ background: filled ? "#fff1f2" : "#ffffff", borderBottom: "1px solid #ffe4e6" }}>
-                        {COLUMNS.map(col => (
-                          <td key={col.key} style={{ padding: 0, borderRight: "1px solid #ffe4e6" }}>
-                            {col.readOnly ? (
-                              <div style={{ padding: "9px 14px", color: "#fca5a5", fontSize: 11, userSelect: "none", fontFamily: "var(--ui-font-sans)" }}>{row[col.key]}</div>
-                            ) : (
-                              <input
-                                id={`cell-${rowIdx}-${col.key}`}
-                                className="ogrid-cell"
-                                type={col.type || "text"}
-                                value={row[col.key] || ""}
-                                onChange={e => updateRow(row.id, col.key, e.target.value)}
-                                onKeyDown={e => handleKeyDown(e, rowIdx, col.key)}
-                                style={{ width: "100%", padding: "10px 14px", background: "transparent", border: "none", color: col.key === "patientName" ? "#1c0a0a" : "#374151", fontSize: 11, fontFamily: "var(--ui-font-sans)", outline: "none", minWidth: col.width, cursor: "text", fontWeight: col.key === "patientName" ? 600 : 400 }}
-                                placeholder={col.type === "date" ? "yyyy-mm-dd" : "—"}
-                              />
-                            )}
+            {/* Grid */}
+            <div style={{ background:BG_WHITE, border:`1px solid ${BORDER}`, borderRadius:10, overflow:"hidden", boxShadow:"0 1px 6px rgba(30,58,95,0.06)" }}>
+              <div style={{ overflowX:"auto" }}>
+                <table style={{ borderCollapse:"collapse", width:"100%", minWidth:"max-content", fontSize:12 }}>
+                  <thead>
+                    <tr style={{ background:"#f8fafc" }}>
+                      {COLUMNS.map(col => (
+                        <th key={col.key} style={{
+                          padding:"11px 14px", textAlign:"left",
+                          fontSize:10, fontWeight:700, color:"#64748b",
+                          textTransform:"uppercase", letterSpacing:"1px",
+                          borderBottom:`2px solid ${BORDER}`,
+                          whiteSpace:"nowrap", minWidth:col.width,
+                          fontFamily:"'Inter',sans-serif",
+                          borderRight:`1px solid ${BORDER}`,
+                        }}>
+                          {col.label}
+                          {col.key === "uhid" && <span style={{ marginLeft:5, padding:"1px 6px", borderRadius:4, background:COLOR_PALE, color:COLOR, fontSize:9, fontWeight:700 }}>KEY</span>}
+                        </th>
+                      ))}
+                      <th style={{ padding:"11px 8px", borderBottom:`2px solid ${BORDER}`, width:34, background:"#f8fafc" }}></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((row, rowIdx) => {
+                      const filled = !!(row.uhid || row.claimId || row.opdNo || row.patientName);
+                      return (
+                        <tr key={row.id} className="ns_tr" style={{ background: filled ? "#f0f9ff" : BG_WHITE, borderBottom:`1px solid ${BORDER}` }}>
+                          {COLUMNS.map(col => (
+                            <td key={col.key} style={{ padding:0, borderRight:`1px solid ${BORDER}` }}>
+                              {col.readOnly ? (
+                                <div style={{ padding:"9px 14px", color:TEXT_LIGHT, fontSize:12, fontWeight:600, fontFamily:"'JetBrains Mono',monospace", userSelect:"none" }}>{row[col.key]}</div>
+                              ) : (
+                                <input
+                                  id={`cell-${rowIdx}-${col.key}`}
+                                  className="ogrid-cell"
+                                  type={col.type || "text"}
+                                  value={row[col.key] || ""}
+                                  onChange={e => updateRow(row.id, col.key, e.target.value)}
+                                  onKeyDown={e => handleKeyDown(e, rowIdx, col.key)}
+                                  style={{
+                                    width:"100%", padding:"9px 14px", background:"transparent", border:"none",
+                                    color: col.key === "patientName" ? TEXT_DARK
+                                         : col.key === "claimId"     ? COLOR
+                                         : col.key === "uhid"        ? "#0369a1"
+                                         : col.key === "uploadDate"  ? "#0891b2"
+                                         : TEXT_MID,
+                                    fontSize:12, fontFamily:"'JetBrains Mono',monospace", outline:"none", minWidth:col.width,
+                                    fontWeight: col.key === "patientName" ? 600 : col.key === "uhid" ? 500 : 400,
+                                    cursor:"text",
+                                  }}
+                                  placeholder={col.type === "date" ? "yyyy-mm-dd" : "—"}
+                                />
+                              )}
+                            </td>
+                          ))}
+                          <td style={{ padding:"0 6px", textAlign:"center", background: filled ? "#f0f9ff" : BG_WHITE }}>
+                            <button className="orow-remove" onClick={() => removeRow(row.id)}
+                              style={{ background:"none", border:"none", color:"#ef4444", cursor:"pointer", fontSize:13, padding:"2px 5px" }}>
+                              ✕
+                            </button>
                           </td>
-                        ))}
-                        <td style={{ padding: "0 8px", borderRight: "1px solid #ffe4e6", textAlign: "center" }}>
-                          <button className="orow-remove" onClick={() => removeRow(row.id)} style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", fontSize: 14, padding: "0 4px" }}>✕</button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
-            <button onClick={() => addRows(1)} style={{ marginTop: 14, padding: "10px 20px", borderRadius: 10, background: "transparent", border: `1.5px dashed ${accent}60`, color: accent, fontSize: 12, cursor: "pointer", fontFamily: "var(--ui-font-sans)", fontWeight: 700, width: "100%" }}>+ Add Row</button>
+
+            <button onClick={() => addRows(1)}
+              style={{ marginTop:10, padding:"10px 20px", borderRadius:9, background:"transparent", border:`1.5px dashed ${BORDER_MID}`, color:COLOR, fontSize:12, cursor:"pointer", fontFamily:"inherit", width:"100%", fontWeight:600, letterSpacing:"0.5px", transition:"all 0.15s" }}
+              onMouseEnter={e => { e.target.style.borderColor = COLOR; e.target.style.background = COLOR_PALE; }}
+              onMouseLeave={e => { e.target.style.borderColor = BORDER_MID; e.target.style.background = "transparent"; }}>
+              + Add Row
+            </button>
           </div>
         )}
 
+        {/* ════ RECORDS TAB ════ */}
         {viewTab === "records" && (
-          <div style={{ flex: 1, overflow: "auto", padding: "20px 28px" }} className="ofade-in">
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20, padding: "14px 20px", background: "#ffffff", border: "1.5px solid #fecdd3", borderRadius: 12, flexWrap: "wrap", boxShadow: "0 2px 8px #f8717108" }}>
-              <span style={{ fontSize: 9, color: "#fca5a5", letterSpacing: "2.5px", textTransform: "uppercase", marginRight: 4, fontFamily: "var(--ui-font-sans)", fontWeight: 600 }}>Period:</span>
-              {[{ id: "today", label: "Today" }, { id: "week", label: "This Week" }, { id: "month", label: "This Month" }, { id: "year", label: "This Year" }, { id: "custom", label: "Custom" }].map(f => (
+          <div style={{ flex:1, overflow:"auto", padding:"20px 28px" }} className="ofade-in">
+
+            {/* Filter bar */}
+            <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:20, padding:"14px 20px", background:BG_WHITE, border:`1px solid ${BORDER}`, borderRadius:10, flexWrap:"wrap", boxShadow:"0 1px 4px rgba(30,58,95,0.06)" }}>
+              <span style={{ fontSize:11, fontWeight:700, color:TEXT_LIGHT, textTransform:"uppercase", letterSpacing:"1.5px", marginRight:4 }}>Period</span>
+              {[{id:"today",label:"Today"},{id:"week",label:"This Week"},{id:"month",label:"This Month"},{id:"year",label:"This Year"},{id:"custom",label:"Custom"}].map(f => (
                 <button key={f.id} className="ofilter-chip" onClick={() => setFilterMode(f.id)}
-                  style={{ padding: "6px 16px", borderRadius: 20, fontSize: 11, fontFamily: "var(--ui-font-sans)", cursor: "pointer", background: filterMode === f.id ? `${accent}15` : "#f9fafb", border: `1.5px solid ${filterMode === f.id ? accent : "#fecdd3"}`, color: filterMode === f.id ? accent : "#6b7280", fontWeight: filterMode === f.id ? 700 : 600, transition: "all 0.15s" }}>
+                  style={{
+                    padding:"6px 16px", borderRadius:20, fontSize:12, fontFamily:"inherit", cursor:"pointer",
+                    background: filterMode===f.id ? COLOR_PALE : BG_MAIN,
+                    border:`1px solid ${filterMode===f.id ? COLOR : BORDER_MID}`,
+                    color: filterMode===f.id ? COLOR : TEXT_MID,
+                    fontWeight: filterMode===f.id ? 600 : 400,
+                    transition:"all 0.15s",
+                  }}>
                   {f.label}
                 </button>
               ))}
               {filterMode === "custom" && (
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: 8 }}>
-                  <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)} style={{ background: "#fff1f2", border: "1.5px solid #fecdd3", color: "#1c0a0a", padding: "6px 12px", borderRadius: 8, fontSize: 11, fontFamily: "var(--ui-font-sans)", outline: "none" }} />
-                  <span style={{ color: "#9ca3af", fontSize: 10 }}>to</span>
-                  <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)} style={{ background: "#fff1f2", border: "1.5px solid #fecdd3", color: "#1c0a0a", padding: "6px 12px", borderRadius: 8, fontSize: 11, fontFamily: "var(--ui-font-sans)", outline: "none" }} />
+                <div style={{ display:"flex", alignItems:"center", gap:8, marginLeft:8 }}>
+                  <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)}
+                    style={{ background:BG_WHITE, border:`1px solid ${BORDER_MID}`, color:TEXT_DARK, padding:"6px 10px", borderRadius:7, fontSize:12, fontFamily:"'JetBrains Mono',monospace", outline:"none" }} />
+                  <span style={{ color:TEXT_LIGHT }}>→</span>
+                  <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)}
+                    style={{ background:BG_WHITE, border:`1px solid ${BORDER_MID}`, color:TEXT_DARK, padding:"6px 10px", borderRadius:7, fontSize:12, fontFamily:"'JetBrains Mono',monospace", outline:"none" }} />
                 </div>
               )}
-              <div style={{ marginLeft: "auto", padding: "5px 16px", borderRadius: 20, background: `${accent}15`, border: `1.5px solid ${accent}`, fontSize: 12, color: accent, fontWeight: 700, fontFamily: "var(--ui-font-sans)" }}>{filteredEntries.length} records</div>
+              <div style={{ marginLeft:"auto", padding:"5px 16px", borderRadius:20, background:COLOR_PALE, border:`1px solid #bfdbfe`, fontSize:12, color:COLOR, fontWeight:700, fontFamily:"'JetBrains Mono',monospace" }}>
+                {filteredEntries.length} records
+              </div>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 20 }}>
+            {/* Summary cards */}
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:14, marginBottom:22 }}>
               {[
-                { label: "Total Records",    val: filteredEntries.length,                                                  col: accent },
-                { label: "Unique Patients",  val: new Set(filteredEntries.map(e => e.patientName)).size,                   col: "#10b981" },
-                { label: "Unique Hospitals", val: new Set(filteredEntries.map(e => e.hospital).filter(Boolean)).size,      col: "#f59e0b" },
-                { label: "Days Covered",     val: new Set(filteredEntries.map(e => e.createdAt?.slice(0,10))).size,        col: "#818cf8" },
-              ].map(({ label, val, col }) => (
-                <div key={label} style={{ background: "#ffffff", border: "1.5px solid #fecdd3", borderTop: `4px solid ${col}`, borderRadius: 12, padding: "16px 18px", position: "relative", overflow: "hidden", boxShadow: "0 2px 8px #f8717108" }}>
-                  <div style={{ position: "absolute", top: 0, right: 0, width: 80, height: 80, borderRadius: "50%", background: `${col}08`, transform: "translate(30%,-30%)" }} />
-                  <div style={{ fontSize: 8, letterSpacing: "2.5px", color: "#9ca3af", textTransform: "uppercase", marginBottom: 8, fontFamily: "var(--ui-font-sans)", fontWeight: 700 }}>{label}</div>
-                  <div style={{ fontSize: 30, fontWeight: 700, color: col, lineHeight: 1, fontFamily: "var(--ui-font-sans)" }}>{val}</div>
+                { label:"Total Records",    val:filteredEntries.length,                                                col:COLOR,    bg:"#eff6ff", border:"#bfdbfe" },
+                { label:"Unique Patients",  val:new Set(filteredEntries.map(e => e.patientName)).size,                col:"#16a34a", bg:"#f0fdf4", border:"#bbf7d0" },
+                { label:"Unique Hospitals", val:new Set(filteredEntries.map(e => e.hospital).filter(Boolean)).size,   col:"#d97706", bg:"#fffbeb", border:"#fde68a" },
+                { label:"Days Covered",     val:new Set(filteredEntries.map(e => e.createdAt?.slice(0,10))).size,     col:"#0891b2", bg:"#ecfeff", border:"#a5f3fc" },
+              ].map(({ label, val, col, bg, border }) => (
+                <div key={label} style={{ background:bg, border:`1px solid ${border}`, borderTop:`3px solid ${col}`, borderRadius:10, padding:"16px 20px", boxShadow:"0 1px 4px rgba(30,58,95,0.05)" }}>
+                  <div style={{ fontSize:10, fontWeight:700, color:TEXT_LIGHT, textTransform:"uppercase", letterSpacing:"1px", marginBottom:10 }}>{label}</div>
+                  <div style={{ fontSize:34, fontWeight:700, color:col, lineHeight:1, fontFamily:"'JetBrains Mono',monospace" }}>{val}</div>
                 </div>
               ))}
             </div>
 
+            {/* Table */}
             {filteredEntries.length === 0 ? (
-              <div style={{ textAlign: "center", padding: 60, color: "#fecdd3", fontSize: 12, letterSpacing: "3px", background: "#ffffff", border: "1.5px solid #fecdd3", borderRadius: 12, fontFamily: "var(--ui-font-sans)", fontWeight: 700 }}>NO RECORDS FOUND FOR THIS PERIOD</div>
+              <div style={{ textAlign:"center", padding:60, color:TEXT_LIGHT, fontSize:14, fontWeight:600, background:BG_WHITE, border:`1px solid ${BORDER}`, borderRadius:10 }}>
+                No records found for this period
+              </div>
             ) : (
-              <div style={{ background: "#ffffff", border: "1.5px solid #fecdd3", borderRadius: 12, overflow: "hidden" }}>
-                <div style={{ overflowX: "auto" }}>
-                  <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 12 }}>
+              <div style={{ background:BG_WHITE, border:`1px solid ${BORDER}`, borderRadius:10, overflow:"hidden", boxShadow:"0 1px 6px rgba(30,58,95,0.06)" }}>
+                <div style={{ overflowX:"auto" }}>
+                  <table style={{ borderCollapse:"collapse", width:"100%", minWidth:"max-content", fontSize:12 }}>
                     <thead>
-                      <tr style={{ background: "#ffe4e6" }}>
+                      <tr style={{ background:"#f8fafc" }}>
                         {COLUMNS.map(col => (
-                          <th key={col.key} style={{ padding: "11px 14px", textAlign: "left", fontSize: 9, letterSpacing: "2px", color: "#be123c", textTransform: "uppercase", borderBottom: "2px solid #fecdd3", whiteSpace: "nowrap", fontFamily: "var(--ui-font-sans)", fontWeight: 700, borderRight: "1px solid #fecdd3" }}>{col.label}</th>
+                          <th key={col.key} style={{ padding:"11px 14px", textAlign:"left", fontSize:10, fontWeight:700, color:"#64748b", textTransform:"uppercase", letterSpacing:"1px", borderBottom:`2px solid ${BORDER}`, whiteSpace:"nowrap", fontFamily:"'Inter',sans-serif", borderRight:`1px solid ${BORDER}` }}>
+                            {col.label}
+                          </th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
                       {filteredEntries.map((row, i) => (
-                        <tr key={row.id || i} style={{ borderBottom: "1px solid #ffe4e6" }}>
-                          <td style={{ padding: "10px 14px", color: "#fca5a5", fontSize: 10, borderRight: "1px solid #ffe4e6", fontFamily: "var(--ui-font-sans)" }}>{i + 1}</td>
-                          <td style={{ padding: "10px 14px", color: "#0ea5e9", fontFamily: "var(--ui-font-sans)", borderRight: "1px solid #ffe4e6", fontWeight: 600 }}>{row.uhid || "—"}</td>
-                          <td style={{ padding: "10px 14px", color: accent, fontFamily: "var(--ui-font-sans)", borderRight: "1px solid #ffe4e6", fontWeight: 600 }}>{row.claimId || "—"}</td>
-                          <td style={{ padding: "10px 14px", color: "#374151", fontFamily: "var(--ui-font-sans)", borderRight: "1px solid #ffe4e6" }}>{row.opdNo || "—"}</td>
-                          <td style={{ padding: "10px 14px", color: "#1c0a0a", fontWeight: 700, borderRight: "1px solid #ffe4e6" }}>{row.patientName || "—"}</td>
-                          <td style={{ padding: "10px 14px", color: "#6b7280", fontSize: 11, borderRight: "1px solid #ffe4e6", fontFamily: "var(--ui-font-sans)" }}>{row.opdDate || "—"}</td>
-                          <td style={{ padding: "10px 14px", borderRight: "1px solid #ffe4e6" }}>
-                            <span style={{ padding: "3px 10px", borderRadius: 6, background: `${accent}15`, color: accent, fontSize: 10, fontFamily: "var(--ui-font-sans)", fontWeight: 600 }}>{row.uploadDate || "—"}</span>
+                        <tr key={row.id || i} className="ns_tr" style={{ borderBottom:`1px solid ${BORDER}`, background:BG_WHITE }}>
+                          <td style={{ padding:"10px 14px", color:TEXT_LIGHT, fontSize:12, fontFamily:"'JetBrains Mono',monospace", borderRight:`1px solid ${BORDER}` }}>{i+1}</td>
+                          <td style={{ padding:"10px 14px", color:"#0369a1", fontFamily:"'JetBrains Mono',monospace", fontWeight:500, borderRight:`1px solid ${BORDER}` }}>{row.uhid || "—"}</td>
+                          <td style={{ padding:"10px 14px", color:COLOR, fontFamily:"'JetBrains Mono',monospace", fontWeight:600, borderRight:`1px solid ${BORDER}` }}>{row.claimId || "—"}</td>
+                          <td style={{ padding:"10px 14px", color:TEXT_MID, fontFamily:"'JetBrains Mono',monospace", borderRight:`1px solid ${BORDER}` }}>{row.opdNo || "—"}</td>
+                          <td style={{ padding:"10px 14px", color:TEXT_DARK, fontWeight:700, borderRight:`1px solid ${BORDER}` }}>{row.patientName || "—"}</td>
+                          <td style={{ padding:"10px 14px", color:TEXT_MID, fontSize:11, fontFamily:"'JetBrains Mono',monospace", borderRight:`1px solid ${BORDER}` }}>{row.opdDate || "—"}</td>
+                          <td style={{ padding:"10px 14px", borderRight:`1px solid ${BORDER}` }}>
+                            <span style={{ padding:"2px 10px", borderRadius:5, background:"#e0f2fe", color:"#0369a1", fontSize:11, fontFamily:"'JetBrains Mono',monospace", fontWeight:600 }}>{row.uploadDate || "—"}</span>
                           </td>
-                          <td style={{ padding: "10px 14px", color: "#374151", borderRight: "1px solid #ffe4e6" }}>{row.hospital || "—"}</td>
-                          <td style={{ padding: "10px 14px", color: "#374151", borderRight: "1px solid #ffe4e6" }}>{row.prepareBy || "—"}</td>
-                          <td style={{ padding: "10px 14px", color: "#6b7280", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", borderRight: "1px solid #ffe4e6" }}>{row.remarks || "—"}</td>
-                          <td style={{ padding: "10px 14px", color: "#374151" }}>{row.addedBy || "—"}</td>
+                          <td style={{ padding:"10px 14px", color:TEXT_MID, borderRight:`1px solid ${BORDER}` }}>{row.hospital || "—"}</td>
+                          <td style={{ padding:"10px 14px", color:TEXT_MID, borderRight:`1px solid ${BORDER}` }}>{row.prepareBy || "—"}</td>
+                          <td style={{ padding:"10px 14px", color:TEXT_MID, maxWidth:200, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", borderRight:`1px solid ${BORDER}` }}>{row.remarks || "—"}</td>
+                          <td style={{ padding:"10px 14px", color:TEXT_MID }}>{row.addedBy || "—"}</td>
                         </tr>
                       ))}
                     </tbody>

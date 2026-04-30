@@ -1,60 +1,33 @@
-
-import { useState, useEffect } from "react";
-import { apiService } from "../services/apiService";
-import ThemeModeDock from "../components/ui/ThemeModeDock";
-
-const UI_FONT_STACK = "var(--ui-font-sans)";
-const UI_MONO_STACK = "var(--ui-font-mono)";
-const EMPTY_EMP_FORM = {
-  name: "",
-  username: "",
-  email: "",
-  phone: "",
-  role: "",
-  employeeId: "",
-  designation: "",
-  departmentName: "",
-  password: "",
-  confirmPassword: "",
-};
+import { useState, useEffect, useCallback } from "react";
 
 // ─── Branch Theme Map ──────────────────────────────────────────────────────────
 const BRANCH_THEMES = {
   raya: {
-    primary:       "#e8a030",
-    primaryDim:    "#2a1c04",
-    primaryBorder: "#6b4a10",
-    glow:          "rgba(232,160,48,0.10)",
+    primary:       "#1a6eb5",
+    primaryDim:    "#dbeafe",
+    primaryBorder: "#93c5fd",
+    glow:          "rgba(26,110,181,0.08)",
     label:         "Raya Branch",
     initial:       "R",
   },
   lakshmi: {
-    primary:       "#818cf8",
-    primaryDim:    "#13153a",
-    primaryBorder: "#3730a3",
-    glow:          "rgba(129,140,248,0.10)",
-    label:         "Lakshmi Branch",
-    initial:       "L",
-  },
-  laxmi: {
-    primary:       "#818cf8",
-    primaryDim:    "#13153a",
-    primaryBorder: "#3730a3",
-    glow:          "rgba(129,140,248,0.10)",
+    primary:       "#0e7490",
+    primaryDim:    "#cffafe",
+    primaryBorder: "#67e8f9",
+    glow:          "rgba(14,116,144,0.08)",
     label:         "Lakshmi Branch",
     initial:       "L",
   },
   default: {
-    primary:       "#3b82f6",
-    primaryDim:    "#0c1e40",
-    primaryBorder: "#1d4ed8",
-    glow:          "rgba(59,130,246,0.10)",
+    primary:       "#1a6eb5",
+    primaryDim:    "#dbeafe",
+    primaryBorder: "#93c5fd",
+    glow:          "rgba(26,110,181,0.08)",
     label:         "Branch",
     initial:       "B",
   },
 };
 
-// Departments removed from NAV
 const NAV = [
   { id: "overview",   label: "Overview",          icon: "▣" },
   { id: "patients",   label: "All Patients",       icon: "◈" },
@@ -132,14 +105,14 @@ const MOCK_FINANCIALS = {
 };
 
 const MOCK_EMPLOYEES = [
-  { id:1, employeeId:"EMP-001", name:"Dr. Mehta",     designation:"Senior Cardiologist",  email:"mehta@hospital.in",   phone:"9988776655", role:"Doctor",  departmentName:"Cardiology",  joinedDate:"2021-03-15" },
-  { id:2, employeeId:"EMP-002", name:"Dr. Singh",     designation:"Orthopaedic Surgeon",  email:"singh@hospital.in",   phone:"9977665544", role:"Doctor",  departmentName:"Ortho",       joinedDate:"2020-07-01" },
-  { id:3, employeeId:"EMP-003", name:"Kavita Rao",    designation:"Head Nurse",            email:"kavita@hospital.in",  phone:"9966554433", role:"Nurse",   departmentName:"ICU",         joinedDate:"2022-01-10" },
-  { id:4, employeeId:"EMP-004", name:"Ramesh Gupta",  designation:"Billing Executive",     email:"ramesh@hospital.in",  phone:"9955443322", role:"Billing", departmentName:"Accounts",    joinedDate:"2023-06-20" },
-  { id:5, employeeId:"EMP-005", name:"Dr. Kapoor",    designation:"Neurologist",           email:"kapoor@hospital.in",  phone:"9944332211", role:"Doctor",  departmentName:"Neurology",   joinedDate:"2019-11-05" },
-  { id:6, employeeId:"EMP-006", name:"Shalini Menon", designation:"Staff Nurse",           email:"shalini@hospital.in", phone:"9933221100", role:"Nurse",   departmentName:"Gynecology",  joinedDate:"2022-09-14" },
-  { id:7, employeeId:"EMP-007", name:"Dr. Rao",       designation:"Gynaecologist",         email:"rao@hospital.in",     phone:"9922110099", role:"Doctor",  departmentName:"Gynecology",  joinedDate:"2020-02-28" },
-  { id:8, employeeId:"EMP-008", name:"Pooja Tiwari",  designation:"Admin Officer",         email:"pooja@hospital.in",   phone:"9911009988", role:"Admin",   departmentName:"Admin",       joinedDate:"2021-08-03" },
+  { id:1, employeeId:"EMP-001", name:"Dr. Mehta",     username:"dr.mehta",     designation:"Senior Cardiologist",  role:"Doctor",       departmentName:"Cardiology",  joinedDate:"2021-03-15" },
+  { id:2, employeeId:"EMP-002", name:"Dr. Singh",     username:"dr.singh",     designation:"Orthopaedic Surgeon",  role:"Doctor",       departmentName:"Ortho",       joinedDate:"2020-07-01" },
+  { id:3, employeeId:"EMP-003", name:"Kavita Rao",    username:"kavita.rao",   designation:"Head Nurse",           role:"Nurse",        departmentName:"ICU",         joinedDate:"2022-01-10" },
+  { id:4, employeeId:"EMP-004", name:"Ramesh Gupta",  username:"ramesh.gupta", designation:"Billing Executive",    role:"Billing",      departmentName:"Accounts",    joinedDate:"2023-06-20" },
+  { id:5, employeeId:"EMP-005", name:"Dr. Kapoor",    username:"dr.kapoor",    designation:"Neurologist",          role:"Doctor",       departmentName:"Neurology",   joinedDate:"2019-11-05" },
+  { id:6, employeeId:"EMP-006", name:"Shalini Menon", username:"shalini.m",    designation:"Staff Nurse",          role:"Nurse",        departmentName:"Gynecology",  joinedDate:"2022-09-14" },
+  { id:7, employeeId:"EMP-007", name:"Dr. Rao",       username:"dr.rao",       designation:"Gynaecologist",        role:"Doctor",       departmentName:"Gynecology",  joinedDate:"2020-02-28" },
+  { id:8, employeeId:"EMP-008", name:"Pooja Tiwari",  username:"pooja.tiwari", designation:"Admin Officer",        role:"Admin",        departmentName:"Admin",       joinedDate:"2021-08-03" },
 ];
 
 const MOCK_RECORDS = {
@@ -147,12 +120,12 @@ const MOCK_RECORDS = {
     { date:"2026-04-10", summary:"Patient discharged after 5 days of recovery.",  doctor:"Dr. Mehta",  nextVisit:"2026-04-24", instructions:"Rest for 2 weeks, avoid strenuous activity." },
   ],
   reports: [
-    { date:"2026-04-09", reportType:"CBC",    result:"Normal",     lab:"Central Lab",  doctor:"Dr. Singh",  fileUrl:"" },
-    { date:"2026-04-08", reportType:"ECG",    result:"Sinus Rhythm",lab:"Cardio Lab", doctor:"Dr. Mehta",  fileUrl:"" },
+    { date:"2026-04-09", reportType:"CBC",    result:"Normal",       lab:"Central Lab",  doctor:"Dr. Singh",  fileUrl:"" },
+    { date:"2026-04-08", reportType:"ECG",    result:"Sinus Rhythm", lab:"Cardio Lab",   doctor:"Dr. Mehta",  fileUrl:"" },
   ],
   medicines: [
-    { date:"2026-04-08", medicine:"Aspirin 75mg",   dosage:"1 tab", frequency:"Once daily",  duration:"30 days", prescribedBy:"Dr. Mehta"  },
-    { date:"2026-04-08", medicine:"Metoprolol 25mg", dosage:"1 tab", frequency:"Twice daily", duration:"30 days", prescribedBy:"Dr. Mehta"  },
+    { date:"2026-04-08", medicine:"Aspirin 75mg",    dosage:"1 tab", frequency:"Once daily",  duration:"30 days", prescribedBy:"Dr. Mehta" },
+    { date:"2026-04-08", medicine:"Metoprolol 25mg", dosage:"1 tab", frequency:"Twice daily", duration:"30 days", prescribedBy:"Dr. Mehta" },
   ],
   admission_note: [
     { date:"2026-04-05", note:"Patient admitted with chest pain.", doctor:"Dr. Mehta", diagnosis:"Unstable angina", plan:"Monitoring, angiography if needed." },
@@ -162,224 +135,6 @@ const MOCK_RECORDS = {
     { date:"2024-06-18", condition:"T2 Diabetes",  treatment:"Metformin 500mg", doctor:"Dr. Kapoor", notes:"HbA1c 6.8 at last check."  },
   ],
 };
-
-function isPathologyCategory(category = "") {
-  const normalized = String(category).toLowerCase();
-  return ["path", "lab", "bio", "haem", "micro", "sero", "histo", "radiology", "x-ray", "scan", "echo", "usg", "mri", "ct"].some((key) => normalized.includes(key));
-}
-
-function isMedicineCategory(category = "") {
-  const normalized = String(category).toLowerCase();
-  return ["med", "pharma", "drug"].some((key) => normalized.includes(key));
-}
-
-function admissionGross(admission) {
-  const services = admission?.services || [];
-  const serviceTotal = services
-    .filter((service) => !isPathologyCategory(service.svcCat || service.type) && !isMedicineCategory(service.svcCat || service.type))
-    .reduce((sum, service) => (
-    sum + Number(service.svcTot ?? service.total ?? ((service.svcRate ?? service.rate ?? 0) * (service.svcQty ?? service.qty ?? 1)))
-  ), 0);
-  const labTotal = (admission?.labReports || []).reduce((sum, report) => sum + Number(report.amount || 0), 0);
-  const pharmacyTotal = (admission?.pharmacyRecords || []).reduce((sum, record) => (
-    sum + Number(record.amount ?? (Number(record.quantity || 1) * Number(record.rate || 0)))
-  ), 0);
-  const billing = admission?.billing || {};
-  const discount = Number(billing.discount || 0);
-  return Math.max(0, serviceTotal + labTotal + pharmacyTotal - discount);
-}
-
-function admissionDue(admission) {
-  const billing = admission?.billing || {};
-  const gross = admissionGross(admission);
-  return Math.max(0, gross - Number(billing.advance || 0) - Number(billing.paidNow || 0));
-}
-
-function buildPatientRecords(patient, admission) {
-  const discharge = admission?.discharge || {};
-  const medical = admission?.medicalHistory || {};
-  const services = admission?.services || [];
-  const reports = Array.isArray(admission?.labReports) ? admission.labReports : [];
-  const pharmacyRecords = Array.isArray(admission?.pharmacyRecords) ? admission.pharmacyRecords : [];
-  const treatingDoctor = discharge.doctorName || medical.treatingDoctor || "—";
-  const admissionDate = (admission?.dateTime || discharge?.doa || "").slice(0, 10);
-
-  return {
-    discharge_summary: discharge.diagnosis || discharge.dod ? [{
-      date: (discharge.dod || discharge.doa || admission?.dateTime || "").slice(0, 10),
-      summary: discharge.diagnosis || "—",
-      doctor: treatingDoctor,
-      nextVisit: discharge.expectedDod || "—",
-      instructions: discharge.instructions || discharge.notes || "—",
-    }] : [],
-    reports: reports.length
-      ? reports.map((report) => ({
-          date: report.date || report.report_date || admissionDate,
-          reportType: report.reportType || report.report_type || report.report_name || "Report",
-          result: report.remarks || "Saved in billing reports",
-          lab: report.reportCategory || report.report_category || "Lab",
-          doctor: report.orderedBy || report.ordered_by || treatingDoctor,
-          fileUrl: "",
-        }))
-      : services
-          .filter((service) => isPathologyCategory(service.svcCat || service.type))
-          .map((service) => ({
-            date: service.svcDate || admissionDate,
-            reportType: service.svcName || "Report",
-            result: "Legacy service entry",
-            lab: service.svcCat || "Lab",
-            doctor: treatingDoctor,
-            fileUrl: "",
-          })),
-    medicines: pharmacyRecords.length
-      ? pharmacyRecords.map((record) => ({
-          date: record.date || record.date_given || admissionDate,
-          medicine: record.item || record.medicine_name || "Medicine",
-          dosage: String(record.quantity || 1),
-          frequency: "—",
-          duration: "—",
-          prescribedBy: treatingDoctor,
-        }))
-      : services
-          .filter((service) => isMedicineCategory(service.svcCat || service.type))
-          .map((service) => ({
-            date: service.svcDate || admissionDate,
-            medicine: service.svcName || "Medicine",
-            dosage: String(service.svcQty || 1),
-            frequency: "—",
-            duration: "—",
-            prescribedBy: treatingDoctor,
-          })),
-    admission_note: medical.previousDiagnosis || medical.notes ? [{
-      date: admissionDate,
-      note: medical.notes || medical.previousDiagnosis || "—",
-      doctor: medical.treatingDoctor || "—",
-      diagnosis: medical.previousDiagnosis || "—",
-      plan: medical.currentMedications || "—",
-    }] : [],
-    medical_history: medical.previousDiagnosis || medical.notes ? [{
-      date: admissionDate,
-      condition: medical.previousDiagnosis || "—",
-      treatment: medical.currentMedications || "—",
-      doctor: medical.treatingDoctor || "—",
-      notes: medical.notes || "—",
-    }] : [],
-  };
-}
-
-function mapBranchUsers(users = [], resolvedBranchKey = "laxmi") {
-  const branchCode = resolvedBranchKey === "raya" ? "RYM" : "LNM";
-  return users
-    .filter((user) => user.branch === branchCode)
-    .map((user) => ({
-      id: user.id,
-      employeeId: user.emp_id || user.username,
-      username: user.username,
-      name: `${user.first_name} ${user.last_name}`.trim() || user.username,
-      designation: user.role.replaceAll("_", " ").toUpperCase(),
-      email: user.email || "—",
-      phone: user.phone_number || "—",
-      role: user.role === "admin" ? "Admin" : user.role === "billing" ? "Billing" : user.role === "hod" ? "HOD" : user.role.replaceAll("_", " ").replace(/\b\w/g, (ch) => ch.toUpperCase()),
-      departmentName: user.role.replaceAll("_", " ").toUpperCase(),
-      joinedDate: user.date_joined?.slice(0, 10) || "—",
-    }));
-}
-
-function mapLiveBranchPatients(patients = []) {
-  return patients.flatMap((patient) => {
-    const admissions = Array.isArray(patient.admissions) ? patient.admissions : [];
-    return admissions.map((admission) => {
-      const discharge = admission?.discharge || {};
-      const paymentModeRaw = String(patient.payMode || admission?.billing?.paymentMode || admission?.billing?.bill_type || "").toLowerCase();
-      const paymentMode = paymentModeRaw.includes("cashless") ? "cashless" : "cash";
-      const paymentType = paymentMode === "cashless"
-        ? (admission?.billing?.insuranceType || patient.cashlessType || (patient.tpa ? "TPA" : (patient.tpaCard || patient.tpaPanelCardNo ? "Card" : "")))
-        : "";
-      const records = buildPatientRecords(patient, admission);
-      return {
-        id: `${patient.uhid}-${admission.admNo}`,
-        name: patient.patientName,
-        age: patient.ageYY || patient.age || "—",
-        gender: patient.gender,
-        phone: patient.phone,
-        department: discharge.department || discharge.wardName || "General",
-        doctor: discharge.doctorName || admission?.medicalHistory?.treatingDoctor || "—",
-        admissionDate: (discharge.doa || admission.dateTime || "").slice(0, 10),
-        dischargeDate: discharge.dod ? discharge.dod.slice(0, 10) : "",
-        paymentMode,
-        paymentType,
-        status: discharge.dod ? "discharged" : "admitted",
-        uhid: patient.uhid,
-        patientObj: patient,
-        admObj: admission,
-        records,
-      };
-    });
-  });
-}
-
-function buildOverviewData(patientRows = [], employees = []) {
-  const today = new Date().toISOString().slice(0, 10);
-  const totalRevenue = patientRows.reduce((sum, row) => sum + admissionGross(row.admObj), 0);
-  const cashRevenue = patientRows
-    .filter((row) => row.paymentMode === "cash")
-    .reduce((sum, row) => sum + admissionGross(row.admObj), 0);
-  const cashlessRevenue = totalRevenue - cashRevenue;
-
-  return {
-    totalPatients: patientRows.length,
-    admittedToday: patientRows.filter((row) => row.admissionDate === today).length,
-    dischargedToday: patientRows.filter((row) => row.dischargeDate === today).length,
-    pendingDischarge: patientRows.filter((row) => row.status === "admitted").length,
-    cashRevenue,
-    cashlessRevenue,
-    totalRevenue,
-    pendingDues: patientRows.reduce((sum, row) => sum + admissionDue(row.admObj), 0),
-    empCount: employees.length,
-    tpaCount: patientRows.filter((row) => String(row.paymentType).toUpperCase() === "TPA").length,
-    cardCount: patientRows.filter((row) => String(row.paymentType).toUpperCase() === "CARD").length,
-    recentPatients: patientRows.slice().sort((a, b) => b.admissionDate.localeCompare(a.admissionDate)).slice(0, 8),
-  };
-}
-
-function buildFinancialData(patientRows = []) {
-  const cashRows = patientRows.filter((row) => row.paymentMode === "cash");
-  const cashlessRows = patientRows.filter((row) => row.paymentMode === "cashless");
-  const cashTxns = cashRows.map((row) => ({
-    patientId: row.id,
-    patientName: row.name,
-    date: row.admissionDate,
-    amount: admissionGross(row.admObj),
-    description: row.doctor || "Hospital Charges",
-    receivedBy: "Billing Desk",
-    status: admissionDue(row.admObj) > 0 ? "pending" : "paid",
-  }));
-  const cashlessTxns = cashlessRows.map((row) => ({
-    patientId: row.id,
-    patientName: row.name,
-    date: row.admissionDate,
-    amount: admissionGross(row.admObj),
-    paymentType: row.paymentType || "Cashless",
-    authCode: row.patientObj?.tpaPanelCardNo || row.patientObj?.tpaCard || "—",
-    insurerOrBank: row.patientObj?.tpa || row.patientObj?.cashlessType || "—",
-    status: admissionDue(row.admObj) > 0 ? "pending" : "paid",
-  }));
-
-  return {
-    cashTotal: cashTxns.reduce((sum, row) => sum + row.amount, 0),
-    cashlessTotal: cashlessTxns.reduce((sum, row) => sum + row.amount, 0),
-    tpaTotal: cashlessTxns.filter((row) => String(row.paymentType).toUpperCase() === "TPA").reduce((sum, row) => sum + row.amount, 0),
-    cardTotal: cashlessTxns.filter((row) => String(row.paymentType).toUpperCase() === "CARD").reduce((sum, row) => sum + row.amount, 0),
-    grandTotal: [...cashTxns, ...cashlessTxns].reduce((sum, row) => sum + row.amount, 0),
-    collectedToday: [...cashTxns, ...cashlessTxns]
-      .filter((row) => row.date === new Date().toISOString().slice(0, 10))
-      .reduce((sum, row) => sum + row.amount, 0),
-    pendingDues: patientRows.reduce((sum, row) => sum + admissionDue(row.admObj), 0),
-    txnCount: cashTxns.length + cashlessTxns.length,
-    cashTxns,
-    cashlessTxns,
-  };
-}
 
 // ─── Excel Export Utility ─────────────────────────────────────────────────────
 function exportExcel(rows, filename) {
@@ -394,32 +149,43 @@ function exportExcel(rows, filename) {
   URL.revokeObjectURL(url);
 }
 
-// ─── Design Tokens ────────────────────────────────────────────────────────────
+// ─── Ocean Blue Design Tokens ─────────────────────────────────────────────────
 const T = {
-  bg:            "#060810",
-  surface:       "#0b0f1a",
-  surfaceRaised: "#0f1422",
-  card:          "#111827",
-  border:        "#1c2535",
-  borderLight:   "#243045",
-  text:          "#f0f4ff",
-  textSub:       "#8899bb",
-  textMuted:     "#3d4f6e",
-  success:       "#22d3a0",
-  successDim:    "#041f16",
-  successBdr:    "#0a4a32",
-  warning:       "#f59e0b",
-  warningDim:    "#1f1204",
-  warningBdr:    "#7a4d08",
-  danger:        "#f87171",
-  dangerDim:     "#1f0505",
-  dangerBdr:     "#7a2020",
-  blue:          "#60a5fa",
-  blueDim:       "#0d1630",
-  blueBdr:       "#1d3a70",
-  purple:        "#a78bfa",
-  purpleDim:     "#160d36",
-  purpleBdr:     "#4c2d9e",
+  // Backgrounds — light, clean, clinical
+  bg:            "#f0f4f8",
+  surface:       "#ffffff",
+  surfaceRaised: "#f8fafc",
+  card:          "#ffffff",
+  // Borders
+  border:        "#dde5ef",
+  borderLight:   "#c8d6e8",
+  // Text
+  text:          "#0f1d2e",
+  textSub:       "#3d5a7a",
+  textMuted:     "#7a9ab8",
+  // Semantic
+  success:       "#0e7c5b",
+  successDim:    "#d1fae5",
+  successBdr:    "#6ee7b7",
+  warning:       "#b45309",
+  warningDim:    "#fef3c7",
+  warningBdr:    "#fcd34d",
+  danger:        "#c0392b",
+  dangerDim:     "#fee2e2",
+  dangerBdr:     "#fca5a5",
+  blue:          "#1a6eb5",
+  blueDim:       "#dbeafe",
+  blueBdr:       "#93c5fd",
+  purple:        "#6d28d9",
+  purpleDim:     "#ede9fe",
+  purpleBdr:     "#c4b5fd",
+  // Ocean header/sidebar
+  navBg:         "#0d2a4a",
+  navText:       "#b8d4f0",
+  navMuted:      "#4a7098",
+  navActive:     "#1a6eb5",
+  navActiveBg:   "#1a4a7a",
+  topbarBg:      "#0a2240",
 };
 
 // ─── Style Factories ──────────────────────────────────────────────────────────
@@ -431,36 +197,36 @@ const mkBadge = (type) => {
     Card:       [T.blueDim,    T.blue,    T.blueBdr   ],
     active:     [T.successDim, T.success, T.successBdr],
     admitted:   [T.blueDim,    T.blue,    T.blueBdr   ],
-    discharged: ["#111",       "#94a3b8", "#2a3040"   ],
+    discharged: ["#f1f5f9",    "#475569", "#cbd5e1"   ],
     pending:    [T.warningDim, T.warning, T.warningBdr],
     paid:       [T.successDim, T.success, T.successBdr],
     unpaid:     [T.dangerDim,  T.danger,  T.dangerBdr ],
   };
-  const [bg, c, b] = map[type] || [T.card, T.textSub, T.border];
+  const [bg, c, b] = map[type] || ["#f1f5f9", T.textSub, T.border];
   return { display:"inline-flex", alignItems:"center", padding:"3px 10px", borderRadius:"20px", fontSize:"10px", fontWeight:"600", letterSpacing:"0.4px", background:bg, color:c, border:`1px solid ${b}`, whiteSpace:"nowrap" };
 };
 
 const mkInput = () => ({
-  background: T.surfaceRaised, border:`1px solid ${T.border}`, color:T.text,
-  padding:"10px 14px", borderRadius:"10px", fontSize:"13px", fontFamily:UI_FONT_STACK, outline:"none",
+  background: "#f8fafc", border:`1px solid ${T.border}`, color:T.text,
+  padding:"8px 13px", borderRadius:"7px", fontSize:"12px", fontFamily:"inherit", outline:"none",
 });
 
 const mkBtn = (v, theme) => {
-  const p  = theme?.primary       || "#3b82f6";
-  const pd = theme?.primaryDim    || "#0c1e40";
-  const pb = theme?.primaryBorder || "#1d4ed8";
+  const p  = theme?.primary       || T.blue;
+  const pd = theme?.primaryDim    || T.blueDim;
+  const pb = theme?.primaryBorder || T.blueBdr;
   const defs = {
-    primary: [p,           "#fff",    p          ],
-    ghost:   ["transparent",T.textSub, T.border  ],
-    success: [T.successDim, T.success, T.successBdr],
-    danger:  [T.dangerDim,  T.danger,  T.dangerBdr ],
-    excel:   ["#071a10",   "#4ade80", "#145228"  ],
-    dim:     [pd,           p,         pb         ],
+    primary: [p,             "#fff",      p          ],
+    ghost:   ["transparent", T.textSub,   T.border   ],
+    success: [T.successDim,  T.success,   T.successBdr],
+    danger:  [T.dangerDim,   T.danger,    T.dangerBdr ],
+    excel:   ["#d1fae5",    "#065f46",   "#6ee7b7"  ],
+    dim:     [pd,             p,           pb         ],
   };
   const [bg, c, b] = defs[v] || defs.ghost;
   return {
-    padding:"9px 18px", borderRadius:"10px", fontSize:"13px", fontFamily:UI_FONT_STACK,
-    cursor:"pointer", fontWeight:"600", border:`1px solid ${b}`,
+    padding:"8px 18px", borderRadius:"7px", fontSize:"12px", fontFamily:"inherit",
+    cursor:"pointer", fontWeight:"500", border:`1px solid ${b}`,
     background:bg, color:c, transition:"all 0.15s",
     display:"inline-flex", alignItems:"center", gap:"6px", whiteSpace:"nowrap",
   };
@@ -468,18 +234,12 @@ const mkBtn = (v, theme) => {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function BranchAdminDashboard({
-  currentUser,
-  db,
-  locId,
-  onLogout,
   branchId   = "raya",
   branchName = "",
   adminName  = "Admin",
 }) {
-  const resolvedBranchKey  = locId || currentUser?.branch || branchId;
-  const theme              = BRANCH_THEMES[resolvedBranchKey] || BRANCH_THEMES.default;
+  const theme              = BRANCH_THEMES[branchId] || BRANCH_THEMES.default;
   const resolvedBranchName = branchName || theme.label;
-  const resolvedAdminName  = currentUser?.name || adminName;
 
   const [nav,      setNav]      = useState("overview");
   const [range,    setRange]    = useState("monthly");
@@ -500,120 +260,59 @@ export default function BranchAdminDashboard({
   const [search,    setSearch]    = useState("");
   const [statusFil, setStatusFil] = useState("all");
 
-  const [empForm, setEmpForm] = useState(EMPTY_EMP_FORM);
-  const [empError, setEmpError] = useState("");
+  const EMPTY_EMP = { name:"", username:"", employeeId:"", departmentName:"Receptionist", password:"", confirmPassword:"" };
+  const [empForm, setEmpForm] = useState(EMPTY_EMP);
+  const [showPw,  setShowPw]  = useState(false);
+  const [showCpw, setShowCpw] = useState(false);
   const [modal,   setModal]   = useState(null);
 
-  // ─── Load mock data ───────────────────────────────────────────────────────
   useEffect(() => {
-    let active = true;
-    const loadLiveData = async () => {
-      setSearch("");
-      setStatusFil("all");
-      if (nav !== "records") setSelPatient(null);
-
-      const branchPatients = Array.isArray(db?.[resolvedBranchKey]) ? db[resolvedBranchKey] : [];
-      const mappedPatients = mapLiveBranchPatients(branchPatients);
-      if (!active) return;
-
-      setPatients(mappedPatients);
-      setCashPats(mappedPatients.filter(p => p.paymentMode === "cash"));
-      setCashlessPats(mappedPatients.filter(p => p.paymentMode === "cashless"));
-      setFinancials(buildFinancialData(mappedPatients));
-
-      try {
-        const users = await apiService.getUsers();
-        if (!active) return;
-        const branchUsers = mapBranchUsers(users, resolvedBranchKey);
-        setEmployees(branchUsers);
-        setOverview(buildOverviewData(mappedPatients, branchUsers));
-      } catch (error) {
-        if (!active) return;
-        setEmployees([]);
-        setOverview(buildOverviewData(mappedPatients, []));
-      }
-    };
-
-    loadLiveData();
-    return () => { active = false; };
-  }, [nav, range, fromDate, toDate, db, resolvedBranchKey]);
+    setSearch(""); setStatusFil("all");
+    if (nav !== "records") setSelPatient(null);
+    if (nav === "overview")   setOverview(MOCK_OVERVIEW);
+    if (nav === "patients")   setPatients(MOCK_PATIENTS);
+    if (nav === "cash")       setCashPats(MOCK_PATIENTS.filter(p => p.paymentMode === "cash"));
+    if (nav === "cashless")   setCashlessPats(MOCK_PATIENTS.filter(p => p.paymentMode === "cashless"));
+    if (nav === "financials") setFinancials(MOCK_FINANCIALS);
+    if (nav === "employees")  setEmployees(MOCK_EMPLOYEES);
+  }, [nav, range, fromDate, toDate]);
 
   useEffect(() => {
-    if (nav === "records" && selPatient) {
-      setRecords(selPatient.records?.[recTab] || []);
-    }
+    if (nav === "records" && selPatient) setRecords(MOCK_RECORDS[recTab] || []);
   }, [selPatient, recTab, nav]);
 
-  // ─── Filter helpers ───────────────────────────────────────────────────────
   const filterPatients = (list) => list.filter(p => {
     const matchSearch = !search || p.name.toLowerCase().includes(search.toLowerCase()) || p.id.toLowerCase().includes(search.toLowerCase());
     const matchStatus = statusFil === "all" || p.status === statusFil;
     return matchSearch && matchStatus;
   });
 
-  // ─── Mutations (frontend-only) ────────────────────────────────────────────
-  async function addEmployee(e) {
+  function addEmployee(e) {
     e.preventDefault();
-    setEmpError("");
-    if (!empForm.name || !empForm.username || !empForm.role || !empForm.password) {
-      setEmpError("Fill all required fields."); return;
-    }
-    if (empForm.password !== empForm.confirmPassword) {
-      setEmpError("Passwords do not match."); return;
-    }
-
-    const [firstName, ...rest] = empForm.name.trim().split(/\s+/);
-    const roleMap = {
-      Billing: "billing",
-      Receptionist: "receptionist",
-      HOD: "hod",
-      OPD: "opd",
-      Intimation: "intimation",
-      Query: "query",
-      Uploading: "uploading",
+    if (empForm.password !== empForm.confirmPassword) { alert("Passwords do not match"); return; }
+    if (empForm.password.length < 6) { alert("Password must be at least 6 characters"); return; }
+    const newEmp = {
+      id:             employees.length + 1,
+      employeeId:     empForm.employeeId || `EMP-${String(employees.length + 1).padStart(3,"0")}`,
+      name:           empForm.name,
+      username:       empForm.username,
+      designation:    "Receptionist",
+      role:           "Receptionist",
+      departmentName: "Receptionist",
+      joinedDate:     new Date().toISOString().split("T")[0],
     };
+    setEmployees(prev => [...prev, newEmp]);
+    setModal(null);
+    setEmpForm(EMPTY_EMP);
+    setShowPw(false);
+    setShowCpw(false);
+  }
 
-    try {
-      await apiService.createUser({
-        username: empForm.username,
-        email: empForm.email || `${empForm.username}@sangihospital.com`,
-        first_name: firstName || empForm.username,
-        last_name: rest.join(" ") || ".",
-        emp_id: empForm.employeeId || empForm.username,
-        phone_number: empForm.phone,
-        role: roleMap[empForm.role] || "receptionist",
-        branch: resolvedBranchKey === "raya" ? "RYM" : "LNM",
-        password: empForm.password,
-        confirm_password: empForm.confirmPassword,
-      });
-      const users = await apiService.getUsers();
-      const branchUsers = mapBranchUsers(users, resolvedBranchKey);
-      setEmployees(branchUsers);
-      setOverview(buildOverviewData(patients, branchUsers));
-      setModal(null);
-      setEmpForm(EMPTY_EMP_FORM);
-    } catch (error) {
-      const data = error.response?.data || {};
-      setEmpError(data.username?.[0] || data.emp_id?.[0] || data.password?.[0] || "Failed to create employee.");
-    }
-  }
-  function updateEmpField(field, value) {
-    setEmpForm((currentForm) => ({ ...currentForm, [field]: value }));
-    if (empError) setEmpError("");
-  }
-  async function deleteEmp(id) {
+  function deleteEmp(id) {
     if (!window.confirm("Remove this employee?")) return;
-    try {
-      await apiService.deleteUser(id);
-      const nextEmployees = employees.filter((employee) => employee.id !== id);
-      setEmployees(nextEmployees);
-      setOverview(buildOverviewData(patients, nextEmployees));
-    } catch (error) {
-      window.alert("Failed to remove employee from backend.");
-    }
+    setEmployees(prev => prev.filter(e => e.id !== id));
   }
 
-  // ─── Patient row for Excel ────────────────────────────────────────────────
   const pRow = (p) => ({
     "Patient ID":p.id, Name:p.name, Age:p.age, Gender:p.gender, Phone:p.phone,
     Department:p.department, Doctor:p.doctor, "Admission Date":p.admissionDate,
@@ -623,12 +322,12 @@ export default function BranchAdminDashboard({
 
   // ─── Shared UI ────────────────────────────────────────────────────────────
   const Th = ({ children }) => (
-    <th style={{ padding:"10px 16px", textAlign:"left", fontSize:"9px", letterSpacing:"2px", color:T.textMuted, textTransform:"uppercase", borderBottom:`1px solid ${T.border}`, background:T.surface, whiteSpace:"nowrap" }}>
+    <th style={{ padding:"10px 16px", textAlign:"left", fontSize:"9px", letterSpacing:"1.8px", color:T.textMuted, textTransform:"uppercase", borderBottom:`1px solid ${T.border}`, background:"#f8fafc", whiteSpace:"nowrap", fontWeight:"600" }}>
       {children}
     </th>
   );
   const Td = ({ children, primary, hi, style:sx={} }) => (
-    <td style={{ padding:"12px 16px", borderBottom:`1px solid ${T.border}22`, color:primary?T.text:hi||T.textSub, fontWeight:primary?"600":"400", verticalAlign:"middle", ...sx }}>
+    <td style={{ padding:"12px 16px", borderBottom:`1px solid ${T.border}`, color:primary?T.text:hi||T.textSub, fontWeight:primary?"600":"400", verticalAlign:"middle", ...sx }}>
       {children}
     </td>
   );
@@ -639,10 +338,19 @@ export default function BranchAdminDashboard({
   function StatCard({ label, value, sub, color, prefix="" }) {
     const c = color || theme.primary;
     return (
-      <div style={{ background:T.card, border:`1px solid ${T.border}`, borderTop:`2px solid ${c}`, borderRadius:"10px", padding:"18px 20px", position:"relative", overflow:"hidden" }}>
-        <div style={{ position:"absolute", top:0, right:0, width:"90px", height:"90px", background:`radial-gradient(circle at top right, ${c}14, transparent 70%)`, pointerEvents:"none" }} />
-        <div style={{ fontSize:"9px", letterSpacing:"2.5px", color:T.textMuted, textTransform:"uppercase", marginBottom:"10px" }}>{label}</div>
-        <div style={{ fontSize:"28px", fontWeight:"800", color:c, lineHeight:1, fontVariantNumeric:"tabular-nums" }}>
+      <div style={{
+        background:T.card,
+        border:`1px solid ${T.border}`,
+        borderTop:`3px solid ${c}`,
+        borderRadius:"10px",
+        padding:"18px 20px",
+        position:"relative",
+        overflow:"hidden",
+        boxShadow:"0 1px 4px rgba(0,60,120,0.07)",
+      }}>
+        <div style={{ position:"absolute", top:0, right:0, width:"80px", height:"80px", background:`radial-gradient(circle at top right, ${c}12, transparent 70%)`, pointerEvents:"none" }} />
+        <div style={{ fontSize:"9px", letterSpacing:"2px", color:T.textMuted, textTransform:"uppercase", marginBottom:"10px", fontWeight:"600" }}>{label}</div>
+        <div style={{ fontSize:"26px", fontWeight:"800", color:c, lineHeight:1, fontVariantNumeric:"tabular-nums" }}>
           {prefix}{typeof value === "number" ? value.toLocaleString() : (value ?? "—")}
         </div>
         {sub && <div style={{ fontSize:"11px", color:T.textMuted, marginTop:"5px" }}>{sub}</div>}
@@ -652,11 +360,11 @@ export default function BranchAdminDashboard({
 
   function TableShell({ title, count, action, children }) {
     return (
-      <div style={{ background:T.card, border:`1px solid ${T.border}`, borderRadius:"10px", overflow:"hidden", marginBottom:"22px" }}>
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"12px 18px", borderBottom:`1px solid ${T.border}`, background:T.surfaceRaised }}>
+      <div style={{ background:T.card, border:`1px solid ${T.border}`, borderRadius:"10px", overflow:"hidden", marginBottom:"22px", boxShadow:"0 1px 4px rgba(0,60,120,0.06)" }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"12px 18px", borderBottom:`1px solid ${T.border}`, background:"#f8fafc" }}>
           <div style={{ display:"flex", alignItems:"center", gap:"10px" }}>
-            <span style={{ fontSize:"10px", letterSpacing:"2px", color:T.textSub, textTransform:"uppercase" }}>{title}</span>
-            {count !== undefined && <span style={{ fontSize:"10px", color:T.textMuted, background:T.surface, border:`1px solid ${T.border}`, padding:"1px 8px", borderRadius:"20px" }}>{count}</span>}
+            <span style={{ fontSize:"11px", fontWeight:"600", color:T.textSub, textTransform:"uppercase", letterSpacing:"1px" }}>{title}</span>
+            {count !== undefined && <span style={{ fontSize:"10px", color:T.textMuted, background:"#e8f0fb", border:`1px solid ${T.blueBdr}`, color:T.blue, padding:"1px 9px", borderRadius:"20px", fontWeight:"600" }}>{count}</span>}
           </div>
           {action}
         </div>
@@ -814,7 +522,7 @@ export default function BranchAdminDashboard({
               ...(financials?.cashTxns||[]).map(r=>({...r, __mode:"CASH"})),
               ...(financials?.cashlessTxns||[]).map(r=>({...r, __mode:"CASHLESS"})),
             ];
-            exportExcel(rows, `financials_${resolvedBranchKey}_${range}`);
+            exportExcel(rows, `financials_${branchId}_${range}`);
           }}>↓ Export Excel</button>
         </div>
 
@@ -886,7 +594,7 @@ export default function BranchAdminDashboard({
 
     return (
       <>
-        <div style={{ background:T.card, border:`1px solid ${T.border}`, borderLeft:`3px solid ${theme.primary}`, borderRadius:"10px", padding:"18px 24px", marginBottom:"22px", display:"flex", gap:"28px", flexWrap:"wrap", alignItems:"center" }}>
+        <div style={{ background:T.card, border:`1px solid ${T.border}`, borderLeft:`3px solid ${theme.primary}`, borderRadius:"10px", padding:"18px 24px", marginBottom:"22px", display:"flex", gap:"28px", flexWrap:"wrap", alignItems:"center", boxShadow:"0 1px 4px rgba(0,60,120,0.06)" }}>
           <div>
             <div style={{ fontSize:"9px", letterSpacing:"2px", color:T.textMuted, textTransform:"uppercase", marginBottom:"3px" }}>Patient</div>
             <div style={{ fontSize:"18px", fontWeight:"800", color:T.text }}>{selPatient.name}</div>
@@ -943,36 +651,40 @@ export default function BranchAdminDashboard({
   }
 
   function EmployeesView() {
-    const roleColor = { Doctor:T.blue, Nurse:T.success, Admin:T.warning, Billing:T.purple, HOD:theme.primary };
+    const roleColor = { Doctor:T.blue, Nurse:T.success, Admin:T.warning, Billing:T.purple, Receptionist:theme.primary, HOD:theme.primary };
     return (
       <>
         <div style={{ display:"flex", justifyContent:"flex-end", gap:"10px", marginBottom:"20px" }}>
-          <button style={mkBtn("excel", theme)} onClick={() => exportExcel(employees.map(e=>({ "Emp ID":e.employeeId, Name:e.name, Email:e.email, Phone:e.phone, Role:e.role, Designation:e.designation, Department:e.departmentName, Joined:e.joinedDate, Branch:resolvedBranchName })), `employees_${resolvedBranchKey}`)}>↓ Excel</button>
+          <button style={mkBtn("excel", theme)} onClick={() => exportExcel(employees.map(e=>({
+            "Emp ID":e.employeeId, Name:e.name, Username:e.username||"—",
+            Role:e.role, Designation:e.designation, Department:e.departmentName,
+            Joined:e.joinedDate, Branch:resolvedBranchName,
+          })), `employees_${branchId}`)}>↓ Excel</button>
           <button style={mkBtn("primary", theme)} onClick={() => setModal("emp")}>+ Add Employee</button>
         </div>
 
         <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:"14px", marginBottom:"22px" }}>
-          <StatCard label="Total Staff" value={employees.length} color={theme.primary} />
-          {["Doctor","Nurse","Admin","Billing"].map(r => (
-            <StatCard key={r} label={`${r}s`} value={employees.filter(e=>e.role===r).length} color={roleColor[r]||T.blue} />
-          ))}
+          <StatCard label="Total Staff"    value={employees.length}                               color={theme.primary} />
+          <StatCard label="Doctors"        value={employees.filter(e=>e.role==="Doctor").length}       color={T.blue}        />
+          <StatCard label="Nurses"         value={employees.filter(e=>e.role==="Nurse").length}        color={T.success}     />
+          <StatCard label="Admin"          value={employees.filter(e=>e.role==="Admin").length}        color={T.warning}     />
+          <StatCard label="Receptionists"  value={employees.filter(e=>e.role==="Receptionist").length} color={theme.primary} />
         </div>
 
         <TableShell title="Employees" count={employees.length}>
           <table style={{ width:"100%", borderCollapse:"collapse", fontSize:"12px" }}>
-            <thead><tr>{["Emp ID","Name","Designation","Email","Phone","Role","Department","Joined","Action"].map(h=><Th key={h}>{h}</Th>)}</tr></thead>
+            <thead><tr>{["Emp ID","Name","Username","Designation","Role","Department","Joined","Action"].map(h=><Th key={h}>{h}</Th>)}</tr></thead>
             <tbody>
               {!employees.length
-                ? <EmptyRow cols={9} msg="NO EMPLOYEES" />
+                ? <EmptyRow cols={8} msg="NO EMPLOYEES" />
                 : employees.map(emp => (
                   <tr key={emp.id}>
                     <Td><span style={{color:T.textMuted,fontSize:"10px"}}>{emp.employeeId}</span></Td>
                     <Td primary>{emp.name}</Td>
+                    <Td>{emp.username||"—"}</Td>
                     <Td>{emp.designation||"—"}</Td>
-                    <Td>{emp.email}</Td>
-                    <Td>{emp.phone}</Td>
                     <Td>
-                      <span style={{ background:(roleColor[emp.role]||T.blue)+"20", color:roleColor[emp.role]||T.blue, border:`1px solid ${(roleColor[emp.role]||T.blue)}40`, padding:"2px 9px", borderRadius:"20px", fontSize:"10px", fontWeight:"600" }}>
+                      <span style={{ background:(roleColor[emp.role]||T.blue)+"20", color:roleColor[emp.role]||T.blue, border:`1px solid ${(roleColor[emp.role]||T.blue)}50`, padding:"2px 9px", borderRadius:"20px", fontSize:"10px", fontWeight:"600" }}>
                         {emp.role}
                       </span>
                     </Td>
@@ -988,55 +700,94 @@ export default function BranchAdminDashboard({
     );
   }
 
-  const fi = { ...mkInput(), width:"100%" };
-  const fs = { ...mkInput(), width:"100%", cursor:"pointer" };
+  function ModalWrap({ title, onClose, onSubmit, children }) {
+    return (
+      <div style={{ position:"fixed", inset:0, background:"rgba(10,34,64,0.55)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:1000, backdropFilter:"blur(4px)" }}
+        onClick={onClose}>
+        <div style={{ background:T.card, border:`1px solid ${T.border}`, borderRadius:"14px", padding:"30px", width:"530px", maxHeight:"85vh", overflowY:"auto", boxShadow:`0 20px 60px rgba(0,40,100,0.18), 0 0 0 1px ${theme.primaryBorder}` }}
+          onClick={e => e.stopPropagation()}>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:"26px" }}>
+            <div>
+              <div style={{ fontSize:"9px", letterSpacing:"3px", color:theme.primary, textTransform:"uppercase", marginBottom:"3px" }}>{resolvedBranchName}</div>
+              <div style={{ fontSize:"16px", fontWeight:"700", color:T.text }}>{title}</div>
+            </div>
+            <button style={{ ...mkBtn("ghost",theme), padding:"6px 10px" }} onClick={onClose}>✕</button>
+          </div>
+          <form onSubmit={onSubmit}>
+            {children}
+            <div style={{ display:"flex", gap:"10px", justifyContent:"flex-end", marginTop:"24px", paddingTop:"18px", borderTop:`1px solid ${T.border}` }}>
+              <button type="button" style={mkBtn("ghost",theme)} onClick={onClose}>Cancel</button>
+              <button type="submit" style={mkBtn("primary",theme)}>Confirm</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  }
 
-  // ─── Render ───────────────────────────────────────────────────────────────
+  const FRow = ({ label, children }) => (
+    <div style={{ marginBottom:"15px" }}>
+      <label style={{ display:"block", fontSize:"9px", letterSpacing:"2px", color:T.textMuted, textTransform:"uppercase", marginBottom:"6px", fontWeight:"600" }}>{label}</label>
+      {children}
+    </div>
+  );
+  const fi = { ...mkInput(), width:"100%", boxSizing:"border-box" };
+
+  const pwMatch   = empForm.confirmPassword && empForm.password === empForm.confirmPassword;
+  const pwNoMatch = empForm.confirmPassword && empForm.password !== empForm.confirmPassword;
+
   return (
-    <div style={{ display:"flex", height:"100vh", background:T.bg, color:T.text, fontFamily:UI_FONT_STACK, overflow:"hidden" }}>
+    <div style={{ display:"flex", height:"100vh", background:T.bg, color:T.text, fontFamily:"'Segoe UI','DM Sans',system-ui,sans-serif", overflow:"hidden" }}>
 
-      {/* ── Sidebar ─────────────────────────────────────────────────────── */}
-      <aside style={{ width:"256px", minWidth:"256px", background:T.surface, borderRight:`1px solid ${T.border}`, display:"flex", flexDirection:"column" }}>
-        <div style={{ padding:"22px 20px 18px", borderBottom:`1px solid ${T.border}` }}>
-          <div style={{ fontSize:"8px", letterSpacing:"4px", color:T.textMuted, textTransform:"uppercase", marginBottom:"2px" }}>MedCore HMS</div>
-          <div style={{ fontSize:"16px", fontWeight:"800", color:T.text }}>Branch Admin</div>
-          <div style={{ marginTop:"12px", display:"flex", alignItems:"center", gap:"10px" }}>
-            <div style={{ width:"34px", height:"34px", borderRadius:"9px", flexShrink:0, background:theme.primaryDim, border:`1px solid ${theme.primaryBorder}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:"14px", fontWeight:"800", color:theme.primary }}>
-              {resolvedAdminName?.[0]?.toUpperCase() || "A"}
+      {/* ── Sidebar — deep navy ─────────────────────────────────────────── */}
+      <aside style={{ width:"256px", minWidth:"256px", background:T.navBg, borderRight:`1px solid #0a1e38`, display:"flex", flexDirection:"column" }}>
+        {/* Logo / Brand */}
+        <div style={{ padding:"20px 20px 16px", borderBottom:`1px solid #122840` }}>
+          <div style={{ display:"flex", alignItems:"center", gap:"10px", marginBottom:"16px" }}>
+            <div style={{ width:"36px", height:"36px", borderRadius:"9px", background:"linear-gradient(135deg,#1a6eb5,#0a4a88)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"18px", boxShadow:"0 2px 8px rgba(0,0,0,0.3)" }}>
+              🏥
             </div>
             <div>
-              <div style={{ fontSize:"13px", fontWeight:"600", color:T.text }}>{resolvedAdminName}</div>
-              <div style={{ fontSize:"9px", color:T.textMuted, letterSpacing:"1px" }}>Branch Admin</div>
+              <div style={{ fontSize:"14px", fontWeight:"700", color:"#ffffff", lineHeight:1.1 }}>MedCore HMS</div>
+              <div style={{ fontSize:"9px", letterSpacing:"2px", color:T.navMuted, textTransform:"uppercase" }}>Branch Admin</div>
+            </div>
+          </div>
+          <div style={{ display:"flex", alignItems:"center", gap:"10px" }}>
+            <div style={{ width:"32px", height:"32px", borderRadius:"8px", flexShrink:0, background:"#1a4a7a", border:`1px solid #2a6aaa`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:"13px", fontWeight:"800", color:"#7ec8f5" }}>
+              {adminName?.[0]?.toUpperCase() || "A"}
+            </div>
+            <div>
+              <div style={{ fontSize:"12px", fontWeight:"600", color:"#e2f0ff" }}>{adminName}</div>
+              <div style={{ fontSize:"9px", color:T.navMuted, letterSpacing:"1px" }}>Branch Admin</div>
             </div>
           </div>
         </div>
 
-        <div style={{ margin:"14px 14px 2px", padding:"11px 14px", background:theme.glow, border:`1px solid ${theme.primaryBorder}`, borderRadius:"9px" }}>
-          <div style={{ fontSize:"8px", letterSpacing:"2px", color:T.textMuted, textTransform:"uppercase", marginBottom:"5px" }}>Assigned Branch</div>
-          <div style={{ display:"flex", alignItems:"center", gap:"8px", marginBottom:"3px" }}>
-            <div style={{ width:"9px", height:"9px", borderRadius:"50%", background:theme.primary, flexShrink:0 }} />
-            <div style={{ fontSize:"14px", fontWeight:"700", color:theme.primary }}>{resolvedBranchName}</div>
+        {/* Branch pill */}
+        <div style={{ margin:"12px 14px 4px", padding:"10px 14px", background:"rgba(26,110,181,0.18)", border:`1px solid #1a4a7a`, borderRadius:"9px" }}>
+          <div style={{ fontSize:"8px", letterSpacing:"2px", color:T.navMuted, textTransform:"uppercase", marginBottom:"4px" }}>Assigned Branch</div>
+          <div style={{ display:"flex", alignItems:"center", gap:"8px" }}>
+            <div style={{ width:"8px", height:"8px", borderRadius:"50%", background:"#4fc3f7", flexShrink:0, boxShadow:"0 0 6px #4fc3f7" }} />
+            <div style={{ fontSize:"13px", fontWeight:"700", color:"#7ec8f5" }}>{resolvedBranchName}</div>
           </div>
-          <div style={{ fontSize:"9px", color:T.textMuted }}>Read-only · Set by SuperAdmin</div>
-          {onLogout && (
-            <button style={{ ...mkBtn("danger", theme), marginTop:"10px", width:"100%", justifyContent:"center" }} onClick={onLogout}>Logout</button>
-          )}
+          <div style={{ fontSize:"9px", color:T.navMuted, marginTop:"2px" }}>Read-only · Set by SuperAdmin</div>
         </div>
 
-        <div style={{ flex:1, padding:"14px 12px", overflowY:"auto" }}>
-          <div style={{ fontSize:"8px", letterSpacing:"3px", color:T.textMuted, textTransform:"uppercase", padding:"0 8px", marginBottom:"8px" }}>Menu</div>
+        {/* Nav */}
+        <div style={{ flex:1, padding:"12px 10px", overflowY:"auto" }}>
+          <div style={{ fontSize:"8px", letterSpacing:"3px", color:T.navMuted, textTransform:"uppercase", padding:"0 8px", marginBottom:"8px" }}>Menu</div>
           {NAV.map(item => (
             <button key={item.id} onClick={() => setNav(item.id)} style={{
               display:"flex", alignItems:"center", gap:"10px",
-              width:"100%", padding:"10px 12px", borderRadius:"8px",
+              width:"100%", padding:"9px 12px", borderRadius:"8px",
               border:"none", cursor:"pointer", textAlign:"left",
               marginBottom:"2px", fontFamily:"inherit",
-              background: nav===item.id ? theme.primaryDim : "transparent",
-              color: nav===item.id ? theme.primary : T.textSub,
-              borderLeft: nav===item.id ? `2px solid ${theme.primary}` : "2px solid transparent",
+              background: nav===item.id ? "rgba(26,110,181,0.28)" : "transparent",
+              color: nav===item.id ? "#7ec8f5" : T.navText,
+              borderLeft: nav===item.id ? `2px solid #4fc3f7` : "2px solid transparent",
               transition:"all 0.15s",
             }}>
-              <span style={{ fontSize:"15px", width:"20px", textAlign:"center", flexShrink:0 }}>{item.icon}</span>
+              <span style={{ fontSize:"14px", width:"20px", textAlign:"center", flexShrink:0 }}>{item.icon}</span>
               <span style={{ fontSize:"12px", fontWeight: nav===item.id ? "600" : "400" }}>{item.label}</span>
             </button>
           ))}
@@ -1046,130 +797,89 @@ export default function BranchAdminDashboard({
       {/* ── Main ─────────────────────────────────────────────────────────── */}
       <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
 
-        {/* Topbar */}
-        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"14px 28px", borderBottom:`1px solid ${T.border}`, background:T.surface, flexShrink:0 }}>
+        {/* Topbar — dark navy matching screenshot */}
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"12px 24px", borderBottom:`1px solid #0a1e38`, background:T.topbarBg, flexShrink:0 }}>
           <div>
-            <div style={{ fontSize:"9px", letterSpacing:"2px", color:T.textMuted, textTransform:"uppercase", marginBottom:"2px" }}>
+            <div style={{ fontSize:"9px", letterSpacing:"2px", color:"#4a7098", textTransform:"uppercase", marginBottom:"2px" }}>
               {resolvedBranchName} / {NAV.find(n=>n.id===nav)?.label}
             </div>
-            <div style={{ fontSize:"18px", fontWeight:"800", color:T.text }}>{NAV.find(n=>n.id===nav)?.label}</div>
+            <div style={{ fontSize:"17px", fontWeight:"700", color:"#e2f0ff" }}>{NAV.find(n=>n.id===nav)?.label}</div>
           </div>
 
           <div style={{ display:"flex", gap:"10px", alignItems:"center" }}>
-            <div style={{ display:"flex", background:T.surfaceRaised, border:`1px solid ${T.border}`, borderRadius:"8px", overflow:"hidden" }}>
+            <div style={{ display:"flex", background:"#0d2a4a", border:`1px solid #1a3a5c`, borderRadius:"8px", overflow:"hidden" }}>
               {RANGES.map(r => (
                 <button key={r} onClick={() => setRange(r)} style={{
                   padding:"7px 14px", border:"none", cursor:"pointer", fontFamily:"inherit",
                   fontSize:"11px", letterSpacing:"0.5px", transition:"all 0.15s",
-                  background: range===r ? theme.primaryDim : "transparent",
-                  color: range===r ? theme.primary : T.textMuted,
+                  background: range===r ? "rgba(26,110,181,0.4)" : "transparent",
+                  color: range===r ? "#7ec8f5" : "#4a7098",
                   fontWeight: range===r ? "600" : "400",
                 }}>{r.charAt(0).toUpperCase()+r.slice(1)}</button>
               ))}
             </div>
-            <input type="date" style={{ ...mkInput(), fontSize:"11px" }} value={fromDate} onChange={e=>setFromDate(e.target.value)} title="From Date" />
-            <span style={{ color:T.textMuted }}>→</span>
-            <input type="date" style={{ ...mkInput(), fontSize:"11px" }} value={toDate} onChange={e=>setToDate(e.target.value)} title="To Date" />
-            <ThemeModeDock variant="inline" />
+            <input type="date" style={{ background:"#0d2a4a", border:`1px solid #1a3a5c`, color:"#b8d4f0", padding:"7px 12px", borderRadius:"7px", fontSize:"11px", fontFamily:"inherit", outline:"none" }} value={fromDate} onChange={e=>setFromDate(e.target.value)} title="From Date" />
+            <span style={{ color:"#4a7098" }}>→</span>
+            <input type="date" style={{ background:"#0d2a4a", border:`1px solid #1a3a5c`, color:"#b8d4f0", padding:"7px 12px", borderRadius:"7px", fontSize:"11px", fontFamily:"inherit", outline:"none" }} value={toDate} onChange={e=>setToDate(e.target.value)} title="To Date" />
           </div>
         </div>
 
-        {/* Page content */}
-        <div style={{ flex:1, overflowY:"auto", padding:"26px 28px" }}>
+        {/* Page content — light background */}
+        <div style={{ flex:1, overflowY:"auto", padding:"24px 26px", background:T.bg }}>
           {nav==="overview"   && <OverviewView />}
-          {nav==="patients"   && <PatientListView data={patients}     exportFile={`all_patients_${resolvedBranchKey}_${range}`}      title="All Patients" />}
-          {nav==="cash"       && <PatientListView data={cashPats}     exportFile={`cash_patients_${resolvedBranchKey}_${range}`}     title="Cash Patients" />}
-          {nav==="cashless"   && <PatientListView data={cashlessPats} exportFile={`cashless_patients_${resolvedBranchKey}_${range}`} title="Cashless Patients — TPA / Card" />}
+          {nav==="patients"   && <PatientListView data={patients}     exportFile={`all_patients_${branchId}_${range}`}      title="All Patients" />}
+          {nav==="cash"       && <PatientListView data={cashPats}     exportFile={`cash_patients_${branchId}_${range}`}     title="Cash Patients" />}
+          {nav==="cashless"   && <PatientListView data={cashlessPats} exportFile={`cashless_patients_${branchId}_${range}`} title="Cashless Patients — TPA / Card" />}
           {nav==="records"    && <RecordsView />}
           {nav==="financials" && <FinancialsView />}
           {nav==="employees"  && <EmployeesView />}
         </div>
       </div>
 
-      {/* ── Employee Modal ───────────────────────────────────────────────── */}
+      {/* ── Add Employee Modal ───────────────────────────────────────────── */}
       {modal==="emp" && (
-        <div
-          style={{ position:"fixed", inset:0, background:"rgba(3,8,18,0.72)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:1000, backdropFilter:"blur(8px)" }}
-          onClick={() => setModal(null)}
-        >
-          <div
-            style={{ background:T.surface, border:`1px solid ${T.borderLight}`, borderRadius:"18px", padding:"32px", width:"560px", maxHeight:"88vh", overflowY:"auto", boxShadow:`0 30px 80px rgba(0,0,0,0.55), 0 0 0 1px ${theme.primary}24` }}
-            onClick={e => e.stopPropagation()}
-          >
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:"24px" }}>
-              <div>
-                <div style={{ fontSize:"11px", letterSpacing:"0.18em", color:theme.primary, textTransform:"uppercase", marginBottom:"6px", fontWeight:"700" }}>{resolvedBranchName}</div>
-                <div style={{ fontSize:"28px", fontWeight:"800", color:T.text, lineHeight:1.1 }}>Add Employee</div>
-                <div style={{ fontSize:"13px", color:T.textSub, marginTop:"6px" }}>Create a staff account for this branch with the same form behavior and styling used across the admin dashboards.</div>
+        <ModalWrap title="Add Employee" onClose={()=>{ setModal(null); setEmpForm(EMPTY_EMP); setShowPw(false); setShowCpw(false); }} onSubmit={addEmployee}>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"0 16px" }}>
+            <FRow label="Full Name">
+              <input style={fi} placeholder="e.g. Priya Sharma" value={empForm.name} onChange={e=>setEmpForm({...empForm, name:e.target.value})} required />
+            </FRow>
+            <FRow label="Username">
+              <input style={fi} placeholder="e.g. priya.sharma" value={empForm.username} onChange={e=>setEmpForm({...empForm, username:e.target.value})} required />
+            </FRow>
+            <FRow label="Employee ID">
+              <input style={fi} placeholder={`EMP-${String(employees.length + 1).padStart(3,"0")}`} value={empForm.employeeId} onChange={e=>setEmpForm({...empForm, employeeId:e.target.value})} />
+            </FRow>
+            <FRow label="Department">
+              <div style={{ ...fi, display:"flex", alignItems:"center", justifyContent:"space-between", opacity:0.65, cursor:"not-allowed", userSelect:"none" }}>
+                <span style={{ color:T.text }}>Receptionist</span>
+                <span style={{ fontSize:"9px", letterSpacing:"1px", color:T.textMuted, background:T.bg, border:`1px solid ${T.border}`, padding:"2px 8px", borderRadius:"20px" }}>ONLY</span>
               </div>
-              <button type="button" style={{ ...mkBtn("ghost",theme), padding:"8px 11px" }} onClick={() => setModal(null)}>✕</button>
-            </div>
-
-            <form onSubmit={addEmployee}>
-              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"16px 18px" }}>
-                <div>
-                  <label style={{ display:"block", fontSize:"12px", fontWeight:"700", color:T.textSub, marginBottom:"7px" }}>Full Name</label>
-                  <input style={fi} value={empForm.name} onChange={e => updateEmpField("name", e.target.value)} placeholder="Aman Kumar" required />
-                </div>
-                <div>
-                  <label style={{ display:"block", fontSize:"12px", fontWeight:"700", color:T.textSub, marginBottom:"7px" }}>Username</label>
-                  <input style={fi} value={empForm.username} onChange={e => updateEmpField("username", e.target.value)} placeholder="aman.kumar" required />
-                </div>
-                <div>
-                  <label style={{ display:"block", fontSize:"12px", fontWeight:"700", color:T.textSub, marginBottom:"7px" }}>Employee ID</label>
-                  <input style={{ ...fi, fontFamily:UI_MONO_STACK }} value={empForm.employeeId} onChange={e => updateEmpField("employeeId", e.target.value)} placeholder="EMP-001" />
-                </div>
-                <div>
-                  <label style={{ display:"block", fontSize:"12px", fontWeight:"700", color:T.textSub, marginBottom:"7px" }}>Email</label>
-                  <input type="email" style={fi} value={empForm.email} onChange={e => updateEmpField("email", e.target.value)} placeholder="aman@sangihospital.com" required />
-                </div>
-                <div>
-                  <label style={{ display:"block", fontSize:"12px", fontWeight:"700", color:T.textSub, marginBottom:"7px" }}>Phone</label>
-                  <input style={fi} value={empForm.phone} onChange={e => updateEmpField("phone", e.target.value)} placeholder="+91 98765 43210" />
-                </div>
-                <div>
-                  <label style={{ display:"block", fontSize:"12px", fontWeight:"700", color:T.textSub, marginBottom:"7px" }}>Role</label>
-                  <select style={fs} value={empForm.role} onChange={e => updateEmpField("role", e.target.value)} required>
-                    <option value="">Select role</option>
-                    {["Billing","Receptionist","HOD","OPD","Intimation","Query","Uploading"].map(r => <option key={r} value={r}>{r}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label style={{ display:"block", fontSize:"12px", fontWeight:"700", color:T.textSub, marginBottom:"7px" }}>Designation</label>
-                  <input style={fi} value={empForm.designation} onChange={e => updateEmpField("designation", e.target.value)} placeholder="Senior Consultant" />
-                </div>
-                <div>
-                  <label style={{ display:"block", fontSize:"12px", fontWeight:"700", color:T.textSub, marginBottom:"7px" }}>Password</label>
-                  <input type="password" style={fi} value={empForm.password} onChange={e => updateEmpField("password", e.target.value)} placeholder="Create a password" required />
-                </div>
-                <div>
-                  <label style={{ display:"block", fontSize:"12px", fontWeight:"700", color:T.textSub, marginBottom:"7px" }}>Confirm Password</label>
-                  <input type="password" style={fi} value={empForm.confirmPassword} onChange={e => updateEmpField("confirmPassword", e.target.value)} placeholder="Repeat the password" required />
-                </div>
+            </FRow>
+            <FRow label="Password">
+              <div style={{ position:"relative" }}>
+                <input type={showPw ? "text" : "password"} style={{ ...fi, paddingRight:"36px" }} placeholder="Min. 6 characters" value={empForm.password} onChange={e=>setEmpForm({...empForm, password:e.target.value})} required />
+                <button type="button" onClick={()=>setShowPw(v=>!v)} style={{ position:"absolute", right:"10px", top:"50%", transform:"translateY(-50%)", background:"none", border:"none", color:T.textMuted, cursor:"pointer", fontSize:"13px", padding:0 }}>{showPw ? "◉" : "◎"}</button>
               </div>
-
-              <div style={{ marginTop:"16px" }}>
-                <label style={{ display:"block", fontSize:"12px", fontWeight:"700", color:T.textSub, marginBottom:"7px" }}>Department Name</label>
-                <input style={fi} value={empForm.departmentName} onChange={e => updateEmpField("departmentName", e.target.value)} placeholder="Cardiology, ICU" required />
+            </FRow>
+            <FRow label="Confirm Password">
+              <div style={{ position:"relative" }}>
+                <input type={showCpw ? "text" : "password"} style={{ ...fi, paddingRight:"36px", borderColor: pwNoMatch ? T.danger : pwMatch ? T.success : undefined }} placeholder="Re-enter password" value={empForm.confirmPassword} onChange={e=>setEmpForm({...empForm, confirmPassword:e.target.value})} required />
+                <button type="button" onClick={()=>setShowCpw(v=>!v)} style={{ position:"absolute", right:"10px", top:"50%", transform:"translateY(-50%)", background:"none", border:"none", color:T.textMuted, cursor:"pointer", fontSize:"13px", padding:0 }}>{showCpw ? "◉" : "◎"}</button>
               </div>
-
-              {empError && <div style={{ color:T.danger, fontSize:"12px", marginTop:"12px" }}>{empError}</div>}
-
-              <div style={{ display:"flex", gap:"10px", justifyContent:"flex-end", marginTop:"24px", paddingTop:"18px", borderTop:`1px solid ${T.border}` }}>
-                <button type="button" style={mkBtn("ghost",theme)} onClick={() => setModal(null)}>Cancel</button>
-                <button type="submit" style={mkBtn("primary",theme)}>Create Employee</button>
-              </div>
-            </form>
+              {pwNoMatch && <div style={{ fontSize:"10px", color:T.danger,  marginTop:"5px" }}>✕ Passwords do not match</div>}
+              {pwMatch   && <div style={{ fontSize:"10px", color:T.success, marginTop:"5px" }}>✓ Passwords match</div>}
+            </FRow>
           </div>
-        </div>
+        </ModalWrap>
       )}
 
       <style>{`
         *::-webkit-scrollbar { width:5px; height:5px }
         *::-webkit-scrollbar-track { background:transparent }
-        *::-webkit-scrollbar-thumb { background:${T.border}; border-radius:10px }
-        *::-webkit-scrollbar-thumb:hover { background:${T.borderLight} }
-        tr:hover td { background:${T.surfaceRaised}22 }
+        *::-webkit-scrollbar-thumb { background:#c8d6e8; border-radius:10px }
+        *::-webkit-scrollbar-thumb:hover { background:#93b4d4 }
+        tr:hover td { background:#f0f6ff !important }
+        input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.5) sepia(1) saturate(2) hue-rotate(185deg); cursor:pointer; }
       `}</style>
     </div>
   );

@@ -1,1305 +1,549 @@
-import { useState, useEffect } from "react";
-import ThemeModeDock from "../components/ui/ThemeModeDock";
+import { useState } from "react";
 
 const DEPARTMENTS = ["Billing", "Uploading", "Query", "OPD", "Intimation"];
+const BILLING_TASK_TYPES = ["Generate Bill", "Discharge Summary", "Reports", "Medical History", "Medicines"];
 
-const BILLING_TASK_TYPES = [
-  "Generate Bill",
-  "Discharge Summary",
-  "Reports",
-  "Medical History",
-  "Medicines",
+const T = {
+  bg:"#f0f4f8", surface:"#ffffff", surfaceAlt:"#f7fafc",
+  topbar:"#1e3a5f", topbarText:"#ffffff",
+  primary:"#1e7bbf", primaryDark:"#155d99", primaryLight:"#e8f4fd",
+  border:"#dde8f0", borderLight:"#eef4f9",
+  text:"#1a2e45", textMid:"#4a6585", textLight:"#7a9ab8", textMuted:"#a0b8cc",
+  sectionIcon:"#2a7dc4",
+  danger:"#e53e3e", dangerBg:"#fff5f5", dangerBorder:"#fc8181",
+  success:"#2f855a", successBg:"#f0fff4", successBorder:"#68d391",
+  warning:"#b7791f",
+};
+
+const DEPT_ACCENT = { Billing:"#1e7bbf", Uploading:"#6b48d4", Query:"#b7791f", OPD:"#2f855a", Intimation:"#c05621" };
+const DEPT_ICONS  = { Billing:"₹", Uploading:"↑", Query:"?", OPD:"⚕", Intimation:"📋" };
+
+const STATUS_CFG = {
+  pending:       { bg:"#fffbeb", text:"#b7791f", border:"#f6d860" },
+  "in-progress": { bg:"#ebf8ff", text:"#1e7bbf", border:"#90cdf4" },
+  completed:     { bg:"#f0fff4", text:"#2f855a", border:"#68d391" },
+  overdue:       { bg:"#fff5f5", text:"#c53030", border:"#fc8181" },
+};
+const PRIORITY_COLOR = { low:"#718096", medium:"#b7791f", high:"#c53030" };
+
+const MOCK_EMPLOYEES = {
+  Billing:    [
+    { id:"EMP001", name:"Priya Sharma",  username:"priya.sharma", email:"priya@sangihospital.com",  role:"Billing Executive",    department:"Billing",    taskCount:8  },
+    { id:"EMP002", name:"Rahul Mehta",   username:"rahul.mehta",  email:"rahul@sangihospital.com",  role:"Senior Biller",        department:"Billing",    taskCount:12 },
+    { id:"EMP003", name:"Sunita Verma",  username:"sunita.v",     email:"sunita@sangihospital.com", role:"Billing Executive",    department:"Billing",    taskCount:5  },
+  ],
+  Uploading:  [
+    { id:"EMP004", name:"Amit Kumar",    username:"amit.k",       email:"amit@sangihospital.com",   role:"Data Entry Operator",  department:"Uploading",  taskCount:14 },
+    { id:"EMP005", name:"Neha Singh",    username:"neha.s",       email:"neha@sangihospital.com",   role:"Upload Specialist",    department:"Uploading",  taskCount:9  },
+  ],
+  Query:      [
+    { id:"EMP006", name:"Deepak Joshi",  username:"deepak.j",     email:"deepak@sangihospital.com", role:"Query Handler",        department:"Query",      taskCount:6  },
+    { id:"EMP007", name:"Kavita Rao",    username:"kavita.r",     email:"kavita@sangihospital.com", role:"Senior Query Analyst", department:"Query",      taskCount:11 },
+  ],
+  OPD:        [
+    { id:"EMP008", name:"Manish Gupta",  username:"manish.g",     email:"manish@sangihospital.com", role:"OPD Coordinator",      department:"OPD",        taskCount:7  },
+  ],
+  Intimation: [
+    { id:"EMP009", name:"Pooja Nair",    username:"pooja.n",      email:"pooja@sangihospital.com",  role:"Intimation Officer",   department:"Intimation", taskCount:10 },
+    { id:"EMP010", name:"Sanjay Patel",  username:"sanjay.p",     email:"sanjay@sangihospital.com", role:"Intimation Executive", department:"Intimation", taskCount:3  },
+  ],
+};
+
+const MOCK_TASKS_INIT = [
+  { id:"T001", employeeId:"EMP001", employeeName:"Priya Sharma", taskType:"Generate Bill",     patientId:"PT-10234", patientType:"TPA",  priority:"high",   dueDate:"2026-04-24", status:"pending",     notes:"Urgent TPA claim"         },
+  { id:"T002", employeeId:"EMP002", employeeName:"Rahul Mehta",  taskType:"Discharge Summary", patientId:"PT-10198", patientType:"Card", priority:"medium", dueDate:"2026-04-25", status:"in-progress", notes:""                         },
+  { id:"T003", employeeId:"EMP003", employeeName:"Sunita Verma", taskType:"Reports",           patientId:"PT-10301", patientType:"TPA",  priority:"low",    dueDate:"2026-04-23", status:"overdue",     notes:"Follow up with insurance" },
+  { id:"T004", employeeId:"EMP001", employeeName:"Priya Sharma", taskType:"Medicines",         patientId:"PT-10222", patientType:"Card", priority:"medium", dueDate:"2026-04-26", status:"completed",   notes:""                         },
+  { id:"T005", employeeId:"EMP002", employeeName:"Rahul Mehta",  taskType:"Medical History",   patientId:"PT-10189", patientType:"TPA",  priority:"high",   dueDate:"2026-04-24", status:"pending",     notes:"Priority case"            },
 ];
 
-const STATUS_COLORS = {
-  pending:     { bg: "#2a1f0a", text: "#f59e0b", border: "#92400e" },
-  "in-progress": { bg: "#0a1f2a", text: "#38bdf8", border: "#0369a1" },
-  completed:   { bg: "#0a2a1a", text: "#34d399", border: "#065f46" },
-  overdue:     { bg: "#2a0a0a", text: "#f87171", border: "#991b1b" },
-};
+const MOCK_REVIEWS_INIT = [
+  { id:"R001", employeeId:"EMP001", employeeName:"Priya Sharma", period:"weekly",  rating:4, performanceScore:"88/100", comments:"Excellent performance, handles TPA cases efficiently.", submittedAt:"2026-04-20" },
+  { id:"R002", employeeId:"EMP002", employeeName:"Rahul Mehta",  period:"monthly", rating:5, performanceScore:"95/100", comments:"Outstanding work on billing accuracy.",                submittedAt:"2026-04-15" },
+];
 
-const PRIORITY_COLORS = {
-  low:    "#6b7280",
-  medium: "#f59e0b",
-  high:   "#f87171",
-};
-
-const DEPT_COLORS = {
-  Billing:    "#34d399",
-  Uploading:  "#818cf8",
-  Query:      "#f59e0b",
-  OPD:        "#f87171",
-  Intimation: "#38bdf8",
-};
-
-const DEPT_ICONS = {
-  Billing:    "₹",
-  Uploading:  "↑",
-  Query:      "?",
-  OPD:        "🏥",
-  Intimation: "📋",
-};
-
-const VIEW_ICONS = {
-  tasks:     "☑",
-  analytics: "📊",
-  reviews:   "⭐",
-  employees: "👥",
-};
-
-const API_ORIGIN = process.env.REACT_APP_API_ORIGIN || "http://127.0.0.1:8000";
-
-export default function HodDashboard({ currentUser, onLogout }) {
+export default function HodDashboard({ currentUser = { name: "Dr. Admin" }, onLogout }) {
   const [activeDept, setActiveDept] = useState("Billing");
   const [activeView, setActiveView] = useState("tasks");
-  const [employees, setEmployees] = useState([]);
-  const [tasks, setTasks] = useState([]);
-  const [analytics, setAnalytics] = useState(null);
-  const [reviews, setReviews] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [employees,  setEmployees]  = useState(MOCK_EMPLOYEES["Billing"]);
+  const [tasks,      setTasks]      = useState(MOCK_TASKS_INIT);
+  const [reviews,    setReviews]    = useState(MOCK_REVIEWS_INIT);
+  const [collapsed,  setCollapsed]  = useState(false);
 
-  // Filters
-  const [filterEmployee, setFilterEmployee] = useState("");
-  const [filterDate, setFilterDate] = useState("");
-  const [filterRange, setFilterRange] = useState("daily");
-  const [filterStatus, setFilterStatus] = useState("");
+  const [fEmp, setFEmp] = useState(""); const [fDate, setFDate] = useState(""); const [fStatus, setFStatus] = useState(""); const [fRange, setFRange] = useState("weekly");
+  const [showTask, setShowTask] = useState(false); const [showEmp, setShowEmp] = useState(false); const [showReview, setShowReview] = useState(false); const [editTask, setEditTask] = useState(null); const [showLogout, setShowLogout] = useState(false);
+  const [taskF, setTaskF] = useState({ employeeId:"", taskType:"", patientId:"", patientType:"TPA", priority:"medium", dueDate:"", notes:"" });
+  const [empF,  setEmpF]  = useState({ fullName:"", username:"", department:"Billing", empId:"", email:"", password:"", confirmPassword:"" });
+  const [empErr, setEmpErr] = useState("");
+  const [revF,  setRevF]  = useState({ employeeId:"", period:"weekly", rating:5, comments:"", performanceScore:"" });
+  const [nextT, setNextT] = useState(6); const [nextE, setNextE] = useState(11); const [nextR, setNextR] = useState(3);
 
-  // Task form
-  const [showTaskForm, setShowTaskForm] = useState(false);
-  const [taskForm, setTaskForm] = useState({
-    employeeId: "",
-    department: activeDept,
-    taskType: "",
-    patientId: "",
-    patientType: "TPA",
-    priority: "medium",
-    dueDate: "",
-    notes: "",
+  function switchDept(d) { setActiveDept(d); setEmployees(MOCK_EMPLOYEES[d]||[]); setActiveView("tasks"); setFEmp(""); setFDate(""); setFStatus(""); }
+
+  const deptTasks = tasks.filter(t => {
+    if (!(MOCK_EMPLOYEES[activeDept]||[]).some(e=>e.id===t.employeeId)) return false;
+    if (fEmp    && t.employeeId!==fEmp)    return false;
+    if (fStatus && t.status!==fStatus)     return false;
+    if (fDate   && t.dueDate!==fDate)      return false;
+    return true;
   });
 
-  // Review form
-  const [showReviewForm, setShowReviewForm] = useState(false);
-  const [reviewForm, setReviewForm] = useState({
-    employeeId: "",
-    period: "weekly",
-    rating: 5,
-    comments: "",
-    performanceScore: "",
+  const pendingCnt = deptTasks.filter(t=>t.status==="pending").length;
+  const overdueCnt = deptTasks.filter(t=>t.status==="overdue").length;
+  const doneCnt    = deptTasks.filter(t=>t.status==="completed").length;
+  const inProgCnt  = deptTasks.filter(t=>t.status==="in-progress").length;
+
+  const empStats = employees.map(emp => {
+    const et = tasks.filter(t=>t.employeeId===emp.id);
+    const comp = et.filter(t=>t.status==="completed").length;
+    return { ...emp, assigned:et.length, completed:comp, pending:et.filter(t=>t.status==="pending").length, overdue:et.filter(t=>t.status==="overdue").length, pct:et.length?Math.round(comp/et.length*100):0 };
   });
 
-  // Edit task
-  const [editingTask, setEditingTask] = useState(null);
-  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-
-  const API = `${API_ORIGIN}/api/hod`;
-
-  function normalizeApiPath(path) {
-    const [pathname, search = ""] = String(path || "/").split("?");
-    const normalizedPath = pathname.endsWith("/") ? pathname : `${pathname}/`;
-    return search ? `${normalizedPath}?${search}` : normalizedPath;
-  }
-
-  async function apiFetch(path, options = {}) {
-    setLoading(true);
-    setError(null);
-    try {
-      const token = sessionStorage.getItem("hms_token");
-      const res = await fetch(`${API}${normalizeApiPath(path)}`, {
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        ...options,
-      });
-      const contentType = res.headers.get("content-type") || "";
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(text || `API error: ${res.status}`);
-      }
-      if (!contentType.includes("application/json")) {
-        const text = await res.text();
-        throw new Error(text || "API did not return JSON.");
-      }
-      return await res.json();
-    } catch (e) {
-      setError(e.message);
-      return null;
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    fetchEmployees();
-    fetchTasks();
-  }, [activeDept]);
-
-  useEffect(() => {
-    if (activeView === "analytics") fetchAnalytics();
-    if (activeView === "reviews") fetchReviews();
-    if (activeView === "employees") fetchEmployees();
-  }, [activeView, filterRange, filterEmployee, filterDate]);
-
-  async function fetchEmployees() {
-    const data = await apiFetch(`/employees?department=${activeDept}`);
-    if (data) setEmployees(data.employees || []);
-  }
-
-  async function fetchTasks() {
-    const params = new URLSearchParams({ department: activeDept });
-    if (filterEmployee) params.append("employeeId", filterEmployee);
-    if (filterDate) params.append("date", filterDate);
-    if (filterStatus) params.append("status", filterStatus);
-    const data = await apiFetch(`/tasks?${params}`);
-    if (data) setTasks(data.tasks || []);
-  }
-
-  async function fetchAnalytics() {
-    const params = new URLSearchParams({ department: activeDept, range: filterRange });
-    if (filterEmployee) params.append("employeeId", filterEmployee);
-    if (filterDate) params.append("date", filterDate);
-    const data = await apiFetch(`/analytics?${params}`);
-    if (data) setAnalytics(data);
-  }
-
-  async function fetchReviews() {
-    const data = await apiFetch(`/reviews?department=${activeDept}`);
-    if (data) setReviews(data.reviews || []);
-  }
-
-  async function handleAssignTask(e) {
+  function submitTask(e) {
     e.preventDefault();
-    const data = await apiFetch("/tasks", {
-      method: "POST",
-      body: JSON.stringify({ ...taskForm, department: activeDept }),
-    });
-    if (data) {
-      setShowTaskForm(false);
-      setTaskForm({ employeeId: "", department: activeDept, taskType: "", patientId: "", patientType: "TPA", priority: "medium", dueDate: "", notes: "" });
-      fetchTasks();
-    }
+    const emp = employees.find(em=>em.id===taskF.employeeId);
+    setTasks(p=>[...p,{ id:`T${String(nextT).padStart(3,"0")}`, ...taskF, employeeName:emp?.name||taskF.employeeId, status:"pending" }]);
+    setNextT(n=>n+1); setShowTask(false); setTaskF({ employeeId:"", taskType:"", patientId:"", patientType:"TPA", priority:"medium", dueDate:"", notes:"" });
   }
-
-  async function handleUpdateTask(taskId, updates) {
-    const data = await apiFetch(`/tasks/${taskId}`, {
-      method: "PATCH",
-      body: JSON.stringify(updates),
-    });
-    if (data) { setEditingTask(null); fetchTasks(); }
+  function updateTask(id, upd) { setTasks(p=>p.map(t=>t.id===id?{...t,...upd}:t)); setEditTask(null); }
+  function submitEmp(e) {
+    e.preventDefault(); setEmpErr("");
+    if (empF.password!==empF.confirmPassword) { setEmpErr("Passwords do not match."); return; }
+    const d=empF.department;
+    const ne={ id:empF.empId||`EMP${String(nextE).padStart(3,"0")}`, name:empF.fullName, username:empF.username, email:empF.email, role:"Staff", department:d, taskCount:0 };
+    MOCK_EMPLOYEES[d]=[...(MOCK_EMPLOYEES[d]||[]),ne];
+    if(d===activeDept) setEmployees(MOCK_EMPLOYEES[d]);
+    setNextE(n=>n+1); setShowEmp(false); setEmpF({ fullName:"", username:"", department:"Billing", empId:"", email:"", password:"", confirmPassword:"" });
   }
-
-  async function handleMarkComplete(taskId) {
-    await handleUpdateTask(taskId, { status: "completed" });
-  }
-
-  async function handleSubmitReview(e) {
+  function submitReview(e) {
     e.preventDefault();
-    const data = await apiFetch("/reviews", {
-      method: "POST",
-      body: JSON.stringify({ ...reviewForm, department: activeDept }),
-    });
-    if (data) {
-      setShowReviewForm(false);
-      setReviewForm({ employeeId: "", period: "weekly", rating: 5, comments: "", performanceScore: "" });
-      fetchReviews();
-    }
+    const emp=employees.find(em=>em.id===revF.employeeId);
+    setReviews(p=>[...p,{ id:`R${String(nextR).padStart(3,"0")}`, ...revF, employeeName:emp?.name||revF.employeeId, submittedAt:new Date().toISOString().split("T")[0] }]);
+    setNextR(n=>n+1); setShowReview(false); setRevF({ employeeId:"", period:"weekly", rating:5, comments:"", performanceScore:"" });
   }
 
-  async function handleDownloadReport() {
-    const params = new URLSearchParams({ department: activeDept, range: filterRange });
-    if (filterEmployee) params.append("employeeId", filterEmployee);
-    if (filterDate) params.append("date", filterDate);
-    window.open(`${API}${normalizeApiPath(`/reports/download?${params}`)}`, "_blank");
+  const inp  = (full) => ({ width:full?"100%":"auto", background:T.surface, border:`1px solid ${T.border}`, color:T.text, padding:"9px 12px", borderRadius:6, fontSize:13, fontFamily:"inherit", outline:"none", boxSizing:"border-box" });
+  const sel  = (full) => ({ ...inp(full), cursor:"pointer" });
+  const lbl  = ()     => ({ display:"block", fontSize:10, letterSpacing:"1.5px", color:T.textLight, textTransform:"uppercase", marginBottom:5, fontWeight:600 });
+
+  function Btn({ variant="default", onClick, type="button", children, sm }) {
+    const base = { padding:sm?"5px 11px":"9px 18px", borderRadius:7, fontSize:sm?11:13, fontFamily:"inherit", cursor:"pointer", border:"1px solid", display:"inline-flex", alignItems:"center", gap:6, fontWeight:600, transition:"all 0.15s" };
+    const v = { primary:{background:T.primary,borderColor:T.primaryDark,color:"#fff"}, ghost:{background:"transparent",borderColor:T.border,color:T.textMid}, danger:{background:T.dangerBg,borderColor:T.dangerBorder,color:T.danger}, success:{background:T.successBg,borderColor:T.successBorder,color:T.success}, default:{background:T.surface,borderColor:T.border,color:T.textMid} };
+    return <button type={type} onClick={onClick} style={{...base,...(v[variant]||v.default)}}>{children}</button>;
   }
 
-  // ─── Quick stats for sidebar ─────────────────────────────────────────────────
-  const pendingCount  = tasks.filter(t => t.status === "pending").length;
-  const overdueCount  = tasks.filter(t => t.status === "overdue").length;
-  const doneCount     = tasks.filter(t => t.status === "completed").length;
+  function Badge({ status }) {
+    const c=STATUS_CFG[status]||{bg:"#f7fafc",text:"#4a6585",border:T.border};
+    return <span style={{ display:"inline-flex",alignItems:"center",padding:"3px 10px",borderRadius:20,fontSize:11,fontWeight:600,background:c.bg,color:c.text,border:`1px solid ${c.border}` }}>{status}</span>;
+  }
 
-  // ─── Styles ──────────────────────────────────────────────────────────────────
-  const c = DEPT_COLORS[activeDept] || "#38bdf8";
-
-  const s = {
-    root: {
-      display: "flex",
-      height: "100vh",
-      background: "#060a10",
-      color: "#e2e8f0",
-      fontFamily: "var(--ui-font-sans)",
-      overflow: "hidden",
-    },
-    sidebar: {
-      width: sidebarCollapsed ? "64px" : "240px",
-      minWidth: sidebarCollapsed ? "64px" : "240px",
-      background: "#0b1018",
-      borderRight: "1px solid #16202e",
-      display: "flex",
-      flexDirection: "column",
-      transition: "all 0.25s cubic-bezier(.4,0,.2,1)",
-      overflow: "hidden",
-      position: "relative",
-      zIndex: 10,
-    },
-    sidebarHeader: {
-      padding: sidebarCollapsed ? "20px 0" : "22px 18px 18px",
-      borderBottom: "1px solid #16202e",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: sidebarCollapsed ? "center" : "space-between",
-      gap: 10,
-      minHeight: 72,
-    },
-    logo: {
-      display: sidebarCollapsed ? "none" : "block",
-      fontSize: "9px",
-      letterSpacing: "3px",
-      color: c,
-      textTransform: "uppercase",
-      marginBottom: "3px",
-      transition: "all 0.2s",
-    },
-    logoSub: {
-      display: sidebarCollapsed ? "none" : "block",
-      fontSize: "15px",
-      fontWeight: "700",
-      color: "#f1f5f9",
-      letterSpacing: "0.5px",
-    },
-    collapseBtn: {
-      background: "#131c27",
-      border: "1px solid #1e2a3a",
-      color: "#475569",
-      width: 28,
-      height: 28,
-      borderRadius: 6,
-      cursor: "pointer",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      fontSize: 12,
-      flexShrink: 0,
-      transition: "all 0.15s",
-    },
-    sectionLabel: {
-      fontSize: "8px",
-      letterSpacing: "3px",
-      color: "#2d3d52",
-      textTransform: "uppercase",
-      padding: sidebarCollapsed ? "16px 0 6px" : "16px 18px 6px",
-      textAlign: sidebarCollapsed ? "center" : "left",
-      whiteSpace: "nowrap",
-      overflow: "hidden",
-    },
-    deptBtn: (active, dept) => ({
-      display: "flex",
-      alignItems: "center",
-      gap: "10px",
-      padding: sidebarCollapsed ? "12px 0" : "10px 18px",
-      justifyContent: sidebarCollapsed ? "center" : "flex-start",
-      cursor: "pointer",
-      background: active ? `${DEPT_COLORS[dept]}15` : "transparent",
-      borderLeft: active ? `3px solid ${DEPT_COLORS[dept]}` : "3px solid transparent",
-      color: active ? DEPT_COLORS[dept] : "#4a5568",
-      fontSize: "12px",
-      letterSpacing: "0.5px",
-      transition: "all 0.15s",
-      border: "none",
-      width: "100%",
-      textAlign: "left",
-      position: "relative",
-    }),
-    deptIcon: (dept) => ({
-      width: "22px",
-      height: "22px",
-      borderRadius: "6px",
-      background: `${DEPT_COLORS[dept]}20`,
-      border: `1px solid ${DEPT_COLORS[dept]}40`,
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      fontSize: "11px",
-      flexShrink: 0,
-      color: DEPT_COLORS[dept],
-    }),
-    navBtn: (active) => ({
-      display: "flex",
-      alignItems: "center",
-      gap: "10px",
-      padding: sidebarCollapsed ? "10px 0" : "9px 18px",
-      justifyContent: sidebarCollapsed ? "center" : "flex-start",
-      cursor: "pointer",
-      background: active ? "#101824" : "transparent",
-      color: active ? "#e2e8f0" : "#374151",
-      fontSize: "12px",
-      border: "none",
-      width: "100%",
-      textAlign: "left",
-      transition: "all 0.15s",
-      borderLeft: active ? "3px solid #38bdf820" : "3px solid transparent",
-    }),
-    navIcon: (active) => ({
-      fontSize: "14px",
-      opacity: active ? 1 : 0.5,
-      flexShrink: 0,
-    }),
-    sidebarStats: {
-      display: sidebarCollapsed ? "none" : "flex",
-      gap: 6,
-      padding: "10px 18px",
-      flexWrap: "wrap",
-    },
-    miniStat: (col) => ({
-      flex: 1,
-      minWidth: 44,
-      background: `${col}12`,
-      border: `1px solid ${col}30`,
-      borderRadius: 6,
-      padding: "6px 8px",
-      textAlign: "center",
-    }),
-    miniStatVal: (col) => ({
-      fontSize: 15,
-      fontWeight: 700,
-      color: col,
-      lineHeight: 1,
-    }),
-    miniStatLabel: {
-      fontSize: 8,
-      color: "#374151",
-      letterSpacing: "1px",
-      marginTop: 2,
-      textTransform: "uppercase",
-    },
-    sidebarFooter: {
-      marginTop: "auto",
-      borderTop: "1px solid #16202e",
-      padding: sidebarCollapsed ? "12px 0" : "14px 18px",
-      display: "flex",
-      flexDirection: "column",
-      gap: 8,
-    },
-    userCard: {
-      display: sidebarCollapsed ? "none" : "flex",
-      alignItems: "center",
-      gap: 10,
-      marginBottom: 4,
-    },
-    avatar: {
-      width: 32,
-      height: 32,
-      borderRadius: 8,
-      background: `${c}25`,
-      border: `1px solid ${c}50`,
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      fontSize: 13,
-      color: c,
-      fontWeight: 700,
-      flexShrink: 0,
-    },
-    userName: {
-      fontSize: 12,
-      color: "#e2e8f0",
-      fontWeight: 600,
-    },
-    userRole: {
-      fontSize: 9,
-      color: "#374151",
-      letterSpacing: "1px",
-      textTransform: "uppercase",
-    },
-    logoutBtn: {
-      display: "flex",
-      alignItems: "center",
-      justifyContent: sidebarCollapsed ? "center" : "flex-start",
-      gap: 8,
-      padding: sidebarCollapsed ? "8px 0" : "9px 12px",
-      background: "#1a0a0a",
-      border: "1px solid #3d1515",
-      borderRadius: 8,
-      color: "#ef4444",
-      fontSize: 11,
-      cursor: "pointer",
-      fontFamily: "inherit",
-      letterSpacing: "0.5px",
-      transition: "all 0.15s",
-      width: "100%",
-    },
-    main: {
-      flex: 1,
-      display: "flex",
-      flexDirection: "column",
-      overflow: "hidden",
-      background: "#060a10",
-    },
-    topbar: {
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "space-between",
-      padding: "14px 24px",
-      borderBottom: "1px solid #16202e",
-      background: "#0b1018",
-    },
-    topbarLeft: { display: "flex", flexDirection: "column" },
-    breadcrumb: {
-      fontSize: "9px",
-      color: "#2d3d52",
-      letterSpacing: "2px",
-      textTransform: "uppercase",
-      marginBottom: "3px",
-    },
-    pageTitle: {
-      fontSize: "17px",
-      fontWeight: "700",
-      color: "#f1f5f9",
-      display: "flex",
-      alignItems: "center",
-      gap: 8,
-    },
-    deptPill: {
-      display: "inline-block",
-      padding: "2px 10px",
-      borderRadius: 20,
-      fontSize: 10,
-      background: `${c}18`,
-      border: `1px solid ${c}40`,
-      color: c,
-      marginLeft: 4,
-    },
-    topbarRight: { display: "flex", gap: "10px", alignItems: "center" },
-    loadingPill: {
-      display: "flex",
-      alignItems: "center",
-      gap: 6,
-      background: "#0f1f35",
-      border: "1px solid #1e2a3a",
-      borderRadius: 20,
-      padding: "4px 12px",
-      fontSize: 10,
-      color: "#38bdf8",
-      letterSpacing: "1px",
-    },
-    loadingDot: {
-      width: 6,
-      height: 6,
-      borderRadius: "50%",
-      background: "#38bdf8",
-      animation: "pulse 1s infinite",
-    },
-    btn: (variant = "default") => ({
-      padding: "8px 16px",
-      borderRadius: "7px",
-      fontSize: "11px",
-      fontFamily: "inherit",
-      cursor: "pointer",
-      letterSpacing: "0.5px",
-      border: "1px solid",
-      transition: "all 0.15s",
-      display: "flex",
-      alignItems: "center",
-      gap: 6,
-      ...(variant === "primary"
-        ? { background: c, borderColor: c, color: "#000", fontWeight: 700 }
-        : variant === "ghost"
-        ? { background: "transparent", borderColor: "#1e2a3a", color: "#64748b" }
-        : variant === "danger"
-        ? { background: "#7f1d1d", borderColor: "#991b1b", color: "#fca5a5" }
-        : variant === "success"
-        ? { background: "#064e3b", borderColor: "#065f46", color: "#34d399" }
-        : { background: "#0f172a", borderColor: "#1e2a3a", color: "#64748b" }),
-    }),
-    content: {
-      flex: 1,
-      overflowY: "auto",
-      padding: "22px 24px",
-      scrollbarWidth: "thin",
-      scrollbarColor: "#16202e transparent",
-    },
-    filterBar: {
-      display: "flex",
-      gap: "10px",
-      marginBottom: "20px",
-      flexWrap: "wrap",
-      alignItems: "center",
-      background: "#0b1018",
-      border: "1px solid #16202e",
-      borderRadius: 10,
-      padding: "12px 16px",
-    },
-    filterLabel: {
-      fontSize: 9,
-      color: "#2d3d52",
-      letterSpacing: "2px",
-      textTransform: "uppercase",
-      marginRight: 4,
-    },
-    select: {
-      background: "#060a10",
-      border: "1px solid #1e2a3a",
-      color: "#94a3b8",
-      padding: "7px 10px",
-      borderRadius: "6px",
-      fontSize: "11px",
-      fontFamily: "inherit",
-      cursor: "pointer",
-      outline: "none",
-    },
-    input: {
-      background: "#060a10",
-      border: "1px solid #1e2a3a",
-      color: "#e2e8f0",
-      padding: "7px 10px",
-      borderRadius: "6px",
-      fontSize: "11px",
-      fontFamily: "inherit",
-      outline: "none",
-    },
-    statsGrid: {
-      display: "grid",
-      gridTemplateColumns: "repeat(4, 1fr)",
-      gap: "14px",
-      marginBottom: "20px",
-    },
-    statCard: (color = "#38bdf8") => ({
-      background: "#0b1018",
-      border: "1px solid #16202e",
-      borderTop: `3px solid ${color}`,
-      borderRadius: "10px",
-      padding: "16px 18px",
-      position: "relative",
-      overflow: "hidden",
-    }),
-    statGlow: (color) => ({
-      position: "absolute",
-      top: 0,
-      right: 0,
-      width: 80,
-      height: 80,
-      borderRadius: "50%",
-      background: `${color}08`,
-      transform: "translate(30%, -30%)",
-      pointerEvents: "none",
-    }),
-    statLabel: {
-      fontSize: "8px",
-      letterSpacing: "2px",
-      color: "#374151",
-      textTransform: "uppercase",
-      marginBottom: "8px",
-    },
-    statValue: (color = "#f1f5f9") => ({
-      fontSize: "26px",
-      fontWeight: "700",
-      color,
-      lineHeight: 1,
-    }),
-    statSub: {
-      fontSize: "10px",
-      color: "#374151",
-      marginTop: "5px",
-    },
-    sectionTitle: {
-      fontSize: "9px",
-      letterSpacing: "3px",
-      color: "#2d3d52",
-      textTransform: "uppercase",
-      marginBottom: "12px",
-      display: "flex",
-      alignItems: "center",
-      gap: 8,
-    },
-    sectionLine: {
-      flex: 1,
-      height: 1,
-      background: "#16202e",
-    },
-    tableWrap: {
-      background: "#0b1018",
-      border: "1px solid #16202e",
-      borderRadius: "10px",
-      overflow: "hidden",
-      marginBottom: "24px",
-    },
-    table: { width: "100%", borderCollapse: "collapse", fontSize: "12px" },
-    th: {
-      padding: "10px 14px",
-      textAlign: "left",
-      fontSize: "8px",
-      letterSpacing: "2px",
-      color: "#2d3d52",
-      textTransform: "uppercase",
-      borderBottom: "1px solid #16202e",
-      background: "#080f18",
-    },
-    td: {
-      padding: "11px 14px",
-      borderBottom: "1px solid #0d1520",
-      color: "#64748b",
-      verticalAlign: "middle",
-    },
-    badge: (status) => ({
-      display: "inline-flex",
-      alignItems: "center",
-      gap: 4,
-      padding: "3px 10px",
-      borderRadius: "20px",
-      fontSize: "10px",
-      letterSpacing: "0.5px",
-      background: STATUS_COLORS[status]?.bg || "#1e2a3a",
-      color: STATUS_COLORS[status]?.text || "#94a3b8",
-      border: `1px solid ${STATUS_COLORS[status]?.border || "#1e2a3a"}`,
-    }),
-    priorityDot: (p) => ({
-      display: "inline-block",
-      width: "7px",
-      height: "7px",
-      borderRadius: "50%",
-      background: PRIORITY_COLORS[p] || "#6b7280",
-      marginRight: "6px",
-    }),
-    modal: {
-      position: "fixed",
-      inset: 0,
-      background: "rgba(0,0,0,0.75)",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      zIndex: 1000,
-      backdropFilter: "blur(4px)",
-    },
-    modalBox: {
-      background: "#0b1018",
-      border: "1px solid #1e2a3a",
-      borderRadius: "14px",
-      padding: "26px",
-      width: "500px",
-      maxHeight: "82vh",
-      overflowY: "auto",
-      boxShadow: "0 25px 60px rgba(0,0,0,0.6)",
-    },
-    modalTitle: {
-      fontSize: "11px",
-      letterSpacing: "3px",
-      textTransform: "uppercase",
-      color: c,
-      marginBottom: "20px",
-      display: "flex",
-      alignItems: "center",
-      gap: 8,
-      paddingBottom: 14,
-      borderBottom: "1px solid #16202e",
-    },
-    formRow: { marginBottom: "14px" },
-    label: {
-      display: "block",
-      fontSize: "9px",
-      letterSpacing: "1.5px",
-      color: "#374151",
-      textTransform: "uppercase",
-      marginBottom: "5px",
-    },
-    textarea: {
-      background: "#060a10",
-      border: "1px solid #1e2a3a",
-      color: "#e2e8f0",
-      padding: "8px 10px",
-      borderRadius: "6px",
-      fontSize: "12px",
-      fontFamily: "inherit",
-      width: "100%",
-      resize: "vertical",
-      minHeight: "70px",
-      outline: "none",
-    },
-    formActions: {
-      display: "flex",
-      gap: "10px",
-      justifyContent: "flex-end",
-      marginTop: "18px",
-      paddingTop: 14,
-      borderTop: "1px solid #16202e",
-    },
-    emptyRow: {
-      padding: "48px",
-      textAlign: "center",
-      color: "#1e2a3a",
-      fontSize: "11px",
-      letterSpacing: "2px",
-    },
-    errorBar: {
-      background: "#1a0505",
-      border: "1px solid #7f1d1d",
-      color: "#f87171",
-      padding: "10px 16px",
-      borderRadius: "8px",
-      fontSize: "12px",
-      marginBottom: "16px",
-      display: "flex",
-      alignItems: "center",
-      gap: 8,
-    },
-    empCard: {
-      background: "#0b1018",
-      border: "1px solid #16202e",
-      borderRadius: 10,
-      padding: "16px 18px",
-      display: "flex",
-      alignItems: "center",
-      gap: 14,
-    },
-    empAvatar: (i) => ({
-      width: 40,
-      height: 40,
-      borderRadius: 10,
-      background: [`${c}20`, "#818cf820", "#f59e0b20", "#f8717120"][i % 4],
-      border: [`1px solid ${c}40`, "1px solid #818cf840", "1px solid #f59e0b40", "1px solid #f8717140"][i % 4],
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      fontSize: 16,
-      flexShrink: 0,
-    }),
-  };
-
-  // ─── Sub-components ───────────────────────────────────────────────────────────
-
-  function SectionHeader({ title }) {
+  function SectionCard({ icon, title, subtitle, children }) {
     return (
-      <div style={s.sectionTitle}>
-        {title}
-        <div style={s.sectionLine} />
+      <div style={{ background:T.surface, border:`1px solid ${T.border}`, borderRadius:10, overflow:"hidden", marginBottom:18 }}>
+        <div style={{ padding:"14px 20px", borderBottom:`1px solid ${T.borderLight}`, display:"flex", alignItems:"center", gap:12, background:T.surfaceAlt }}>
+          <div style={{ width:34, height:34, borderRadius:8, background:T.primaryLight, border:`1px solid ${T.border}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:16, color:T.sectionIcon }}>{icon}</div>
+          <div>
+            <div style={{ fontSize:14, fontWeight:700, color:T.text }}>{title}</div>
+            {subtitle && <div style={{ fontSize:11, color:T.textLight, marginTop:1 }}>{subtitle}</div>}
+          </div>
+        </div>
+        <div style={{ padding:"18px 20px" }}>{children}</div>
       </div>
     );
   }
 
+  function Modal({ title, icon, onClose, children, width=520 }) {
+    return (
+      <div style={{ position:"fixed",inset:0,background:"rgba(30,58,95,0.4)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000,backdropFilter:"blur(4px)" }} onClick={onClose}>
+        <div style={{ background:T.surface,border:`1px solid ${T.border}`,borderRadius:12,width,maxHeight:"88vh",overflowY:"auto",boxShadow:"0 20px 60px rgba(30,58,95,0.2)" }} onClick={e=>e.stopPropagation()}>
+          <div style={{ padding:"15px 22px",background:T.topbar,borderRadius:"12px 12px 0 0",display:"flex",alignItems:"center",gap:10 }}>
+            <span style={{ fontSize:16 }}>{icon}</span>
+            <span style={{ fontSize:13,fontWeight:700,color:"#fff",letterSpacing:"0.3px" }}>{title}</span>
+          </div>
+          <div style={{ padding:"22px" }}>{children}</div>
+        </div>
+      </div>
+    );
+  }
+
+  const FR = ({ label, children }) => <div style={{ marginBottom:14 }}><label style={lbl()}>{label}</label>{children}</div>;
+  const ModalFooter = ({ onCancel, submitLabel }) => (
+    <div style={{ display:"flex",gap:10,justifyContent:"flex-end",paddingTop:14,borderTop:`1px solid ${T.border}`,marginTop:4 }}>
+      <Btn variant="ghost" onClick={onCancel}>Cancel</Btn>
+      <Btn variant="primary" type="submit">{submitLabel}</Btn>
+    </div>
+  );
+
+  function StatsRow({ items }) {
+    return (
+      <div style={{ display:"grid", gridTemplateColumns:`repeat(${items.length},1fr)`, gap:14, marginBottom:20 }}>
+        {items.map(({label,value,color,icon})=>(
+          <div key={label} style={{ background:T.surface,border:`1px solid ${T.border}`,borderLeft:`3px solid ${color}`,borderRadius:8,padding:"14px 16px",display:"flex",alignItems:"center",gap:12 }}>
+            <div style={{ width:38,height:38,borderRadius:8,background:`${color}12`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,color,flexShrink:0 }}>{icon}</div>
+            <div>
+              <div style={{ fontSize:24,fontWeight:700,color,lineHeight:1 }}>{value}</div>
+              <div style={{ fontSize:11,color:T.textLight,marginTop:3,fontWeight:500 }}>{label}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  function THead({ cols }) {
+    return (
+      <thead>
+        <tr style={{ background:T.surfaceAlt }}>
+          {cols.map(c=><th key={c} style={{ padding:"10px 14px",textAlign:"left",fontSize:10,letterSpacing:"1.5px",color:T.textLight,textTransform:"uppercase",borderBottom:`1px solid ${T.border}`,fontWeight:700,whiteSpace:"nowrap" }}>{c}</th>)}
+        </tr>
+      </thead>
+    );
+  }
+
+  const tdS = (bold,light,mono) => ({ padding:"11px 14px",borderBottom:`1px solid ${T.borderLight}`,color:bold?T.text:light?T.textMuted:T.textMid,fontWeight:bold?600:400,fontFamily:mono?"'Courier New',monospace":"inherit",fontSize:13,verticalAlign:"middle" });
+
+  // ── Views
   function TasksView() {
-    const filtered = tasks.filter(t => !filterStatus || t.status === filterStatus);
     return (
       <>
-        <div style={s.filterBar}>
-          <span style={s.filterLabel}>Filter:</span>
-          <select style={s.select} value={filterEmployee} onChange={(e) => setFilterEmployee(e.target.value)}>
-            <option value="">All Employees</option>
-            {employees.map((emp) => <option key={emp.id} value={emp.id}>{`${emp.name} (${emp.employeeCode || `ID-${emp.id}`})`}</option>)}
-          </select>
-          <select style={s.select} value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
-            <option value="">All Status</option>
-            <option value="pending">Pending</option>
-            <option value="in-progress">In Progress</option>
-            <option value="completed">Completed</option>
-            <option value="overdue">Overdue</option>
-          </select>
-          <input type="date" style={s.input} value={filterDate} onChange={(e) => setFilterDate(e.target.value)} />
-          <button style={{ ...s.btn("ghost"), marginLeft: "auto" }} onClick={fetchTasks}>↻ Refresh</button>
-          <button style={s.btn("primary")} onClick={() => setShowTaskForm(true)}>+ Assign Task</button>
-        </div>
-
-        <div style={s.statsGrid}>
-          {[
-            { label: "Total", key: "total", color: c, valueColor: c },
-            { label: "Pending", key: "pending", color: "#f59e0b", valueColor: "#f59e0b" },
-            { label: "Completed", key: "completed", color: "#34d399", valueColor: "#34d399" },
-            { label: "Overdue", key: "overdue", color: "#f87171", valueColor: "#f87171" },
-          ].map(({ label, key, color, valueColor }) => {
-            const count = key === "total" ? tasks.length : tasks.filter(t => t.status === key).length;
-            return (
-              <div key={key} style={s.statCard(color)}>
-                <div style={s.statGlow(color)} />
-                <div style={s.statLabel}>{label} Tasks</div>
-                <div style={s.statValue(valueColor)}>{count}</div>
-                <div style={s.statSub}>{activeDept} Dept</div>
-              </div>
-            );
-          })}
-        </div>
-
-        <SectionHeader title={`Task List — ${activeDept}`} />
-        <div style={s.tableWrap}>
-          <table style={s.table}>
-            <thead>
-              <tr>
-                {["Task ID", "Employee", "Task Type", "Patient", "Type", "Priority", "Due Date", "Status", "Actions"].map(h => (
-                  <th key={h} style={s.th}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.length === 0 ? (
-                <tr><td colSpan={9} style={s.emptyRow}>NO TASKS FOUND — ASSIGN TASKS TO GET STARTED</td></tr>
-              ) : (
-                filtered.map((task) => (
-                  <tr key={task.id} style={{ transition: "background 0.1s" }}>
-                    <td style={{ ...s.td, color: "#1e2a3a", fontSize: "10px" }}>#{task.id}</td>
-                    <td style={{ ...s.td, color: "#e2e8f0", fontWeight: 600 }}>{task.employeeName || task.employeeId}</td>
-                    <td style={s.td}>{task.taskType}</td>
-                    <td style={{ ...s.td, color: "#e2e8f0" }}>{task.patientId || "—"}</td>
-                    <td style={s.td}>
-                      {task.patientType && (
-                        <span style={{ background: task.patientType === "TPA" ? "#0a1f2a" : "#1a0a2a", color: task.patientType === "TPA" ? "#38bdf8" : "#a78bfa", padding: "2px 8px", borderRadius: "4px", fontSize: "10px" }}>
-                          {task.patientType}
+        <StatsRow items={[
+          { label:"Total Tasks",  value:deptTasks.length, color:T.primary,  icon:"📋" },
+          { label:"Pending",      value:pendingCnt,       color:"#b7791f",  icon:"⏳" },
+          { label:"In Progress",  value:inProgCnt,        color:"#1e7bbf",  icon:"▶"  },
+          { label:"Completed",    value:doneCnt,          color:"#2f855a",  icon:"✓"  },
+          { label:"Overdue",      value:overdueCnt,       color:"#c53030",  icon:"⚠"  },
+        ]} />
+        <SectionCard icon="📋" title={`Task List — ${activeDept}`} subtitle="Assign and track department tasks">
+          <div style={{ display:"flex",gap:10,marginBottom:16,flexWrap:"wrap",alignItems:"center" }}>
+            <select style={sel()} value={fEmp} onChange={e=>setFEmp(e.target.value)}><option value="">All Employees</option>{employees.map(em=><option key={em.id} value={em.id}>{em.name}</option>)}</select>
+            <select style={sel()} value={fStatus} onChange={e=>setFStatus(e.target.value)}><option value="">All Status</option><option value="pending">Pending</option><option value="in-progress">In Progress</option><option value="completed">Completed</option><option value="overdue">Overdue</option></select>
+            <input type="date" style={inp()} value={fDate} onChange={e=>setFDate(e.target.value)} />
+            <div style={{ marginLeft:"auto" }}><Btn variant="primary" onClick={()=>setShowTask(true)}>+ Assign Task</Btn></div>
+          </div>
+          <div style={{ overflowX:"auto" }}>
+            <table style={{ width:"100%",borderCollapse:"collapse",fontSize:13 }}>
+              <THead cols={["Task ID","Employee","Task Type","Patient ID","Type","Priority","Due Date","Status","Actions"]} />
+              <tbody>
+                {deptTasks.length===0
+                  ? <tr><td colSpan={9} style={{ padding:48,textAlign:"center",color:T.textMuted,fontSize:13 }}>No tasks found. Click "Assign Task" to get started.</td></tr>
+                  : deptTasks.map(t=>(
+                    <tr key={t.id} onMouseEnter={e=>e.currentTarget.style.background=T.primaryLight} onMouseLeave={e=>e.currentTarget.style.background=""} style={{ transition:"background 0.1s" }}>
+                      <td style={tdS(false,true,true)}>#{t.id}</td>
+                      <td style={tdS(true)}>{t.employeeName}</td>
+                      <td style={tdS()}>{t.taskType}</td>
+                      <td style={tdS(false,false,true)}>{t.patientId||"—"}</td>
+                      <td style={tdS()}>
+                        <span style={{ padding:"2px 9px",borderRadius:4,fontSize:11,fontWeight:600,background:t.patientType==="TPA"?"#ebf8ff":"#f3f0ff",color:t.patientType==="TPA"?"#1e7bbf":"#553c9a",border:`1px solid ${t.patientType==="TPA"?"#90cdf4":"#b794f4"}` }}>{t.patientType}</span>
+                      </td>
+                      <td style={tdS()}>
+                        <span style={{ display:"inline-flex",alignItems:"center",gap:5,color:PRIORITY_COLOR[t.priority],fontWeight:600,fontSize:12 }}>
+                          <span style={{ width:7,height:7,borderRadius:"50%",background:PRIORITY_COLOR[t.priority],display:"inline-block" }} />{t.priority}
                         </span>
-                      )}
-                    </td>
-                    <td style={s.td}>
-                      <span style={s.priorityDot(task.priority)} />
-                      {task.priority}
-                    </td>
-                    <td style={{ ...s.td, fontSize: "11px" }}>{task.dueDate || "—"}</td>
-                    <td style={s.td}><span style={s.badge(task.status)}>{task.status}</span></td>
-                    <td style={s.td}>
-                      <div style={{ display: "flex", gap: "6px" }}>
-                        {task.status !== "completed" && (
-                          <button style={{ ...s.btn("success"), padding: "4px 10px", fontSize: "10px" }} onClick={() => handleMarkComplete(task.id)}>✓</button>
-                        )}
-                        <button style={{ ...s.btn("ghost"), padding: "4px 10px", fontSize: "10px" }} onClick={() => setEditingTask(task)}>Edit</button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                      </td>
+                      <td style={tdS(false,true,true)}>{t.dueDate||"—"}</td>
+                      <td style={tdS()}><Badge status={t.status} /></td>
+                      <td style={tdS()}>
+                        <div style={{ display:"flex",gap:6 }}>
+                          {t.status!=="completed"&&<Btn variant="success" sm onClick={()=>updateTask(t.id,{status:"completed"})}>✓ Done</Btn>}
+                          <Btn variant="ghost" sm onClick={()=>setEditTask(t)}>Edit</Btn>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </div>
+        </SectionCard>
       </>
     );
   }
 
   function AnalyticsView() {
+    const tot=empStats.reduce((a,e)=>a+e.assigned,0), com=empStats.reduce((a,e)=>a+e.completed,0), pen=empStats.reduce((a,e)=>a+e.pending,0), avg=empStats.length?Math.round(empStats.reduce((a,e)=>a+e.pct,0)/empStats.length):0;
     return (
       <>
-        <div style={s.filterBar}>
-          <span style={s.filterLabel}>Range:</span>
-          <select style={s.select} value={filterRange} onChange={(e) => setFilterRange(e.target.value)}>
-            <option value="daily">Daily</option>
-            <option value="weekly">Weekly</option>
-            <option value="monthly">Monthly</option>
-          </select>
-          <select style={s.select} value={filterEmployee} onChange={(e) => setFilterEmployee(e.target.value)}>
-            <option value="">All Employees</option>
-            {employees.map(emp => <option key={emp.id} value={emp.id}>{`${emp.name} (${emp.employeeCode || `ID-${emp.id}`})`}</option>)}
-          </select>
-          <input type="date" style={s.input} value={filterDate} onChange={(e) => setFilterDate(e.target.value)} />
-          <button style={{ ...s.btn("ghost"), marginLeft: "auto" }} onClick={handleDownloadReport}>↓ Download Report</button>
-        </div>
-
-        {analytics ? (
-          <>
-            <div style={s.statsGrid}>
-              {(analytics.stats || []).map((stat, i) => {
-                const colors = [c, "#34d399", "#f59e0b", "#a78bfa"];
-                const col = colors[i % 4];
-                return (
-                  <div key={i} style={s.statCard(col)}>
-                    <div style={s.statGlow(col)} />
-                    <div style={s.statLabel}>{stat.label}</div>
-                    <div style={s.statValue(col)}>{stat.value}</div>
-                    {stat.sub && <div style={s.statSub}>{stat.sub}</div>}
-                  </div>
-                );
-              })}
-            </div>
-            <SectionHeader title="Employee Performance" />
-            <div style={s.tableWrap}>
-              <table style={s.table}>
-                <thead>
-                  <tr>
-                    {["Employee", "Assigned", "Completed", "Pending", "Overdue", "Completion %"].map(h => <th key={h} style={s.th}>{h}</th>)}
-                  </tr>
-                </thead>
-                <tbody>
-                  {(analytics.employeeStats || []).length === 0 ? (
-                    <tr><td colSpan={6} style={s.emptyRow}>NO ANALYTICS DATA AVAILABLE</td></tr>
-                  ) : (
-                    (analytics.employeeStats || []).map((emp) => (
-                      <tr key={emp.id}>
-                        <td style={{ ...s.td, color: "#e2e8f0", fontWeight: 600 }}>{emp.name}</td>
-                        <td style={s.td}>{emp.assigned}</td>
-                        <td style={{ ...s.td, color: "#34d399" }}>{emp.completed}</td>
-                        <td style={{ ...s.td, color: "#f59e0b" }}>{emp.pending}</td>
-                        <td style={{ ...s.td, color: "#f87171" }}>{emp.overdue}</td>
-                        <td style={s.td}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                            <div style={{ flex: 1, height: "5px", background: "#16202e", borderRadius: "3px", overflow: "hidden" }}>
-                              <div style={{ width: `${emp.completionPct || 0}%`, height: "100%", background: emp.completionPct >= 80 ? "#34d399" : emp.completionPct >= 50 ? "#f59e0b" : "#f87171", borderRadius: "3px" }} />
-                            </div>
-                            <span style={{ fontSize: "11px", minWidth: "36px", color: "#e2e8f0" }}>{emp.completionPct || 0}%</span>
+        <StatsRow items={[{label:"Total Assigned",value:tot,color:T.primary,icon:"📁"},{label:"Completed",value:com,color:"#2f855a",icon:"✓"},{label:"Pending",value:pen,color:"#b7791f",icon:"⏳"},{label:"Avg Completion",value:`${avg}%`,color:"#553c9a",icon:"↗"}]} />
+        <SectionCard icon="↗" title="Employee Performance" subtitle="Task completion analytics by staff member">
+          <div style={{ display:"flex",gap:10,marginBottom:16,flexWrap:"wrap",alignItems:"center" }}>
+            <select style={sel()} value={fRange} onChange={e=>setFRange(e.target.value)}><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option></select>
+            <select style={sel()} value={fEmp} onChange={e=>setFEmp(e.target.value)}><option value="">All Employees</option>{employees.map(em=><option key={em.id} value={em.id}>{em.name}</option>)}</select>
+            <div style={{ marginLeft:"auto" }}><Btn variant="ghost">↓ Export Report</Btn></div>
+          </div>
+          <div style={{ overflowX:"auto" }}>
+            <table style={{ width:"100%",borderCollapse:"collapse",fontSize:13 }}>
+              <THead cols={["Employee","Assigned","Completed","Pending","Overdue","Completion %"]} />
+              <tbody>
+                {empStats.length===0
+                  ? <tr><td colSpan={6} style={{ padding:48,textAlign:"center",color:T.textMuted }}>No data available.</td></tr>
+                  : empStats.map(emp=>(
+                    <tr key={emp.id} onMouseEnter={e=>e.currentTarget.style.background=T.primaryLight} onMouseLeave={e=>e.currentTarget.style.background=""}>
+                      <td style={tdS(true)}>{emp.name}</td>
+                      <td style={tdS()}>{emp.assigned}</td>
+                      <td style={{ ...tdS(),color:"#2f855a",fontWeight:600 }}>{emp.completed}</td>
+                      <td style={{ ...tdS(),color:"#b7791f",fontWeight:600 }}>{emp.pending}</td>
+                      <td style={{ ...tdS(),color:"#c53030",fontWeight:600 }}>{emp.overdue}</td>
+                      <td style={tdS()}>
+                        <div style={{ display:"flex",alignItems:"center",gap:10 }}>
+                          <div style={{ flex:1,height:7,background:T.borderLight,borderRadius:4,overflow:"hidden" }}>
+                            <div style={{ width:`${emp.pct}%`,height:"100%",background:emp.pct>=80?"#2f855a":emp.pct>=50?"#b7791f":"#c53030",borderRadius:4,transition:"width 0.5s" }} />
                           </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </>
-        ) : (
-          <div style={{ ...s.emptyRow, padding: 60, color: "#1e2a3a" }}>LOADING ANALYTICS...</div>
-        )}
+                          <span style={{ fontSize:12,minWidth:34,color:T.text,fontWeight:700 }}>{emp.pct}%</span>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </div>
+        </SectionCard>
       </>
     );
   }
 
   function ReviewsView() {
+    const dr=reviews.filter(r=>employees.some(e=>e.id===r.employeeId));
     return (
-      <>
-        <div style={s.filterBar}>
-          <span style={s.filterLabel}>Reviews</span>
-          <button style={{ ...s.btn("primary"), marginLeft: "auto" }} onClick={() => setShowReviewForm(true)}>+ Submit Review</button>
-        </div>
-        <SectionHeader title={`Employee Reviews — ${activeDept}`} />
-        <div style={s.tableWrap}>
-          <table style={s.table}>
-            <thead>
-              <tr>
-                {["Employee", "Period", "Rating", "Score", "Comments", "Submitted"].map(h => <th key={h} style={s.th}>{h}</th>)}
-              </tr>
-            </thead>
+      <SectionCard icon="⭐" title={`Employee Reviews — ${activeDept}`} subtitle="Performance reviews submitted by HOD">
+        <div style={{ display:"flex",justifyContent:"flex-end",marginBottom:16 }}><Btn variant="primary" onClick={()=>setShowReview(true)}>+ Submit Review</Btn></div>
+        <div style={{ overflowX:"auto" }}>
+          <table style={{ width:"100%",borderCollapse:"collapse",fontSize:13 }}>
+            <THead cols={["Employee","Period","Rating","Score","Comments","Submitted"]} />
             <tbody>
-              {reviews.length === 0 ? (
-                <tr><td colSpan={6} style={s.emptyRow}>NO REVIEWS SUBMITTED YET</td></tr>
-              ) : (
-                reviews.map((rev) => (
-                  <tr key={rev.id}>
-                    <td style={{ ...s.td, color: "#e2e8f0", fontWeight: 600 }}>{rev.employeeName}</td>
-                    <td style={s.td}>
-                      <span style={{ background: rev.period === "weekly" ? "#0a1f2a" : "#1a0a2a", color: rev.period === "weekly" ? "#38bdf8" : "#a78bfa", padding: "2px 8px", borderRadius: "4px", fontSize: "10px" }}>
-                        {rev.period}
-                      </span>
+              {dr.length===0
+                ? <tr><td colSpan={6} style={{ padding:48,textAlign:"center",color:T.textMuted }}>No reviews yet.</td></tr>
+                : dr.map(rev=>(
+                  <tr key={rev.id} onMouseEnter={e=>e.currentTarget.style.background=T.primaryLight} onMouseLeave={e=>e.currentTarget.style.background=""}>
+                    <td style={tdS(true)}>{rev.employeeName}</td>
+                    <td style={tdS()}>
+                      <span style={{ padding:"2px 9px",borderRadius:4,fontSize:11,fontWeight:600,background:rev.period==="weekly"?"#ebf8ff":"#f3f0ff",color:rev.period==="weekly"?"#1e7bbf":"#553c9a",border:`1px solid ${rev.period==="weekly"?"#90cdf4":"#b794f4"}` }}>{rev.period}</span>
                     </td>
-                    <td style={{ ...s.td, color: "#f59e0b" }}>{"★".repeat(rev.rating)}{"☆".repeat(5 - rev.rating)}</td>
-                    <td style={s.td}>{rev.performanceScore || "—"}</td>
-                    <td style={{ ...s.td, maxWidth: "200px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{rev.comments}</td>
-                    <td style={{ ...s.td, fontSize: "11px" }}>{rev.submittedAt || "—"}</td>
+                    <td style={{ ...tdS(),color:"#b7791f" }}>{"★".repeat(rev.rating)}{"☆".repeat(5-rev.rating)}</td>
+                    <td style={tdS(false,false,true)}>{rev.performanceScore||"—"}</td>
+                    <td style={{ ...tdS(),maxWidth:220,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{rev.comments}</td>
+                    <td style={tdS(false,true,true)}>{rev.submittedAt}</td>
                   </tr>
-                ))
-              )}
+                ))}
             </tbody>
           </table>
         </div>
-      </>
+      </SectionCard>
     );
   }
 
   function EmployeesView() {
+    const cols=[T.primary,"#6b48d4","#b7791f","#2f855a","#c05621"];
     return (
-      <>
-        <div style={s.filterBar}>
-          <span style={s.filterLabel}>Employees — {activeDept}</span>
-          <button style={{ ...s.btn("ghost"), marginLeft: "auto" }} onClick={fetchEmployees}>↻ Refresh</button>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 14 }}>
-          {employees.length === 0 ? (
-            <div style={{ ...s.emptyRow, gridColumn: "1/-1" }}>NO EMPLOYEES FOUND</div>
-          ) : (
-            employees.map((emp, i) => (
-              <div key={emp.id} style={s.empCard}>
-                <div style={s.empAvatar(i)}>{emp.name?.[0] || "?"}</div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 13, color: "#e2e8f0", fontWeight: 600 }}>{emp.name}</div>
-                  <div style={{ fontSize: 10, color: "#374151", letterSpacing: "1px", marginTop: 2 }}>{emp.role || "Staff"}</div>
-                  {emp.email && <div style={{ fontSize: 10, color: "#2d3d52", marginTop: 3 }}>{emp.email}</div>}
-                </div>
-                {emp.taskCount !== undefined && (
-                  <div style={{ textAlign: "right" }}>
-                    <div style={{ fontSize: 16, fontWeight: 700, color: c }}>{emp.taskCount}</div>
-                    <div style={{ fontSize: 8, color: "#374151", letterSpacing: "1px", textTransform: "uppercase" }}>Tasks</div>
+      <SectionCard icon="👥" title={`Staff Directory — ${activeDept}`} subtitle="All employees in this department">
+        <div style={{ display:"flex",justifyContent:"flex-end",marginBottom:18 }}><Btn variant="primary" onClick={()=>setShowEmp(true)}>+ Add Employee</Btn></div>
+        <div style={{ display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:14 }}>
+          {employees.length===0
+            ? <div style={{ padding:48,textAlign:"center",color:T.textMuted,gridColumn:"1/-1" }}>No employees found in this department.</div>
+            : employees.map((emp,i)=>{
+              const ec=cols[i%cols.length];
+              return (
+                <div key={emp.id}
+                  onMouseEnter={e=>{e.currentTarget.style.boxShadow="0 4px 16px rgba(30,123,191,0.12)";e.currentTarget.style.transform="translateY(-1px)";}}
+                  onMouseLeave={e=>{e.currentTarget.style.boxShadow="none";e.currentTarget.style.transform="none";}}
+                  style={{ background:T.surface,border:`1px solid ${T.border}`,borderLeft:`3px solid ${ec}`,borderRadius:8,padding:"16px 18px",display:"flex",alignItems:"flex-start",gap:14,transition:"all 0.18s",cursor:"default" }}>
+                  <div style={{ width:44,height:44,borderRadius:10,background:`${ec}14`,border:`1px solid ${ec}28`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,fontWeight:700,color:ec,flexShrink:0 }}>{emp.name?.[0]||"?"}</div>
+                  <div style={{ flex:1,minWidth:0 }}>
+                    <div style={{ fontSize:14,color:T.text,fontWeight:700,marginBottom:2 }}>{emp.name}</div>
+                    <div style={{ fontSize:11,color:T.textLight,textTransform:"uppercase",letterSpacing:"1px",fontWeight:600,marginBottom:6 }}>{emp.role||"Staff"}</div>
+                    <div style={{ display:"flex",flexDirection:"column",gap:2 }}>
+                      {emp.username && <div style={{ fontSize:12,color:T.textMid }}>@{emp.username}</div>}
+                      {emp.email    && <div style={{ fontSize:12,color:T.textMid }}>{emp.email}</div>}
+                      <div style={{ fontSize:11,color:T.textMuted,fontFamily:"'Courier New',monospace" }}>ID: {emp.id} · {emp.department}</div>
+                    </div>
                   </div>
-                )}
-              </div>
-            ))
-          )}
+                  <div style={{ textAlign:"right",flexShrink:0 }}>
+                    <div style={{ fontSize:22,fontWeight:700,color:ec }}>{emp.taskCount}</div>
+                    <div style={{ fontSize:10,color:T.textLight,letterSpacing:"1.5px",textTransform:"uppercase" }}>Tasks</div>
+                  </div>
+                </div>
+              );
+            })}
         </div>
-      </>
+      </SectionCard>
     );
   }
 
-  // ─── Render ───────────────────────────────────────────────────────────────────
   return (
-    <div style={s.root}>
+    <div style={{ display:"flex",height:"100vh",background:T.bg,color:T.text,fontFamily:"'Segoe UI','Helvetica Neue',Arial,sans-serif",overflow:"hidden" }}>
       <style>{`
-        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
-        ::-webkit-scrollbar { width: 4px; } 
-        ::-webkit-scrollbar-track { background: transparent; } 
-        ::-webkit-scrollbar-thumb { background: #16202e; border-radius: 2px; }
+        *{box-sizing:border-box;}
+        ::-webkit-scrollbar{width:5px;height:5px;}
+        ::-webkit-scrollbar-track{background:#f0f4f8;}
+        ::-webkit-scrollbar-thumb{background:#b0c8e0;border-radius:4px;}
+        input:focus,select:focus,textarea:focus{border-color:#1e7bbf!important;box-shadow:0 0 0 3px rgba(30,123,191,0.1)!important;outline:none;}
+        input[type=date]::-webkit-calendar-picker-indicator{opacity:0.45;}
+        button:hover{filter:brightness(0.96);}
       `}</style>
 
       {/* ── Sidebar ── */}
-      <aside style={s.sidebar}>
-        <div style={s.sidebarHeader}>
-          <div style={{ display: sidebarCollapsed ? "none" : "block" }}>
-            <div style={s.logo}>MedCore HMS</div>
-            <div style={s.logoSub}>HOD Panel</div>
-          </div>
-          {sidebarCollapsed && (
-            <div style={{ ...s.avatar, width: 28, height: 28, fontSize: 12 }}>H</div>
-          )}
-          <button style={s.collapseBtn} onClick={() => setSidebarCollapsed(!sidebarCollapsed)}>
-            {sidebarCollapsed ? "»" : "«"}
-          </button>
+      <aside style={{ width:collapsed?68:240,minWidth:collapsed?68:240,background:T.sidebarBg,borderRight:`1px solid ${T.sidebarBorder}`,display:"flex",flexDirection:"column",transition:"all 0.28s cubic-bezier(.4,0,.2,1)",overflow:"hidden",flexShrink:0 }}>
+        <div style={{ background:T.topbar,padding:collapsed?"18px 0":"18px 18px",display:"flex",alignItems:"center",justifyContent:collapsed?"center":"space-between",minHeight:72,gap:10 }}>
+          {!collapsed&&<div><div style={{ fontSize:9,letterSpacing:"3px",color:"rgba(255,255,255,0.5)",textTransform:"uppercase",marginBottom:2 }}>Sangi Hospital</div><div style={{ fontSize:16,fontWeight:700,color:"#fff" }}>HOD Panel</div></div>}
+          {collapsed&&<div style={{ width:32,height:32,borderRadius:8,background:"rgba(255,255,255,0.15)",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:700,fontSize:15 }}>S</div>}
+          <button onClick={()=>setCollapsed(!collapsed)} style={{ width:26,height:26,background:"rgba(255,255,255,0.12)",border:"1px solid rgba(255,255,255,0.22)",color:"#fff",borderRadius:5,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,flexShrink:0 }}>{collapsed?"›":"‹"}</button>
         </div>
 
-        {/* Dept quick stats */}
-        {!sidebarCollapsed && (
-          <div style={s.sidebarStats}>
-            <div style={s.miniStat("#f59e0b")}>
-              <div style={s.miniStatVal("#f59e0b")}>{pendingCount}</div>
-              <div style={s.miniStatLabel}>Pend.</div>
-            </div>
-            <div style={s.miniStat("#f87171")}>
-              <div style={s.miniStatVal("#f87171")}>{overdueCount}</div>
-              <div style={s.miniStatLabel}>Over.</div>
-            </div>
-            <div style={s.miniStat("#34d399")}>
-              <div style={s.miniStatVal("#34d399")}>{doneCount}</div>
-              <div style={s.miniStatLabel}>Done</div>
-            </div>
+        {!collapsed&&(
+          <div style={{ display:"flex",gap:6,padding:"10px 12px",background:T.surfaceAlt,borderBottom:`1px solid ${T.border}` }}>
+            {[{v:pendingCnt,l:"Pend",c:"#b7791f"},{v:overdueCnt,l:"Over",c:"#c53030"},{v:doneCnt,l:"Done",c:"#2f855a"}].map(({v,l,c})=>(
+              <div key={l} style={{ flex:1,background:T.surface,border:`1px solid ${T.border}`,borderRadius:6,padding:"7px 5px",textAlign:"center" }}>
+                <div style={{ fontSize:15,fontWeight:700,color:c }}>{v}</div>
+                <div style={{ fontSize:9,color:T.textLight,letterSpacing:"1px",textTransform:"uppercase",marginTop:1 }}>{l}</div>
+              </div>
+            ))}
           </div>
         )}
 
-        <div style={s.sectionLabel}>Departments</div>
-        {DEPARTMENTS.map((dept) => (
-          <button key={dept} style={s.deptBtn(activeDept === dept, dept)}
-            onClick={() => { setActiveDept(dept); setActiveView("tasks"); setFilterEmployee(""); setFilterDate(""); setFilterStatus(""); }}>
-            <div style={s.deptIcon(dept)}>{DEPT_ICONS[dept]}</div>
-            {!sidebarCollapsed && <span style={{ flex: 1 }}>{dept}</span>}
-            {!sidebarCollapsed && activeDept === dept && tasks.length > 0 && (
-              <span style={{ fontSize: 10, background: `${DEPT_COLORS[dept]}25`, color: DEPT_COLORS[dept], borderRadius: 10, padding: "1px 6px" }}>{tasks.length}</span>
-            )}
+        <div style={{ padding:collapsed?"12px 0 4px":"12px 16px 4px",fontSize:9,letterSpacing:"2px",color:T.textMuted,textTransform:"uppercase",fontWeight:700,textAlign:collapsed?"center":"left" }}>{collapsed?"·":"Departments"}</div>
+        {DEPARTMENTS.map(d=>(
+          <button key={d} onClick={()=>switchDept(d)} style={{ display:"flex",alignItems:"center",gap:10,padding:collapsed?"12px 0":"10px 16px",justifyContent:collapsed?"center":"flex-start",cursor:"pointer",background:activeDept===d?T.primaryLight:"transparent",borderLeft:activeDept===d?`3px solid ${DEPT_ACCENT[d]}`:"3px solid transparent",color:activeDept===d?DEPT_ACCENT[d]:T.textMid,fontSize:13,border:"none",width:"100%",textAlign:"left",fontFamily:"inherit",fontWeight:activeDept===d?600:400,transition:"all 0.12s" }}>
+            <div style={{ width:26,height:26,borderRadius:7,background:activeDept===d?`${DEPT_ACCENT[d]}16`:T.borderLight,border:`1px solid ${activeDept===d?DEPT_ACCENT[d]+"35":T.border}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,flexShrink:0,color:DEPT_ACCENT[d] }}>{DEPT_ICONS[d]}</div>
+            {!collapsed&&<span style={{ flex:1 }}>{d}</span>}
+            {!collapsed&&activeDept===d&&deptTasks.length>0&&<span style={{ fontSize:10,background:`${DEPT_ACCENT[d]}14`,color:DEPT_ACCENT[d],borderRadius:10,padding:"1px 8px",border:`1px solid ${DEPT_ACCENT[d]}28` }}>{deptTasks.length}</span>}
           </button>
         ))}
 
-        <div style={s.sectionLabel}>Views</div>
-        {[
-          { id: "tasks", label: "Tasks" },
-          { id: "analytics", label: "Analytics" },
-          { id: "reviews", label: "Reviews" },
-          { id: "employees", label: "Employees" },
-        ].map((v) => (
-          <button key={v.id} style={s.navBtn(activeView === v.id)} onClick={() => setActiveView(v.id)}>
-            <span style={s.navIcon(activeView === v.id)}>{VIEW_ICONS[v.id]}</span>
-            {!sidebarCollapsed && v.label}
+        <div style={{ padding:collapsed?"14px 0 4px":"14px 16px 4px",fontSize:9,letterSpacing:"2px",color:T.textMuted,textTransform:"uppercase",fontWeight:700,textAlign:collapsed?"center":"left" }}>{collapsed?"·":"Views"}</div>
+        {[{id:"tasks",icon:"☑",l:"Tasks"},{id:"analytics",icon:"↗",l:"Analytics"},{id:"reviews",icon:"★",l:"Reviews"},{id:"employees",icon:"👥",l:"Employees"}].map(v=>(
+          <button key={v.id} onClick={()=>setActiveView(v.id)} style={{ display:"flex",alignItems:"center",gap:10,padding:collapsed?"10px 0":"9px 16px",justifyContent:collapsed?"center":"flex-start",cursor:"pointer",background:activeView===v.id?T.primaryLight:"transparent",color:activeView===v.id?T.primary:T.textMid,fontSize:13,border:"none",width:"100%",fontFamily:"inherit",fontWeight:activeView===v.id?600:400,borderLeft:activeView===v.id?`3px solid ${T.primary}`:"3px solid transparent",transition:"all 0.12s" }}>
+            <span style={{ fontSize:14,opacity:activeView===v.id?1:0.5,flexShrink:0 }}>{v.icon}</span>
+            {!collapsed&&v.l}
           </button>
         ))}
 
-        {/* Footer */}
-        <div style={s.sidebarFooter}>
-          {currentUser && !sidebarCollapsed && (
-            <div style={s.userCard}>
-              <div style={s.avatar}>{currentUser.name?.[0] || "H"}</div>
+        <div style={{ marginTop:"auto",borderTop:`1px solid ${T.border}`,padding:collapsed?"12px 0":"14px 16px",display:"flex",flexDirection:"column",gap:10 }}>
+          {!collapsed&&(
+            <div style={{ display:"flex",alignItems:"center",gap:10,padding:"10px 12px",background:T.surfaceAlt,borderRadius:8,border:`1px solid ${T.border}` }}>
+              <div style={{ width:34,height:34,borderRadius:9,background:T.primaryLight,border:`1px solid ${T.border}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,color:T.primary,fontWeight:700,flexShrink:0 }}>{(currentUser?.name||"H")[0]}</div>
               <div>
-                <div style={s.userName}>{currentUser.name}</div>
-                <div style={s.userRole}>HOD · {activeDept}</div>
+                <div style={{ fontSize:12,color:T.text,fontWeight:700 }}>{currentUser?.name||"HOD"}</div>
+                <div style={{ fontSize:10,color:T.textLight,textTransform:"uppercase",letterSpacing:"1px",marginTop:1 }}>HOD · {activeDept}</div>
               </div>
             </div>
           )}
-          <button style={s.logoutBtn} onClick={() => setShowLogoutConfirm(true)}>
-            <span>⎋</span>
-            {!sidebarCollapsed && "Logout"}
+          <button onClick={()=>setShowLogout(true)} style={{ display:"flex",alignItems:"center",justifyContent:collapsed?"center":"flex-start",gap:8,padding:collapsed?"9px 0":"9px 12px",background:T.dangerBg,border:`1px solid ${T.dangerBorder}`,borderRadius:7,color:T.danger,fontSize:12,cursor:"pointer",fontFamily:"inherit",fontWeight:600,width:"100%",transition:"all 0.15s" }}>
+            <span>⎋</span>{!collapsed&&"Logout"}
           </button>
         </div>
       </aside>
 
       {/* ── Main ── */}
-      <div style={s.main}>
-        <div style={s.topbar}>
-          <div style={s.topbarLeft}>
-            <div style={s.breadcrumb}>HOD Dashboard / {activeDept} / {activeView}</div>
-            <div style={s.pageTitle}>
+      <div style={{ flex:1,display:"flex",flexDirection:"column",overflow:"hidden" }}>
+        <div style={{ background:T.topbar,padding:"0 24px",display:"flex",alignItems:"center",justifyContent:"space-between",minHeight:64,flexShrink:0 }}>
+          <div>
+            <div style={{ fontSize:9,color:"rgba(255,255,255,0.45)",letterSpacing:"2px",textTransform:"uppercase",marginBottom:3 }}>HOD Dashboard / {activeDept} / {activeView}</div>
+            <div style={{ fontSize:17,fontWeight:700,color:"#fff",display:"flex",alignItems:"center",gap:10 }}>
               {activeDept} Department
-              <span style={s.deptPill}>{activeView}</span>
+              <span style={{ padding:"2px 12px",borderRadius:20,fontSize:10,background:"rgba(255,255,255,0.15)",color:"#fff",letterSpacing:"1px",fontWeight:600 }}>{activeView}</span>
             </div>
           </div>
-          <div style={s.topbarRight}>
-            {loading && (
-              <div style={s.loadingPill}>
-                <div style={s.loadingDot} />
-                SYNCING
-              </div>
-            )}
-            <button style={s.btn("ghost")} onClick={() => { fetchTasks(); fetchEmployees(); }}>↻</button>
-            <ThemeModeDock variant="inline" />
+          <div style={{ display:"flex",gap:12,alignItems:"center" }}>
+            <div style={{ fontSize:12,color:"rgba(255,255,255,0.55)" }}>{new Date().toLocaleDateString("en-IN",{weekday:"short",day:"numeric",month:"short",year:"numeric"})}</div>
+            <div style={{ background:"rgba(255,255,255,0.14)",border:"1px solid rgba(255,255,255,0.2)",padding:"5px 14px",borderRadius:6,fontSize:12,color:"#fff",fontWeight:600 }}>Laxmi Nagar Branch</div>
+            <button onClick={()=>setShowLogout(true)} style={{ background:"rgba(255,255,255,0.12)",border:"1px solid rgba(255,255,255,0.25)",padding:"6px 14px",borderRadius:6,fontSize:12,color:"#fff",cursor:"pointer",fontWeight:600,fontFamily:"inherit" }}>Logout</button>
           </div>
         </div>
 
-        <div style={s.content}>
-          {error && <div style={s.errorBar}>⚠ {error}</div>}
-          {activeView === "tasks"     && <TasksView />}
-          {activeView === "analytics" && <AnalyticsView />}
-          {activeView === "reviews"   && <ReviewsView />}
-          {activeView === "employees" && <EmployeesView />}
+        <div style={{ flex:1,overflowY:"auto",padding:"22px 24px" }}>
+          {activeView==="tasks"     && <TasksView />}
+          {activeView==="analytics" && <AnalyticsView />}
+          {activeView==="reviews"   && <ReviewsView />}
+          {activeView==="employees" && <EmployeesView />}
         </div>
       </div>
 
-      {/* ── Assign Task Modal ── */}
-      {showTaskForm && (
-        <div style={s.modal} onClick={() => setShowTaskForm(false)}>
-          <div style={s.modalBox} onClick={(e) => e.stopPropagation()}>
-            <div style={s.modalTitle}>⊕ Assign Task — {activeDept}</div>
-            <form onSubmit={handleAssignTask}>
-              <div style={s.formRow}>
-                <label style={s.label}>Employee</label>
-                <select style={{ ...s.select, width: "100%" }} value={taskForm.employeeId} onChange={(e) => setTaskForm({ ...taskForm, employeeId: e.target.value })} required>
-                  <option value="">Select Employee</option>
-                  {employees.map(emp => <option key={emp.id} value={emp.id}>{`${emp.name} (${emp.employeeCode || `ID-${emp.id}`})`}</option>)}
-                </select>
-              </div>
-
-              {activeDept === "Billing" ? (
-                <>
-                  <div style={s.formRow}>
-                    <label style={s.label}>Task Type</label>
-                    <select style={{ ...s.select, width: "100%" }} value={taskForm.taskType} onChange={(e) => setTaskForm({ ...taskForm, taskType: e.target.value })} required>
-                      <option value="">Select Task</option>
-                      {BILLING_TASK_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                    </select>
-                  </div>
-                  <div style={{ display: "flex", gap: "12px" }}>
-                    <div style={{ ...s.formRow, flex: 1 }}>
-                      <label style={s.label}>Patient ID</label>
-                      <input style={{ ...s.input, width: "100%" }} value={taskForm.patientId} onChange={(e) => setTaskForm({ ...taskForm, patientId: e.target.value })} placeholder="PT-00123" />
-                    </div>
-                    <div style={{ ...s.formRow, flex: 1 }}>
-                      <label style={s.label}>Patient Type</label>
-                      <select style={{ ...s.select, width: "100%" }} value={taskForm.patientType} onChange={(e) => setTaskForm({ ...taskForm, patientType: e.target.value })}>
-                        <option value="TPA">TPA</option>
-                        <option value="Card">Card</option>
-                      </select>
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <div style={s.formRow}>
-                  <label style={s.label}>Task Type</label>
-                  <input style={{ ...s.input, width: "100%" }} value={taskForm.taskType} onChange={(e) => setTaskForm({ ...taskForm, taskType: e.target.value })} placeholder="Enter task type" required />
-                </div>
-              )}
-
-              <div style={{ display: "flex", gap: "12px" }}>
-                <div style={{ ...s.formRow, flex: 1 }}>
-                  <label style={s.label}>Priority</label>
-                  <select style={{ ...s.select, width: "100%" }} value={taskForm.priority} onChange={(e) => setTaskForm({ ...taskForm, priority: e.target.value })}>
-                    <option value="low">Low</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High</option>
-                  </select>
-                </div>
-                <div style={{ ...s.formRow, flex: 1 }}>
-                  <label style={s.label}>Due Date</label>
-                  <input type="date" style={{ ...s.input, width: "100%" }} value={taskForm.dueDate} onChange={(e) => setTaskForm({ ...taskForm, dueDate: e.target.value })} />
-                </div>
-              </div>
-
-              <div style={s.formRow}>
-                <label style={s.label}>Notes</label>
-                <textarea style={s.textarea} value={taskForm.notes} onChange={(e) => setTaskForm({ ...taskForm, notes: e.target.value })} placeholder="Optional notes..." />
-              </div>
-              <div style={s.formActions}>
-                <button type="button" style={s.btn("ghost")} onClick={() => setShowTaskForm(false)}>Cancel</button>
-                <button type="submit" style={s.btn("primary")}>Assign Task</button>
-              </div>
-            </form>
-          </div>
-        </div>
+      {/* Assign Task */}
+      {showTask&&(
+        <Modal title={`Assign Task — ${activeDept}`} icon="📋" onClose={()=>setShowTask(false)}>
+          <form onSubmit={submitTask}>
+            <FR label="Employee *"><select style={sel(true)} value={taskF.employeeId} onChange={e=>setTaskF({...taskF,employeeId:e.target.value})} required><option value="">Select Employee</option>{employees.map(em=><option key={em.id} value={em.id}>{em.name}</option>)}</select></FR>
+            {activeDept==="Billing"?(
+              <><FR label="Task Type *"><select style={sel(true)} value={taskF.taskType} onChange={e=>setTaskF({...taskF,taskType:e.target.value})} required><option value="">Select Task</option>{BILLING_TASK_TYPES.map(t=><option key={t} value={t}>{t}</option>)}</select></FR>
+              <div style={{ display:"flex",gap:12 }}>
+                <div style={{ flex:1 }}><FR label="Patient ID"><input style={inp(true)} value={taskF.patientId} onChange={e=>setTaskF({...taskF,patientId:e.target.value})} placeholder="PT-00123" /></FR></div>
+                <div style={{ flex:1 }}><FR label="Patient Type"><select style={sel(true)} value={taskF.patientType} onChange={e=>setTaskF({...taskF,patientType:e.target.value})}><option value="TPA">TPA</option><option value="Card">Card</option></select></FR></div>
+              </div></>
+            ):(
+              <FR label="Task Type *"><input style={inp(true)} value={taskF.taskType} onChange={e=>setTaskF({...taskF,taskType:e.target.value})} placeholder="Enter task type" required /></FR>
+            )}
+            <div style={{ display:"flex",gap:12 }}>
+              <div style={{ flex:1 }}><FR label="Priority"><select style={sel(true)} value={taskF.priority} onChange={e=>setTaskF({...taskF,priority:e.target.value})}><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select></FR></div>
+              <div style={{ flex:1 }}><FR label="Due Date"><input type="date" style={inp(true)} value={taskF.dueDate} onChange={e=>setTaskF({...taskF,dueDate:e.target.value})} /></FR></div>
+            </div>
+            <FR label="Notes"><textarea style={{ ...inp(true),resize:"vertical",minHeight:70 }} value={taskF.notes} onChange={e=>setTaskF({...taskF,notes:e.target.value})} placeholder="Optional notes..." /></FR>
+            <ModalFooter onCancel={()=>setShowTask(false)} submitLabel="Assign Task" />
+          </form>
+        </Modal>
       )}
 
-      {/* ── Edit Task Modal ── */}
-      {editingTask && (
-        <div style={s.modal} onClick={() => setEditingTask(null)}>
-          <div style={s.modalBox} onClick={(e) => e.stopPropagation()}>
-            <div style={s.modalTitle}>✎ Update Task #{editingTask.id}</div>
-            <div style={s.formRow}>
-              <label style={s.label}>Status</label>
-              <select style={{ ...s.select, width: "100%" }} value={editingTask.status} onChange={(e) => setEditingTask({ ...editingTask, status: e.target.value })}>
-                <option value="pending">Pending</option>
-                <option value="in-progress">In Progress</option>
-                <option value="completed">Completed</option>
-                <option value="overdue">Overdue</option>
-              </select>
-            </div>
-            <div style={s.formRow}>
-              <label style={s.label}>Priority</label>
-              <select style={{ ...s.select, width: "100%" }} value={editingTask.priority} onChange={(e) => setEditingTask({ ...editingTask, priority: e.target.value })}>
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
-              </select>
-            </div>
-            <div style={s.formRow}>
-              <label style={s.label}>Notes</label>
-              <textarea style={s.textarea} value={editingTask.notes || ""} onChange={(e) => setEditingTask({ ...editingTask, notes: e.target.value })} />
-            </div>
-            <div style={s.formActions}>
-              <button style={s.btn("ghost")} onClick={() => setEditingTask(null)}>Cancel</button>
-              <button style={s.btn("primary")} onClick={() => handleUpdateTask(editingTask.id, { status: editingTask.status, priority: editingTask.priority, notes: editingTask.notes })}>Save Changes</button>
-            </div>
-          </div>
-        </div>
+      {/* Edit Task */}
+      {editTask&&(
+        <Modal title={`Update Task #${editTask.id}`} icon="✎" onClose={()=>setEditTask(null)}>
+          <form onSubmit={e=>{e.preventDefault();updateTask(editTask.id,{status:editTask.status,priority:editTask.priority,notes:editTask.notes});}}>
+            <FR label="Status"><select style={sel(true)} value={editTask.status} onChange={e=>setEditTask({...editTask,status:e.target.value})}><option value="pending">Pending</option><option value="in-progress">In Progress</option><option value="completed">Completed</option><option value="overdue">Overdue</option></select></FR>
+            <FR label="Priority"><select style={sel(true)} value={editTask.priority} onChange={e=>setEditTask({...editTask,priority:e.target.value})}><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select></FR>
+            <FR label="Notes"><textarea style={{ ...inp(true),resize:"vertical",minHeight:70 }} value={editTask.notes||""} onChange={e=>setEditTask({...editTask,notes:e.target.value})} /></FR>
+            <ModalFooter onCancel={()=>setEditTask(null)} submitLabel="Save Changes" />
+          </form>
+        </Modal>
       )}
 
-      {/* ── Review Modal ── */}
-      {showReviewForm && (
-        <div style={s.modal} onClick={() => setShowReviewForm(false)}>
-          <div style={s.modalBox} onClick={(e) => e.stopPropagation()}>
-            <div style={s.modalTitle}>⭐ Submit Employee Review</div>
-            <form onSubmit={handleSubmitReview}>
-              <div style={s.formRow}>
-                <label style={s.label}>Employee</label>
-                <select style={{ ...s.select, width: "100%" }} value={reviewForm.employeeId} onChange={(e) => setReviewForm({ ...reviewForm, employeeId: e.target.value })} required>
-                  <option value="">Select Employee</option>
-                  {employees.map(emp => <option key={emp.id} value={emp.id}>{emp.name}</option>)}
-                </select>
-              </div>
-              <div style={{ display: "flex", gap: "12px" }}>
-                <div style={{ ...s.formRow, flex: 1 }}>
-                  <label style={s.label}>Period</label>
-                  <select style={{ ...s.select, width: "100%" }} value={reviewForm.period} onChange={(e) => setReviewForm({ ...reviewForm, period: e.target.value })}>
-                    <option value="weekly">Weekly</option>
-                    <option value="monthly">Monthly</option>
-                  </select>
-                </div>
-                <div style={{ ...s.formRow, flex: 1 }}>
-                  <label style={s.label}>Rating (1–5)</label>
-                  <select style={{ ...s.select, width: "100%" }} value={reviewForm.rating} onChange={(e) => setReviewForm({ ...reviewForm, rating: Number(e.target.value) })}>
-                    {[1, 2, 3, 4, 5].map(r => <option key={r} value={r}>{"★".repeat(r)} ({r})</option>)}
-                  </select>
-                </div>
-              </div>
-              <div style={s.formRow}>
-                <label style={s.label}>Performance Score</label>
-                <input style={{ ...s.input, width: "100%" }} value={reviewForm.performanceScore} onChange={(e) => setReviewForm({ ...reviewForm, performanceScore: e.target.value })} placeholder="e.g. 87/100" />
-              </div>
-              <div style={s.formRow}>
-                <label style={s.label}>Comments</label>
-                <textarea style={s.textarea} value={reviewForm.comments} onChange={(e) => setReviewForm({ ...reviewForm, comments: e.target.value })} placeholder="Performance observations, feedback..." required />
-              </div>
-              <div style={s.formActions}>
-                <button type="button" style={s.btn("ghost")} onClick={() => setShowReviewForm(false)}>Cancel</button>
-                <button type="submit" style={s.btn("primary")}>Submit Review</button>
-              </div>
-            </form>
-          </div>
-        </div>
+      {/* Add Employee */}
+      {showEmp&&(
+        <Modal title="Add New Employee" icon="👤" onClose={()=>setShowEmp(false)}>
+          <form onSubmit={submitEmp}>
+            <div style={{ display:"flex",gap:12 }}>
+              <div style={{ flex:1 }}><FR label="Full Name *"><input style={inp(true)} value={empF.fullName} onChange={e=>setEmpF({...empF,fullName:e.target.value})} placeholder="e.g. Priya Sharma" required /></FR></div>
+              <div style={{ flex:1 }}><FR label="Username *"><input style={inp(true)} value={empF.username} onChange={e=>setEmpF({...empF,username:e.target.value})} placeholder="e.g. priya.sharma" required /></FR></div>
+            </div>
+            <div style={{ display:"flex",gap:12 }}>
+              <div style={{ flex:1 }}><FR label="Department *"><select style={sel(true)} value={empF.department} onChange={e=>setEmpF({...empF,department:e.target.value})} required>{DEPARTMENTS.map(d=><option key={d} value={d}>{d}</option>)}</select></FR></div>
+              <div style={{ flex:1 }}><FR label="Employee ID"><input style={inp(true)} value={empF.empId} onChange={e=>setEmpF({...empF,empId:e.target.value})} placeholder={`EMP${String(nextE).padStart(3,"0")}`} /></FR></div>
+            </div>
+            <FR label="Email Address *"><input type="email" style={inp(true)} value={empF.email} onChange={e=>setEmpF({...empF,email:e.target.value})} placeholder="employee@sangihospital.com" required /></FR>
+            <div style={{ display:"flex",gap:12 }}>
+              <div style={{ flex:1 }}><FR label="Password *"><input type="password" style={inp(true)} value={empF.password} onChange={e=>setEmpF({...empF,password:e.target.value})} placeholder="Min. 8 characters" required minLength={8} /></FR></div>
+              <div style={{ flex:1 }}><FR label="Confirm Password *"><input type="password" style={inp(true)} value={empF.confirmPassword} onChange={e=>setEmpF({...empF,confirmPassword:e.target.value})} placeholder="Repeat password" required /></FR></div>
+            </div>
+            {empErr&&<div style={{ background:T.dangerBg,border:`1px solid ${T.dangerBorder}`,color:T.danger,padding:"9px 14px",borderRadius:7,fontSize:12,marginBottom:12 }}>⚠ {empErr}</div>}
+            <ModalFooter onCancel={()=>setShowEmp(false)} submitLabel="Add Employee" />
+          </form>
+        </Modal>
       )}
 
-      {/* ── Logout Confirm Modal ── */}
-      {showLogoutConfirm && (
-        <div style={s.modal} onClick={() => setShowLogoutConfirm(false)}>
-          <div style={{ ...s.modalBox, width: 360, textAlign: "center" }} onClick={(e) => e.stopPropagation()}>
-            <div style={{ fontSize: 32, marginBottom: 12 }}>⎋</div>
-            <div style={{ fontSize: 14, fontWeight: 700, color: "#f1f5f9", marginBottom: 8 }}>Confirm Logout</div>
-            <div style={{ fontSize: 12, color: "#374151", marginBottom: 20 }}>
-              You'll be signed out of the HOD Panel. Any unsaved changes will be lost.
+      {/* Review */}
+      {showReview&&(
+        <Modal title="Submit Employee Review" icon="⭐" onClose={()=>setShowReview(false)}>
+          <form onSubmit={submitReview}>
+            <FR label="Employee *"><select style={sel(true)} value={revF.employeeId} onChange={e=>setRevF({...revF,employeeId:e.target.value})} required><option value="">Select Employee</option>{employees.map(em=><option key={em.id} value={em.id}>{em.name}</option>)}</select></FR>
+            <div style={{ display:"flex",gap:12 }}>
+              <div style={{ flex:1 }}><FR label="Period"><select style={sel(true)} value={revF.period} onChange={e=>setRevF({...revF,period:e.target.value})}><option value="weekly">Weekly</option><option value="monthly">Monthly</option></select></FR></div>
+              <div style={{ flex:1 }}><FR label="Rating (1–5)"><select style={sel(true)} value={revF.rating} onChange={e=>setRevF({...revF,rating:Number(e.target.value)})}>{[1,2,3,4,5].map(r=><option key={r} value={r}>{"★".repeat(r)} ({r}/5)</option>)}</select></FR></div>
             </div>
-            <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
-              <button style={s.btn("ghost")} onClick={() => setShowLogoutConfirm(false)}>Stay</button>
-              <button style={s.btn("danger")} onClick={() => { setShowLogoutConfirm(false); onLogout?.(); }}>Logout</button>
+            <FR label="Performance Score"><input style={inp(true)} value={revF.performanceScore} onChange={e=>setRevF({...revF,performanceScore:e.target.value})} placeholder="e.g. 87/100" /></FR>
+            <FR label="Comments *"><textarea style={{ ...inp(true),resize:"vertical",minHeight:80 }} value={revF.comments} onChange={e=>setRevF({...revF,comments:e.target.value})} placeholder="Performance observations and feedback..." required /></FR>
+            <ModalFooter onCancel={()=>setShowReview(false)} submitLabel="Submit Review" />
+          </form>
+        </Modal>
+      )}
+
+      {/* Logout */}
+      {showLogout&&(
+        <Modal title="Confirm Logout" icon="⎋" onClose={()=>setShowLogout(false)} width={380}>
+          <div style={{ textAlign:"center",padding:"8px 0 4px" }}>
+            <div style={{ fontSize:40,marginBottom:14 }}>👋</div>
+            <div style={{ fontSize:14,fontWeight:700,color:T.text,marginBottom:8 }}>Are you sure you want to logout?</div>
+            <div style={{ fontSize:13,color:T.textMid,marginBottom:22,lineHeight:1.6 }}>You'll be signed out of the HOD Panel.<br/>Any unsaved changes will be lost.</div>
+            <div style={{ display:"flex",gap:10,justifyContent:"center" }}>
+              <Btn variant="ghost" onClick={()=>setShowLogout(false)}>Stay Logged In</Btn>
+              <Btn variant="danger" onClick={()=>{setShowLogout(false);onLogout?.();}}>Logout</Btn>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

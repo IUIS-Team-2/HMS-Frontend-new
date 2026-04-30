@@ -1,9 +1,16 @@
 import axios from 'axios';
+import { mockApiService } from "./mockApiService";
+
+// ─── MOCK TOGGLE ─────────────────────────────────────────────
+// Set USE_MOCK = true  → runs entire app with mock data, no backend needed
+// Set USE_MOCK = false → restores all live API calls
+// ─────────────────────────────────────────────────────────────
+const USE_MOCK = false; // <--- toggle this to switch between mock and real API
 
 export const API_ORIGIN = process.env.REACT_APP_API_ORIGIN || 'http://127.0.0.1:8000';
 export const BASE_URL = `${API_ORIGIN}/api`;
 
-// 🌟 NEW: Automatically attach the JWT token to EVERY request
+// 🌟 Automatically attach the JWT token to EVERY request
 axios.interceptors.request.use(
     (config) => {
         const token = sessionStorage.getItem('hms_token');
@@ -15,8 +22,7 @@ axios.interceptors.request.use(
     (error) => Promise.reject(error)
 );
 
-export const apiService = {
-
+const realApiService = {
 
     login: async (username, password) => {
         const response = await axios.post(`${BASE_URL}/users/login/`, { username, password });
@@ -62,14 +68,14 @@ export const apiService = {
         const response = await axios.delete(`${BASE_URL}/users/manage/${userId}/`);
         return response.data;
     },
-    
+
     getPatients: async () => {
         try {
             const response = await axios.get(`${BASE_URL}/patients/`);
             return response.data;
         } catch (error) {
             console.error("Error fetching patient records:", error);
-            throw error; 
+            throw error;
         }
     },
 
@@ -92,13 +98,11 @@ export const apiService = {
         return response.data;
     },
 
-    
     getServiceMaster: async () => {
         const response = await axios.get(`${BASE_URL}/service-master/`);
         return response.data;
     },
 
-    
     updateMedicalHistory: async (uhid, admNo, medicalData) => {
         const response = await axios.patch(`${BASE_URL}/patients/${uhid}/update_medical/`, { admNo, medicalData });
         return response.data;
@@ -123,7 +127,7 @@ export const apiService = {
         const response = await axios.patch(`${BASE_URL}/patients/${uhid}/update_billing/`, { admNo, billingData });
         return response.data;
     },
-    
+
     setExpectedDod: async (uhid, admNo, expectedDod) => {
         const response = await axios.patch(`${BASE_URL}/patients/${uhid}/set_expected_dod/`, { admNo, expectedDod });
         return response.data;
@@ -135,16 +139,15 @@ export const apiService = {
     },
 
     resolvePrint: async (uhid, admNo, action) => {
-        // action will be 'APPROVED' or 'REJECTED'
         const response = await axios.post(`${BASE_URL}/patients/${uhid}/resolve_print/`, { admNo, action });
         return response.data;
     },
-    
+
     updatePatient: async (uhid, patientData) => {
         const response = await axios.patch(`${BASE_URL}/patients/${uhid}/`, patientData);
         return response.data;
     },
-    // --- DYNAMIC DISCHARGE SUMMARY ---
+
     getDynamicSummary: async (uhid, admNo, type = 'LAMA') => {
         const response = await axios.get(`${BASE_URL}/patients/${uhid}/admissions/${admNo}/dynamic-summary/?type=${type}`);
         return response.data;
@@ -199,6 +202,7 @@ export const apiService = {
         const response = await axios.post(`${BASE_URL}/department-logs/bulk-save/`, { department, entries });
         return response.data;
     },
+
     getLabReports: async (uhid, admNo) => {
         const response = await axios.get(`${BASE_URL}/patients/${uhid}/admissions/${admNo}/lab-reports/`);
         return response.data;
@@ -227,5 +231,8 @@ export const apiService = {
     savePharmacyRecordsBulk: async (uhid, admNo, records) => {
         const response = await axios.post(`${BASE_URL}/patients/${uhid}/admissions/${admNo}/pharmacy-records/bulk-save/`, { records });
         return response.data;
-    }
+    },
 };
+
+// ─── Single export — swap between mock and real with USE_MOCK above ───────────
+export const apiService = USE_MOCK ? mockApiService : realApiService;
