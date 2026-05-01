@@ -438,6 +438,7 @@ const DEPARTMENT_ROLE_MAP = {
   Receptionist: "receptionist",
 };
 const TASK_ASSIGNABLE_ROLES = new Set(["receptionist", "billing", "hod", "opd", "intimation", "query", "uploading", "admin", "office_admin"]);
+const getRoleForDepartment = (department) => DEPARTMENT_ROLE_MAP[String(department || "").trim()] || "";
 
 // ── UTILS ─────────────────────────────────────────────────────────────────────
 const fmt    = (n)   => "₹" + Number(n).toLocaleString("en-IN");
@@ -839,10 +840,15 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
     return allPatientsForTask.filter(p => p.name.toLowerCase().includes(q) || p.uhid.toLowerCase().includes(q));
   }, [allPatientsForTask, taskPatientSearch]);
 
-  const taskAssignableEmployees = useMemo(
-    () => employees.filter((employee) => TASK_ASSIGNABLE_ROLES.has(String(employee.role || "").toLowerCase())),
-    [employees]
-  );
+  const taskAssignableEmployees = useMemo(() => {
+    const expectedRole = getRoleForDepartment(taskForm.department);
+    return employees.filter((employee) => {
+      const role = String(employee.role || "").toLowerCase();
+      if (!TASK_ASSIGNABLE_ROLES.has(role)) return false;
+      if (!expectedRole) return true;
+      return role === expectedRole;
+    });
+  }, [employees, taskForm.department]);
 
   const getEmployeeBranchCode = () => {
     if (isOfficeAdmin) return "ALL";
@@ -961,6 +967,16 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
 
     const assignedEmployee = taskAssignableEmployees.find((employee) => String(employee.id) === String(taskForm.assignedToId));
     if (!assignedEmployee) { toast("Select a valid employee from the live employee list","err"); return; }
+
+    const expectedRole = getRoleForDepartment(taskForm.department);
+    if (expectedRole && String(assignedEmployee.role || "").toLowerCase() !== expectedRole) {
+      toast(`Department ${taskForm.department} must be assigned to a ${expectedRole.toUpperCase()} user`, "err");
+      return;
+    }
+    if (expectedRole === "billing" && !taskForm.patientUhid) {
+      toast("Billing tasks must be linked to a patient", "err");
+      return;
+    }
 
     const linkedPatient = allPatientsForTask.find(patient => patient.uhid === taskForm.patientUhid);
     const payload = {
@@ -1964,7 +1980,11 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
               </div>
               <div>
                 <label className="hms-lbl">Department</label>
-                <select className="hms-sel" value={taskForm.department} onChange={e=>setTaskForm(f=>({...f,department:e.target.value}))}>
+                <select
+                  className="hms-sel"
+                  value={taskForm.department}
+                  onChange={e=>setTaskForm(f=>({...f,department:e.target.value,assignedToId:""}))}
+                >
                   {allDeptOptions.map(d=><option key={d}>{d}</option>)}
                 </select>
               </div>
@@ -2058,7 +2078,14 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
               {[["Full Name","fullName","text","Jane Doe"],["Username","username","text","jane.doe"],["Employee ID","empId","text","EMP-001"],["Email","email","email","jane@hospital.com"],["Phone","phone","tel","+91 98765 43210"]].map(([lbl,k,type,ph])=>(
                 <div key={k}>
                   <label className="hms-lbl">{lbl}</label>
-                  <input type={type} placeholder={ph} value={empForm[k]} className="hms-inp" onChange={e=>{setEmpForm(f=>({...f,[k]:e.target.value}));setEmpPassErr("");}} disabled={k==="username" && editEmpId || (k==="empId" && !editEmpId)}/>
+                  <input
+                    type={type}
+                    placeholder={ph}
+                    value={empForm[k]}
+                    className="hms-inp"
+                    onChange={e=>{setEmpForm(f=>({...f,[k]:e.target.value}));setEmpPassErr("");}}
+                    disabled={k==="username" && editEmpId}
+                  />
                 </div>
               ))}
             </div>
