@@ -1,11 +1,4 @@
 import axios from 'axios';
-import { mockApiService } from "./mockApiService";
-
-// ─── MOCK TOGGLE ─────────────────────────────────────────────
-// Set USE_MOCK = true  → runs entire app with mock data, no backend needed
-// Set USE_MOCK = false → restores all live API calls
-// ─────────────────────────────────────────────────────────────
-const USE_MOCK = false; // <--- toggle this to switch between mock and real API
 
 export const API_ORIGIN = process.env.REACT_APP_API_ORIGIN || 'http://127.0.0.1:8000';
 export const BASE_URL = `${API_ORIGIN}/api`;
@@ -22,7 +15,7 @@ axios.interceptors.request.use(
     (error) => Promise.reject(error)
 );
 
-const realApiService = {
+export const apiService = {
 
     login: async (username, password) => {
         const response = await axios.post(`${BASE_URL}/users/login/`, { username, password });
@@ -233,6 +226,3 @@ const realApiService = {
         return response.data;
     },
 };
-
-// ─── Single export — swap between mock and real with USE_MOCK above ───────────
-export const apiService = USE_MOCK ? mockApiService : realApiService;
