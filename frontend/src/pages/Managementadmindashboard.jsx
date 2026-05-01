@@ -1177,18 +1177,20 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
   );
   const EmptyState = ({ icon, label, sub }) => {
     const Icon = icon;
+    const isIconComponent = typeof Icon === "function" || (typeof Icon === "object" && Icon !== null);
     return (
     <div style={{ textAlign:"center", padding:"3rem", color:"#64748b" }}>
-      {icon && <div style={{ fontSize:40, marginBottom:12 }}>{typeof Icon === "function" ? <Icon size={36} strokeWidth={1.8} /> : icon}</div>}
+      {icon && <div style={{ fontSize:40, marginBottom:12 }}>{isIconComponent ? <Icon size={36} strokeWidth={1.8} /> : icon}</div>}
       <div style={{ fontSize:14, fontWeight:600, color:"#94a3b8", marginBottom:6 }}>{label}</div>
       {sub && <div style={{ fontSize:12 }}>{sub}</div>}
     </div>
   );};
   const StatCard = ({ col, icon, label, val, sub, topBorder }) => {
     const Icon = icon;
+    const isIconComponent = typeof Icon === "function" || (typeof Icon === "object" && Icon !== null);
     return (
     <div className="hms-stat-card" style={{ borderTop:topBorder?`3px solid ${col}`:undefined, border:`1px solid ${col}15` }}>
-      {icon && <div className="hms-stat-icon">{typeof Icon === "function" ? <Icon size={18} strokeWidth={2} /> : icon}</div>}
+      {icon && <div className="hms-stat-icon">{isIconComponent ? <Icon size={18} strokeWidth={2} /> : icon}</div>}
       {topBorder && <div style={{ fontSize:10, color:col, fontWeight:700, textTransform:"uppercase", letterSpacing:".08em", marginBottom:8 }}>{label}</div>}
       <div className="hms-stat-num" style={{ fontSize:topBorder?26:22, color:col }}>{val}</div>
       {topBorder ? <div className="hms-stat-label">{sub}</div> : <div className="hms-stat-label">{label}</div>}
