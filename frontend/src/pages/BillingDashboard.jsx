@@ -51,7 +51,7 @@ const DOCTOR_LIST = [
   "Dr. Ritu Kapoor (MBBS, MD – Dermatology)",
   "Dr. Sanjay Yadav (MBBS, MD – Neurology)",
   "Dr. Neha Gupta (MBBS, MD – Pulmonology)",
-  "Dr. Vikas Sharma (MBBS, MS – Ophthalmology)",
+  "Dr. Vikas Sharma (MBBS, MS – Ophthalmology)", 
 ];
 
 const QUALIFICATION_LIST = [

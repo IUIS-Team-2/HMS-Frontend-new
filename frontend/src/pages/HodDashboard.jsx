@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 
 // ─── Constants ────────────────────────────────────────────────
-const DEPARTMENTS = ["Billing", "Uploading", "Query", "OPD", "Intimation", "Nursing", "Doctor"];
+const DEPARTMENTS = ["Billing", "Uploading", "Query", "OPD", "Intimation", "Nursing", "Doctor" , "Notes" , "Quality Analysis"];
 
 const INSURANCE_TYPES = [
   "TPA", "Ayushman Bharat", "ECHS", "ECI", "FCI", "Northern Railways", "Cash",
@@ -20,6 +20,8 @@ const DEPT_COLORS = {
   Intimation: "var(--info)",
   Nursing:    "#a78bfa",
   Doctor:     "#f472b6",
+  Notes:      ClipboardList,
+  "Quality Analysis": BarChart3,
 };
 
 const DEPT_ICONS = {
@@ -30,6 +32,8 @@ const DEPT_ICONS = {
   Intimation: ClipboardList,
   Nursing:    Users,
   Doctor:     Star,
+  Notes:      ClipboardList,
+  "Quality Analysis": BarChart3,
 };
 
 const VIEW_ICONS = {
