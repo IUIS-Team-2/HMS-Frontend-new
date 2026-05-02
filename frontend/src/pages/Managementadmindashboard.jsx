@@ -135,32 +135,32 @@ const LAB_TEMPLATES = {
         { name: "Antigen BH (1:20 to 1:320)", unit: "", refRange: "Negative" },
         { name: "RESULT", unit: "", refRange: "POSITIVE / NEGATIVE" }
       ],
-      defaultRemarks: "INTERPRETATION: Antibody titer of 1:80 or higher suggests infection. A marked rise in the titer of one serotype to above 1:80 or paired samples collected at 5 to 7 days interval is regarded as diagnostically significant. However persons who have received TAB vaccine may show high titer of antibodies to each of the salmonella."
+      defaultRemarks: "INTERPRETATION: Antibody titer of 1:80 or higher suggests infection."
     },
     "Malaria Antigen Test": {
       tests: [
         { name: "PLASMODIUM P. VIVAX", unit: "", refRange: "NEGATIVE" },
         { name: "PLASMODIUM FALCIPARUM", unit: "", refRange: "NEGATIVE" }
       ],
-      defaultRemarks: "PRINCIPLE OF TEST: The test uses two antibodies. One antibody is specific for histidine-rich protein2 species P.falciparum (Pf HRP2). The other antibody is specific for a malaria antigen which is common to all the four species P.falciparum, P.vivax, P.ovale, P.malariae.\nLIMITATION: The test indicates the presence or absence of P.vivax in blood specimen. Diagnosis is made by this result with other finding. The test is not to be used in lieu of conventional smear diagnosis."
+      defaultRemarks: "PRINCIPLE OF TEST: The test uses two antibodies."
     },
     "Typhi Dot (IgG & IgM)": {
       tests: [
         { name: "THYPIDOT TEST FOR S.TYPHI IgM", unit: "", refRange: "POSITIVE / NEGATIVE" },
         { name: "THYPIDOT TEST FOR S.TYPHI IgG", unit: "", refRange: "POSITIVE / NEGATIVE" }
       ],
-      defaultRemarks: "COMMENTS: The typhidot test is based on dot enzyme immunosorbant assay for the early detection of IgM antibodies to salmonella typhi. This test has the sensitivity of approximately 95% and does not any cross reaction. Limitation of this test is that high IgG concentration may give false negative for IgM because IgG will drastically reduce binding of specific IgM to the antigen, so clinical correlation is a must."
+      defaultRemarks: "COMMENTS: The typhidot test is based on dot enzyme immunosorbant assay."
     },
     "Dengue (IgM & IgG)": {
       tests: [
         { name: "DENGUE IgM ANTIBODIES", unit: "", refRange: "NON-REACTIVE" },
         { name: "DENGUE IgG ANTIBODIES", unit: "", refRange: "NON-REACTIVE" }
       ],
-      defaultRemarks: "REMARKS: Dengue viruses are mosquito-born viruses. Infected may lead to Dengue fever or dengue haemorrhagic fever and dengue shock syndrome. In the extreme cases, IgM antibodies appear around the 5th day of Dengue infection, rise for 1-3 weeks and last for 60-90days. IgG antibodies appear by the 14th day in primary infections and on the 2nd day in secondary infections and can usually be detected for life. Both Dengue fever IgM & IgG are useful in the early detection of primary and secondary Dengue infection."
+      defaultRemarks: "REMARKS: Dengue viruses are mosquito-born viruses."
     },
     "Dengue NS1 Antigen Test": {
       tests: [ { name: "DENGUE NS1 ANTIGEN", unit: "", refRange: "NON-REACTIVE" } ],
-      defaultRemarks: "REMARKS: NS1 antigen is an non-structural protein recognized as a mark of acute phase of dengue infection, a period for which traditional serological antibodies based methods are of limited value. NS1 antigen was found circulating in sample of infected patient from the first day up to 9 days after onset fever. Dengue NS1 Ag Strip is an individual test for qualitative of Dengue virus NS1 antigen in human serum or plasma as an in the diagnosis of actual dengue infection."
+      defaultRemarks: "REMARKS: NS1 antigen is an non-structural protein."
     },
     "Viral Markers (HIV, HBsAg, HCV)": {
       tests: [
@@ -192,37 +192,23 @@ const LAB_TEMPLATES = {
       ],
       defaultRemarks: "***End Of The Report***"
     },
-    "Urine Gram Stain": {
-      tests: [ { name: "RESULT", unit: "", refRange: "" } ],
-      defaultRemarks: "NATURE OF SAMPLE: URINE\nRESULT: GRAM NEGATIVE BACILLI SEEN. NO BUDDING YEAST CELLS SEEN."
-    },
-    "Aerobic Culture & Sensitivity": {
+    "Blood Group & Rh Factor": {
       tests: [
-        { name: "SPECIMEN SOURCE", unit: "", refRange: "e.g. URINE C/S" },
-        { name: "DATE RECEIVED", unit: "", refRange: "" },
-        { name: "DATE REPORTED", unit: "", refRange: "" },
-        { name: "CULTURE RESULT", unit: "", refRange: "e.g. E. COLI" },
-        { name: "AMIKACIN", unit: "", refRange: "SENSITIVE/RESISTANT" },
-        { name: "AMOXICILLIN+ CLAVULANATE", unit: "", refRange: "SENSITIVE/RESISTANT" },
-        { name: "AMPICILLIN", unit: "", refRange: "SENSITIVE/RESISTANT" },
-        { name: "CEFOTAXIME", unit: "", refRange: "SENSITIVE/RESISTANT" },
-        { name: "CEFTRIAXONE", unit: "", refRange: "SENSITIVE/RESISTANT" },
-        { name: "CIPROFLOXACIN", unit: "", refRange: "SENSITIVE/RESISTANT" },
-        { name: "MEROPENEM", unit: "", refRange: "SENSITIVE/RESISTANT" }
+        { name: "Blood Group", unit: "", refRange: "" },
+        { name: "Rh Factor", unit: "", refRange: "" }
       ],
       defaultRemarks: "***End Of The Report***"
     },
-    "Serum Procalcitonin": {
-      tests: [ { name: "SERUM PROCALCITONIN", unit: "pg/ml", refRange: "0.0 – 500" } ],
-      defaultRemarks: "METHOD : ELFA. Pro calcitonin, the pro hormone of calcitonin is below limit of detection (0.05 ng/ml) in healthy individuals. It rises in response to an inflammatory stimulus especially of bacterial origin. It does not rise significantly with viral or non infectious inflammations.\nPROCALCITONIN LEVEL INFERENCE:-\n< 500.0: Minor local bacterial infection is possible.\n500 - 2000: Systemic infection is Possible. Suggest repeat after 6-24 hours.\n2000 - <10000: Systemic infection (sepsis) is likely.\n>10000: important systemic inflammatory response, almost exclusively due to severe bacterial sepsis or septic shock."
+    "HbA1c (Glycosylated Hemoglobin)": {
+      tests: [
+        { name: "HBA1C", unit: "%", refRange: "4.30-6.40" },
+        { name: "MEAN PLASMA GLUCOSE", unit: "mg/dl", refRange: "70-140" }
+      ],
+      defaultRemarks: "METHOD : HIGH PERFORMANCE LIQUID CHROMATOGRAPHY (HPLC)"
     },
-    "Sputum for AFB": {
-      tests: [ { name: "RESULT", unit: "", refRange: "" } ],
-      defaultRemarks: "RESULT: NO ACID FAST BACILLI SEEN."
-    },
-    "Sputum Gram Stain": {
-      tests: [ { name: "RESULT", unit: "", refRange: "" } ],
-      defaultRemarks: "RESULT: NO PATHOGENIC BACTERIA SEEN. NO BUDDING YEAST CELLS SEEN."
+    "D-Dimer": {
+      tests: [ { name: "D-DIMER", unit: "µgFEU/mL", refRange: "<0.5" } ],
+      defaultRemarks: "Physiological basis: D-dimer is one of the terminal fibrin degradation products."
     },
     "Cardiac Markers (Trop-T, Trop-I, CPK)": {
       tests: [
@@ -242,14 +228,6 @@ const LAB_TEMPLATES = {
       ],
       defaultRemarks: "Method: Enzyme linked fluorescent assay."
     },
-    "Vitamin B-12 (Cyanocobalamin)": {
-      tests: [ { name: "VITAMIN B- 12", unit: "pg/ml", refRange: "211 – 911" } ],
-      defaultRemarks: "Note: To differentiate vitamin B12 & folate deficiency, measurement of Methyl malonic acid & Homocysteine levels in serum is suggested. The diagnosis of B12 deficiency cannot be solely based on serum B12 levels. Vitamin B12 performs many important functions in the body, but the most significant function is to act as co-enzyme for reducing ribonucleotides to deoxyribonucleotides. Cobalamine deficiency leads to Megaloblastic anemia and demyelination of large nerve fibers of spine cord."
-    },
-    "25 OH Vitamin D3": {
-      tests: [ { name: "25 OH VITAMIN D3", unit: "ng/ml", refRange: "30 – 100" } ],
-      defaultRemarks: "Note: Vitamin D is a group of fat – soluble secosteroids responsible for enhancing intestinal absorption of calcium and phosphate. In human, the most important compound in this group are vitamin D3 (also known as cholecalciferol) and vitamin D2 (ergocalciferol). The body can also synthesize vitamin D in skin from cholesterol, when sun exposure is adequate."
-    },
     "Stool Examination": {
       tests: [
         { name: "COLOUR", unit: "", refRange: "BROWNISH" },
@@ -265,121 +243,6 @@ const LAB_TEMPLATES = {
       ],
       defaultRemarks: "***End Of The Report***"
     },
-    "Blood Group & Rh Factor": {
-      tests: [
-        { name: "Blood Group", unit: "", refRange: "" },
-        { name: "Rh Factor", unit: "", refRange: "" }
-      ],
-      defaultRemarks: "***End Of The Report***"
-    },
-    "HbA1c (Glycosylated Hemoglobin)": {
-      tests: [
-        { name: "HBA1C", unit: "%", refRange: "4.30-6.40" },
-        { name: "MEAN PLASMA GLUCOSE", unit: "mg/dl", refRange: "70-140" }
-      ],
-      defaultRemarks: "METHOD : HIGH PERFORMANCE LIQUID CHROMATOGRAPHY (HPLC)\nInterpretation(s): GOOD CONTROL (6.4-7.0), FAIR CONTROL (7.0-8.0), ACTION SUGGESTED (>8.0)\nREMARKS : In vitro quantitative determination of HbA1C in whole blood is Utilized in Long term monitoring of glycaemia. It is recommended that the determination of HbA1C be performed at intervals 10-12 weeks during diabetes mellitus therapy."
-    },
-    "Urine Ketone": {
-      tests: [ { name: "URINE KETONE", unit: "", refRange: "NEGATIVE" } ],
-      defaultRemarks: "***End Of The Report***"
-    },
-    "D-Dimer": {
-      tests: [ { name: "D-DIMER", unit: "µgFEU/mL", refRange: "<0.5" } ],
-      defaultRemarks: "Physiological basis: D-dimer is one of the terminal fibrin degradation products. The presence of D-dimers indicates that a fibrin clot was formed and subsequently degraded by plasmin.\nInterpretation: Increased in: Deep vein thrombosis (DVT), venous thrombo-embolism (VTE), pulmonary embolism (PE), disseminated intravascular coagulation (DIC), pregnancy, malignancy, surgery.\nComments: D-dimer assay is a very sensitive test for DIC, DVT and VTE or PE."
-    },
-    "Serum Amylase & Lipase": {
-      tests: [
-        { name: "S. AMYLASE", unit: "U/L", refRange: "30.0 – 220.0" },
-        { name: "S. LIPASE", unit: "U/L", refRange: "Upto 190.0" }
-      ],
-      defaultRemarks: "***End Of The Report***"
-    },
-    "Homocysteine (Quantitative)": {
-      tests: [ { name: "Homocysteine", unit: "umol/L", refRange: "5.45 – 16.20" } ],
-      defaultRemarks: "Comments: Homocysteine is a sulphur containing amino acid. There is an association between elevated levels of circulating homocysteine and various vascular and cardiovascular disorders. Clinically the measurement of homocysteine is considered important to diagnose homocystinuria. CVD patients with homocysteine levels > 15 umol/L belong to a high risk group."
-    },
-    "PSA (Prostate Specific Antigen)": {
-      tests: [ { name: "TOTAL, SERUM ( CMIA)", unit: "ng/mL", refRange: "< 4.00" } ],
-      defaultRemarks: "Note: False low/high results may be observed in patients receiving mouse monoclonal antibodies for diagnosis/therapy. Immediate PSA testing following digital rectal examination, ejaculation, prostatic massage, indwelling catheterization, and needle biopsy of prostate is not recommended as they falsely elevate levels. PSA values regardless of levels should not be interpreted as absolute evidence of the presence or absence of disease."
-    },
-    "Prothrombin Time (PT)": {
-      tests: [
-        { name: "Patient Time (PT)", unit: "Sec", refRange: "10.0 – 14.0" },
-        { name: "Control Time (PT)", unit: "Sec", refRange: "" },
-        { name: "International Normalized Ratio (INR)", unit: "", refRange: "0.8 - 1.2" }
-      ],
-      defaultRemarks: "Method: Viscosity Based Detection Assay"
-    },
-    "Activated Partial Thromboplastin Time (APTT)": {
-      tests: [
-        { name: "Patient Time (APTT)", unit: "Sec", refRange: "26.0 – 40.0" },
-        { name: "Control Time (APTT)", unit: "Sec", refRange: "" },
-        { name: "Ratio (APTT)", unit: "", refRange: "" }
-      ],
-      defaultRemarks: "Method: Viscosity Based Enhanced Coagulation"
-    },
-    "Adenosine Deaminase (ADA)": {
-      tests: [ { name: "ADENOSINE DEAMINASE (ADA)", unit: "U/L", refRange: "Normal <30 U/L" } ],
-      defaultRemarks: "Note :- Adenosine Deaminase (ADA) is an enzyme widely distributed in mammalian tissues, particularly in T lymphocytes. Increased levels of ADA are found in various forms of Tuberculosis, making it a marker for the same. ADA is also increased in various infections like infectious mononucleosis, Typhoid, Viral Hepatitis, initial stages of HIV, and in-cases of malignant tumours."
-    },
-    "Body Fluid For Cytology": {
-      tests: [
-        { name: "SPECIMEN", unit: "", refRange: "e.g. Ascitic fluid" },
-        { name: "CLINICAL NOTE", unit: "", refRange: "" },
-        { name: "MICROSCOPIC EXAMINATION", unit: "", refRange: "No granuloma or malignant cells seen." },
-        { name: "IMPRESSION", unit: "", refRange: "Negative for malignant cells." },
-        { name: "ADVICE", unit: "", refRange: "Clinicoradiological correlation" }
-      ],
-      defaultRemarks: "Disclaimer: The test result mentioned here should be interpreted in view of clinical condition of the patient."
-    },
-    "Body Fluid Routine Analysis": {
-      tests: [
-        { name: "Sample Type", unit: "", refRange: "e.g. ASCITIC FLUID" },
-        { name: "Volume", unit: "mL", refRange: ">1.5 mL" },
-        { name: "Colour", unit: "", refRange: "Light Yellow" },
-        { name: "Appearance", unit: "", refRange: "Slightly Turbid" },
-        { name: "Coagulum", unit: "", refRange: "Present/Absent" },
-        { name: "Blood", unit: "", refRange: "Negative" },
-        { name: "Glucose", unit: "mg/dL", refRange: "" },
-        { name: "Total Protein", unit: "gm/dL", refRange: "" },
-        { name: "TLC, Body Fluid", unit: "/cumm", refRange: "" },
-        { name: "Neutrophil", unit: "%", refRange: "" },
-        { name: "Lymphocyte", unit: "%", refRange: "" }
-      ],
-      defaultRemarks: "Disclaimer: The test result mentioned here should be interpreted in view of clinical condition of the patient."
-    },
-    "SAAG (Serum Ascites Albumin Gradient)": {
-      tests: [
-        { name: "Albumin, Serum", unit: "gm/dL", refRange: "3.50 – 5.50" },
-        { name: "Albumin, Fluid", unit: "gm/dL", refRange: "" },
-        { name: "SAAG", unit: "", refRange: "" }
-      ],
-      defaultRemarks: "Method: BCG. Disclaimer: The test result mentioned here should be interpreted in view of clinical condition of the patient."
-    },
-    "Iron Profile": {
-      tests: [
-        { name: "Iron, Serum", unit: "µg/dL", refRange: "49 – 181" },
-        { name: "TIBC", unit: "µg/dL", refRange: "261 – 462" },
-        { name: "Unsaturated Iron Binding Capacity", unit: "µg/dL", refRange: "110.0 – 370.0" },
-        { name: "Transferrin Saturation", unit: "%", refRange: "14 – 50" }
-      ],
-      defaultRemarks: "COMMENT: Serum iron measures the amount of circulating iron that is bound to transferrin. Total iron-binding capacity measures the extent to which iron-binding sites in the serum can be saturated. Taken together clinicians usually perform this test when they are concerned about anemia, iron deficiency or iron deficiency anemia."
-    },
-    "Blood Picture (Peripheral Smear)": {
-      tests: [ { name: "Impression", unit: "", refRange: "" } ],
-      defaultRemarks: "Red cells are reduced, cells are microcytic hypochromic with anisocytosis. Total leucocyte count is increased with increased neutrophils. Platelets are adequate in number. No haemoparasites seen. \nAdvice: Iron Profile."
-    },
-    "Anti-TPO (Thyroid Peroxidase Antibody)": {
-      tests: [ { name: "Anti-TPO", unit: "", refRange: "<0.9 not detected, 0.9-1.1 borderline" } ],
-      defaultRemarks: "INTERPRETATION: Thyroperoxidase (TPO) is an enzyme involved in thyroid hormone synthesis. Disorders of the thyroid gland are frequently caused by autoimmune mechanisms with the production of autoantibodies. Anti-TPO antibodies activate complement and are thought to be significantly involved in thyroid dysfunction and the pathogenesis of hypothyroidism. Chronic Hashimoto's thyroiditis is the most frequent cause of hypothyroidism."
-    },
-    "Bleeding Time (BT) & Clotting Time (CT)": {
-      tests: [
-        { name: "B T (Bleeding Time)", unit: "Min/Sec", refRange: "02 – 07" },
-        { name: "C T (Clotting Time)", unit: "Min/Sec", refRange: "04 – 09" }
-      ],
-      defaultRemarks: "***End Of The Report***"
-    }
   };
 
 const NAV = [
@@ -462,6 +325,8 @@ const mapTaskFromApi = (task) => ({
   completedAt: task.status === "Completed" ? task.updated_at : "",
   patientName: task.patient_name || task.patient_names?.[0] || "",
   patientUhid: task.patient_uhid || task.patient_uhids?.[0] || "",
+  patientNames: task.patient_names || (task.patient_name ? [task.patient_name] : []),
+  patientUhids: task.patient_uhids || (task.patient_uhid ? [task.patient_uhid] : []),
   createdBy: task.assigned_by_name || "—",
 });
 
@@ -532,16 +397,11 @@ function seedPatients(dbBranch, branchKey) {
   }));
 }
 
-// ── DYNAMIC CSS (theme-dependent only) ────────────────────────────────────────
+// ── DYNAMIC CSS ────────────────────────────────────────────────────────────────
 const DYNAMIC_CSS = (accent, isDark) => `
   option { background: var(--surface); color: var(--text); }
-
-  /* ── THEME: GLOBAL ── */
   body { background: var(--bg); color: var(--text); }
-
   ::-webkit-scrollbar-thumb { background: var(--border-strong); }
-
-  /* ── HEADER ── */
   .hms-hdr        { background: var(--surface); }
   .hms-logo-text  { color: var(--text); }
   .hms-logo-sub   { color: var(--text-muted); }
@@ -557,11 +417,7 @@ const DYNAMIC_CSS = (accent, isDark) => `
     border: 1px solid ${isDark ? "#1e2a3a" : "#dde8f5"};
     color: ${isDark ? "#64748b" : "#64748b"};
   }
-
-  /* ── LAYOUT ── */
   .hms-wrap { background: var(--bg); color: var(--text); }
-
-  /* ── SIDEBAR ── */
   .hms-sb { background: var(--sidebar); border-right: 1px solid var(--sidebar-border); }
   .hms-nav-section { color: ${isDark ? "#2d3a50" : "#94a3b8"}; }
   .hms-nav-item { color: ${isDark ? "#64748b" : "#64748b"}; }
@@ -575,56 +431,38 @@ const DYNAMIC_CSS = (accent, isDark) => `
   .hms-signed-in   { color: ${isDark ? "#2d3a50" : "#94a3b8"}; }
   .hms-signed-name { color: ${isDark ? "#94a3b8" : "#475569"}; }
   .hms-signed-role { color: ${isDark ? "#64748b" : "#64748b"}; }
-
-  /* ── BRANCH SELECT ── */
   .hms-branch-label  { color: ${isDark ? "#2d3a50" : "#94a3b8"}; }
   .hms-branch-select {
     border: 1px solid ${isDark ? "#1a2540" : "#c7d5eb"};
     background-color: ${isDark ? "#0b1120" : "#ffffff"};
     color: ${isDark ? "#e2e8f0" : "#1e293b"};
   }
-
-  /* ── PAGE HEADERS ── */
   .hms-pg-label { color: ${isDark ? "#2d3a50" : "#94a3b8"}; }
   .hms-pg-sub   { color: ${isDark ? "#64748b" : "#64748b"}; }
-
-  /* ── CARDS ── */
   .hms-card       { background: var(--card); border-color: var(--border); }
   .hms-card-title { color: var(--text); }
   .hms-prof-card  { background: var(--card); }
-
-  /* ── STAT ── */
   .hms-stat-card  { background: var(--card); border-color: var(--border); }
   .hms-stat-label { color: var(--text-muted); }
-
-  /* ── TABLE ── */
   .hms-th     { color: var(--text-muted); }
   .hms-td     { color: var(--text-mid); }
   .hms-td-hi  { color: var(--text); }
   .hms-td-mono { color: var(--text-muted); }
   .hms-td-sm  { color: var(--text-muted); }
-
-  /* ── BUTTONS ── */
   .hms-add-btn     { background: linear-gradient(135deg, ${accent}, ${accent}cc); }
   .hms-add-btn-lg  { background: linear-gradient(135deg, ${accent}, ${accent}cc); }
   .hms-cancel-btn  { color: ${isDark ? "#64748b" : "#64748b"}; }
   .hms-save-btn    { background: linear-gradient(135deg, ${accent}, ${accent}cc); }
   .hms-export-main-btn { background: linear-gradient(135deg, ${accent}, ${accent}cc); }
-
-  /* ── FORMS ── */
   .hms-lbl      { color: ${isDark ? "#64748b" : "#64748b"}; }
   .hms-inp      { background: var(--input-bg); color: var(--text); border-color: var(--input-border); }
   .hms-inp-sm   { background: var(--input-bg); color: var(--text); border-color: var(--input-border); }
   .hms-sel      { background: var(--input-bg); color: var(--text); border-color: var(--input-border); }
   .hms-textarea { background: var(--input-bg); color: var(--text); border-color: var(--input-border); }
   .hms-pass-toggle { color: ${isDark ? "#64748b" : "#64748b"}; }
-
-  /* ── MODAL ── */
   .hms-modal-overlay { background: var(--modal-overlay); }
   .hms-modal-box     { background: var(--modal-bg); border-color: var(--modal-border); }
   .hms-modal-title   { color: var(--text); }
-
-  /* ── MISC ── */
   .hms-empty       { color: ${isDark ? "#2d3a50" : "#94a3b8"}; }
   .hms-view-key    { color: ${isDark ? "#64748b" : "#64748b"}; }
   .hms-view-val    { color: ${isDark ? "#e2e8f0" : "#1e293b"}; }
@@ -632,8 +470,6 @@ const DYNAMIC_CSS = (accent, isDark) => `
   .hms-dept-card   { background: ${isDark ? "#0b1120" : "#ffffff"}; }
   .hms-progress-bar    { background: ${isDark ? "#1e2a3a" : "#dde8f5"}; }
   .hms-progress-bar-sm { background: ${isDark ? "#1e2a3a" : "#dde8f5"}; }
-
-  /* ── PATIENT SELECT IN TASK MODAL ── */
   .hms-patient-select-box {
     background: ${isDark ? "#080c18" : "#f8faff"};
     border: 1px solid ${isDark ? "#1a2540" : "#c7d5eb"};
@@ -692,6 +528,67 @@ const DYNAMIC_CSS = (accent, isDark) => `
     outline: none;
   }
   .hms-patient-search:focus { border-color: ${accent}; }
+
+  /* ── BILLING TABS ── */
+  .hms-billing-tab {
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 1px solid ${accent}50;
+  }
+  .hms-billing-tab.active {
+    background: ${accent};
+    color: #fff;
+    border-color: ${accent};
+  }
+  .hms-billing-tab:not(.active) {
+    background: transparent;
+    color: ${accent};
+  }
+  .hms-billing-detail-card {
+    background: var(--card);
+    border: 1px solid ${accent}30;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+  .hms-billing-section-head {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: ${accent};
+    margin: 14px 0 8px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid ${accent}20;
+  }
+  .hms-mh-pill {
+    display: inline-flex;
+    align-items: center;
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 12px;
+    background: rgba(56,189,248,0.12);
+    color: #38bdf8;
+    border: 1px solid rgba(56,189,248,0.3);
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .hms-mh-pill:hover { background: rgba(56,189,248,0.25); }
+  .hms-med-inline-input {
+    background: var(--input-bg);
+    color: var(--text);
+    border: 1px solid var(--input-border);
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: 12px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .hms-med-inline-input:focus { border-color: ${accent}; }
 `;
 
 // ── MAIN COMPONENT ─────────────────────────────────────────────────────────────
@@ -719,25 +616,21 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
   const [notif,      setNotif]      = useState(null);
   const [profileForm, setProfileForm] = useState({ first_name: "", last_name: "", email: "", phone_number: "", emp_id: "" });
 
-  // 1. Keep the state so your edit buttons still work
   const [allPatients, setAllPatients] = useState({ laxmi: [], raya: [] });
 
-  // Employees State (🌟 Added Edit ID tracker)
   const [employees,      setEmployees]      = useState([]);
   const [showEmpModal,   setShowEmpModal]   = useState(false);
-  const [editEmpId,      setEditEmpId]      = useState(null); 
+  const [editEmpId,      setEditEmpId]      = useState(null);
   const [empForm,        setEmpForm]        = useState({ fullName:"", username:"", empId:"", dept:"HOD", email:"", phone:"", role:"hod", password:"", confirmPassword:"" });
 
-  // 2. Automatically load the real, secure data!
   useEffect(() => {
     if (db) setAllPatients(db);
 
-    // 🌟 THE FIX: Fetch real employees from Django so we have their real integer IDs!
     const loadEmployees = async () => {
         try {
             const users = await apiService.getUsers();
             const mapped = users.map(u => ({
-                id: u.id, // REAL DB INTEGER ID!
+                id: u.id,
                 empId: u.emp_id || "—",
                 username: u.username,
                 fullName: `${u.first_name} ${u.last_name}`.trim(),
@@ -761,9 +654,7 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
           phone_number: profile.phone_number || "",
           emp_id: profile.emp_id || "",
         });
-      } catch (err) {
-        console.error("Failed to fetch profile", err);
-      }
+      } catch (err) { console.error("Failed to fetch profile", err); }
     };
     const loadTasks = async () => {
       try {
@@ -779,7 +670,6 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
     loadProfile();
   }, [db]);
 
-  // Departments
   const [departments,    setDepartments]    = useState(() => safeLoad("hms_mgmt_departments", []));
   const [showDeptModal,  setShowDeptModal]  = useState(false);
   const [deptForm,       setDeptForm]       = useState({ name:"", description:"", head:"" });
@@ -787,13 +677,24 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
   const [empShowConfirm, setEmpShowConfirm] = useState(false);
   const [empPassErr,     setEmpPassErr]     = useState("");
 
-  // Tasks
+  // Tasks — updated to support multiple patients
   const [tasks,           setTasks]           = useState([]);
   const [showTaskModal,   setShowTaskModal]   = useState(false);
   const [editTask,        setEditTask]        = useState(null);
-  const [taskForm,        setTaskForm]        = useState({ title:"", description:"", assignedToId:"", department:"HOD", priority:"Medium", status:"Pending", dueDate:"", patientUhid:"", patientName:"" });
+  const [taskForm,        setTaskForm]        = useState({
+    title:"", description:"", assignedToId:"", department:"HOD",
+    priority:"Medium", status:"Pending", dueDate:"",
+    patientUhids:[], patientNames:[]   // ← now arrays for multi-select
+  });
   const [taskPatientSearch, setTaskPatientSearch] = useState("");
   const [taskReportFilter,setTaskReportFilter]= useState({ period:"all", dept:"All", status:"All", empName:"" });
+
+  // ── BILLING STATE (new) ────────────────────────────────────────────────────
+  const [billingTab,   setBillingTab]   = useState(null);  // active patient uhid
+  const [billingEdits, setBillingEdits] = useState({});    // keyed by "uhid-admNo"
+
+  // ── MEDICINE SEARCH STATE (new) ───────────────────────────────────────────
+  const [medSearch, setMedSearch] = useState("");
 
   // Patient modals
   const [showMedModal,      setShowMedModal]      = useState(false);
@@ -825,7 +726,6 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
   const currentlyAdmitted = allAdmissions.filter(a => !a.discharge?.dod).length;
   const discharged        = allAdmissions.filter(a =>  a.discharge?.dod).length;
 
-  // Office admin can assign from all hospitals.
   const allPatientsForTask = useMemo(() => allPatientsFlat.map(p => ({
     id: p.id,
     uhid: p.uhid,
@@ -891,18 +791,10 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
         const raw = sessionStorage.getItem("hms_currentUser");
         if (raw) {
           const parsed = JSON.parse(raw);
-          const merged = {
-            ...parsed,
-            name: `${updated.first_name || ""} ${updated.last_name || ""}`.trim() || parsed.name,
-            email: updated.email || parsed.email,
-            emp_id: updated.emp_id || parsed.emp_id,
-            phone_number: updated.phone_number || parsed.phone_number,
-          };
+          const merged = { ...parsed, name: `${updated.first_name || ""} ${updated.last_name || ""}`.trim() || parsed.name, email: updated.email || parsed.email, emp_id: updated.emp_id || parsed.emp_id, phone_number: updated.phone_number || parsed.phone_number };
           sessionStorage.setItem("hms_currentUser", JSON.stringify(merged));
         }
-      } catch (e) {
-        console.error("Failed to sync session profile", e);
-      }
+      } catch (e) { console.error("Failed to sync session profile", e); }
       toast("Profile updated");
     } catch (error) {
       const apiError = error.response?.data || {};
@@ -930,7 +822,7 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
   const addReport    = () => { if (!newReport.name) return; setEditRepPt(prev=>({...prev,reports:[...(prev.reports||[]),{id:Date.now(),...newReport}]})); setNewReport({name:"",date:"",result:""}); };
   const delReport    = (idx) => setEditRepPt(prev=>({...prev,reports:prev.reports.filter((_,i)=>i!==idx)}));
   const updateReport = (idx, field, val) => setEditRepPt(prev=>{ const r=[...prev.reports]; r[idx]={...r[idx],[field]:val}; return {...prev,reports:r}; });
-  const saveReports  = async () => { 
+  const saveReports  = async () => {
     try {
       const cleanAdm = String(editRepPt.admissions?.[0]?.admNo || 1).replace(/\D/g, "");
       for (const rep of editRepPt.reports) {
@@ -942,26 +834,53 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
            tests: rep.tests || []
         });
       }
-      updatePatient(viewBranch, editRepPt.uhid, p=>({...p,reports:editRepPt.reports})); 
-      toast("Reports synced to Backend!"); 
-      setShowReportModal(false); 
-      setEditRepPt(null); 
+      updatePatient(viewBranch, editRepPt.uhid, p=>({...p,reports:editRepPt.reports}));
+      toast("Reports synced to Backend!");
+      setShowReportModal(false);
+      setEditRepPt(null);
     } catch(e) { toast("Failed to sync reports.", "err"); }
   };
 
   // ── TASK HELPERS ──────────────────────────────────────────────────────────
   const openNewTask  = () => {
     setEditTask(null);
-    setTaskForm({title:"",description:"",assignedToId:"",department:"HOD",priority:"Medium",status:"Pending",dueDate:"",patientUhid:"",patientName:""});
+    setTaskForm({title:"",description:"",assignedToId:"",department:"HOD",priority:"Medium",status:"Pending",dueDate:"",patientUhids:[],patientNames:[]});
     setTaskPatientSearch("");
     setShowTaskModal(true);
   };
   const openEditTask = (t) => {
     setEditTask(t);
-    setTaskForm({title:t.title,description:t.description||"",assignedToId:t.assignedToId ? String(t.assignedToId) : "",department:t.department,priority:t.priority,status:t.status,dueDate:t.dueDate||"",patientUhid:t.patientUhid||"",patientName:t.patientName||""});
+    setTaskForm({
+      title:t.title, description:t.description||"",
+      assignedToId:t.assignedToId ? String(t.assignedToId) : "",
+      department:t.department, priority:t.priority, status:t.status, dueDate:t.dueDate||"",
+      patientUhids: t.patientUhids || (t.patientUhid ? [t.patientUhid] : []),
+      patientNames: t.patientNames || (t.patientName ? [t.patientName] : []),
+    });
     setTaskPatientSearch("");
     setShowTaskModal(true);
   };
+
+  // toggle a patient in/out of the multi-select list
+  const toggleTaskPatient = (p) => {
+    const isSelected = taskForm.patientUhids.includes(p.uhid);
+    if (isSelected) {
+      setTaskForm(f => ({
+        ...f,
+        patientUhids: f.patientUhids.filter(u => u !== p.uhid),
+        patientNames: f.patientNames.filter((_, i) => f.patientUhids[i] !== p.uhid),
+      }));
+    } else if (taskForm.patientUhids.length < 8) {
+      setTaskForm(f => ({
+        ...f,
+        patientUhids: [...f.patientUhids, p.uhid],
+        patientNames: [...f.patientNames, p.name],
+      }));
+    } else {
+      toast("Maximum 8 patients allowed per task", "err");
+    }
+  };
+
   const saveTask = async () => {
     if (!taskForm.title || !taskForm.assignedToId) { toast("Title and Assigned To are required","err"); return; }
 
@@ -973,12 +892,15 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
       toast(`Department ${taskForm.department} must be assigned to a ${expectedRole.toUpperCase()} user`, "err");
       return;
     }
-    if (expectedRole === "billing" && !taskForm.patientUhid) {
-      toast("Billing tasks must be linked to a patient", "err");
+    if (expectedRole === "billing" && taskForm.patientUhids.length === 0) {
+      toast("Billing tasks must be linked to at least one patient", "err");
       return;
     }
 
-    const linkedPatient = allPatientsForTask.find(patient => patient.uhid === taskForm.patientUhid);
+    const linkedPatientIds = taskForm.patientUhids
+      .map(uhid => allPatientsForTask.find(p => p.uhid === uhid)?.id)
+      .filter(Boolean);
+
     const payload = {
       title: taskForm.title,
       description: taskForm.description,
@@ -987,7 +909,7 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
       priority: taskForm.priority,
       status: taskForm.status,
       due_date: taskForm.dueDate ? `${taskForm.dueDate}T23:59:00Z` : null,
-      patient: linkedPatient?.id || null,
+      patient: linkedPatientIds[0] || null,  // primary patient (backend compat)
     };
 
     try {
@@ -1008,23 +930,20 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
       toast(message,"err");
     }
   };
+
   const deleteTask = async (id) => {
     try {
       await apiService.deleteTask(id);
       setTasks(prev => prev.filter(task => task.id !== id));
       toast("Task deleted");
-    } catch (error) {
-      toast("Failed to delete task","err");
-    }
+    } catch (error) { toast("Failed to delete task","err"); }
   };
   const updateTaskStatus = async (id,status) => {
     try {
       const updatedTask = await apiService.updateTask(id, { status });
       setTasks(prev => prev.map(task => task.id === id ? mapTaskFromApi(updatedTask) : task));
       toast(`Task marked ${status}`);
-    } catch (error) {
-      toast("Failed to update task status","err");
-    }
+    } catch (error) { toast("Failed to update task status","err"); }
   };
 
   const filteredTaskReport = useMemo(() => {
@@ -1048,74 +967,30 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
     setShowDeptModal(false); setDeptForm({name:"",description:"",head:""}); toast("Department created");
   };
   const openEditEmployee = (emp) => {
-    setEditEmpId(emp.id); // Save real DB ID
-    setEmpForm({
-      fullName: emp.fullName || emp.name, username: emp.username, empId: emp.empId,
-      dept: emp.dept || "HOD", email: emp.email, phone: emp.phone, role: emp.role,
-      password: "", confirmPassword: "" // Keep blank so we don't accidentally overwrite it
-    });
+    setEditEmpId(emp.id);
+    setEmpForm({ fullName: emp.fullName || emp.name, username: emp.username, empId: emp.empId, dept: emp.dept || "HOD", email: emp.email, phone: emp.phone, role: emp.role, password: "", confirmPassword: "" });
     setEmpPassErr(""); setShowEmpModal(true);
   };
 
   const saveEmployee = async () => {
-    if (!empForm.fullName||!empForm.username||!empForm.email||!empForm.phone||!empForm.dept) { 
-      setEmpPassErr("Please fill all required fields"); return; 
-    }
-    if (empForm.password !== empForm.confirmPassword) { 
-      setEmpPassErr("Passwords do not match"); return; 
-    }
-    if (!editEmpId && !empForm.password) {
-      setEmpPassErr("Password is required for new employees"); return;
-    }
-
+    if (!empForm.fullName||!empForm.username||!empForm.email||!empForm.phone||!empForm.dept) { setEmpPassErr("Please fill all required fields"); return; }
+    if (empForm.password !== empForm.confirmPassword) { setEmpPassErr("Passwords do not match"); return; }
+    if (!editEmpId && !empForm.password) { setEmpPassErr("Password is required for new employees"); return; }
     try {
       const [firstName, ...lastNameArr] = empForm.fullName.split(' ');
       const mappedRole = empForm.role || DEPARTMENT_ROLE_MAP[empForm.dept] || 'receptionist';
       const branchCode = getEmployeeBranchCode();
-
-      const payload = {
-        username: empForm.username, email: empForm.email, first_name: firstName,
-        last_name: lastNameArr.join(' ') || "", emp_id: empForm.empId || buildEmployeeId(branchCode),
-        phone_number: empForm.phone, role: mappedRole, 
-        branch: branchCode 
-      };
-
-      // Only send password to Django if they typed a new one!
-      if (empForm.password) {
-        payload.password = empForm.password; payload.confirm_password = empForm.confirmPassword;
-      }
-
-      if (editEmpId) {
-        await apiService.updateUser(editEmpId, payload);
-        toast("Employee updated successfully!");
-      } else {
-        await apiService.createUser(payload);
-        toast("Employee securely created!");
-      }
-
-      // Instantly refresh table with Django data
+      const payload = { username: empForm.username, email: empForm.email, first_name: firstName, last_name: lastNameArr.join(' ') || "", emp_id: empForm.empId || buildEmployeeId(branchCode), phone_number: empForm.phone, role: mappedRole, branch: branchCode };
+      if (empForm.password) { payload.password = empForm.password; payload.confirm_password = empForm.confirmPassword; }
+      if (editEmpId) { await apiService.updateUser(editEmpId, payload); toast("Employee updated successfully!"); }
+      else { await apiService.createUser(payload); toast("Employee securely created!"); }
       const users = await apiService.getUsers();
-      setEmployees(users.map(u => ({
-          id: u.id, empId: u.emp_id || "—", username: u.username,
-          fullName: `${u.first_name} ${u.last_name}`.trim(), email: u.email,
-          phone: u.phone_number, role: u.role,
-          dept: u.role.replaceAll("_", " ").replace(/\b\w/g, (ch) => ch.toUpperCase()),
-          status: u.is_active ? "Active" : "Inactive"
-      })));
-
+      setEmployees(users.map(u => ({ id: u.id, empId: u.emp_id || "—", username: u.username, fullName: `${u.first_name} ${u.last_name}`.trim(), email: u.email, phone: u.phone_number, role: u.role, dept: u.role.replaceAll("_", " ").replace(/\b\w/g, (ch) => ch.toUpperCase()), status: u.is_active ? "Active" : "Inactive" })));
       setShowEmpModal(false); setEditEmpId(null);
-      setEmpForm({fullName:"",username:"",empId:"",dept:"HOD",email:"",phone:"",role:"hod",password:"",confirmPassword:""}); 
+      setEmpForm({fullName:"",username:"",empId:"",dept:"HOD",email:"",phone:"",role:"hod",password:"",confirmPassword:""});
     } catch (error) {
       const apiError = error.response?.data || {};
-      setEmpPassErr(
-        apiError.detail ||
-        apiError.error ||
-        apiError.username?.[0] ||
-        apiError.emp_id?.[0] ||
-        apiError.branch?.[0] ||
-        apiError.role?.[0] ||
-        "Failed to save user. Username or Emp ID might exist."
-      );
+      setEmpPassErr(apiError.detail || apiError.error || apiError.username?.[0] || apiError.emp_id?.[0] || apiError.branch?.[0] || apiError.role?.[0] || "Failed to save user.");
     }
   };
 
@@ -1126,9 +1001,53 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
       await apiService.updateUser(emp.id, { is_active: !isCurrentlyActive });
       setEmployees(prev => prev.map((e, ei) => ei === index ? { ...e, status: newStatusLabel } : e));
       toast(`Employee ${newStatusLabel === "Active" ? "activated" : "deactivated"} successfully!`);
-    } catch (error) {
-      toast("Failed to update employee status in the database.", "err");
-    }
+    } catch (error) { toast("Failed to update employee status.", "err"); }
+  };
+
+  // ── BILLING HELPERS (new) ─────────────────────────────────────────────────
+  const getBillingEdit = (p, adm) => {
+    const key = `${p.uhid}-${adm.admNo}`;
+    if (billingEdits[key]) return billingEdits[key];
+    const mh = adm.medicalHistory || p.medicalHistory || {};
+    return {
+      patientName:  p.patientName || p.name || "",
+      guardianName: p.guardianName || "",
+      uhid:         p.uhid || "",
+      age:          p.ageYY || p.age || "",
+      gender:       p.gender || "",
+      address:      p.address || "",
+      phone:        p.phone || "",
+      admNo:        adm.admNo || "",
+      doa:          adm.discharge?.doa || adm.dateTime?.slice(0,10) || "",
+      dod:          adm.discharge?.dod || "",
+      wardName:     adm.discharge?.wardName || "",
+      bedNo:        adm.discharge?.bedNo || "",
+      doctorName:   adm.discharge?.doctorName || "",
+      panel:        adm.billing?.panel || "CASH",
+      paymentMode:  adm.billing?.paymentMode || "Cash",
+      claimId:      adm.billing?.claimId || "",
+      cardNo:       adm.billing?.cardNo || p.cardNo || "",
+      advance:      adm.billing?.advance || 0,
+      paidNow:      adm.billing?.paidNow || 0,
+      discount:     adm.billing?.discount || 0,
+      notes:        adm.billing?.notes || "",
+      diagnosis:    p.dischargeSummary?.diagnosis || adm.discharge?.diagnosis || "",
+      allergies:    mh.knownAllergies || "",
+      status:       p.dischargeSummary?.type || "Normal",
+    };
+  };
+
+  const setBillingEdit = (uhid, admNo, field, val) => {
+    const key = `${uhid}-${admNo}`;
+    setBillingEdits(prev => {
+      const existing = prev[key] || {};
+      return { ...prev, [key]: { ...existing, [field]: val } };
+    });
+  };
+
+  const resetBillingEdit = (uhid, admNo) => {
+    const key = `${uhid}-${admNo}`;
+    setBillingEdits(prev => { const n = {...prev}; delete n[key]; return n; });
   };
 
   // ── EXPORT HELPERS ────────────────────────────────────────────────────────
@@ -1159,13 +1078,9 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
   const ActionBtn   = ({ col, onClick, children }) => <button className="hms-action-btn" style={{ borderColor:`${col}40`, color:col }} onClick={onClick}>{children}</button>;
   const Th = ({ children }) => <th className="hms-th">{children}</th>;
   const Td = ({ children, hi, mono, sm, style:s }) => <td className={`hms-td${hi?" hms-td-hi":""}${mono?" hms-td-mono":""}${sm?" hms-td-sm":""}`} style={s}>{children}</td>;
-
   const ProgressBar = ({ pct, col }) => (
-    <div className="hms-progress-bar">
-      <div className="hms-progress-fill" style={{ width:`${pct}%`, background:col }}/>
-    </div>
+    <div className="hms-progress-bar"><div className="hms-progress-fill" style={{ width:`${pct}%`, background:col }}/></div>
   );
-
   const BranchHeader = ({ title }) => (
     <div style={{ marginBottom:18 }}>
       <div className="hms-pg-label">{title}</div>
@@ -1195,23 +1110,25 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
     const Icon = icon;
     const isIconComponent = typeof Icon === "function" || (typeof Icon === "object" && Icon !== null);
     return (
-    <div style={{ textAlign:"center", padding:"3rem", color:"#64748b" }}>
-      {icon && <div style={{ fontSize:40, marginBottom:12 }}>{isIconComponent ? <Icon size={36} strokeWidth={1.8} /> : icon}</div>}
-      <div style={{ fontSize:14, fontWeight:600, color:"#94a3b8", marginBottom:6 }}>{label}</div>
-      {sub && <div style={{ fontSize:12 }}>{sub}</div>}
-    </div>
-  );};
+      <div style={{ textAlign:"center", padding:"3rem", color:"#64748b" }}>
+        {icon && <div style={{ fontSize:40, marginBottom:12 }}>{isIconComponent ? <Icon size={36} strokeWidth={1.8} /> : icon}</div>}
+        <div style={{ fontSize:14, fontWeight:600, color:"#94a3b8", marginBottom:6 }}>{label}</div>
+        {sub && <div style={{ fontSize:12 }}>{sub}</div>}
+      </div>
+    );
+  };
   const StatCard = ({ col, icon, label, val, sub, topBorder }) => {
     const Icon = icon;
     const isIconComponent = typeof Icon === "function" || (typeof Icon === "object" && Icon !== null);
     return (
-    <div className="hms-stat-card" style={{ borderTop:topBorder?`3px solid ${col}`:undefined, border:`1px solid ${col}15` }}>
-      {icon && <div className="hms-stat-icon">{isIconComponent ? <Icon size={18} strokeWidth={2} /> : icon}</div>}
-      {topBorder && <div style={{ fontSize:10, color:col, fontWeight:700, textTransform:"uppercase", letterSpacing:".08em", marginBottom:8 }}>{label}</div>}
-      <div className="hms-stat-num" style={{ fontSize:topBorder?26:22, color:col }}>{val}</div>
-      {topBorder ? <div className="hms-stat-label">{sub}</div> : <div className="hms-stat-label">{label}</div>}
-    </div>
-  );};
+      <div className="hms-stat-card" style={{ borderTop:topBorder?`3px solid ${col}`:undefined, border:`1px solid ${col}15` }}>
+        {icon && <div className="hms-stat-icon">{isIconComponent ? <Icon size={18} strokeWidth={2} /> : icon}</div>}
+        {topBorder && <div style={{ fontSize:10, color:col, fontWeight:700, textTransform:"uppercase", letterSpacing:".08em", marginBottom:8 }}>{label}</div>}
+        <div className="hms-stat-num" style={{ fontSize:topBorder?26:22, color:col }}>{val}</div>
+        {topBorder ? <div className="hms-stat-label">{sub}</div> : <div className="hms-stat-label">{label}</div>}
+      </div>
+    );
+  };
 
   const downloadDischarge = (p, branchLabel) => {
     const adm=p.admissions?.[0]||{}; const ds=p.dischargeSummary||{}; const mh=adm.medicalHistory||p.medicalHistory||{};
@@ -1255,7 +1172,7 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
         {tasks.length>0 && (
           <div className="hms-card">
             <CardRow title="Recent Tasks" action={<button className="hms-add-btn" onClick={()=>setActiveTab("tasks")}>View All</button>}/>
-            <TableWrap heads={["Task","Assigned To","Dept","Priority","Status","Due","Patient"]}>
+            <TableWrap heads={["Task","Assigned To","Dept","Priority","Status","Due","Patients"]}>
               {tasks.slice(0,5).map((t,i)=>(
                 <tr key={i}>
                   <Td hi>{t.title}</Td>
@@ -1264,7 +1181,11 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
                   <Td><PriorityPill p={t.priority}/></Td>
                   <Td><StatusPill s={t.status}/></Td>
                   <Td sm>{fmtDt(t.dueDate)}</Td>
-                  <Td sm>{t.patientName ? <span style={{ color:"#38bdf8" }}>{t.patientName}</span> : "—"}</Td>
+                  <Td sm>
+                    {(t.patientNames||[]).length > 0
+                      ? <span style={{ color:"#38bdf8" }}>{t.patientNames.join(", ")}</span>
+                      : "—"}
+                  </Td>
                 </tr>
               ))}
             </TableWrap>
@@ -1397,32 +1318,191 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
     );
   };
 
-  // ── PAGE: MEDICINES ───────────────────────────────────────────────────────
+  // ── PAGE: MEDICINES (updated — MH pre-fill + inline editable qty/rate) ────
   const renderMedicines = () => (
     <div>
       <BranchHeader title="Medicines"/>
-      {locationPatients.map(p=>{
-        const medTotal=(p.medicines||[]).reduce((s,m)=>s+(m.qty*m.rate),0);
-        return (
-          <div key={p.uhid} className="hms-card">
-            <CardRow title={<><span className="hms-td-hi">{p.patientName||p.name}</span> <span className="hms-td-mono">{p.uhid}</span> <span style={{ color:"#f59e0b" }}>· {fmt(medTotal)}</span></>}
-              action={<button className="hms-add-btn" onClick={()=>openMedEditor(p)}>Edit Medicines</button>}/>
-            {!(p.medicines||[]).length ? <div className="hms-empty">No medicines.</div> : (
-              <TableWrap heads={["Medicine","Qty","Rate/unit","Total"]}>
-                {(p.medicines||[]).map((m,i)=>(
-                  <tr key={i}>
-                    <Td hi>{m.name}</Td>
-                    <Td><Badge col={accent}>{m.qty}</Badge></Td>
-                    <Td>{fmt(m.rate)}</Td>
-                    <Td><span style={{ color:"#f59e0b", fontWeight:700 }}>{fmt(m.qty*m.rate)}</span></Td>
-                  </tr>
-                ))}
-              </TableWrap>
-            )}
-          </div>
-        );
-      })}
-      {!locationPatients.length && <div className="hms-card hms-empty">No patients for {bc.label}.</div>}
+
+      {/* Search bar */}
+      <div style={{ marginBottom:14 }}>
+        <input
+          className="hms-inp"
+          placeholder="Search patient by name or UHID…"
+          style={{ maxWidth:320 }}
+          value={medSearch}
+          onChange={e => setMedSearch(e.target.value)}
+        />
+      </div>
+
+      {locationPatients
+        .filter(p =>
+          !medSearch ||
+          (p.patientName||p.name||"").toLowerCase().includes(medSearch.toLowerCase()) ||
+          (p.uhid||"").toLowerCase().includes(medSearch.toLowerCase())
+        )
+        .map(p => {
+          const medTotal = (p.medicines||[]).reduce((s,m) => s + (m.qty * m.rate), 0);
+          // Pull current medications from medical history
+          const mhRaw = (p.admissions?.[0]?.medicalHistory || p.medicalHistory || {}).currentMedications || "";
+          const mhMeds = mhRaw ? mhRaw.split(/[,;|\n]+/).map(s => s.trim()).filter(Boolean) : [];
+
+          return (
+            <div key={p.uhid} className="hms-card">
+              <CardRow
+                title={<>
+                  <span className="hms-td-hi">{p.patientName||p.name}</span>
+                  <span className="hms-td-mono" style={{ marginLeft:8 }}>{p.uhid}</span>
+                  <span style={{ color:"#f59e0b", marginLeft:8, fontWeight:700 }}>· {fmt(medTotal)}</span>
+                </>}
+                action={
+                  <div style={{ display:"flex", gap:8 }}>
+                    <ActionBtn col={accent} onClick={() => {
+                      // Add a blank row inline
+                      updatePatient(viewBranch, p.uhid, pt => ({
+                        ...pt,
+                        medicines: [...(pt.medicines||[]), { id:Date.now(), name:"", qty:1, rate:0 }]
+                      }));
+                    }}>+ Add Row</ActionBtn>
+                    <button className="hms-add-btn" onClick={() => openMedEditor(p)}>Open Drawer</button>
+                  </div>
+                }
+              />
+
+              {/* Medical History Current Medications — click to pre-fill */}
+              {mhMeds.length > 0 && (
+                <div style={{
+                  marginBottom:12, padding:"10px 14px",
+                  background: isDark ? "rgba(56,189,248,0.06)" : "rgba(56,189,248,0.08)",
+                  borderRadius:8, border:"1px solid rgba(56,189,248,0.2)"
+                }}>
+                  <div style={{ fontSize:10, fontWeight:700, color:"#38bdf8", marginBottom:8, textTransform:"uppercase", letterSpacing:".06em" }}>
+                    📋 Medical History — Current Medications (click to add)
+                  </div>
+                  <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
+                    {mhMeds.map((med, mi) => {
+                      const alreadyAdded = (p.medicines||[]).some(m => m.name.toLowerCase() === med.toLowerCase());
+                      return (
+                        <span
+                          key={mi}
+                          className="hms-mh-pill"
+                          style={{ opacity: alreadyAdded ? 0.45 : 1, cursor: alreadyAdded ? "default" : "pointer" }}
+                          title={alreadyAdded ? "Already in list" : "Click to add"}
+                          onClick={() => {
+                            if (alreadyAdded) { toast(`"${med}" already in list`, "err"); return; }
+                            updatePatient(viewBranch, p.uhid, pt => ({
+                              ...pt,
+                              medicines: [...(pt.medicines||[]), { id:Date.now(), name:med, qty:1, rate:0 }]
+                            }));
+                            toast(`Added "${med}"`);
+                          }}
+                        >
+                          {alreadyAdded ? "✓ " : "+ "}{med}
+                        </span>
+                      );
+                    })}
+                  </div>
+                  <div style={{ fontSize:9, color:"#64748b", marginTop:6 }}>
+                    Greyed out = already added below
+                  </div>
+                </div>
+              )}
+
+              {/* Medicine table with inline editable qty / rate */}
+              {!(p.medicines||[]).length ? (
+                <div className="hms-empty">
+                  No medicines.{mhMeds.length > 0 ? " Click suggestions above to add." : ""}
+                </div>
+              ) : (
+                <div style={{ overflowX:"auto" }}>
+                  <table className="hms-tbl">
+                    <thead>
+                      <tr>
+                        <Th>Medicine Name</Th>
+                        <Th>Qty</Th>
+                        <Th>Rate / unit (₹)</Th>
+                        <Th>Total</Th>
+                        <Th>Remove</Th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(p.medicines||[]).map((m, mi) => (
+                        <tr key={m.id || mi}>
+                          {/* Editable name */}
+                          <td className="hms-td hms-td-hi">
+                            <input
+                              className="hms-med-inline-input"
+                              style={{ width:"100%", minWidth:140 }}
+                              value={m.name}
+                              placeholder="Medicine name"
+                              onChange={e => updatePatient(viewBranch, p.uhid, pt => {
+                                const meds = [...pt.medicines];
+                                meds[mi] = { ...meds[mi], name: e.target.value };
+                                return { ...pt, medicines: meds };
+                              })}
+                            />
+                          </td>
+                          {/* Editable qty */}
+                          <td className="hms-td">
+                            <input
+                              type="number" min={0}
+                              className="hms-med-inline-input"
+                              style={{ width:70, textAlign:"center" }}
+                              value={m.qty}
+                              onChange={e => updatePatient(viewBranch, p.uhid, pt => {
+                                const meds = [...pt.medicines];
+                                meds[mi] = { ...meds[mi], qty: Math.max(0, parseInt(e.target.value) || 0) };
+                                return { ...pt, medicines: meds };
+                              })}
+                            />
+                          </td>
+                          {/* Editable rate */}
+                          <td className="hms-td">
+                            <input
+                              type="number" min={0} step="0.01"
+                              className="hms-med-inline-input"
+                              style={{ width:90, textAlign:"right" }}
+                              value={m.rate}
+                              onChange={e => updatePatient(viewBranch, p.uhid, pt => {
+                                const meds = [...pt.medicines];
+                                meds[mi] = { ...meds[mi], rate: Math.max(0, parseFloat(e.target.value) || 0) };
+                                return { ...pt, medicines: meds };
+                              })}
+                            />
+                          </td>
+                          {/* Computed total */}
+                          <td className="hms-td">
+                            <span style={{ color:"#f59e0b", fontWeight:700 }}>{fmt(m.qty * m.rate)}</span>
+                          </td>
+                          {/* Delete row */}
+                          <td className="hms-td">
+                            <ActionBtn col="#f87171" onClick={() =>
+                              updatePatient(viewBranch, p.uhid, pt => ({
+                                ...pt, medicines: pt.medicines.filter((_,i) => i !== mi)
+                              }))
+                            }>✕</ActionBtn>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* Grand total for this patient */}
+              {(p.medicines||[]).length > 0 && (
+                <div style={{ display:"flex", justifyContent:"flex-end", marginTop:10, paddingTop:10, borderTop:`1px solid ${accent}18` }}>
+                  <span style={{ fontSize:13, fontWeight:800, color:"#f59e0b" }}>
+                    Total: {fmt(medTotal)}
+                  </span>
+                </div>
+              )}
+            </div>
+          );
+        })}
+
+      {!locationPatients.length && (
+        <div className="hms-card hms-empty">No patients for {bc.label}.</div>
+      )}
     </div>
   );
 
@@ -1452,39 +1532,388 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
     </div>
   );
 
-  // ── PAGE: BILLING ─────────────────────────────────────────────────────────
+  // ── PAGE: BILLING (fully updated) ─────────────────────────────────────────
   const renderBilling = () => {
-    const billRows = locationPatients.flatMap(p=>(p.admissions||[]).filter(a=>a.billing&&(parseFloat(a.billing.paidNow)||0)+(parseFloat(a.billing.advance)||0)>0).map(a=>({patient:p.patientName||p.name,uhid:p.uhid,admNo:a.admNo,advance:parseFloat(a.billing.advance)||0,paidNow:parseFloat(a.billing.paidNow)||0,discount:parseFloat(a.billing.discount)||0,mode:a.billing.paymentMode||"—",total:(parseFloat(a.billing.advance)||0)+(parseFloat(a.billing.paidNow)||0)})));
-    const grandTotal=billRows.reduce((s,r)=>s+r.total,0); const totalAdv=billRows.reduce((s,r)=>s+r.advance,0);
+    // Build summary rows (for the bottom summary table)
+    const billRows = locationPatients.flatMap(p =>
+      (p.admissions||[])
+        .filter(a => a.billing && ((parseFloat(a.billing.paidNow)||0) + (parseFloat(a.billing.advance)||0) > 0))
+        .map(a => ({
+          patient: p.patientName||p.name,
+          uhid: p.uhid,
+          admNo: a.admNo,
+          advance: parseFloat(a.billing.advance)||0,
+          paidNow: parseFloat(a.billing.paidNow)||0,
+          discount: parseFloat(a.billing.discount)||0,
+          mode: a.billing.paymentMode||"—",
+          total: (parseFloat(a.billing.advance)||0) + (parseFloat(a.billing.paidNow)||0),
+          _p: p, _adm: a,
+        }))
+    );
+    const grandTotal = billRows.reduce((s,r) => s + r.total, 0);
+    const totalAdv   = billRows.reduce((s,r) => s + r.advance, 0);
+
+    // The active expanded patient
+    const activePatient = billingTab ? locationPatients.find(p => p.uhid === billingTab) : null;
+
     return (
       <div>
         <BranchHeader title="Billing"/>
-        <div className="hms-stat-grid">
-          {[{label:"Total Collected",val:fmt(grandTotal),col:"#f59e0b"},{label:"Advance",val:fmt(totalAdv),col:"#34d399"},{label:"Records",val:billRows.length,col:"#34d399"}].map((s,i)=>(
+
+        {/* Summary stats */}
+        <div className="hms-stat-grid" style={{ marginBottom:20 }}>
+          {[
+            { label:"Total Collected", val:fmt(grandTotal), col:"#f59e0b" },
+            { label:"Total Advance",   val:fmt(totalAdv),   col:"#34d399" },
+            { label:"Patients",        val:locationPatients.length, col:accent },
+            { label:"Billing Records", val:billRows.length, col:"#818cf8" },
+          ].map((s,i) => (
             <div key={i} className="hms-stat-card" style={{ border:`1px solid ${s.col}18` }}>
               <div className="hms-stat-num" style={{ color:s.col }}>{s.val}</div>
               <div className="hms-stat-label">{s.label}</div>
             </div>
           ))}
         </div>
+
+        {/* ── PATIENT TABS ─────────────────────────────────────────────────── */}
+        <div style={{ marginBottom:16 }}>
+          <div style={{ fontSize:10, fontWeight:700, color:"#64748b", textTransform:"uppercase", letterSpacing:".06em", marginBottom:8 }}>
+            Select Patient to View / Edit Billing Details
+          </div>
+          <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
+            {locationPatients.map(p => {
+              const isActive = billingTab === p.uhid;
+              const adm = p.admissions?.[0];
+              const hasBilling = adm?.billing && ((parseFloat(adm.billing.paidNow)||0) + (parseFloat(adm.billing.advance)||0)) > 0;
+              return (
+                <button
+                  key={p.uhid}
+                  className={`hms-billing-tab${isActive ? " active" : ""}`}
+                  onClick={() => setBillingTab(isActive ? null : p.uhid)}
+                >
+                  {p.patientName||p.name}
+                  <span style={{ marginLeft:5, fontSize:9, opacity:0.65 }}>{p.uhid}</span>
+                  {hasBilling && <span style={{ marginLeft:5, fontSize:9, color: isActive?"rgba(255,255,255,0.8)":"#34d399" }}>●</span>}
+                </button>
+              );
+            })}
+            {locationPatients.length === 0 && (
+              <span style={{ fontSize:12, color:"#64748b" }}>No patients found.</span>
+            )}
+          </div>
+        </div>
+
+        {/* ── EXPANDED PATIENT BILLING DETAIL ─────────────────────────────── */}
+        {activePatient && (activePatient.admissions||[]).map((adm, ai) => {
+          const key = `${activePatient.uhid}-${adm.admNo}`;
+          const ed = billingEdits[key] || getBillingEdit(activePatient, adm);
+
+          const advance  = parseFloat(ed.advance)  || 0;
+          const paidNow  = parseFloat(ed.paidNow)  || 0;
+          const discount = parseFloat(ed.discount)  || 0;
+          const medTotal = (activePatient.medicines||[]).reduce((s,m) => s + (m.qty * m.rate), 0);
+          const grossTotal = advance + paidNow + medTotal;
+          const netPayable = grossTotal - discount;
+
+          const setField = (field, val) => setBillingEdit(activePatient.uhid, adm.admNo, field, val);
+
+          // Medical history medications
+          const mhRaw = (adm.medicalHistory || activePatient.medicalHistory || {}).currentMedications || "";
+          const mhMeds = mhRaw ? mhRaw.split(/[,;|\n]+/).map(s => s.trim()).filter(Boolean) : [];
+
+          return (
+            <div key={ai} className="hms-billing-detail-card">
+              {/* Header */}
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:16 }}>
+                <div>
+                  <div style={{ fontSize:15, fontWeight:700 }}>
+                    {ed.patientName || activePatient.patientName || activePatient.name}
+                  </div>
+                  <div style={{ display:"flex", gap:8, marginTop:4, flexWrap:"wrap" }}>
+                    <Badge col={accent}>{ed.uhid}</Badge>
+                    <Badge col="#818cf8">Adm #{ed.admNo}</Badge>
+                    <Badge col={ed.panel==="CASH"?"#34d399":"#38bdf8"}>{ed.panel}</Badge>
+                    <SummaryPill type={ed.status}/>
+                  </div>
+                </div>
+                <div style={{ textAlign:"right" }}>
+                  <div style={{ fontSize:22, fontWeight:800, color:"#f59e0b" }}>{fmt(netPayable)}</div>
+                  <div style={{ fontSize:10, color:"#64748b" }}>Net Payable</div>
+                </div>
+              </div>
+
+              {/* ── SECTION: Patient Info ── */}
+              <div className="hms-billing-section-head">Patient Information</div>
+              <div className="hms-g2" style={{ marginBottom:8 }}>
+                {[
+                  ["Patient Name",   "patientName",  "text"],
+                  ["Guardian Name",  "guardianName", "text"],
+                  ["Age / Sex",      "age",          "text"],
+                  ["Gender",         "gender",       "text"],
+                  ["Phone",          "phone",        "tel"],
+                  ["Address",        "address",      "text"],
+                  ["Card No.",       "cardNo",       "text"],
+                  ["Claim ID",       "claimId",      "text"],
+                ].map(([lbl, field, type]) => (
+                  <div key={field}>
+                    <label className="hms-lbl">{lbl}</label>
+                    <input
+                      className="hms-inp"
+                      type={type}
+                      value={ed[field] || ""}
+                      onChange={e => setField(field, e.target.value)}
+                    />
+                  </div>
+                ))}
+              </div>
+
+              {/* ── SECTION: Admission Info ── */}
+              <div className="hms-billing-section-head">Admission Details</div>
+              <div className="hms-g2" style={{ marginBottom:8 }}>
+                {[
+                  ["IPD / Adm No.",  "admNo",      "text"],
+                  ["Bill Date",      "billDate",    "date"],
+                  ["DOA",            "doa",         "date"],
+                  ["DOD",            "dod",         "date"],
+                  ["Ward",           "wardName",    "text"],
+                  ["Bed No.",        "bedNo",       "text"],
+                  ["Consultant",     "doctorName",  "text"],
+                  ["Status",         "status",      "text"],
+                ].map(([lbl, field, type]) => (
+                  <div key={field}>
+                    <label className="hms-lbl">{lbl}</label>
+                    <input
+                      className="hms-inp"
+                      type={type}
+                      value={ed[field] || ""}
+                      onChange={e => setField(field, e.target.value)}
+                    />
+                  </div>
+                ))}
+              </div>
+
+              {/* ── SECTION: Billing Amounts ── */}
+              <div className="hms-billing-section-head">Billing Amounts</div>
+              <div className="hms-g2" style={{ marginBottom:8 }}>
+                {[
+                  ["Panel",          "panel",       "text"],
+                  ["Payment Mode",   "paymentMode", "text"],
+                  ["Advance (₹)",    "advance",     "number"],
+                  ["Paid Now (₹)",   "paidNow",     "number"],
+                  ["Discount (₹)",   "discount",    "number"],
+                ].map(([lbl, field, type]) => (
+                  <div key={field}>
+                    <label className="hms-lbl">{lbl}</label>
+                    <input
+                      className="hms-inp"
+                      type={type}
+                      value={ed[field] ?? ""}
+                      onChange={e => setField(field, e.target.value)}
+                    />
+                  </div>
+                ))}
+                <div>
+                  <label className="hms-lbl">Notes / Remarks</label>
+                  <textarea
+                    className="hms-textarea"
+                    rows={2}
+                    value={ed.notes || ""}
+                    onChange={e => setField("notes", e.target.value)}
+                  />
+                </div>
+              </div>
+
+              {/* ── SECTION: Diagnosis & Allergy (from medical history) ── */}
+              <div className="hms-billing-section-head">Clinical Notes (pre-filled from records)</div>
+              <div className="hms-g2" style={{ marginBottom:8 }}>
+                <div>
+                  <label className="hms-lbl">Diagnosis</label>
+                  <input className="hms-inp" value={ed.diagnosis||""} onChange={e => setField("diagnosis", e.target.value)}/>
+                </div>
+                <div>
+                  <label className="hms-lbl">Known Allergies</label>
+                  <input className="hms-inp" value={ed.allergies||""} onChange={e => setField("allergies", e.target.value)}/>
+                </div>
+              </div>
+
+              {/* ── SECTION: Medicines from patient records ── */}
+              {(activePatient.medicines||[]).length > 0 && (
+                <>
+                  <div className="hms-billing-section-head">Medicines (from patient records)</div>
+                  <TableWrap heads={["Sr.", "Description", "Qty", "Rate (₹)", "Amount (₹)"]}>
+                    {(activePatient.medicines||[]).map((m, mi) => (
+                      <tr key={mi}>
+                        <Td sm>{mi+1}</Td>
+                        <Td hi>{m.name}</Td>
+                        <Td><Badge col={accent}>{m.qty}</Badge></Td>
+                        <Td>{fmt(m.rate)}</Td>
+                        <Td><span style={{ color:"#f59e0b", fontWeight:700 }}>{fmt(m.qty * m.rate)}</span></Td>
+                      </tr>
+                    ))}
+                  </TableWrap>
+                </>
+              )}
+
+              {/* ── SECTION: Medical History Meds (suggestion pills) ── */}
+              {mhMeds.length > 0 && (
+                <div style={{ marginTop:12, padding:"10px 14px", background:"rgba(56,189,248,0.06)", borderRadius:8, border:"1px solid rgba(56,189,248,0.2)" }}>
+                  <div style={{ fontSize:10, fontWeight:700, color:"#38bdf8", marginBottom:6, textTransform:"uppercase" }}>
+                    📋 Medical History Medications
+                  </div>
+                  <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
+                    {mhMeds.map((med, mi) => (
+                      <span key={mi} className="hms-mh-pill">{med}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* ── Bill Summary Box ── */}
+              <div style={{
+                marginTop:18, padding:"14px 18px",
+                background: isDark ? "rgba(245,158,11,0.06)" : "rgba(245,158,11,0.05)",
+                borderRadius:10, border:"1px solid rgba(245,158,11,0.2)"
+              }}>
+                <div style={{ fontSize:11, fontWeight:700, color:"#f59e0b", marginBottom:10, textTransform:"uppercase" }}>
+                  Bill Summary
+                </div>
+                {[
+                  ["Medicines Total",  fmt(medTotal),   "#34d399"],
+                  ["Advance",          fmt(advance),    "#34d399"],
+                  ["Paid Now",         fmt(paidNow),    "#34d399"],
+                  ["Gross Total",      fmt(grossTotal), "#f59e0b"],
+                  ["Discount",         `- ${fmt(discount)}`, "#c084fc"],
+                  ["Net Payable",      fmt(netPayable), "#f59e0b"],
+                ].map(([lbl, val, col]) => (
+                  <div key={lbl} style={{ display:"flex", justifyContent:"space-between", marginBottom:6, fontSize:12 }}>
+                    <span style={{ color:"#64748b" }}>{lbl}</span>
+                    <span style={{ fontWeight:700, color:col }}>{val}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Actions */}
+              <div style={{ display:"flex", justifyContent:"flex-end", gap:10, marginTop:16 }}>
+                <button
+                  className="hms-cancel-btn"
+                  onClick={() => resetBillingEdit(activePatient.uhid, adm.admNo)}
+                >
+                  Reset to Original
+                </button>
+                <button
+                  style={{ background:"transparent", border:`1px solid ${accent}40`, color:accent, padding:"8px 14px", borderRadius:7, cursor:"pointer", fontSize:11, fontWeight:700 }}
+                  onClick={() => {
+                    // Export this bill as text
+                    const lines = [
+                      `SANGI HOSPITAL — ${bc.label.toUpperCase()}`,
+                      `FINAL BILL`,
+                      ``,
+                      `IPD No. : ${ed.admNo}`,
+                      `Patient Name : ${ed.patientName}`,
+                      `Guardian Name : ${ed.guardianName}`,
+                      `Age/Sex : ${ed.age} / ${ed.gender}`,
+                      `Address : ${ed.address}`,
+                      `Card No. : ${ed.cardNo}`,
+                      `Consultant : ${ed.doctorName}`,
+                      `Panel : ${ed.panel}`,
+                      `Claim ID : ${ed.claimId}`,
+                      `DOA : ${ed.doa}`,
+                      `DOD : ${ed.dod}`,
+                      `Phone : ${ed.phone}`,
+                      `Status on Discharge : ${ed.status}`,
+                      ``,
+                      `─────────────────────────────────`,
+                      ...(activePatient.medicines||[]).map((m,mi) =>
+                        `${mi+1}. ${m.name} | Qty: ${m.qty} | Rate: ₹${m.rate} | Amount: ₹${m.qty*m.rate}`
+                      ),
+                      ``,
+                      `Gross Total    : ₹${grossTotal}`,
+                      `Discount       : - ₹${discount}`,
+                      `Net Payable    : ₹${netPayable}`,
+                      ``,
+                      `Notes: ${ed.notes}`,
+                      ``,
+                      `Generated: ${new Date().toLocaleString("en-IN")}`,
+                    ];
+                    exportTxt(`bill_${activePatient.uhid}_adm${adm.admNo}.txt`, lines.join("\n"));
+                    toast("Bill downloaded");
+                  }}
+                >
+                  ↓ Download Bill
+                </button>
+                <button
+                  className="hms-save-btn"
+                  onClick={() => {
+                    toast("Billing details saved");
+                    // To persist: call your apiService here with `ed`
+                  }}
+                >
+                  💾 Save Changes
+                </button>
+              </div>
+            </div>
+          );
+        })}
+
+        {/* ── SUMMARY TABLE (all billing records) ─────────────────────────── */}
         <div className="hms-card">
-          {!billRows.length ? <div className="hms-empty">No billing records.</div> : (
-            <TableWrap heads={["Patient","UHID","Adm#","Advance","Paid","Discount","Mode","Total"]}>
-              {billRows.map((r,i)=>(
+          <CardRow title="All Billing Records" action={
+            <ActionBtn col="#34d399" onClick={() => {
+              exportCSV("billing_export.csv", billRows.map(r => ({
+                Patient: r.patient, UHID: r.uhid, Adm: r.admNo,
+                Advance: r.advance, PaidNow: r.paidNow, Discount: r.discount,
+                Mode: r.mode, Total: r.total
+              })), ["Patient","UHID","Adm","Advance","PaidNow","Discount","Mode","Total"]);
+              toast("Billing CSV exported");
+            }}>↓ Export CSV</ActionBtn>
+          }/>
+          {!billRows.length ? (
+            <div className="hms-empty">No billing records with payment data.</div>
+          ) : (
+            <TableWrap heads={["Patient","UHID","Adm#","Advance","Paid","Discount","Mode","Total","Detail"]}>
+              {billRows.map((r,i) => (
                 <tr key={i}>
                   <Td hi>{r.patient}</Td>
                   <Td mono>{r.uhid}</Td>
                   <Td><Badge col={accent}>#{r.admNo}</Badge></Td>
                   <Td><span style={{ color:"#34d399", fontWeight:700 }}>{fmt(r.advance)}</span></Td>
                   <Td><span style={{ color:"#34d399", fontWeight:700 }}>{fmt(r.paidNow)}</span></Td>
-                  <Td>{r.discount>0?<span style={{ color:"#c084fc" }}>{fmt(r.discount)}</span>:"—"}</Td>
+                  <Td>{r.discount > 0 ? <span style={{ color:"#c084fc" }}>{fmt(r.discount)}</span> : "—"}</Td>
                   <Td sm>{r.mode}</Td>
                   <Td><span style={{ color:"#f59e0b", fontWeight:700 }}>{fmt(r.total)}</span></Td>
+                  <Td>
+                    <ActionBtn col={accent} onClick={() => setBillingTab(billingTab === r.uhid ? null : r.uhid)}>
+                      {billingTab === r.uhid ? "▲ Close" : "▼ Detail"}
+                    </ActionBtn>
+                  </Td>
                 </tr>
               ))}
             </TableWrap>
           )}
         </div>
+
+        {/* Show all patients even without billing records */}
+        {locationPatients.filter(p => !(p.admissions||[]).some(a => a.billing && ((parseFloat(a.billing.paidNow)||0)+(parseFloat(a.billing.advance)||0))>0)).length > 0 && (
+          <div className="hms-card" style={{ marginTop:12 }}>
+            <div className="hms-card-title" style={{ marginBottom:10 }}>Patients Without Billing Records</div>
+            <TableWrap heads={["Patient","UHID","Status","Action"]}>
+              {locationPatients
+                .filter(p => !(p.admissions||[]).some(a => a.billing && ((parseFloat(a.billing.paidNow)||0)+(parseFloat(a.billing.advance)||0))>0))
+                .map((p, i) => (
+                  <tr key={i}>
+                    <Td hi>{p.patientName||p.name}</Td>
+                    <Td mono>{p.uhid}</Td>
+                    <Td><Badge col="#f59e0b">No Payment Data</Badge></Td>
+                    <Td>
+                      <ActionBtn col={accent} onClick={() => setBillingTab(billingTab === p.uhid ? null : p.uhid)}>
+                        {billingTab === p.uhid ? "▲ Close" : "▼ View / Add"}
+                      </ActionBtn>
+                    </Td>
+                  </tr>
+                ))}
+            </TableWrap>
+          </div>
+        )}
       </div>
     );
   };
@@ -1554,7 +1983,7 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
     );
   };
 
-  // ── PAGE: TASKS ───────────────────────────────────────────────────────────
+  // ── PAGE: TASKS (updated — multi-patient) ─────────────────────────────────
   const renderTasks = () => {
     const ts = { total:tasks.length, pending:tasks.filter(t=>t.status==="Pending").length, inprogress:tasks.filter(t=>t.status==="In Progress").length, completed:tasks.filter(t=>t.status==="Completed").length, urgent:tasks.filter(t=>t.priority==="Urgent"&&t.status!=="Completed").length };
     return (
@@ -1571,7 +2000,7 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
         <div className="hms-card">
           <CardRow title="All Tasks" action={<button className="hms-add-btn" onClick={openNewTask}>+ Assign Task</button>}/>
           {!tasks.length ? <EmptyState icon="✅" label="No tasks yet" sub='Click "Assign Task" to create the first task'/> : (
-            <TableWrap heads={["Task","Assigned To","Dept","Priority","Status","Due Date","Patient","Created By","Actions"]}>
+            <TableWrap heads={["Task","Assigned To","Dept","Priority","Status","Due Date","Patients","Created By","Actions"]}>
               {tasks.map((t,i)=>(
                 <tr key={t.id} className="hms-tr-alt">
                   <Td><span className="hms-td-hi">{t.title}</span>{t.description&&<div style={{ fontSize:9, color:"#64748b", marginTop:2, maxWidth:180 }}>{t.description.slice(0,60)}{t.description.length>60?"…":""}</div>}</Td>
@@ -1586,7 +2015,15 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
                     </select>
                   </Td>
                   <Td sm style={{ color:t.dueDate&&new Date(t.dueDate)<new Date()&&t.status!=="Completed"?"#f87171":"#64748b" }}>{fmtDt(t.dueDate)}</Td>
-                  <Td sm>{t.patientName ? <span style={{ color:"#38bdf8" }}>{t.patientName}<div style={{ fontSize:9, color:"#64748b" }}>{t.patientUhid}</div></span> : "—"}</Td>
+                  <Td sm>
+                    {(t.patientNames||[]).length > 0 ? (
+                      <div>
+                        {(t.patientNames||[]).map((name, ni) => (
+                          <div key={ni} style={{ color:"#38bdf8", fontSize:10 }}>{name}</div>
+                        ))}
+                      </div>
+                    ) : "—"}
+                  </Td>
                   <Td sm>{t.createdBy||"—"}</Td>
                   <Td>
                     <div style={{ display:"flex", gap:4 }}>
@@ -1644,7 +2081,7 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
           </div>
           <div style={{ display:"flex", gap:8, marginTop:6, alignItems:"center" }}>
             <ActionBtn col="#34d399" onClick={()=>{exportTasksXLSX(filteredTaskReport,`task_report_${taskReportFilter.period}_${taskReportFilter.dept}.xlsx`);toast("Task report exported as XLSX");}}>↓ XLSX</ActionBtn>
-            <ActionBtn col="#38bdf8" onClick={()=>{exportCSV(`task_report_${taskReportFilter.period}.csv`,filteredTaskReport.map(t=>({TaskID:t.id,Title:t.title,AssignedTo:t.assignedTo,Department:t.department,Priority:t.priority,Status:t.status,DueDate:t.dueDate||"—",CreatedDate:t.createdAt?.split("T")[0]||"—",Description:t.description||"—",CompletedDate:t.completedAt?.split("T")[0]||"—",PatientName:t.patientName||"—",PatientUHID:t.patientUhid||"—"})),["TaskID","Title","AssignedTo","Department","Priority","Status","DueDate","CreatedDate","Description","CompletedDate","PatientName","PatientUHID"]);toast("Task report exported as CSV");}}>↓ CSV</ActionBtn>
+            <ActionBtn col="#38bdf8" onClick={()=>{exportCSV(`task_report_${taskReportFilter.period}.csv`,filteredTaskReport.map(t=>({TaskID:t.id,Title:t.title,AssignedTo:t.assignedTo,Department:t.department,Priority:t.priority,Status:t.status,DueDate:t.dueDate||"—",CreatedDate:t.createdAt?.split("T")[0]||"—",Description:t.description||"—",CompletedDate:t.completedAt?.split("T")[0]||"—",PatientNames:(t.patientNames||[]).join("; ")||"—",PatientUHIDs:(t.patientUhids||[]).join("; ")||"—"})),["TaskID","Title","AssignedTo","Department","Priority","Status","DueDate","CreatedDate","Description","CompletedDate","PatientNames","PatientUHIDs"]);toast("Task report exported as CSV");}}>↓ CSV</ActionBtn>
             <span style={{ marginLeft:"auto", fontSize:11, color:"#64748b" }}><strong>{filteredTaskReport.length}</strong> record{filteredTaskReport.length!==1?"s":""} · <span style={{ color:accent }}>{periodLabel[taskReportFilter.period]}</span></span>
           </div>
         </div>
@@ -1686,7 +2123,7 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
         <div className="hms-card">
           <div className="hms-card-title" style={{ marginBottom:14 }}>Detailed Task List ({filteredTaskReport.length})</div>
           {!filteredTaskReport.length ? <div className="hms-empty">No tasks match the selected filters.</div> : (
-            <TableWrap heads={["Task ID","Title","Assigned To","Dept","Priority","Status","Due Date","Created","Patient","Completed"]}>
+            <TableWrap heads={["Task ID","Title","Assigned To","Dept","Priority","Status","Due Date","Created","Patients","Completed"]}>
               {filteredTaskReport.map((t,i)=>(
                 <tr key={t.id} className="hms-tr-alt">
                   <Td mono>{t.id}</Td>
@@ -1697,7 +2134,11 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
                   <Td><StatusPill s={t.status}/></Td>
                   <Td sm>{fmtDt(t.dueDate)}</Td>
                   <Td sm>{t.createdAt?.split("T")[0]||"—"}</Td>
-                  <Td sm>{t.patientName ? <span style={{ color:"#38bdf8" }}>{t.patientName}</span> : "—"}</Td>
+                  <Td sm>
+                    {(t.patientNames||[]).length > 0
+                      ? <span style={{ color:"#38bdf8" }}>{t.patientNames.join(", ")}</span>
+                      : "—"}
+                  </Td>
                   <Td><span style={{ fontSize:10, color:"#34d399" }}>{t.completedAt?.split("T")[0]||"—"}</span></Td>
                 </tr>
               ))}
@@ -1758,18 +2199,11 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
     <div>
       <PageHeader title="Employee Management" subtitle="Manage staff accounts and credentials"/>
       <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:16 }}>
-        <button
-          className="hms-add-btn-lg"
-          onClick={() => {
-            setEditEmpId(null);
-            setEmpPassErr("");
-            const branchCode = getEmployeeBranchCode();
-            setEmpForm({fullName:"",username:"",empId:"",dept:"HOD",email:"",phone:"",password:"",confirmPassword:""});
-            setShowEmpModal(true);
-          }}
-        >
-          + Create Employee
-        </button>
+        <button className="hms-add-btn-lg" onClick={() => {
+          setEditEmpId(null); setEmpPassErr("");
+          setEmpForm({fullName:"",username:"",empId:"",dept:"HOD",email:"",phone:"",password:"",confirmPassword:""});
+          setShowEmpModal(true);
+        }}>+ Create Employee</button>
       </div>
       {!employees.length ? <EmptyState icon="👤" label="No employees yet" sub='Click "Create Employee" to add your first employee'/> : (
         <div className="hms-card" style={{ padding:0, overflow:"hidden" }}>
@@ -1814,34 +2248,16 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
       <div className="hms-card">
         <div className="hms-card-title" style={{ marginBottom:14 }}>Account Details</div>
         <div className="hms-g2">
-          <div>
-            <label className="hms-lbl">First Name</label>
-            <input className="hms-inp" value={profileForm.first_name} onChange={(e)=>setProfileForm((f)=>({...f, first_name: e.target.value}))} />
-          </div>
-          <div>
-            <label className="hms-lbl">Last Name</label>
-            <input className="hms-inp" value={profileForm.last_name} onChange={(e)=>setProfileForm((f)=>({...f, last_name: e.target.value}))} />
-          </div>
+          <div><label className="hms-lbl">First Name</label><input className="hms-inp" value={profileForm.first_name} onChange={(e)=>setProfileForm((f)=>({...f, first_name: e.target.value}))}/></div>
+          <div><label className="hms-lbl">Last Name</label><input className="hms-inp" value={profileForm.last_name} onChange={(e)=>setProfileForm((f)=>({...f, last_name: e.target.value}))}/></div>
         </div>
         <div className="hms-g2">
-          <div>
-            <label className="hms-lbl">Email</label>
-            <input className="hms-inp" type="email" value={profileForm.email} onChange={(e)=>setProfileForm((f)=>({...f, email: e.target.value}))} />
-          </div>
-          <div>
-            <label className="hms-lbl">Phone</label>
-            <input className="hms-inp" value={profileForm.phone_number} onChange={(e)=>setProfileForm((f)=>({...f, phone_number: e.target.value}))} />
-          </div>
+          <div><label className="hms-lbl">Email</label><input className="hms-inp" type="email" value={profileForm.email} onChange={(e)=>setProfileForm((f)=>({...f, email: e.target.value}))}/></div>
+          <div><label className="hms-lbl">Phone</label><input className="hms-inp" value={profileForm.phone_number} onChange={(e)=>setProfileForm((f)=>({...f, phone_number: e.target.value}))}/></div>
         </div>
         <div className="hms-g2">
-          <div>
-            <label className="hms-lbl">Employee Code</label>
-            <input className="hms-inp" value={profileForm.emp_id} onChange={(e)=>setProfileForm((f)=>({...f, emp_id: e.target.value}))} />
-          </div>
-          <div>
-            <label className="hms-lbl">Role</label>
-            <input className="hms-inp" value={currentUser?.role || ""} readOnly />
-          </div>
+          <div><label className="hms-lbl">Employee Code</label><input className="hms-inp" value={profileForm.emp_id} onChange={(e)=>setProfileForm((f)=>({...f, emp_id: e.target.value}))}/></div>
+          <div><label className="hms-lbl">Role</label><input className="hms-inp" value={currentUser?.role || ""} readOnly /></div>
         </div>
         <div className="hms-modal-foot" style={{ justifyContent:"flex-end" }}>
           <button className="hms-save-btn" onClick={saveMyProfile}>Save Profile</button>
@@ -1950,10 +2366,10 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
         <main className="hms-main">{renderContent()}</main>
       </div>
 
-      {/* ══ TASK MODAL ══ */}
+      {/* ══ TASK MODAL — multi-patient ══ */}
       {showTaskModal && (
         <div className="hms-modal-overlay" onClick={e=>e.target===e.currentTarget&&(setShowTaskModal(false),setEditTask(null))}>
-          <div className="hms-modal-box" style={{ width:520 }}>
+          <div className="hms-modal-box" style={{ width:540 }}>
             <div className="hms-modal-title">{editTask?"Edit Task":"Assign New Task"}</div>
 
             <label className="hms-lbl">Task Title *</label>
@@ -1980,11 +2396,7 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
               </div>
               <div>
                 <label className="hms-lbl">Department</label>
-                <select
-                  className="hms-sel"
-                  value={taskForm.department}
-                  onChange={e=>setTaskForm(f=>({...f,department:e.target.value,assignedToId:""}))}
-                >
+                <select className="hms-sel" value={taskForm.department} onChange={e=>setTaskForm(f=>({...f,department:e.target.value,assignedToId:""}))}>
                   {allDeptOptions.map(d=><option key={d}>{d}</option>)}
                 </select>
               </div>
@@ -2003,44 +2415,83 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
               </div>
             </div>
 
-            {/* ── PATIENT SELECTION ── */}
-            <label className="hms-lbl">Link to Patient <span style={{ color:"#64748b", fontWeight:400 }}>(optional)</span></label>
-            {taskForm.patientUhid ? (
-              <div className="hms-patient-selected-pill">
-                🧑‍⚕️ {taskForm.patientName}
-                <span style={{ color:"#64748b", fontSize:10, fontWeight:400 }}> · {taskForm.patientUhid}</span>
-                <button className="hms-patient-clear-btn" onClick={()=>setTaskForm(f=>({...f,patientUhid:"",patientName:""}))}>✕</button>
+            {/* ── MULTI-PATIENT SELECTION ── */}
+            <label className="hms-lbl">
+              Link to Patients
+              <span style={{ color:"#64748b", fontWeight:400, marginLeft:6 }}>(optional · up to 8)</span>
+            </label>
+
+            {/* Selected patient pills */}
+            {taskForm.patientUhids.length > 0 && (
+              <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:8 }}>
+                {taskForm.patientUhids.map((uhid, idx) => (
+                  <div key={uhid} className="hms-patient-selected-pill">
+                    🧑‍⚕️ {taskForm.patientNames[idx]}
+                    <span style={{ color:"#64748b", fontSize:10, fontWeight:400 }}> · {uhid}</span>
+                    <button
+                      className="hms-patient-clear-btn"
+                      onClick={() => setTaskForm(f => ({
+                        ...f,
+                        patientUhids: f.patientUhids.filter((_,i) => i !== idx),
+                        patientNames: f.patientNames.filter((_,i) => i !== idx),
+                      }))}
+                    >✕</button>
+                  </div>
+                ))}
+                <button
+                  style={{ fontSize:10, color:"#f87171", background:"none", border:"1px solid #f8717140", borderRadius:12, padding:"3px 10px", cursor:"pointer" }}
+                  onClick={() => setTaskForm(f => ({...f, patientUhids:[], patientNames:[]}))}
+                >
+                  Clear All
+                </button>
               </div>
-            ) : (
+            )}
+
+            {/* Search + list (hidden when limit hit) */}
+            {taskForm.patientUhids.length < 8 && (
               <>
                 <input
                   className="hms-patient-search"
                   placeholder="Search by patient name or UHID…"
                   value={taskPatientSearch}
-                  onChange={e=>setTaskPatientSearch(e.target.value)}
+                  onChange={e => setTaskPatientSearch(e.target.value)}
                 />
                 <div className="hms-patient-select-box">
                   {filteredTaskPatients.length === 0 ? (
                     <div style={{ padding:"10px 12px", fontSize:11, color:"#64748b", textAlign:"center" }}>No patients found</div>
-                  ) : filteredTaskPatients.map(p=>(
-                    <div
-                      key={p.uhid}
-                      className={`hms-patient-select-item${taskForm.patientUhid===p.uhid?" selected":""}`}
-                      onClick={()=>{ setTaskForm(f=>({...f,patientUhid:p.uhid,patientName:p.name})); setTaskPatientSearch(""); }}
-                    >
-                      <div>
-                        <span style={{ fontWeight:600, color: isDark?"#e2e8f0":"#1e293b" }}>{p.name}</span>
-                        <span style={{ marginLeft:8, color:"#64748b", fontSize:10 }}>{p.uhid}</span>
+                  ) : filteredTaskPatients.map(p => {
+                    const isSelected = taskForm.patientUhids.includes(p.uhid);
+                    return (
+                      <div
+                        key={p.uhid}
+                        className={`hms-patient-select-item${isSelected ? " selected" : ""}`}
+                        onClick={() => toggleTaskPatient(p)}
+                      >
+                        <div>
+                          <span style={{ fontWeight:600, color: isDark?"#e2e8f0":"#1e293b" }}>{p.name}</span>
+                          <span style={{ marginLeft:8, color:"#64748b", fontSize:10 }}>{p.uhid}</span>
+                          {isSelected && <span style={{ marginLeft:6, color:accent, fontSize:11, fontWeight:700 }}>✓</span>}
+                        </div>
+                        <div style={{ display:"flex", gap:5, alignItems:"center" }}>
+                          <span style={{ fontSize:9, padding:"2px 6px", borderRadius:10,
+                            background:p.status==="Admitted"?"#34d39918":"#6b728018",
+                            color:p.status==="Admitted"?"#34d399":"#6b7280",
+                            border:`1px solid ${p.status==="Admitted"?"#34d39940":"#6b728040"}` }}>
+                            {p.status}
+                          </span>
+                          <span style={{ fontSize:9, color:"#64748b" }}>{p.branch}</span>
+                        </div>
                       </div>
-                      <div style={{ display:"flex", gap:5, alignItems:"center" }}>
-                        <span style={{ fontSize:9, padding:"2px 6px", borderRadius:10, background:p.status==="Admitted"?"#34d39918":"#6b728018", color:p.status==="Admitted"?"#34d399":"#6b7280", border:`1px solid ${p.status==="Admitted"?"#34d39940":"#6b728040"}` }}>{p.status}</span>
-                        <span style={{ fontSize:9, color:"#64748b" }}>{p.branch}</span>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </>
             )}
+
+            <div style={{ fontSize:10, color:"#64748b", marginTop:4, marginBottom:4 }}>
+              {taskForm.patientUhids.length}/8 patients selected
+              {taskForm.patientUhids.length >= 8 && <span style={{ color:"#f87171", marginLeft:6 }}>· Maximum reached</span>}
+            </div>
 
             <div className="hms-modal-foot">
               <button className="hms-cancel-btn" onClick={()=>{setShowTaskModal(false);setEditTask(null);}}>Cancel</button>
@@ -2083,15 +2534,11 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
               ))}
             </div>
             <label className="hms-lbl">Access Role</label>
-            <select
-              className="hms-sel"
-              value={empForm.role}
-              onChange={e => {
-                const nextRole = e.target.value;
-                const nextDept = EMPLOYEE_ROLE_OPTIONS.find(option => option.value === nextRole)?.label || empForm.dept;
-                setEmpForm(f => ({ ...f, role: nextRole, dept: nextDept }));
-              }}
-            >
+            <select className="hms-sel" value={empForm.role} onChange={e => {
+              const nextRole = e.target.value;
+              const nextDept = EMPLOYEE_ROLE_OPTIONS.find(option => option.value === nextRole)?.label || empForm.dept;
+              setEmpForm(f => ({ ...f, role: nextRole, dept: nextDept }));
+            }}>
               {EMPLOYEE_ROLE_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
             </select>
             <label className="hms-lbl">Department</label>
@@ -2151,17 +2598,13 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
             {(viewPt.medicines||[]).length>0 && <>
               <div className="hms-section-label" style={{ marginTop:14 }}>Medicines</div>
               <TableWrap heads={["Medicine","Qty","Rate","Total"]}>
-                {(viewPt.medicines||[]).map((m,i)=>(
-                  <tr key={i}><Td hi>{m.name}</Td><Td><Badge col={accent}>{m.qty}</Badge></Td><Td>{fmt(m.rate)}</Td><Td><span style={{ color:"#f59e0b", fontWeight:700 }}>{fmt(m.qty*m.rate)}</span></Td></tr>
-                ))}
+                {(viewPt.medicines||[]).map((m,i)=>(<tr key={i}><Td hi>{m.name}</Td><Td><Badge col={accent}>{m.qty}</Badge></Td><Td>{fmt(m.rate)}</Td><Td><span style={{ color:"#f59e0b", fontWeight:700 }}>{fmt(m.qty*m.rate)}</span></Td></tr>))}
               </TableWrap>
             </>}
             {(viewPt.reports||[]).length>0 && <>
               <div className="hms-section-label" style={{ marginTop:14 }}>Investigations</div>
               <TableWrap heads={["Report","Date","Result"]}>
-                {(viewPt.reports||[]).map((r,i)=>(
-                  <tr key={i}><Td hi>{r.name}</Td><Td sm>{r.date}</Td><Td>{r.result}</Td></tr>
-                ))}
+                {(viewPt.reports||[]).map((r,i)=>(<tr key={i}><Td hi>{r.name}</Td><Td sm>{r.date}</Td><Td>{r.result}</Td></tr>))}
               </TableWrap>
             </>}
             <div className="hms-modal-foot">
@@ -2219,66 +2662,58 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
         </div>
       )}
 
-      {/* ══ REPORTS MODAL (Admin Full Edit) ══ */}
+      {/* ══ REPORTS MODAL ══ */}
       {showReportModal && editRepPt && (
         <div className="hms-modal-overlay" onClick={e=>e.target===e.currentTarget&&(setShowReportModal(false),setEditRepPt(null))}>
-          <div className="hms-modal-box" style={{ width:750, maxHeight: "90vh", overflowY: "auto" }}>
-            <div className="hms-modal-title" style={{ marginBottom: 16 }}>Lab Reports (Full Admin Access) — {editRepPt.patientName||editRepPt.name}</div>
-            
+          <div className="hms-modal-box" style={{ width:750, maxHeight:"90vh", overflowY:"auto" }}>
+            <div className="hms-modal-title" style={{ marginBottom:16 }}>Lab Reports — {editRepPt.patientName||editRepPt.name}</div>
+
             {!(editRepPt.reports||[]).length && <div className="hms-empty" style={{ padding:"1rem" }}>No reports found for this patient.</div>}
-            
+
             {(editRepPt.reports||[]).map((rep, rIdx) => (
-              <div key={rIdx} style={{ background: isDark?"#080c18":"#f8fafc", border: `1px solid ${isDark?"#1a2540":"#e2e8f0"}`, borderRadius: 10, padding: 16, marginBottom: 16 }}>
-                <div style={{ display:"flex", justifyContent:"space-between", marginBottom: 12 }}>
-                  <input className="hms-inp" style={{ fontWeight: 700, fontSize: 15, width: "50%" }} value={rep.reportName || rep.name} onChange={e => { const r=[...editRepPt.reports]; r[rIdx].reportName=e.target.value; setEditRepPt({...editRepPt,reports:r}); }} placeholder="Report Name"/>
-                  <div style={{ display:"flex", gap: 10 }}>
-                    <input className="hms-inp" type="date" value={rep.date} onChange={e => { const r=[...editRepPt.reports]; r[rIdx].date=e.target.value; setEditRepPt({...editRepPt,reports:r}); }}/>
-                    <ActionBtn col="#f87171" onClick={()=>delReport(rIdx)}>✕ Delete Report</ActionBtn>
+              <div key={rIdx} style={{ background:isDark?"#080c18":"#f8fafc", border:`1px solid ${isDark?"#1a2540":"#e2e8f0"}`, borderRadius:10, padding:16, marginBottom:16 }}>
+                <div style={{ display:"flex", justifyContent:"space-between", marginBottom:12 }}>
+                  <input className="hms-inp" style={{ fontWeight:700, fontSize:15, width:"50%" }} value={rep.reportName||rep.name} onChange={e=>{ const r=[...editRepPt.reports]; r[rIdx].reportName=e.target.value; setEditRepPt({...editRepPt,reports:r}); }} placeholder="Report Name"/>
+                  <div style={{ display:"flex", gap:10 }}>
+                    <input className="hms-inp" type="date" value={rep.date} onChange={e=>{ const r=[...editRepPt.reports]; r[rIdx].date=e.target.value; setEditRepPt({...editRepPt,reports:r}); }}/>
+                    <ActionBtn col="#f87171" onClick={()=>delReport(rIdx)}>✕ Delete</ActionBtn>
                   </div>
                 </div>
-
-                <div style={{ overflowX: "auto", marginBottom: 10 }}>
-                  <table style={{ width: "100%", fontSize: 12, borderCollapse: "collapse" }}>
+                <div style={{ overflowX:"auto", marginBottom:10 }}>
+                  <table style={{ width:"100%", fontSize:12, borderCollapse:"collapse" }}>
                     <thead>
-                      <tr style={{ color: "#64748b", borderBottom: `1px solid ${isDark?"#1a2540":"#e2e8f0"}` }}>
-                        <th style={{ padding: 6, textAlign:"left" }}>Test Name</th>
-                        <th style={{ padding: 6, textAlign:"left" }}>Result</th>
-                        <th style={{ padding: 6, textAlign:"left" }}>Unit</th>
-                        <th style={{ padding: 6, textAlign:"left" }}>Ref Range</th>
-                        <th style={{ padding: 6 }}>✕</th>
+                      <tr style={{ color:"#64748b", borderBottom:`1px solid ${isDark?"#1a2540":"#e2e8f0"}` }}>
+                        <th style={{ padding:6, textAlign:"left" }}>Test Name</th>
+                        <th style={{ padding:6, textAlign:"left" }}>Result</th>
+                        <th style={{ padding:6, textAlign:"left" }}>Unit</th>
+                        <th style={{ padding:6, textAlign:"left" }}>Ref Range</th>
+                        <th style={{ padding:6 }}>✕</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {(rep.tests || []).map((test, tIdx) => (
-                        <tr key={tIdx} style={{ borderBottom: `1px solid ${isDark?"#0f172a":"#f1f5f9"}` }}>
-                          <td style={{ padding: 4 }}><input className="hms-inp-sm" style={{ width:"100%" }} value={test.name} onChange={e=>{ const r=[...editRepPt.reports]; r[rIdx].tests[tIdx].name=e.target.value; setEditRepPt({...editRepPt,reports:r}); }}/></td>
-                          <td style={{ padding: 4 }}><input className="hms-inp-sm" style={{ width:"100%", color:"#38bdf8", fontWeight:600 }} value={test.result||test.value} onChange={e=>{ const r=[...editRepPt.reports]; r[rIdx].tests[tIdx].result=e.target.value; setEditRepPt({...editRepPt,reports:r}); }}/></td>
-                          <td style={{ padding: 4 }}><input className="hms-inp-sm" style={{ width:"100%" }} value={test.unit} onChange={e=>{ const r=[...editRepPt.reports]; r[rIdx].tests[tIdx].unit=e.target.value; setEditRepPt({...editRepPt,reports:r}); }}/></td>
-                          <td style={{ padding: 4 }}><input className="hms-inp-sm" style={{ width:"100%" }} value={test.refRange} onChange={e=>{ const r=[...editRepPt.reports]; r[rIdx].tests[tIdx].refRange=e.target.value; setEditRepPt({...editRepPt,reports:r}); }}/></td>
-                          <td style={{ padding: 4, textAlign:"center" }}><button style={{ background:"none", border:"none", color:"#f87171", cursor:"pointer" }} onClick={()=>{ const r=[...editRepPt.reports]; r[rIdx].tests.splice(tIdx,1); setEditRepPt({...editRepPt,reports:r}); }}>✕</button></td>
+                      {(rep.tests||[]).map((test, tIdx) => (
+                        <tr key={tIdx} style={{ borderBottom:`1px solid ${isDark?"#0f172a":"#f1f5f9"}` }}>
+                          <td style={{ padding:4 }}><input className="hms-inp-sm" style={{ width:"100%" }} value={test.name} onChange={e=>{ const r=[...editRepPt.reports]; r[rIdx].tests[tIdx].name=e.target.value; setEditRepPt({...editRepPt,reports:r}); }}/></td>
+                          <td style={{ padding:4 }}><input className="hms-inp-sm" style={{ width:"100%", color:"#38bdf8", fontWeight:600 }} value={test.result||test.value} onChange={e=>{ const r=[...editRepPt.reports]; r[rIdx].tests[tIdx].result=e.target.value; setEditRepPt({...editRepPt,reports:r}); }}/></td>
+                          <td style={{ padding:4 }}><input className="hms-inp-sm" style={{ width:"100%" }} value={test.unit} onChange={e=>{ const r=[...editRepPt.reports]; r[rIdx].tests[tIdx].unit=e.target.value; setEditRepPt({...editRepPt,reports:r}); }}/></td>
+                          <td style={{ padding:4 }}><input className="hms-inp-sm" style={{ width:"100%" }} value={test.refRange} onChange={e=>{ const r=[...editRepPt.reports]; r[rIdx].tests[tIdx].refRange=e.target.value; setEditRepPt({...editRepPt,reports:r}); }}/></td>
+                          <td style={{ padding:4, textAlign:"center" }}><button style={{ background:"none", border:"none", color:"#f87171", cursor:"pointer" }} onClick={()=>{ const r=[...editRepPt.reports]; r[rIdx].tests.splice(tIdx,1); setEditRepPt({...editRepPt,reports:r}); }}>✕</button></td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
-                  <button style={{ fontSize: 11, color: accent, background: "none", border: "none", marginTop: 8, cursor: "pointer", fontWeight: 600 }} onClick={()=>{ const r=[...editRepPt.reports]; if(!r[rIdx].tests) r[rIdx].tests=[]; r[rIdx].tests.push({name:"",result:"",unit:"",refRange:""}); setEditRepPt({...editRepPt,reports:r}); }}>+ Add Custom Test Row</button>
+                  <button style={{ fontSize:11, color:accent, background:"none", border:"none", marginTop:8, cursor:"pointer", fontWeight:600 }} onClick={()=>{ const r=[...editRepPt.reports]; if(!r[rIdx].tests) r[rIdx].tests=[]; r[rIdx].tests.push({name:"",result:"",unit:"",refRange:""}); setEditRepPt({...editRepPt,reports:r}); }}>+ Add Custom Test Row</button>
                 </div>
-                
-                <textarea className="hms-textarea" rows={2} placeholder="Remarks / Notes" value={rep.remarks} onChange={e=>{ const r=[...editRepPt.reports]; r[rIdx].remarks=e.target.value; setEditRepPt({...editRepPt,reports:r}); }} style={{ width: "100%", marginTop: 8 }}/>
+                <textarea className="hms-textarea" rows={2} placeholder="Remarks / Notes" value={rep.remarks} onChange={e=>{ const r=[...editRepPt.reports]; r[rIdx].remarks=e.target.value; setEditRepPt({...editRepPt,reports:r}); }} style={{ width:"100%", marginTop:8 }}/>
               </div>
             ))}
 
             <div className="hms-section-label" style={{ marginTop:16 }}>Create New Blank Report</div>
-            <div className="hms-g3" style={{ alignItems: "center" }}>
+            <div className="hms-g3" style={{ alignItems:"center" }}>
                <select className="hms-sel" value={newReport.type} onChange={e => {
                   const type = e.target.value;
-                  const template = LAB_TEMPLATES[type] || { tests: [], defaultRemarks: "" };
-                  setNewReport({ 
-                    ...newReport, 
-                    type, 
-                    name: type, 
-                    tests: template.tests.map(t => ({ name: t.name, result: "", unit: t.unit, refRange: t.refRange })),
-                    remarks: template.defaultRemarks 
-                  });
+                  const template = LAB_TEMPLATES[type] || { tests:[], defaultRemarks:"" };
+                  setNewReport({ ...newReport, type, name:type, tests:template.tests.map(t=>({name:t.name,result:"",unit:t.unit,refRange:t.refRange})), remarks:template.defaultRemarks });
                }}>
                  <option value="">-- Pre-fill Template --</option>
                  {Object.keys(LAB_TEMPLATES).map(k=><option key={k} value={k}>{k}</option>)}
@@ -2286,10 +2721,10 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
                <input className="hms-inp" placeholder="Or type custom name..." value={newReport.name} onChange={e=>setNewReport(f=>({...f,name:e.target.value}))}/>
                <ActionBtn col={accent} onClick={() => {
                   if(!newReport.name) return;
-                  const newRep = { id: Date.now(), reportName: newReport.name, date: new Date().toISOString().slice(0,10), remarks: "", tests: newReport.tests || [] };
-                  setEditRepPt(prev=>({...prev, reports: [...(prev.reports||[]), newRep]}));
-                  setNewReport({ name:"", type:"", tests: [] });
-               }}>+ Add Custom Report</ActionBtn>
+                  const newRep = { id:Date.now(), reportName:newReport.name, date:new Date().toISOString().slice(0,10), remarks:"", tests:newReport.tests||[] };
+                  setEditRepPt(prev=>({...prev, reports:[...(prev.reports||[]), newRep]}));
+                  setNewReport({ name:"", type:"", tests:[] });
+               }}>+ Add Report</ActionBtn>
             </div>
 
             <div className="hms-modal-foot" style={{ marginTop:24 }}>
