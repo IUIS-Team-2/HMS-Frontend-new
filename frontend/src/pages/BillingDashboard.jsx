@@ -213,7 +213,9 @@ function mapLivePatients(records = [], branchKey = "laxmi") {
       return {
         uhid: patient.uhid,
         admNo: adm.admNo,
-        assignedTo: "billing_user",
+        assignedTo: adm.assigned_to || null,
+assignedToName: adm.assigned_to_name || "",
+department: adm.department || "Billing",
         branch: branchName,
         patientName: patient.patientName,
         age: patient.ageYY || patient.age || "—",

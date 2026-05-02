@@ -1764,7 +1764,7 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
             setEditEmpId(null);
             setEmpPassErr("");
             const branchCode = getEmployeeBranchCode();
-            setEmpForm({fullName:"",username:"",empId:buildEmployeeId(branchCode),dept:"HOD",email:"",phone:"",role:"hod",password:"",confirmPassword:""});
+            setEmpForm({fullName:"",username:"",empId:"",dept:"HOD",email:"",phone:"",password:"",confirmPassword:""});
             setShowEmpModal(true);
           }}
         >
@@ -2078,14 +2078,7 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
               {[["Full Name","fullName","text","Jane Doe"],["Username","username","text","jane.doe"],["Employee ID","empId","text","EMP-001"],["Email","email","email","jane@hospital.com"],["Phone","phone","tel","+91 98765 43210"]].map(([lbl,k,type,ph])=>(
                 <div key={k}>
                   <label className="hms-lbl">{lbl}</label>
-                  <input
-                    type={type}
-                    placeholder={ph}
-                    value={empForm[k]}
-                    className="hms-inp"
-                    onChange={e=>{setEmpForm(f=>({...f,[k]:e.target.value}));setEmpPassErr("");}}
-                    disabled={k==="username" && editEmpId}
-                  />
+                  <input type={type} placeholder={ph} value={empForm[k]} className="hms-inp" onChange={e=>{setEmpForm(f=>({...f,[k]:e.target.value}));setEmpPassErr("");}} disabled={k==="username" && editEmpId || (k==="empId" && !editEmpId)}/>
                 </div>
               ))}
             </div>
@@ -2096,7 +2089,7 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
               onChange={e => {
                 const nextRole = e.target.value;
                 const nextDept = EMPLOYEE_ROLE_OPTIONS.find(option => option.value === nextRole)?.label || empForm.dept;
-                setEmpForm(f => ({ ...f, role: nextRole, dept: nextDept, empId: editEmpId ? f.empId : buildEmployeeId(getEmployeeBranchCode()) }));
+                setEmpForm(f => ({ ...f, role: nextRole, dept: nextDept }));
               }}
             >
               {EMPLOYEE_ROLE_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
