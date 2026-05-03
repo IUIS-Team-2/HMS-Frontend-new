@@ -36,7 +36,21 @@ const BC = {
 const BRANCH_KEYS = ["laxmi", "raya"];
 const BRANCH_KEY_TO_CODE = { laxmi: "LNM", raya: "RYM" };
 const BRANCH_CODE_TO_KEY = { LNM: "laxmi", RYM: "raya" };
-const DEPT_OPTIONS = ["HOD", "Billing", "Uploading", "Intimation", "Query", "OPD"];
+
+// ── UPDATED: Added Doctor, HOD, Billing, Uploading, Query, Notes, Intimation, Nursing, Quality Analyst ──
+const DEPT_OPTIONS = [
+  "HOD",
+  "Billing",
+  "Uploading",
+  "Intimation",
+  "Query",
+  "OPD",
+  "Doctor",
+  "Nursing",
+  "Quality Analyst",
+  "Notes",
+];
+
 const TASK_STATUS   = ["Pending", "In Progress", "Completed", "On Hold", "Overdue"];
 const TASK_PRIORITY = ["Low", "Medium", "High", "Urgent"];
 const SUMMARY_TYPES = ["Normal", "LAMA", "Refer", "Death", "DAMA"];
@@ -280,27 +294,70 @@ const TASK_PRIORITY_META = {
   "High":   { color: "#f87171", bg: "#f8717118" },
   "Urgent": { color: "#c084fc", bg: "#c084fc18" },
 };
-const DEPT_ICONS = { HOD:"👔", Billing:"💳", Uploading:"☁️", Intimation:"📢", Query:"❓", OPD:"🏥" };
-const DEPT_ACCENT_CYCLE = ["#34d399","#818cf8","#f59e0b","#38bdf8","#f87171","#c084fc","#22d3ee"];
-const EMPLOYEE_ROLE_OPTIONS = [
-  { value: "receptionist", label: "Receptionist" },
-  { value: "hod", label: "HOD" },
-  { value: "billing", label: "Billing" },
-  { value: "opd", label: "OPD" },
-  { value: "intimation", label: "Intimation" },
-  { value: "query", label: "Query" },
-  { value: "uploading", label: "Uploading" },
-];
-const DEPARTMENT_ROLE_MAP = {
-  HOD: "hod",
-  Billing: "billing",
-  OPD: "opd",
-  Intimation: "intimation",
-  Query: "query",
-  Uploading: "uploading",
-  Receptionist: "receptionist",
+
+// ── UPDATED: Added icons for new departments ──
+const DEPT_ICONS = {
+  HOD:              "👔",
+  Billing:          "💳",
+  Uploading:        "☁️",
+  Intimation:       "📢",
+  Query:            "❓",
+  OPD:              "🏥",
+  Doctor:           "🩺",
+  Nursing:          "💉",
+  "Quality Analyst":"📊",
+  Notes:            "📝",
 };
-const TASK_ASSIGNABLE_ROLES = new Set(["receptionist", "billing", "hod", "opd", "intimation", "query", "uploading", "admin", "office_admin"]);
+
+const DEPT_ACCENT_CYCLE = ["#34d399","#818cf8","#f59e0b","#38bdf8","#f87171","#c084fc","#22d3ee"];
+
+// ── UPDATED: Added new roles ──
+const EMPLOYEE_ROLE_OPTIONS = [
+  { value: "receptionist",    label: "Receptionist" },
+  { value: "hod",             label: "HOD" },
+  { value: "billing",         label: "Billing" },
+  { value: "opd",             label: "OPD" },
+  { value: "intimation",      label: "Intimation" },
+  { value: "query",           label: "Query" },
+  { value: "uploading",       label: "Uploading" },
+  { value: "doctor",          label: "Doctor" },
+  { value: "nursing",         label: "Nursing" },
+  { value: "quality_analyst", label: "Quality Analyst" },
+  { value: "notes",           label: "Notes" },
+];
+
+// ── UPDATED: Added new department-to-role mappings ──
+const DEPARTMENT_ROLE_MAP = {
+  HOD:              "hod",
+  Billing:          "billing",
+  OPD:              "opd",
+  Intimation:       "intimation",
+  Query:            "query",
+  Uploading:        "uploading",
+  Receptionist:     "receptionist",
+  Doctor:           "doctor",
+  Nursing:          "nursing",
+  "Quality Analyst":"quality_analyst",
+  Notes:            "notes",
+};
+
+// ── UPDATED: Added new roles to assignable set ──
+const TASK_ASSIGNABLE_ROLES = new Set([
+  "receptionist",
+  "billing",
+  "hod",
+  "opd",
+  "intimation",
+  "query",
+  "uploading",
+  "admin",
+  "office_admin",
+  "doctor",
+  "nursing",
+  "quality_analyst",
+  "notes",
+]);
+
 const getRoleForDepartment = (department) => DEPARTMENT_ROLE_MAP[String(department || "").trim()] || "";
 
 // ── UTILS ─────────────────────────────────────────────────────────────────────
@@ -684,16 +741,16 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
   const [taskForm,        setTaskForm]        = useState({
     title:"", description:"", assignedToId:"", department:"HOD",
     priority:"Medium", status:"Pending", dueDate:"",
-    patientUhids:[], patientNames:[]   // ← now arrays for multi-select
+    patientUhids:[], patientNames:[]
   });
   const [taskPatientSearch, setTaskPatientSearch] = useState("");
   const [taskReportFilter,setTaskReportFilter]= useState({ period:"all", dept:"All", status:"All", empName:"" });
 
-  // ── BILLING STATE (new) ────────────────────────────────────────────────────
-  const [billingTab,   setBillingTab]   = useState(null);  // active patient uhid
-  const [billingEdits, setBillingEdits] = useState({});    // keyed by "uhid-admNo"
+  // ── BILLING STATE ────────────────────────────────────────────────────────
+  const [billingTab,   setBillingTab]   = useState(null);
+  const [billingEdits, setBillingEdits] = useState({});
 
-  // ── MEDICINE SEARCH STATE (new) ───────────────────────────────────────────
+  // ── MEDICINE SEARCH STATE ─────────────────────────────────────────────────
   const [medSearch, setMedSearch] = useState("");
 
   // Patient modals
@@ -861,7 +918,6 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
     setShowTaskModal(true);
   };
 
-  // toggle a patient in/out of the multi-select list
   const toggleTaskPatient = (p) => {
     const isSelected = taskForm.patientUhids.includes(p.uhid);
     if (isSelected) {
@@ -909,7 +965,7 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
       priority: taskForm.priority,
       status: taskForm.status,
       due_date: taskForm.dueDate ? `${taskForm.dueDate}T23:59:00Z` : null,
-      patient: linkedPatientIds[0] || null,  // primary patient (backend compat)
+      patient: linkedPatientIds[0] || null,
     };
 
     try {
@@ -1004,7 +1060,7 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
     } catch (error) { toast("Failed to update employee status.", "err"); }
   };
 
-  // ── BILLING HELPERS (new) ─────────────────────────────────────────────────
+  // ── BILLING HELPERS ───────────────────────────────────────────────────────
   const getBillingEdit = (p, adm) => {
     const key = `${p.uhid}-${adm.admNo}`;
     if (billingEdits[key]) return billingEdits[key];
@@ -1318,12 +1374,10 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
     );
   };
 
-  // ── PAGE: MEDICINES (updated — MH pre-fill + inline editable qty/rate) ────
+  // ── PAGE: MEDICINES ───────────────────────────────────────────────────────
   const renderMedicines = () => (
     <div>
       <BranchHeader title="Medicines"/>
-
-      {/* Search bar */}
       <div style={{ marginBottom:14 }}>
         <input
           className="hms-inp"
@@ -1333,7 +1387,6 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
           onChange={e => setMedSearch(e.target.value)}
         />
       </div>
-
       {locationPatients
         .filter(p =>
           !medSearch ||
@@ -1342,10 +1395,8 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
         )
         .map(p => {
           const medTotal = (p.medicines||[]).reduce((s,m) => s + (m.qty * m.rate), 0);
-          // Pull current medications from medical history
           const mhRaw = (p.admissions?.[0]?.medicalHistory || p.medicalHistory || {}).currentMedications || "";
           const mhMeds = mhRaw ? mhRaw.split(/[,;|\n]+/).map(s => s.trim()).filter(Boolean) : [];
-
           return (
             <div key={p.uhid} className="hms-card">
               <CardRow
@@ -1357,7 +1408,6 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
                 action={
                   <div style={{ display:"flex", gap:8 }}>
                     <ActionBtn col={accent} onClick={() => {
-                      // Add a blank row inline
                       updatePatient(viewBranch, p.uhid, pt => ({
                         ...pt,
                         medicines: [...(pt.medicines||[]), { id:Date.now(), name:"", qty:1, rate:0 }]
@@ -1367,8 +1417,6 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
                   </div>
                 }
               />
-
-              {/* Medical History Current Medications — click to pre-fill */}
               {mhMeds.length > 0 && (
                 <div style={{
                   marginBottom:12, padding:"10px 14px",
@@ -1406,8 +1454,6 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
                   </div>
                 </div>
               )}
-
-              {/* Medicine table with inline editable qty / rate */}
               {!(p.medicines||[]).length ? (
                 <div className="hms-empty">
                   No medicines.{mhMeds.length > 0 ? " Click suggestions above to add." : ""}
@@ -1427,7 +1473,6 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
                     <tbody>
                       {(p.medicines||[]).map((m, mi) => (
                         <tr key={m.id || mi}>
-                          {/* Editable name */}
                           <td className="hms-td hms-td-hi">
                             <input
                               className="hms-med-inline-input"
@@ -1441,7 +1486,6 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
                               })}
                             />
                           </td>
-                          {/* Editable qty */}
                           <td className="hms-td">
                             <input
                               type="number" min={0}
@@ -1455,7 +1499,6 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
                               })}
                             />
                           </td>
-                          {/* Editable rate */}
                           <td className="hms-td">
                             <input
                               type="number" min={0} step="0.01"
@@ -1469,11 +1512,9 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
                               })}
                             />
                           </td>
-                          {/* Computed total */}
                           <td className="hms-td">
                             <span style={{ color:"#f59e0b", fontWeight:700 }}>{fmt(m.qty * m.rate)}</span>
                           </td>
-                          {/* Delete row */}
                           <td className="hms-td">
                             <ActionBtn col="#f87171" onClick={() =>
                               updatePatient(viewBranch, p.uhid, pt => ({
@@ -1487,8 +1528,6 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
                   </table>
                 </div>
               )}
-
-              {/* Grand total for this patient */}
               {(p.medicines||[]).length > 0 && (
                 <div style={{ display:"flex", justifyContent:"flex-end", marginTop:10, paddingTop:10, borderTop:`1px solid ${accent}18` }}>
                   <span style={{ fontSize:13, fontWeight:800, color:"#f59e0b" }}>
@@ -1499,7 +1538,6 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
             </div>
           );
         })}
-
       {!locationPatients.length && (
         <div className="hms-card hms-empty">No patients for {bc.label}.</div>
       )}
@@ -1532,9 +1570,8 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
     </div>
   );
 
-  // ── PAGE: BILLING (fully updated) ─────────────────────────────────────────
+  // ── PAGE: BILLING ─────────────────────────────────────────────────────────
   const renderBilling = () => {
-    // Build summary rows (for the bottom summary table)
     const billRows = locationPatients.flatMap(p =>
       (p.admissions||[])
         .filter(a => a.billing && ((parseFloat(a.billing.paidNow)||0) + (parseFloat(a.billing.advance)||0) > 0))
@@ -1552,15 +1589,11 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
     );
     const grandTotal = billRows.reduce((s,r) => s + r.total, 0);
     const totalAdv   = billRows.reduce((s,r) => s + r.advance, 0);
-
-    // The active expanded patient
     const activePatient = billingTab ? locationPatients.find(p => p.uhid === billingTab) : null;
 
     return (
       <div>
         <BranchHeader title="Billing"/>
-
-        {/* Summary stats */}
         <div className="hms-stat-grid" style={{ marginBottom:20 }}>
           {[
             { label:"Total Collected", val:fmt(grandTotal), col:"#f59e0b" },
@@ -1574,8 +1607,6 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
             </div>
           ))}
         </div>
-
-        {/* ── PATIENT TABS ─────────────────────────────────────────────────── */}
         <div style={{ marginBottom:16 }}>
           <div style={{ fontSize:10, fontWeight:700, color:"#64748b", textTransform:"uppercase", letterSpacing:".06em", marginBottom:8 }}>
             Select Patient to View / Edit Billing Details
@@ -1602,28 +1633,20 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
             )}
           </div>
         </div>
-
-        {/* ── EXPANDED PATIENT BILLING DETAIL ─────────────────────────────── */}
         {activePatient && (activePatient.admissions||[]).map((adm, ai) => {
           const key = `${activePatient.uhid}-${adm.admNo}`;
           const ed = billingEdits[key] || getBillingEdit(activePatient, adm);
-
           const advance  = parseFloat(ed.advance)  || 0;
           const paidNow  = parseFloat(ed.paidNow)  || 0;
           const discount = parseFloat(ed.discount)  || 0;
           const medTotal = (activePatient.medicines||[]).reduce((s,m) => s + (m.qty * m.rate), 0);
           const grossTotal = advance + paidNow + medTotal;
           const netPayable = grossTotal - discount;
-
           const setField = (field, val) => setBillingEdit(activePatient.uhid, adm.admNo, field, val);
-
-          // Medical history medications
           const mhRaw = (adm.medicalHistory || activePatient.medicalHistory || {}).currentMedications || "";
           const mhMeds = mhRaw ? mhRaw.split(/[,;|\n]+/).map(s => s.trim()).filter(Boolean) : [];
-
           return (
             <div key={ai} className="hms-billing-detail-card">
-              {/* Header */}
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:16 }}>
                 <div>
                   <div style={{ fontSize:15, fontWeight:700 }}>
@@ -1641,8 +1664,6 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
                   <div style={{ fontSize:10, color:"#64748b" }}>Net Payable</div>
                 </div>
               </div>
-
-              {/* ── SECTION: Patient Info ── */}
               <div className="hms-billing-section-head">Patient Information</div>
               <div className="hms-g2" style={{ marginBottom:8 }}>
                 {[
@@ -1657,17 +1678,10 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
                 ].map(([lbl, field, type]) => (
                   <div key={field}>
                     <label className="hms-lbl">{lbl}</label>
-                    <input
-                      className="hms-inp"
-                      type={type}
-                      value={ed[field] || ""}
-                      onChange={e => setField(field, e.target.value)}
-                    />
+                    <input className="hms-inp" type={type} value={ed[field] || ""} onChange={e => setField(field, e.target.value)}/>
                   </div>
                 ))}
               </div>
-
-              {/* ── SECTION: Admission Info ── */}
               <div className="hms-billing-section-head">Admission Details</div>
               <div className="hms-g2" style={{ marginBottom:8 }}>
                 {[
@@ -1682,17 +1696,10 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
                 ].map(([lbl, field, type]) => (
                   <div key={field}>
                     <label className="hms-lbl">{lbl}</label>
-                    <input
-                      className="hms-inp"
-                      type={type}
-                      value={ed[field] || ""}
-                      onChange={e => setField(field, e.target.value)}
-                    />
+                    <input className="hms-inp" type={type} value={ed[field] || ""} onChange={e => setField(field, e.target.value)}/>
                   </div>
                 ))}
               </div>
-
-              {/* ── SECTION: Billing Amounts ── */}
               <div className="hms-billing-section-head">Billing Amounts</div>
               <div className="hms-g2" style={{ marginBottom:8 }}>
                 {[
@@ -1704,26 +1711,14 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
                 ].map(([lbl, field, type]) => (
                   <div key={field}>
                     <label className="hms-lbl">{lbl}</label>
-                    <input
-                      className="hms-inp"
-                      type={type}
-                      value={ed[field] ?? ""}
-                      onChange={e => setField(field, e.target.value)}
-                    />
+                    <input className="hms-inp" type={type} value={ed[field] ?? ""} onChange={e => setField(field, e.target.value)}/>
                   </div>
                 ))}
                 <div>
                   <label className="hms-lbl">Notes / Remarks</label>
-                  <textarea
-                    className="hms-textarea"
-                    rows={2}
-                    value={ed.notes || ""}
-                    onChange={e => setField("notes", e.target.value)}
-                  />
+                  <textarea className="hms-textarea" rows={2} value={ed.notes || ""} onChange={e => setField("notes", e.target.value)}/>
                 </div>
               </div>
-
-              {/* ── SECTION: Diagnosis & Allergy (from medical history) ── */}
               <div className="hms-billing-section-head">Clinical Notes (pre-filled from records)</div>
               <div className="hms-g2" style={{ marginBottom:8 }}>
                 <div>
@@ -1735,8 +1730,6 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
                   <input className="hms-inp" value={ed.allergies||""} onChange={e => setField("allergies", e.target.value)}/>
                 </div>
               </div>
-
-              {/* ── SECTION: Medicines from patient records ── */}
               {(activePatient.medicines||[]).length > 0 && (
                 <>
                   <div className="hms-billing-section-head">Medicines (from patient records)</div>
@@ -1753,8 +1746,6 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
                   </TableWrap>
                 </>
               )}
-
-              {/* ── SECTION: Medical History Meds (suggestion pills) ── */}
               {mhMeds.length > 0 && (
                 <div style={{ marginTop:12, padding:"10px 14px", background:"rgba(56,189,248,0.06)", borderRadius:8, border:"1px solid rgba(56,189,248,0.2)" }}>
                   <div style={{ fontSize:10, fontWeight:700, color:"#38bdf8", marginBottom:6, textTransform:"uppercase" }}>
@@ -1767,16 +1758,8 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
                   </div>
                 </div>
               )}
-
-              {/* ── Bill Summary Box ── */}
-              <div style={{
-                marginTop:18, padding:"14px 18px",
-                background: isDark ? "rgba(245,158,11,0.06)" : "rgba(245,158,11,0.05)",
-                borderRadius:10, border:"1px solid rgba(245,158,11,0.2)"
-              }}>
-                <div style={{ fontSize:11, fontWeight:700, color:"#f59e0b", marginBottom:10, textTransform:"uppercase" }}>
-                  Bill Summary
-                </div>
+              <div style={{ marginTop:18, padding:"14px 18px", background: isDark ? "rgba(245,158,11,0.06)" : "rgba(245,158,11,0.05)", borderRadius:10, border:"1px solid rgba(245,158,11,0.2)" }}>
+                <div style={{ fontSize:11, fontWeight:700, color:"#f59e0b", marginBottom:10, textTransform:"uppercase" }}>Bill Summary</div>
                 {[
                   ["Medicines Total",  fmt(medTotal),   "#34d399"],
                   ["Advance",          fmt(advance),    "#34d399"],
@@ -1791,79 +1774,24 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
                   </div>
                 ))}
               </div>
-
-              {/* Actions */}
               <div style={{ display:"flex", justifyContent:"flex-end", gap:10, marginTop:16 }}>
-                <button
-                  className="hms-cancel-btn"
-                  onClick={() => resetBillingEdit(activePatient.uhid, adm.admNo)}
-                >
-                  Reset to Original
-                </button>
-                <button
-                  style={{ background:"transparent", border:`1px solid ${accent}40`, color:accent, padding:"8px 14px", borderRadius:7, cursor:"pointer", fontSize:11, fontWeight:700 }}
+                <button className="hms-cancel-btn" onClick={() => resetBillingEdit(activePatient.uhid, adm.admNo)}>Reset to Original</button>
+                <button style={{ background:"transparent", border:`1px solid ${accent}40`, color:accent, padding:"8px 14px", borderRadius:7, cursor:"pointer", fontSize:11, fontWeight:700 }}
                   onClick={() => {
-                    // Export this bill as text
-                    const lines = [
-                      `SANGI HOSPITAL — ${bc.label.toUpperCase()}`,
-                      `FINAL BILL`,
-                      ``,
-                      `IPD No. : ${ed.admNo}`,
-                      `Patient Name : ${ed.patientName}`,
-                      `Guardian Name : ${ed.guardianName}`,
-                      `Age/Sex : ${ed.age} / ${ed.gender}`,
-                      `Address : ${ed.address}`,
-                      `Card No. : ${ed.cardNo}`,
-                      `Consultant : ${ed.doctorName}`,
-                      `Panel : ${ed.panel}`,
-                      `Claim ID : ${ed.claimId}`,
-                      `DOA : ${ed.doa}`,
-                      `DOD : ${ed.dod}`,
-                      `Phone : ${ed.phone}`,
-                      `Status on Discharge : ${ed.status}`,
-                      ``,
-                      `─────────────────────────────────`,
-                      ...(activePatient.medicines||[]).map((m,mi) =>
-                        `${mi+1}. ${m.name} | Qty: ${m.qty} | Rate: ₹${m.rate} | Amount: ₹${m.qty*m.rate}`
-                      ),
-                      ``,
-                      `Gross Total    : ₹${grossTotal}`,
-                      `Discount       : - ₹${discount}`,
-                      `Net Payable    : ₹${netPayable}`,
-                      ``,
-                      `Notes: ${ed.notes}`,
-                      ``,
-                      `Generated: ${new Date().toLocaleString("en-IN")}`,
-                    ];
+                    const lines = [`SANGI HOSPITAL — ${bc.label.toUpperCase()}`,`FINAL BILL`,``,`IPD No. : ${ed.admNo}`,`Patient Name : ${ed.patientName}`,`Guardian Name : ${ed.guardianName}`,`Age/Sex : ${ed.age} / ${ed.gender}`,`Address : ${ed.address}`,`Card No. : ${ed.cardNo}`,`Consultant : ${ed.doctorName}`,`Panel : ${ed.panel}`,`Claim ID : ${ed.claimId}`,`DOA : ${ed.doa}`,`DOD : ${ed.dod}`,`Phone : ${ed.phone}`,`Status on Discharge : ${ed.status}`,``,`─────────────────────────────────`,...(activePatient.medicines||[]).map((m,mi)=>`${mi+1}. ${m.name} | Qty: ${m.qty} | Rate: ₹${m.rate} | Amount: ₹${m.qty*m.rate}`),``,`Gross Total    : ₹${grossTotal}`,`Discount       : - ₹${discount}`,`Net Payable    : ₹${netPayable}`,``,`Notes: ${ed.notes}`,``,`Generated: ${new Date().toLocaleString("en-IN")}`];
                     exportTxt(`bill_${activePatient.uhid}_adm${adm.admNo}.txt`, lines.join("\n"));
                     toast("Bill downloaded");
                   }}
-                >
-                  ↓ Download Bill
-                </button>
-                <button
-                  className="hms-save-btn"
-                  onClick={() => {
-                    toast("Billing details saved");
-                    // To persist: call your apiService here with `ed`
-                  }}
-                >
-                  💾 Save Changes
-                </button>
+                >↓ Download Bill</button>
+                <button className="hms-save-btn" onClick={() => { toast("Billing details saved"); }}>💾 Save Changes</button>
               </div>
             </div>
           );
         })}
-
-        {/* ── SUMMARY TABLE (all billing records) ─────────────────────────── */}
         <div className="hms-card">
           <CardRow title="All Billing Records" action={
             <ActionBtn col="#34d399" onClick={() => {
-              exportCSV("billing_export.csv", billRows.map(r => ({
-                Patient: r.patient, UHID: r.uhid, Adm: r.admNo,
-                Advance: r.advance, PaidNow: r.paidNow, Discount: r.discount,
-                Mode: r.mode, Total: r.total
-              })), ["Patient","UHID","Adm","Advance","PaidNow","Discount","Mode","Total"]);
+              exportCSV("billing_export.csv", billRows.map(r => ({ Patient: r.patient, UHID: r.uhid, Adm: r.admNo, Advance: r.advance, PaidNow: r.paidNow, Discount: r.discount, Mode: r.mode, Total: r.total })), ["Patient","UHID","Adm","Advance","PaidNow","Discount","Mode","Total"]);
               toast("Billing CSV exported");
             }}>↓ Export CSV</ActionBtn>
           }/>
@@ -1891,8 +1819,6 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
             </TableWrap>
           )}
         </div>
-
-        {/* Show all patients even without billing records */}
         {locationPatients.filter(p => !(p.admissions||[]).some(a => a.billing && ((parseFloat(a.billing.paidNow)||0)+(parseFloat(a.billing.advance)||0))>0)).length > 0 && (
           <div className="hms-card" style={{ marginTop:12 }}>
             <div className="hms-card-title" style={{ marginBottom:10 }}>Patients Without Billing Records</div>
@@ -1983,7 +1909,7 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
     );
   };
 
-  // ── PAGE: TASKS (updated — multi-patient) ─────────────────────────────────
+  // ── PAGE: TASKS ───────────────────────────────────────────────────────────
   const renderTasks = () => {
     const ts = { total:tasks.length, pending:tasks.filter(t=>t.status==="Pending").length, inprogress:tasks.filter(t=>t.status==="In Progress").length, completed:tasks.filter(t=>t.status==="Completed").length, urgent:tasks.filter(t=>t.priority==="Urgent"&&t.status!=="Completed").length };
     return (
@@ -2017,11 +1943,7 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
                   <Td sm style={{ color:t.dueDate&&new Date(t.dueDate)<new Date()&&t.status!=="Completed"?"#f87171":"#64748b" }}>{fmtDt(t.dueDate)}</Td>
                   <Td sm>
                     {(t.patientNames||[]).length > 0 ? (
-                      <div>
-                        {(t.patientNames||[]).map((name, ni) => (
-                          <div key={ni} style={{ color:"#38bdf8", fontSize:10 }}>{name}</div>
-                        ))}
-                      </div>
+                      <div>{(t.patientNames||[]).map((name, ni) => (<div key={ni} style={{ color:"#38bdf8", fontSize:10 }}>{name}</div>))}</div>
                     ) : "—"}
                   </Td>
                   <Td sm>{t.createdBy||"—"}</Td>
@@ -2201,7 +2123,8 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
       <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:16 }}>
         <button className="hms-add-btn-lg" onClick={() => {
           setEditEmpId(null); setEmpPassErr("");
-          setEmpForm({fullName:"",username:"",empId:"",dept:"HOD",email:"",phone:"",password:"",confirmPassword:""});
+          const branchCode = getEmployeeBranchCode();
+          setEmpForm({fullName:"",username:"",empId:buildEmployeeId(branchCode),dept:"HOD",email:"",phone:"",role:"hod",password:"",confirmPassword:""});
           setShowEmpModal(true);
         }}>+ Create Employee</button>
       </div>
@@ -2366,18 +2289,15 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
         <main className="hms-main">{renderContent()}</main>
       </div>
 
-      {/* ══ TASK MODAL — multi-patient ══ */}
+      {/* ══ TASK MODAL ══ */}
       {showTaskModal && (
         <div className="hms-modal-overlay" onClick={e=>e.target===e.currentTarget&&(setShowTaskModal(false),setEditTask(null))}>
           <div className="hms-modal-box" style={{ width:540 }}>
             <div className="hms-modal-title">{editTask?"Edit Task":"Assign New Task"}</div>
-
             <label className="hms-lbl">Task Title *</label>
             <input className="hms-inp" placeholder="E.g. Prepare daily billing report" value={taskForm.title} onChange={e=>setTaskForm(f=>({...f,title:e.target.value}))}/>
-
             <label className="hms-lbl">Description</label>
             <textarea className="hms-textarea" placeholder="Task details…" value={taskForm.description} onChange={e=>setTaskForm(f=>({...f,description:e.target.value}))}/>
-
             <div className="hms-g2">
               <div>
                 <label className="hms-lbl">Assigned To *</label>
@@ -2386,11 +2306,7 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
                   {taskAssignableEmployees.map((employee) => {
                     const fullName = employee.fullName || employee.name || employee.username;
                     const identity = employee.empId || employee.username || `ID-${employee.id}`;
-                    return (
-                      <option key={employee.id} value={String(employee.id)}>
-                        {`${fullName} (${identity})`}
-                      </option>
-                    );
+                    return (<option key={employee.id} value={String(employee.id)}>{`${fullName} (${identity})`}</option>);
                   })}
                 </select>
               </div>
@@ -2401,7 +2317,6 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
                 </select>
               </div>
             </div>
-
             <div className="hms-g2">
               <div>
                 <label className="hms-lbl">Priority</label>
@@ -2414,71 +2329,39 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
                 <input className="hms-inp" type="date" value={taskForm.dueDate} onChange={e=>setTaskForm(f=>({...f,dueDate:e.target.value}))}/>
               </div>
             </div>
-
-            {/* ── MULTI-PATIENT SELECTION ── */}
             <label className="hms-lbl">
               Link to Patients
               <span style={{ color:"#64748b", fontWeight:400, marginLeft:6 }}>(optional · up to 8)</span>
             </label>
-
-            {/* Selected patient pills */}
             {taskForm.patientUhids.length > 0 && (
               <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:8 }}>
                 {taskForm.patientUhids.map((uhid, idx) => (
                   <div key={uhid} className="hms-patient-selected-pill">
                     🧑‍⚕️ {taskForm.patientNames[idx]}
                     <span style={{ color:"#64748b", fontSize:10, fontWeight:400 }}> · {uhid}</span>
-                    <button
-                      className="hms-patient-clear-btn"
-                      onClick={() => setTaskForm(f => ({
-                        ...f,
-                        patientUhids: f.patientUhids.filter((_,i) => i !== idx),
-                        patientNames: f.patientNames.filter((_,i) => i !== idx),
-                      }))}
-                    >✕</button>
+                    <button className="hms-patient-clear-btn" onClick={() => setTaskForm(f => ({ ...f, patientUhids: f.patientUhids.filter((_,i) => i !== idx), patientNames: f.patientNames.filter((_,i) => i !== idx) }))}>✕</button>
                   </div>
                 ))}
-                <button
-                  style={{ fontSize:10, color:"#f87171", background:"none", border:"1px solid #f8717140", borderRadius:12, padding:"3px 10px", cursor:"pointer" }}
-                  onClick={() => setTaskForm(f => ({...f, patientUhids:[], patientNames:[]}))}
-                >
-                  Clear All
-                </button>
+                <button style={{ fontSize:10, color:"#f87171", background:"none", border:"1px solid #f8717140", borderRadius:12, padding:"3px 10px", cursor:"pointer" }} onClick={() => setTaskForm(f => ({...f, patientUhids:[], patientNames:[]}))}>Clear All</button>
               </div>
             )}
-
-            {/* Search + list (hidden when limit hit) */}
             {taskForm.patientUhids.length < 8 && (
               <>
-                <input
-                  className="hms-patient-search"
-                  placeholder="Search by patient name or UHID…"
-                  value={taskPatientSearch}
-                  onChange={e => setTaskPatientSearch(e.target.value)}
-                />
+                <input className="hms-patient-search" placeholder="Search by patient name or UHID…" value={taskPatientSearch} onChange={e => setTaskPatientSearch(e.target.value)}/>
                 <div className="hms-patient-select-box">
                   {filteredTaskPatients.length === 0 ? (
                     <div style={{ padding:"10px 12px", fontSize:11, color:"#64748b", textAlign:"center" }}>No patients found</div>
                   ) : filteredTaskPatients.map(p => {
                     const isSelected = taskForm.patientUhids.includes(p.uhid);
                     return (
-                      <div
-                        key={p.uhid}
-                        className={`hms-patient-select-item${isSelected ? " selected" : ""}`}
-                        onClick={() => toggleTaskPatient(p)}
-                      >
+                      <div key={p.uhid} className={`hms-patient-select-item${isSelected ? " selected" : ""}`} onClick={() => toggleTaskPatient(p)}>
                         <div>
                           <span style={{ fontWeight:600, color: isDark?"#e2e8f0":"#1e293b" }}>{p.name}</span>
                           <span style={{ marginLeft:8, color:"#64748b", fontSize:10 }}>{p.uhid}</span>
                           {isSelected && <span style={{ marginLeft:6, color:accent, fontSize:11, fontWeight:700 }}>✓</span>}
                         </div>
                         <div style={{ display:"flex", gap:5, alignItems:"center" }}>
-                          <span style={{ fontSize:9, padding:"2px 6px", borderRadius:10,
-                            background:p.status==="Admitted"?"#34d39918":"#6b728018",
-                            color:p.status==="Admitted"?"#34d399":"#6b7280",
-                            border:`1px solid ${p.status==="Admitted"?"#34d39940":"#6b728040"}` }}>
-                            {p.status}
-                          </span>
+                          <span style={{ fontSize:9, padding:"2px 6px", borderRadius:10, background:p.status==="Admitted"?"#34d39918":"#6b728018", color:p.status==="Admitted"?"#34d399":"#6b7280", border:`1px solid ${p.status==="Admitted"?"#34d39940":"#6b728040"}` }}>{p.status}</span>
                           <span style={{ fontSize:9, color:"#64748b" }}>{p.branch}</span>
                         </div>
                       </div>
@@ -2487,12 +2370,10 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
                 </div>
               </>
             )}
-
             <div style={{ fontSize:10, color:"#64748b", marginTop:4, marginBottom:4 }}>
               {taskForm.patientUhids.length}/8 patients selected
               {taskForm.patientUhids.length >= 8 && <span style={{ color:"#f87171", marginLeft:6 }}>· Maximum reached</span>}
             </div>
-
             <div className="hms-modal-foot">
               <button className="hms-cancel-btn" onClick={()=>{setShowTaskModal(false);setEditTask(null);}}>Cancel</button>
               <button className="hms-save-btn" onClick={saveTask}>{editTask?"Update Task":"Assign Task"}</button>
@@ -2529,7 +2410,14 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
               {[["Full Name","fullName","text","Jane Doe"],["Username","username","text","jane.doe"],["Employee ID","empId","text","EMP-001"],["Email","email","email","jane@hospital.com"],["Phone","phone","tel","+91 98765 43210"]].map(([lbl,k,type,ph])=>(
                 <div key={k}>
                   <label className="hms-lbl">{lbl}</label>
-                  <input type={type} placeholder={ph} value={empForm[k]} className="hms-inp" onChange={e=>{setEmpForm(f=>({...f,[k]:e.target.value}));setEmpPassErr("");}} disabled={k==="username" && editEmpId || (k==="empId" && !editEmpId)}/>
+                  <input
+                    type={type}
+                    placeholder={ph}
+                    value={empForm[k]}
+                    className="hms-inp"
+                    onChange={e=>{setEmpForm(f=>({...f,[k]:e.target.value}));setEmpPassErr("");}}
+                    disabled={k==="username" && !!editEmpId}
+                  />
                 </div>
               ))}
             </div>
@@ -2667,9 +2555,7 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
         <div className="hms-modal-overlay" onClick={e=>e.target===e.currentTarget&&(setShowReportModal(false),setEditRepPt(null))}>
           <div className="hms-modal-box" style={{ width:750, maxHeight:"90vh", overflowY:"auto" }}>
             <div className="hms-modal-title" style={{ marginBottom:16 }}>Lab Reports — {editRepPt.patientName||editRepPt.name}</div>
-
             {!(editRepPt.reports||[]).length && <div className="hms-empty" style={{ padding:"1rem" }}>No reports found for this patient.</div>}
-
             {(editRepPt.reports||[]).map((rep, rIdx) => (
               <div key={rIdx} style={{ background:isDark?"#080c18":"#f8fafc", border:`1px solid ${isDark?"#1a2540":"#e2e8f0"}`, borderRadius:10, padding:16, marginBottom:16 }}>
                 <div style={{ display:"flex", justifyContent:"space-between", marginBottom:12 }}>
@@ -2707,7 +2593,6 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
                 <textarea className="hms-textarea" rows={2} placeholder="Remarks / Notes" value={rep.remarks} onChange={e=>{ const r=[...editRepPt.reports]; r[rIdx].remarks=e.target.value; setEditRepPt({...editRepPt,reports:r}); }} style={{ width:"100%", marginTop:8 }}/>
               </div>
             ))}
-
             <div className="hms-section-label" style={{ marginTop:16 }}>Create New Blank Report</div>
             <div className="hms-g3" style={{ alignItems:"center" }}>
                <select className="hms-sel" value={newReport.type} onChange={e => {
@@ -2726,7 +2611,6 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
                   setNewReport({ name:"", type:"", tests:[] });
                }}>+ Add Report</ActionBtn>
             </div>
-
             <div className="hms-modal-foot" style={{ marginTop:24 }}>
               <button className="hms-cancel-btn" onClick={()=>{setShowReportModal(false);setEditRepPt(null);}}>Cancel</button>
               <button className="hms-save-btn" onClick={saveReports}>💾 Save All Reports</button>
