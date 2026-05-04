@@ -150,39 +150,19 @@ export default function NursingDashboard({ currentUser, onLogout }) {
   useEffect(() => {
     if (viewTab !== "patients") return;
     let active = true;
+
     const load = async () => {
       setPatLoading(true);
       setPatError("");
       try {
-        // Fetch all patients/admissions that have been submitted to HOD (printStatus = PENDING or APPROVED)
-        // Try a few API patterns; adapt to whichever your backend exposes:
-        let records = [];
-
-        // Option 1: dedicated submitted-billing endpoint
-        if (typeof apiService.getSubmittedBillingPatients === "function") {
-          records = await apiService.getSubmittedBillingPatients();
-        }
-        // Option 2: getPatients filtered by task/print status
-        else if (typeof apiService.getPatients === "function") {
-          const all = await apiService.getPatients();
-          const arr = Array.isArray(all)
-            ? all
-            : Object.values(all || {}).flat();
-          records = arr.filter(r => {
-            const adm = Array.isArray(r.admissions) ? r.admissions[0] : r;
-            const ps  = adm?.billing?.printStatus || "";
-            return ps === "PENDING" || ps === "APPROVED";
-          });
-        }
-        // Option 3: getDepartmentPatients
-        else if (typeof apiService.getDepartmentPatients === "function") {
-          records = await apiService.getDepartmentPatients("billing");
-        }
+        // The backend automatically filters and returns ONLY the patients assigned to this specific nurse!
+        const response = await apiService.getPatients();
+        const records = Array.isArray(response) ? response : (response.results || Object.values(response || {}).flat());
 
         if (!active) return;
-        setSubmittedPatients(
-          (Array.isArray(records) ? records : []).map(mapSubmittedPatient)
-        );
+        
+        // Directly map the patients without filtering out the missing bills
+        setSubmittedPatients(records.map(mapSubmittedPatient));
       } catch (err) {
         if (!active) return;
         setPatError("Unable to load patients. Please try again.");
@@ -190,6 +170,7 @@ export default function NursingDashboard({ currentUser, onLogout }) {
         if (active) setPatLoading(false);
       }
     };
+
     load();
     return () => { active = false; };
   }, [viewTab]);

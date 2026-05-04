@@ -124,33 +124,28 @@ export default function OpdDashboard({ currentUser, onLogout }) {
   useEffect(() => {
     if (viewTab !== "patients") return;
     let active = true;
-    (async () => {
+
+    const load = async () => {
       setPatLoading(true);
       setPatError("");
       try {
-        let records = [];
-        if (typeof apiService.getSubmittedBillingPatients === "function") {
-          records = await apiService.getSubmittedBillingPatients();
-        } else if (typeof apiService.getPatients === "function") {
-          const all = await apiService.getPatients();
-          const arr = Array.isArray(all) ? all : Object.values(all || {}).flat();
-          records = arr.filter(r => {
-            const adm = Array.isArray(r.admissions) ? r.admissions[0] : r;
-            const ps  = adm?.billing?.printStatus || "";
-            return ps === "PENDING" || ps === "APPROVED";
-          });
-        } else if (typeof apiService.getDepartmentPatients === "function") {
-          records = await apiService.getDepartmentPatients("billing");
-        }
+        // The backend automatically filters and returns ONLY the patients assigned to this specific OPD staff!
+        const response = await apiService.getPatients();
+        const records = Array.isArray(response) ? response : (response.results || Object.values(response || {}).flat());
+
         if (!active) return;
-        setPatients((Array.isArray(records) ? records : []).map(mapPatient));
-      } catch {
+        
+        // Directly map the patients using the OPD mapper
+        setPatients(records.map(mapPatient));
+      } catch (err) {
         if (!active) return;
         setPatError("Unable to load patients. Please try again.");
       } finally {
         if (active) setPatLoading(false);
       }
-    })();
+    };
+
+    load();
     return () => { active = false; };
   }, [viewTab]);
 
