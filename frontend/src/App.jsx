@@ -32,6 +32,7 @@ import BranchAdminDashboard from "./pages/BranchAdminDashboard";
 import BillingDashboard from "./pages/BillingDashboard";
 import DoctorDashboard from "./pages/DoctorDashboard";
 import NursingDashboard from "./pages/NursingDashboard";
+import NotesDashboard from "./pages/NotesDashboard";          // ← NEW
 import { ThemeProvider, useTheme } from "./context/ThemeContext";
 import ThemeModeDock from "./components/ui/ThemeModeDock";
 
@@ -86,7 +87,7 @@ export default function App() {
 
   const splitPatientsByBranch = (patients) => {
     const laxmiPatients = patients.filter(p => p.branch_location === 'LNM' || !p.branch_location);
-    const rayaPatients = patients.filter(p => p.branch_location === 'RYM');
+    const rayaPatients  = patients.filter(p => p.branch_location === 'RYM');
     return { laxmi: laxmiPatients, raya: rayaPatients };
   };
 
@@ -134,7 +135,7 @@ export default function App() {
 
   const loadDashboardData = async (userRole) => {
     try {
-      let livePatients = await apiService.getPatients();
+      let livePatients   = await apiService.getPatients();
       const liveServices = await apiService.getServiceMaster();
       setMasterServices(liveServices);
 
@@ -192,7 +193,6 @@ export default function App() {
     setMedicalDone(false);
     setDischargeDone(false);
     setServicesDone(false);
-    // 🔧 FIX 1: Always reset isReturning and admissionType on full reset
     setIsReturning(false);
     setSelectedAdmissionType("IPD");
     setPatient(blankPatient());
@@ -213,18 +213,20 @@ export default function App() {
     setLoggedIn(true);
 
     let startingPage = "patient";
-    if (user.role === "superadmin") startingPage = "superadmin";
-    else if (user.role === "admin" || user.role === "branchadmin") startingPage = "branchadmin";
+    if      (user.role === "superadmin")                                    startingPage = "superadmin";
+    else if (user.role === "admin" || user.role === "branchadmin")          startingPage = "branchadmin";
     else if (user.role === "managementadmin" || user.role === "office_admin") startingPage = "managementadmin";
-    else if (user.role === "hod") startingPage = "hod";
-    else if (user.role === "billing") startingPage = "billing";
-    else if (user.role === "opd") startingPage = "opd";
-    else if (user.role === "intimation") startingPage = "intimation";
-    else if (user.role === "query") startingPage = "query";
-    else if (user.role === "uploading") startingPage = "uploading";
-    else if (user.role === "doctor") startingPage = "doctor";
-    else if (user.role === "nursing") startingPage = "nursing";
-    else if (["ipd", "pharmacy", "lab", "radiology", "receptionist", "employee"].includes(user.role)) startingPage = "employee";
+    else if (user.role === "hod")                                           startingPage = "hod";
+    else if (user.role === "billing")                                       startingPage = "billing";
+    else if (user.role === "opd")                                           startingPage = "opd";
+    else if (user.role === "intimation")                                    startingPage = "intimation";
+    else if (user.role === "query")                                         startingPage = "query";
+    else if (user.role === "uploading")                                     startingPage = "uploading";
+    else if (user.role === "doctor")                                        startingPage = "doctor";
+    else if (user.role === "nursing")                                       startingPage = "nursing";
+    else if (user.role === "notes")                                         startingPage = "notes";   // ← NEW
+    else if (["ipd", "pharmacy", "lab", "radiology", "receptionist", "employee"].includes(user.role))
+                                                                            startingPage = "employee";
 
     try {
       sessionStorage.setItem('hms_loggedIn', 'true');
@@ -250,8 +252,6 @@ export default function App() {
     });
   };
 
-  // 🔧 FIX 2: handleNewAdmission now accepts admissionType correctly
-  // and resets isReturning properly before navigating to form
   const handleNewAdmission = (existing, admissionType = "IPD") => {
     const { admissions, ...pd } = existing;
     const resolvedType = admissionType || admissions?.[admissions.length - 1]?.admissionType || "IPD";
@@ -354,15 +354,9 @@ export default function App() {
     setErrs(e); return !Object.keys(e).length;
   };
 
-  // 🔧 FIX 3: THE MAIN FIX
-  // - New patient: calls registerPatient with snake_case fields Django expects
-  // - Returning patient: calls updatePatient then newAdmission
-  // - Guards against calling newAdmission when uhid is null
-  // - Removed duplicate API calls (was calling newAdmission 3x due to re-renders)
   const handleRegister = async () => {
     if (!validatePatient()) return;
 
-    // Build a clean payload with null for empty date fields (Django rejects "")
     const sanitizedPayload = { ...patient };
     if (!sanitizedPayload.dob)              sanitizedPayload.dob              = null;
     if (!sanitizedPayload.tpaValidity)      sanitizedPayload.tpaValidity      = null;
@@ -374,7 +368,6 @@ export default function App() {
       const doaValue = localNow.toISOString().slice(0, 16);
 
       if (isReturning && uhid) {
-        // ── Returning patient: update details + add new admission ──────────
         await apiService.updatePatient(uhid, sanitizedPayload);
         const admResponse = await apiService.newAdmission(uhid, selectedAdmissionType);
         const livePatients = await apiService.getPatients();
@@ -383,10 +376,7 @@ export default function App() {
         setDischarge(prev => ({ ...prev, doa: doaValue }));
         setShowUHID(true);
         setSubPage("search");
-
       } else {
-        // ── Brand new patient: register with full payload ──────────────────
-        // 🔧 FIX: Pass admissionType and locId so Django creates the first admission too
         const registrationPayload = {
           ...sanitizedPayload,
           locId,
@@ -406,7 +396,6 @@ export default function App() {
         setAdmNo(1);
         setIsReturning(false);
         setDischarge(prev => ({ ...prev, doa: doaValue }));
-        // 🔧 FIX: Add to local db so sidebar shows UHID immediately
         setDb(prev => ({ ...prev, [locId]: [savedPatient, ...(prev[locId] || [])] }));
         setShowUHID(true);
       }
@@ -414,7 +403,6 @@ export default function App() {
       toast.success("Patient registered successfully!");
 
     } catch (error) {
-      // 🔧 FIX: Show the actual Django error in the toast, not just a generic message
       const djangoErrors = error?.response?.data;
       if (djangoErrors) {
         const firstError = Object.entries(djangoErrors)
@@ -521,8 +509,6 @@ export default function App() {
 
   const activeAdmission = findAdmissionRecord(uhid, admNo, locId);
 
-  // 🔧 FIX 4: onNewPatient handler extracted from JSX inline to avoid
-  // stale closure / async state issues with selectedAdmissionType
   const handleNewPatient = (type = "IPD") => {
     setSelectedAdmissionType(type);
     setPatient(blankPatient());
@@ -651,6 +637,16 @@ export default function App() {
       );
     }
 
+    // ── Notes Dashboard ── (NEW)
+    if (page === "notes") {
+      return (
+        <>
+          <NotesDashboard currentUser={currentUser} onLogout={handleLogout} />
+          <ToastBridge />
+        </>
+      );
+    }
+
     return (
       <>
         {showPrint && (
@@ -752,7 +748,6 @@ export default function App() {
           </aside>
 
           <main className="main" key={page + showUHID + subPage + locId}>
-            {/* 🔧 FIX 4 applied: onNewPatient now uses the extracted handleNewPatient function */}
             {page === "patient" && !showUHID && subPage === "search" && (
               <SearchPage
                 db={currentDb}

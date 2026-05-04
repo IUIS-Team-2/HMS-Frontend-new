@@ -63,7 +63,7 @@ const BRANCH_THEMES = {
   },
 };
 
-// Departments removed from NAV
+
 const NAV = [
   { id: "overview",   label: "Overview",          icon: LayoutDashboard },
   { id: "patients",   label: "All Patients",      icon: Users },
@@ -485,7 +485,7 @@ export default function BranchAdminDashboard({
 
     const [firstName, ...rest] = empForm.name.trim().split(/\s+/);
     const roleMap = {
-      Billing: "billing",
+      
       Receptionist: "receptionist",
       HOD: "hod",
       OPD: "opd",

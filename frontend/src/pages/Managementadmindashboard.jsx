@@ -266,7 +266,6 @@ const NAV = [
   { id: "medicines",   label: "Medicines",    icon: Pill },
   { id: "reports",     label: "Reports",      icon: ClipboardList },
   { id: "billing",     label: "Billing",      icon: CreditCard },
-  { id: "export",      label: "Export",       icon: FileDown },
   { id: "tasks",       label: "Task Manager", icon: CheckSquare },
   { id: "taskreport",  label: "Task Report",  icon: BarChart3 },
   { id: "departments", label: "Departments",  icon: Building2 },
@@ -876,7 +875,7 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
   const doDeleteSummary = () => { updatePatient(viewBranch, deletePt.uhid, p=>({...p,dischargeSummary:{type:"Normal",diagnosis:"",treatment:"",followUp:"",notes:"",doctorName:"",date:"",expectedDod:""}})); toast("Summary cleared"); setShowDeleteConfirm(false); setDeletePt(null); };
 
   const openReportEditor = (p) => { setEditRepPt(JSON.parse(JSON.stringify(p))); setNewReport({name:"",date:"",result:""}); setShowReportModal(true); };
-  const addReport    = () => { if (!newReport.name) return; setEditRepPt(prev=>({...prev,reports:[...(prev.reports||[]),{id:Date.now(),...newReport}]})); setNewReport({name:"",date:"",result:""}); };
+
   const delReport    = (idx) => setEditRepPt(prev=>({...prev,reports:prev.reports.filter((_,i)=>i!==idx)}));
   const updateReport = (idx, field, val) => setEditRepPt(prev=>{ const r=[...prev.reports]; r[idx]={...r[idx],[field]:val}; return {...prev,reports:r}; });
   const saveReports  = async () => {
@@ -1844,70 +1843,7 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
     );
   };
 
-  // ── PAGE: EXPORT ──────────────────────────────────────────────────────────
-  const renderExport = () => {
-    const exportOptions = [
-      {id:"discharge",     label:"Discharge Summary",   desc:"Full clinical summary .txt per patient", icon:ClipboardList},
-      {id:"medical",       label:"Medical History",      desc:"Medical history .txt per patient",       icon:Hospital},
-      {id:"medicines",     label:"Medicines",            desc:"Medicines with qty & rates as .csv",     icon:Pill},
-      {id:"reports",       label:"Investigation Reports",desc:"Lab/radiology results as .csv",          icon:Microscope},
-      {id:"patientHistory",label:"Patient History",      desc:"Full patient list as .xlsx",             icon:BarChart3},
-    ];
-    const previewPts = getExportPatients();
-    return (
-      <div>
-        <PageHeader title="Export" subtitle="Download summaries and data for any branch"/>
-        <div className="hms-g2" style={{ marginBottom:20 }}>
-          <div className="hms-card">
-            <div className="hms-section-label">Filters</div>
-            <label className="hms-lbl">Branch</label>
-            <select className="hms-sel" value={exportBranchFilter} onChange={e=>setExportBranchFilter(e.target.value)}>
-              <option value="All">All Hospitals</option><option value="Laxmi Nagar">Laxmi Nagar</option><option value="Raya">Raya</option>
-            </select>
-            <label className="hms-lbl">Summary Type</label>
-            <select className="hms-sel" value={exportSumType} onChange={e=>setExportSumType(e.target.value)}>
-              <option value="All">All Types</option>{SUMMARY_TYPES.map(t=><option key={t}>{t}</option>)}
-            </select>
-            <div style={{ fontSize:10, color:"#64748b" }}>{previewPts.length} patient(s) match</div>
-          </div>
-          <div className="hms-card">
-            <div className="hms-section-label">Export Type</div>
-            {exportOptions.map(o=>{
-              const Icon = o.icon;
-              return (<div key={o.id} className="hms-export-type-row"
-                style={{ background:exportType===o.id?`${accent}18`:"transparent", borderColor:exportType===o.id?`${accent}50`:"#1a2540" }}
-                onClick={()=>setExportType(o.id)}>
-                <span style={{ fontSize:15, display:"inline-flex" }}>{Icon ? <Icon size={15} strokeWidth={1.9} /> : null}</span>
-                <div>
-                  <div style={{ fontSize:11, fontWeight:700, color:exportType===o.id?accent:"inherit" }}>{o.label}</div>
-                  <div style={{ fontSize:9, color:"#64748b" }}>{o.desc}</div>
-                </div>
-              </div>);
-            })}
-          </div>
-        </div>
-        <button className="hms-export-main-btn" onClick={doExport}>
-          ↓ Download {exportOptions.find(o=>o.id===exportType)?.label} — {previewPts.length} record(s)
-        </button>
-        <div className="hms-card" style={{ marginTop:16 }}>
-          <div className="hms-section-label" style={{ marginBottom:10 }}>Quick Download per Patient</div>
-          <TableWrap heads={["Patient","Branch","Summary","Discharge","Med Hist","Meds","Reports"]}>
-            {allPatientsFlat.map(p=>(
-              <tr key={p.uhid+p._branch}>
-                <Td><span className="hms-td-hi">{p.patientName||p.name}</span><div className="hms-td-mono">{p.uhid}</div></Td>
-                <Td><Badge col={BC[p._branch]?.accent||"#6b7280"}>{p._branchLabel}</Badge></Td>
-                <Td><Badge col={SUMMARY_META[p.dischargeSummary?.type]?.color||"#6b7280"}>{p.dischargeSummary?.type||"—"}</Badge></Td>
-                <Td><ActionBtn col="#f59e0b" onClick={()=>downloadDischarge(p,p._branchLabel)}>↓</ActionBtn></Td>
-                <Td><ActionBtn col="#34d399" onClick={()=>{exportTxt(`medhistory_${p.uhid}.txt`,`Medical History\nPatient: ${p.patientName||p.name}\nUHID: ${p.uhid}`);toast("Downloaded");}}>↓</ActionBtn></Td>
-                <Td><ActionBtn col="#34d399" onClick={()=>{exportCSV(`meds_${p.uhid}.csv`,(p.medicines||[]).map(m=>({Medicine:m.name,Qty:m.qty,Rate:m.rate,Total:m.qty*m.rate})),["Medicine","Qty","Rate","Total"]);toast("Downloaded");}}>↓</ActionBtn></Td>
-                <Td><ActionBtn col="#c084fc" onClick={()=>{exportCSV(`reports_${p.uhid}.csv`,(p.reports||[]).map(r=>({Report:r.name,Date:r.date,Result:r.result})),["Report","Date","Result"]);toast("Downloaded");}}>↓</ActionBtn></Td>
-              </tr>
-            ))}
-          </TableWrap>
-        </div>
-      </div>
-    );
-  };
+  
 
   // ── PAGE: TASKS ───────────────────────────────────────────────────────────
   const renderTasks = () => {
@@ -2198,7 +2134,7 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
       case "medicines":   return renderMedicines();
       case "reports":     return renderReports();
       case "billing":     return renderBilling();
-      case "export":      return renderExport();
+      
       case "tasks":       return renderTasks();
       case "taskreport":  return renderTaskReport();
       case "departments": return renderDepartments();

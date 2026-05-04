@@ -10,13 +10,11 @@ export default function SummaryPage({uhid,patient,discharge,svcs,billing,locId,a
   const today=new Date().toLocaleDateString("en-IN",{day:"2-digit",month:"short",year:"numeric"});
   const loc=LOCATIONS.find(l=>l.id===locId);
 
-  const handleRequestPrint = () => {
-    if (onRequestPrint) {
-      onRequestPrint({ uhid, patient, discharge, svcs, billing, locId, admNo });
-      toast.success("Print request sent to Super Admin for approval!");
-    }
-  };
-
+  const handlePrintInvoice = () => {
+  if (onPrint) onPrint();
+  else window.print();
+};
+    
   return(<div className="form-page">
     <div className="page-hd-row"><div><h1 style={{fontFamily:"'DM Serif Display',serif",fontSize:26,color:T.primary,marginBottom:5}}>Final Summary</h1><p style={{fontSize:14,color:T.textMuted}}>Review and generate the invoice for Admission #{admNo}</p></div></div>
     <Card icon={IC.person} title="Patient Information" delay={0}><div className="g2">{[["UHID",uhid],["Admission #",`#${admNo}`],["Patient Name",patient.patientName],["Guardian",patient.guardianName],["Gender",patient.gender],["Blood Group",patient.bloodGroup],["Phone",patient.phone],["National ID",patient.nationalId],["Branch",`${loc.name}, Mathura`],["Address",patient.address]].map(([l,v])=>(<div key={l}><div style={{fontSize:11,fontWeight:600,color:T.textMuted,textTransform:"uppercase",letterSpacing:".05em",marginBottom:3}}>{l}</div><div style={{fontSize:14,fontWeight:500,color:T.text}}>{v||"—"}</div></div>))}</div></Card>
@@ -28,14 +26,13 @@ export default function SummaryPage({uhid,patient,discharge,svcs,billing,locId,a
     </div>
     {billing.paymentMode&&<div className="pay-pill"><Ico d={IC.wallet} size={13} sw={2}/> Payment via: <strong>{billing.paymentMode}</strong></div>}
 
-    {/* Request Print Button */}
-    <div className="btn-row">
-      <button className="btn btn-print" onClick={handleRequestPrint}>
-        <Ico d={IC.print} size={15} sw={2}/> Request Invoice Print
+        <div className="btn-row">
+      <button className="btn btn-print" onClick={handlePrintInvoice}>
+        <Ico d={IC.print} size={15} sw={2}/> Print Invoice
       </button>
     </div>
-    <div style={{textAlign:"center",fontSize:12,color:T.textMuted,marginTop:8}}>
-      🔒 Print requires Super Admin approval
-    </div>
-  </div>);
+  </div>
+);
 }
+   
+  
