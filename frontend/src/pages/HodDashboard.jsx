@@ -51,15 +51,25 @@ const PRIORITY_META = {
 const API_BASE = "http://localhost:8000/api";
 
 async function apiFetch(path, options = {}) {
+  // Grab the JWT token explicitly from sessionStorage
+  const token = sessionStorage.getItem("hms_token"); 
+  
+  const headers = { 
+    "Content-Type": "application/json",
+    // Attach the token if it exists! This fixes the 401 and 403 errors.
+    ...(token && { "Authorization": `Bearer ${token}` }) 
+  };
+
   const res = await fetch(`${API_BASE}${path}`, {
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
+    headers: { ...headers, ...(options.headers || {}) },
     ...options,
   });
+  
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.detail || err.message || `API error ${res.status}`);
   }
+  
   return res.json();
 }
 
