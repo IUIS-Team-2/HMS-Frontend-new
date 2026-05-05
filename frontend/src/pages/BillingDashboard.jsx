@@ -776,6 +776,59 @@ function deriveSavedState(discharge, medicalHistory, labReports, pharmacyRecords
   };
 }
 
+function branchKeyFromLocation(branchLocation, fallback = "laxmi") {
+  const code = String(branchLocation || "").toUpperCase();
+  if (code === "RYM") return "raya";
+  if (code === "LNM") return "laxmi";
+  return fallback;
+}
+
+function admissionSortScore(row) {
+  const admNo = Number(row?.admNo || 0);
+  const doaTs = row?.doa ? new Date(row.doa).getTime() : 0;
+  return (Number.isFinite(doaTs) ? doaTs : 0) + admNo;
+}
+
+function pickPreferredPatientRecord(records = [], task = {}) {
+  if (!Array.isArray(records) || records.length === 0) return null;
+
+  const desiredAdmNo = Number(
+    task?.admNo ||
+    task?.admission_no ||
+    task?.current_admission_no ||
+    task?.admissionNo ||
+    task?.patient_detail?.current_admission_no ||
+    0
+  ) || null;
+
+  if (desiredAdmNo) {
+    const exact = records.find((row) => Number(row?.admNo || 0) === desiredAdmNo);
+    if (exact) return exact;
+  }
+
+  const activeRows = records.filter((row) => !row?.dod);
+  const source = activeRows.length ? activeRows : records;
+
+  return [...source].sort((a, b) => admissionSortScore(b) - admissionSortScore(a))[0] || null;
+}
+
+function mapTaskPatientDetail(task, fallbackBranchKey) {
+  if (!task?.patient_detail) return null;
+  const branchKey = branchKeyFromLocation(task.patient_detail.branch_location, fallbackBranchKey);
+  const preferredAdmission =
+    task?.admission_detail ||
+    task?.current_admission_detail ||
+    task?.patient_detail?.current_admission_detail ||
+    null;
+
+  const taskPatientRecord = preferredAdmission
+    ? [{ ...task.patient_detail, admissions: [preferredAdmission] }]
+    : [task.patient_detail];
+
+  const mappedRows = mapLivePatients(taskPatientRecord, branchKey);
+  return pickPreferredPatientRecord(mappedRows, task);
+}
+
 // ─── FIX: Robust dual-format patient normalizer ────────────────────────────────
 // Handles THREE possible data shapes from the API:
 //   Shape A (nested):  [{ uhid, patientName, admissions: [{ admNo, services, ... }] }]
@@ -1190,14 +1243,26 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
     }
 
     if (assignedTasks.length > 0) {
-      const mappedByUhid = new Map(mapped.map((patient) => [String(patient.uhid || ""), patient]));
+      const mappedByUhid = mapped.reduce((acc, patient) => {
+        const key = String(patient.uhid || "");
+        if (!key) return acc;
+        const existing = acc.get(key) || [];
+        existing.push(patient);
+        acc.set(key, existing);
+        return acc;
+      }, new Map());
       const nextPatients = [];
 
       for (const task of assignedTasks) {
         const taskUhid = String(task.patient_uhid || "");
-        const taskPatient = mappedByUhid.get(taskUhid);
+        const taskCandidates = mappedByUhid.get(taskUhid) || [];
+        const taskPatient = pickPreferredPatientRecord(taskCandidates, task) || mapTaskPatientDetail(task, resolvedBranchKey);
         const taskStatusRaw = String(task.status || "").toLowerCase();
-        const normalizedTaskStatus = taskStatusRaw.includes("complete") ? "completed" : "pending";
+        const normalizedTaskStatus = taskStatusRaw.includes("complete")
+          ? "completed"
+          : taskStatusRaw.includes("progress")
+            ? "submitted"
+            : "pending";
 
         if (taskPatient) {
           nextPatients.push({
@@ -1210,34 +1275,66 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
           continue;
         }
 
+        const taskPatientDetail = task.patient_detail || {};
+        const taskAdmissionDetail =
+          task.admission_detail ||
+          task.current_admission_detail ||
+          taskPatientDetail.current_admission_detail ||
+          {};
+        const fallbackBranchKey = branchKeyFromLocation(taskPatientDetail.branch_location, resolvedBranchKey);
+        const fallbackBranchName = fallbackBranchKey === "raya" ? "Raya Branch" : "Laxmi Nagar Branch";
+
+        const taskServices = normalizeServices(taskAdmissionDetail.services || []);
+        const taskDirectServices = taskServices.filter(
+          (service) => !isPathologyCategory(service.category) && !isMedicineCategory(service.category)
+        );
+        const taskLabReports = Array.isArray(taskAdmissionDetail.labReports)
+          ? normalizeLabReports(taskAdmissionDetail.labReports, taskServices)
+          : [];
+        const taskMedicalBill = Array.isArray(taskAdmissionDetail.pharmacyRecords)
+          ? normalizePharmacyRecords(taskAdmissionDetail.pharmacyRecords, taskServices)
+          : [];
+
         nextPatients.push({
           uhid: taskUhid || `task-${task.id}`,
-          admNo: "—",
+          admNo: task.admNo || task.admission_no || task.current_admission_no || taskAdmissionDetail.admNo || "—",
           assignedTo: task.assigned_to || null,
           assignedToName: task.assigned_to_name || "",
           department: task.department || "Billing",
-          branch: "—",
-          patientName: task.patient_name || "Assigned Patient",
-          age: "—",
-          gender: "",
-          phone: "",
-          address: "",
-          doa: "",
-          dod: "",
-          expectedDod: "",
-          ward: "",
-          bed: "",
-          doctor: "",
-          diagnosis: task.title || "",
-          status: "admitted",
+          branch: fallbackBranchName,
+          patientName: task.patient_name || taskPatientDetail.patientName || "Assigned Patient",
+          age: taskPatientDetail.ageYY || taskPatientDetail.age || "—",
+          gender: taskPatientDetail.gender || "",
+          phone: taskPatientDetail.phone || "",
+          address: taskPatientDetail.address || "",
+          doa: taskAdmissionDetail.discharge?.doa || taskAdmissionDetail.dateTime || "",
+          dod: taskAdmissionDetail.discharge?.dod || "",
+          expectedDod: taskAdmissionDetail.discharge?.expectedDod || "",
+          ward: taskAdmissionDetail.discharge?.wardName || "",
+          bed: taskAdmissionDetail.discharge?.bedNo || taskAdmissionDetail.discharge?.roomNo || "",
+          doctor: taskAdmissionDetail.discharge?.doctorName || taskAdmissionDetail.medicalHistory?.treatingDoctor || "",
+          diagnosis: taskAdmissionDetail.discharge?.diagnosis || taskAdmissionDetail.medicalHistory?.previousDiagnosis || task.title || "",
+          status: taskAdmissionDetail.discharge?.dod ? "discharged" : "admitted",
           taskStatus: normalizedTaskStatus,
-          saved: { discharge: false, admission: false, reports: false, medicines: false, billing: false },
-          discharge: {},
-          medicalHistory: {},
-          services: [],
-          labReports: [],
-          medicalBill: [],
-          billing: { printStatus: "DRAFT", tpaInfo: {}, tpaDocStatus: {} },
+          saved: deriveSavedState(
+            taskAdmissionDetail.discharge || {},
+            taskAdmissionDetail.medicalHistory || {},
+            taskLabReports,
+            taskMedicalBill,
+            taskAdmissionDetail.billing || {},
+            taskDirectServices,
+          ),
+          discharge: taskAdmissionDetail.discharge || {},
+          medicalHistory: taskAdmissionDetail.medicalHistory || {},
+          services: taskDirectServices,
+          labReports: taskLabReports,
+          medicalBill: taskMedicalBill,
+          billing: {
+            ...(taskAdmissionDetail.billing || {}),
+            printStatus: taskAdmissionDetail.billing?.printStatus || "DRAFT",
+            tpaInfo: taskAdmissionDetail.billing?.tpaInfo || {},
+            tpaDocStatus: taskAdmissionDetail.billing?.tpaDocStatus || {},
+          },
         });
       }
 
