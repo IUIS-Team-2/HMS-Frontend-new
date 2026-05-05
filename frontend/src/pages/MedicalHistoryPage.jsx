@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { T } from "../data/constants";
 import { Ico, IC } from "../components/ui/Icons";
 import { EXAMINATION_FIELDS, getFieldUnit } from "../data/examinationFields";
+import { DOCTOR_LIST, QUALIFICATION_LIST, getDoctorQualification } from "../data/doctors";
 
 // ─── REPORT TEMPLATES ─────────────────────────────────────────────────────────
 const REPORT_TEMPLATES = {
@@ -41,31 +42,6 @@ const INVESTIGATION_GROUPS = [
   { group:"🦠 Microbiology", color:"#065f46", items:["MALARIA","VIRAL","URINE_RM","URINE_CS","BLOOD_CS","STOOL","BODY_FLUID"] },
 ];
 
-// ─── Doctor list ───────────────────────────────────────────────────────────────
-const DOCTOR_LIST = [
-  "Dr. Priya Sharma (MBBS, MD – General Medicine)",
-  "Dr. Rajesh Kumar (MBBS, MS – General Surgery)",
-  "Dr. Anita Singh (MBBS, DNB – Orthopaedics)",
-  "Dr. Suresh Verma (MBBS, MD – Cardiology)",
-  "Dr. Meena Agarwal (MBBS, MD – Gynaecology)",
-  "Dr. Deepak Rawat (MBBS, DNB – Urology)",
-  "Dr. Kavita Joshi (MBBS, MD – Paediatrics)",
-  "Dr. Amit Bhatnagar (MBBS, MS – ENT)",
-  "Dr. Ritu Kapoor (MBBS, MD – Dermatology)",
-  "Dr. Sanjay Yadav (MBBS, MD – Neurology)",
-  "Dr. Neha Gupta (MBBS, MD – Pulmonology)",
-  "Dr. Vikas Sharma (MBBS, MS – Ophthalmology)",
-];
-
-const QUALIFICATION_LIST = [
-  "MBBS", "MBBS, MD", "MBBS, MS", "MBBS, DNB", "MBBS, DM", "MBBS, MCh",
-  "MBBS, MD – General Medicine", "MBBS, MD – Cardiology", "MBBS, MD – Neurology",
-  "MBBS, MD – Pulmonology", "MBBS, MD – Gynaecology", "MBBS, MD – Paediatrics",
-  "MBBS, MD – Dermatology", "MBBS, MS – General Surgery", "MBBS, MS – Orthopaedics",
-  "MBBS, MS – ENT", "MBBS, MS – Ophthalmology", "MBBS, DNB – Urology",
-  "MBBS, DNB – Orthopaedics", "BDS, MDS", "BAMS", "BHMS",
-];
-
 // ─── Common medications ────────────────────────────────────────────────────────
 const MEDICATION_GROUPS = [
   { group:"💉 IV / Injections", items:["Inj. Normal Saline (NS) 500ml", "Inj. Ringer Lactate (RL) 500ml", "Inj. DNS 500ml", "Inj. Pantoprazole 40mg IV BD", "Inj. Esomeprazole 40mg IV BD", "Inj. Ondansetron 4mg IV TDS", "Inj. Tramadol 50mg IV TDS", "Inj. Diclofenac 75mg IM BD", "Inj. Ceftriaxone 1g IV BD", "Inj. Amikacin 500mg IV OD", "Inj. Metronidazole 500mg IV TDS", "Inj. Furosemide 40mg IV OD", "Inj. Dexamethasone 8mg IV OD", "Inj. Hydrocortisone 100mg IV TDS", "Inj. Heparin 5000 IU SC BD", "Inj. Enoxaparin 40mg SC OD", "Inj. Insulin Regular SC TDS", "Inj. Atropine 0.6mg IV", "Inj. Adrenaline 1mg IV"] },
@@ -78,15 +54,63 @@ const MEDICATION_GROUPS = [
 function SearchMultiDropdown({ value, onChange, groups, placeholder, chipColor = "#0369a1", chipBg = "#e0f2fe", chipBorder = "#7dd3fc", allowCustom = false, singleSelect = false }) {
   const [open, setOpen]       = useState(false);
   const [search, setSearch]   = useState("");
+  const [panelStyle, setPanelStyle] = useState({});
   const ref                   = useRef(null);
+  const triggerRef            = useRef(null);
+  const panelRef              = useRef(null);
 
   const selected = value ? value.split(", ").filter(Boolean) : [];
 
+  const calcPosition = () => {
+    if (!triggerRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    const desiredHeight = 380;
+    const gutter = 8;
+    const spaceBelow = window.innerHeight - rect.bottom - gutter;
+    const spaceAbove = rect.top - gutter;
+    const openUpward = spaceBelow < 260 && spaceAbove > spaceBelow;
+    const maxHeight = Math.max(220, Math.min(desiredHeight, openUpward ? spaceAbove : spaceBelow));
+
+    setPanelStyle({
+      position:"fixed",
+      left:rect.left,
+      width:rect.width,
+      minWidth:Math.max(rect.width, 320),
+      ...(openUpward
+        ? { bottom:window.innerHeight - rect.top + 6, top:"auto" }
+        : { top:rect.bottom + 6, bottom:"auto" }),
+      background:T.white,
+      border:`1.5px solid ${T.border}`,
+      borderRadius:12,
+      boxShadow:"0 12px 40px rgba(11,37,69,.16)",
+      zIndex:9999,
+      maxHeight,
+      display:"flex",
+      flexDirection:"column",
+      overflow:"hidden",
+    });
+  };
+
   useEffect(() => {
-    const handler = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    const handler = e => {
+      const insideTrigger = triggerRef.current && triggerRef.current.contains(e.target);
+      const insidePanel = panelRef.current && panelRef.current.contains(e.target);
+      if (!insideTrigger && !insidePanel && ref.current && !ref.current.contains(e.target)) setOpen(false);
+    };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    calcPosition();
+    window.addEventListener("scroll", calcPosition, true);
+    window.addEventListener("resize", calcPosition);
+    return () => {
+      window.removeEventListener("scroll", calcPosition, true);
+      window.removeEventListener("resize", calcPosition);
+    };
+  }, [open]);
 
   const toggle = item => {
     if (singleSelect) {
@@ -126,6 +150,7 @@ function SearchMultiDropdown({ value, onChange, groups, placeholder, chipColor =
     <div ref={ref} style={{ position:"relative", width:"100%" }}>
       {/* Trigger */}
       <div
+        ref={triggerRef}
         onClick={() => setOpen(o => !o)}
         style={{ fontFamily:"DM Sans,sans-serif", fontSize:14, color: selected.length ? T.text : T.textLight, background:T.white, border:`1.5px solid ${open ? T.accentDeep : T.border}`, borderRadius:10, padding:"11px 14px", width:"100%", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"space-between", boxSizing:"border-box", minHeight:46, transition:"border-color .15s" }}
       >
@@ -154,7 +179,7 @@ function SearchMultiDropdown({ value, onChange, groups, placeholder, chipColor =
 
       {/* Dropdown panel */}
       {open && (
-        <div style={{ position:"absolute", top:"calc(100% + 6px)", left:0, right:0, background:T.white, border:`1.5px solid ${T.border}`, borderRadius:12, boxShadow:"0 12px 40px rgba(11,37,69,.16)", zIndex:2000, maxHeight:380, display:"flex", flexDirection:"column", overflow:"hidden" }}>
+        <div ref={panelRef} style={panelStyle}>
           {/* Search */}
           <div style={{ padding:"10px 12px", borderBottom:`1px solid ${T.border}`, background:T.offwhite }}>
             <div style={{ position:"relative" }}>
@@ -391,6 +416,21 @@ export function downloadAdmissionNote(data, patient, discharge, locId) {
 export default function MedicalHistoryPage({ data, setData, onSave, onSkip, patient, discharge, locId }) {
   const set = k => v => setData(p => ({ ...p, [k]: v }));
   const setE = k => e => setData(p => ({ ...p, [k]: e.target.value }));
+  const setDoctor = (doctorValue) => {
+    const qualification = getDoctorQualification(doctorValue);
+    setData(prev => ({
+      ...prev,
+      treatingDoctor: doctorValue,
+      doctorQual: qualification || prev.doctorQual || "",
+    }));
+  };
+
+  useEffect(() => {
+    if (!data?.treatingDoctor || data?.doctorQual) return;
+    const qualification = getDoctorQualification(data.treatingDoctor);
+    if (!qualification) return;
+    setData(prev => (prev.doctorQual ? prev : { ...prev, doctorQual: qualification }));
+  }, [data?.treatingDoctor, data?.doctorQual, setData]);
   const isFilled = data.presentComplaints || data.previousDiagnosis || data.provisionalDiagnosis;
 
   // Doctor groups for dropdown
@@ -485,7 +525,7 @@ export default function MedicalHistoryPage({ data, setData, onSave, onSkip, pati
           <Field label="Treating Doctor" req>
             <SearchMultiDropdown
               value={data.treatingDoctor||""}
-              onChange={set("treatingDoctor")}
+              onChange={setDoctor}
               groups={doctorGroups}
               placeholder="Select or type doctor name..."
               chipColor="#0369a1"

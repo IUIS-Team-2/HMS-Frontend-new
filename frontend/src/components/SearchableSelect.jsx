@@ -18,15 +18,50 @@ export function SearchableSelect({
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
+  const [panelStyle, setPanelStyle] = useState({});
   const ref = useRef(null);
+  const triggerRef = useRef(null);
+  const panelRef = useRef(null);
   const inputRef = useRef(null);
 
   const selected = multiple && value ? (typeof value === 'string' ? value.split(',').filter(Boolean) : value) : [value];
 
+  const calcPosition = () => {
+    if (!triggerRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    const desiredHeight = 380;
+    const gutter = 8;
+    const spaceBelow = window.innerHeight - rect.bottom - gutter;
+    const spaceAbove = rect.top - gutter;
+    const openUpward = spaceBelow < 260 && spaceAbove > spaceBelow;
+    const maxHeight = Math.max(220, Math.min(desiredHeight, openUpward ? spaceAbove : spaceBelow));
+
+    setPanelStyle({
+      position: 'fixed',
+      left: rect.left,
+      width: rect.width,
+      minWidth: Math.max(rect.width, 280),
+      ...(openUpward
+        ? { bottom: window.innerHeight - rect.top + 6, top: 'auto' }
+        : { top: rect.bottom + 6, bottom: 'auto' }),
+      background: '#ffffff',
+      border: '1.5px solid #e2e8f0',
+      borderRadius: '10px',
+      boxShadow: '0 12px 40px rgba(11,37,69,.16)',
+      zIndex: 9999,
+      maxHeight,
+      display: 'flex',
+      flexDirection: 'column',
+      overflow: 'hidden',
+    });
+  };
+
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = e => {
-      if (ref.current && !ref.current.contains(e.target)) {
+      const insideTrigger = triggerRef.current && triggerRef.current.contains(e.target);
+      const insidePanel = panelRef.current && panelRef.current.contains(e.target);
+      if (!insideTrigger && !insidePanel && ref.current && !ref.current.contains(e.target)) {
         setOpen(false);
       }
     };
@@ -37,8 +72,19 @@ export function SearchableSelect({
   // Auto-focus search input when dropdown opens
   useEffect(() => {
     if (open && inputRef.current) {
+      calcPosition();
       inputRef.current.focus();
     }
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    window.addEventListener('scroll', calcPosition, true);
+    window.addEventListener('resize', calcPosition);
+    return () => {
+      window.removeEventListener('scroll', calcPosition, true);
+      window.removeEventListener('resize', calcPosition);
+    };
   }, [open]);
 
   // Filter options based on search
@@ -95,6 +141,7 @@ export function SearchableSelect({
     <div ref={ref} style={{ position: 'relative', width: '100%' }}>
       {/* Trigger Button */}
       <div
+        ref={triggerRef}
         onClick={() => !disabled && setOpen(!open)}
         style={{
           display: 'flex',
@@ -171,24 +218,7 @@ export function SearchableSelect({
 
       {/* Dropdown Panel */}
       {open && (
-        <div
-          style={{
-            position: 'absolute',
-            top: '100%',
-            left: 0,
-            right: 0,
-            marginTop: '6px',
-            background: '#ffffff',
-            border: '1.5px solid #e2e8f0',
-            borderRadius: '10px',
-            boxShadow: '0 12px 40px rgba(11,37,69,.16)',
-            zIndex: 2000,
-            maxHeight: '380px',
-            display: 'flex',
-            flexDirection: 'column',
-            overflow: 'hidden',
-          }}
-        >
+        <div ref={panelRef} style={panelStyle}>
           {/* Search Input */}
           <div style={{ padding: '10px 12px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc' }}>
             <div style={{ position: 'relative' }}>

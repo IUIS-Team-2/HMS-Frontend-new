@@ -74,7 +74,7 @@ export default function App() {
   const [medicalHistory, setMedicalHistory] = useState({
     previousDiagnosis: "", pastSurgeries: "", currentMedications: "",
     treatingDoctor: "", knownAllergies: "", chronicConditions: "",
-    familyHistory: "", smokingStatus: "", alcoholUse: "", notes: ""
+    familyHistory: "", smokingStatus: "", alcoholUse: "", notes: "", doctorQual: ""
   });
   const [medicalDone, setMedicalDone] = useState(false);
   const [discharge, setDischarge] = useState(blankDischarge());
@@ -236,7 +236,7 @@ export default function App() {
     setMedicalHistory({
       previousDiagnosis: "", pastSurgeries: "", currentMedications: "",
       treatingDoctor: "", knownAllergies: "", chronicConditions: "",
-      familyHistory: "", smokingStatus: "", alcoholUse: "", notes: ""
+      familyHistory: "", smokingStatus: "", alcoholUse: "", notes: "", doctorQual: ""
     });
   };
 
@@ -326,7 +326,7 @@ export default function App() {
     setMedicalHistory(admObj.medicalHistory || {
       previousDiagnosis: "", pastSurgeries: "", currentMedications: "",
       treatingDoctor: "", knownAllergies: "", chronicConditions: "",
-      familyHistory: "", smokingStatus: "", alcoholUse: "", notes: ""
+      familyHistory: "", smokingStatus: "", alcoholUse: "", notes: "", doctorQual: ""
     });
     setPatientDone(true);
     setMedicalDone(false);

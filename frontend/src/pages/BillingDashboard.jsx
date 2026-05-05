@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { apiService } from "../services/apiService";
 import ThemeModeDock from "../components/ui/ThemeModeDock";
+import { DOCTOR_LIST, QUALIFICATION_LIST, getDoctorQualification } from "../data/doctors";
 
 // ─── Report Templates ─────────────────────────────────────────────────────────
 const REPORT_TEMPLATES = {
@@ -37,30 +38,6 @@ const INVESTIGATION_GROUPS = [
   { group:"⚗️ Endocrinology",        color:"#7c3aed", items:["THYROID"] },
   { group:"🔬 Immunology – Serology", color:"#b45309", items:["WIDAL","TYPHIDOT","DENGUE"] },
   { group:"🦠 Microbiology",         color:"#065f46", items:["MALARIA","VIRAL","URINE_RM","URINE_CS","BLOOD_CS","STOOL","BODY_FLUID"] },
-];
-
-const DOCTOR_LIST = [
-  "Dr. Priya Sharma (MBBS, MD – General Medicine)",
-  "Dr. Rajesh Kumar (MBBS, MS – General Surgery)",
-  "Dr. Anita Singh (MBBS, DNB – Orthopaedics)",
-  "Dr. Suresh Verma (MBBS, MD – Cardiology)",
-  "Dr. Meena Agarwal (MBBS, MD – Gynaecology)",
-  "Dr. Deepak Rawat (MBBS, DNB – Urology)",
-  "Dr. Kavita Joshi (MBBS, MD – Paediatrics)",
-  "Dr. Amit Bhatnagar (MBBS, MS – ENT)",
-  "Dr. Ritu Kapoor (MBBS, MD – Dermatology)",
-  "Dr. Sanjay Yadav (MBBS, MD – Neurology)",
-  "Dr. Neha Gupta (MBBS, MD – Pulmonology)",
-  "Dr. Vikas Sharma (MBBS, MS – Ophthalmology)", 
-];
-
-const QUALIFICATION_LIST = [
-  "MBBS","MBBS, MD","MBBS, MS","MBBS, DNB","MBBS, DM","MBBS, MCh",
-  "MBBS, MD – General Medicine","MBBS, MD – Cardiology","MBBS, MD – Neurology",
-  "MBBS, MD – Pulmonology","MBBS, MD – Gynaecology","MBBS, MD – Paediatrics",
-  "MBBS, MD – Dermatology","MBBS, MS – General Surgery","MBBS, MS – Orthopaedics",
-  "MBBS, MS – ENT","MBBS, MS – Ophthalmology","MBBS, DNB – Urology",
-  "MBBS, DNB – Orthopaedics","BDS, MDS","BAMS","BHMS",
 ];
 
 const MEDICATION_GROUPS = [
@@ -385,9 +362,21 @@ function MedicineHistoryPicker({ eMed, onAdd }) {
 function AdmissionNoteForm({ eMed, setEMed }) {
   const setE = k => e => setEMed(p=>({...p,[k]:e.target.value}));
   const set  = k => v => setEMed(p=>({...p,[k]:v}));
+  const setDoctor = (doctorValue) => setEMed(prev => ({
+    ...prev,
+    treatingDoctor: doctorValue,
+    doctorQual: getDoctorQualification(doctorValue) || prev.doctorQual || "",
+  }));
   const doctorGroups = [{ group:"👨‍⚕️ Doctors", color:"#0369a1", items:DOCTOR_LIST }];
   const qualGroups   = [{ group:"🎓 Qualifications", color:"#7c3aed", items:QUALIFICATION_LIST }];
   const medGroups    = MEDICATION_GROUPS.map(g=>({group:g.group, color:"#059669", items:g.items}));
+
+  useEffect(() => {
+    if (!eMed?.treatingDoctor || eMed?.doctorQual) return;
+    const qualification = getDoctorQualification(eMed.treatingDoctor);
+    if (!qualification) return;
+    setEMed(prev => (prev.doctorQual ? prev : { ...prev, doctorQual: qualification }));
+  }, [eMed?.treatingDoctor, eMed?.doctorQual, setEMed]);
 
   const SectionBlock = ({ icon, title, subtitle, children }) => (
     <div style={{ background:"var(--white,#fff)", border:"1px solid var(--border)", borderRadius:14, marginBottom:18, overflow:"hidden", boxShadow:"0 1px 4px rgba(11,37,69,.06)" }}>
@@ -485,7 +474,7 @@ function AdmissionNoteForm({ eMed, setEMed }) {
       <SectionBlock icon="👨‍⚕️" title="Treating Doctor & Notes" subtitle="Doctor details and additional clinical notes">
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16, marginBottom:16 }}>
           <FieldWrap label="Treating Doctor" req>
-            <SearchMultiDropdown value={eMed?.treatingDoctor||""} onChange={set("treatingDoctor")}
+            <SearchMultiDropdown value={eMed?.treatingDoctor||""} onChange={setDoctor}
               groups={doctorGroups} placeholder="Select or type doctor name..."
               chipColor="#0369a1" chipBg="#e0f2fe" chipBorder="#7dd3fc" allowCustom={true} singleSelect={true}/>
           </FieldWrap>
