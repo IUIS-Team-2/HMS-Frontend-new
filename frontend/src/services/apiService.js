@@ -211,6 +211,11 @@ export const apiService = {
         return response.data;
     },
 
+    getLabReportTemplates: async (uhid, admNo) => {
+        const response = await axios.get(`${BASE_URL}/patients/${uhid}/admissions/${admNo}/lab-report-templates/`);
+        return response.data;
+    },
+
     saveLabReport: async (uhid, admNo, reportData) => {
         const response = await axios.post(`${BASE_URL}/patients/${uhid}/admissions/${admNo}/lab-reports/`, reportData);
         return response.data;

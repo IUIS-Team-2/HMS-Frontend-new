@@ -743,6 +743,21 @@ function normalizeLabReports(reports=[], fallbackServices=[]) {
   }));
 }
 
+function mergeSuggestedReports(existing = [], suggested = []) {
+  const normalizedExisting = normalizeLabReports(existing, []);
+  const normalizedSuggested = normalizeLabReports(suggested, []);
+  const existingKeys = new Set(
+    normalizedExisting.map((report) => `${String(report.reportName || "").trim().toLowerCase()}::${String(report.reportType || "").trim().toLowerCase()}`)
+  );
+
+  const missingSuggestions = normalizedSuggested.filter((report) => {
+    const key = `${String(report.reportName || "").trim().toLowerCase()}::${String(report.reportType || "").trim().toLowerCase()}`;
+    return !existingKeys.has(key);
+  });
+
+  return [...normalizedExisting, ...missingSuggestions];
+}
+
 function normalizePharmacyRecords(records=[], fallbackServices=[]) {
   if (records.length) {
     return records.map((r,i)=>({
@@ -1366,20 +1381,31 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
     setActiveTab("discharge");
     setView("patient");
 
-    // Auto-fetch lab reports from backend if not already populated
-    if (p.uhid && p.admNo && (!p.labReports || p.labReports.length === 0)) {
+    // Auto-fetch saved reports and suggested backend templates for this admission.
+    if (p.uhid && p.admNo) {
       try {
-        const reports = await apiService.getLabReports(p.uhid, p.admNo);
-        if (reports && Array.isArray(reports)) {
-          const normalizedReports = normalizeLabReports(reports, []);
-          setELabRep(normalizedReports);
+        const [reports, templatePayload] = await Promise.all([
+          apiService.getLabReports(p.uhid, p.admNo).catch(() => []),
+          apiService.getLabReportTemplates(p.uhid, p.admNo).catch(() => ({ suggested_reports: [] })),
+        ]);
+
+        const mergedReports = mergeSuggestedReports(
+          Array.isArray(reports) ? reports : [],
+          Array.isArray(templatePayload?.suggested_reports) ? templatePayload.suggested_reports : []
+        );
+
+        if (mergedReports.length) {
+          setELabRep(mergedReports);
           // Update the selected patient's lab reports in the list
           setPatients(prev => prev.map(patient =>
-            patient.uhid === p.uhid ? { ...patient, labReports: normalizedReports } : patient
+            patient.uhid === p.uhid && Number(patient.admNo) === Number(p.admNo)
+              ? { ...patient, labReports: mergedReports }
+              : patient
           ));
+          setSel(prev => prev ? { ...prev, labReports: mergedReports } : prev);
         }
       } catch (err) {
-        console.log("Note: Lab reports may not be available yet for this patient");
+        console.log("Note: Lab report templates may not be available yet for this patient");
       }
     }
   };
