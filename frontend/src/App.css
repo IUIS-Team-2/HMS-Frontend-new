@@ -15,7 +15,8 @@
 .hms-wrap {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: 100dvh;
+  min-height: 100vh;
   overflow: hidden;
   background: var(--bg);
   color: var(--text);
@@ -25,11 +26,16 @@
   display: flex;
   flex: 1;
   overflow: hidden;
+  min-height: 0;
+  min-width: 0;
 }
 
 .hms-main {
   flex: 1;
   overflow-y: auto;
+  min-height: 0;
+  min-width: 0;
+  overscroll-behavior: contain;
   padding: 22px 26px;
   background: var(--bg);
   color: var(--text);
@@ -169,6 +175,7 @@
   transition: width 0.22s ease;
   flex-shrink: 0;
   overflow: hidden;
+  min-height: 0;
   color: var(--text);
 }
 
@@ -186,6 +193,8 @@
   flex: 1;
   padding: 10px 0;
   overflow-y: auto;
+  min-height: 0;
+  overscroll-behavior: contain;
 }
 
 .hms-nav-section {

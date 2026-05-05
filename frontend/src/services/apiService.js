@@ -166,6 +166,11 @@ export const apiService = {
         return response.data;
     },
 
+    getMyTasks: async () => {
+        const response = await axios.get(`${BASE_URL}/tasks/my-tasks/`);
+        return response.data;
+    },
+
     createTask: async (taskData) => {
         const response = await axios.post(`${BASE_URL}/tasks/`, taskData);
         return response.data;

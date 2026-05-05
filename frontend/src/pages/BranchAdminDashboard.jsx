@@ -914,10 +914,10 @@ export default function BranchAdminDashboard({
 
   // ─── Render ───────────────────────────────────────────────────────────────
   return (
-    <div style={{ display:"flex", height:"100vh", background:T.bg, color:T.text, fontFamily:UI_FONT_STACK, fontSize:"15px", overflow:"hidden" }}>
+    <div style={{ display:"flex", height:"100dvh", minHeight:"100vh", background:T.bg, color:T.text, fontFamily:UI_FONT_STACK, fontSize:"15px", overflow:"hidden" }}>
 
       {/* ── Sidebar ─────────────────────────────────────────────────────── */}
-      <aside style={{ width:"256px", minWidth:"256px", background:T.surface, borderRight:`1px solid ${T.border}`, display:"flex", flexDirection:"column" }}>
+      <aside style={{ width:"256px", minWidth:"256px", background:T.surface, borderRight:`1px solid ${T.border}`, display:"flex", flexDirection:"column", minHeight:0 }}>
         <div style={{ padding:"22px 20px 18px", borderBottom:`1px solid ${T.border}` }}>
           <div style={{ fontSize:"8px", letterSpacing:"4px", color:T.textMuted, textTransform:"uppercase", marginBottom:"2px" }}>MedCore HMS</div>
           <div style={{ fontSize:"16px", fontWeight:"800", color:T.text }}>Branch Admin</div>
@@ -944,7 +944,7 @@ export default function BranchAdminDashboard({
           )}
         </div>
 
-        <div style={{ flex:1, padding:"14px 12px", overflowY:"auto" }}>
+        <div style={{ flex:1, minHeight:0, padding:"14px 12px", overflowY:"auto", overscrollBehavior:"contain" }}>
           <div style={{ fontSize:"8px", letterSpacing:"3px", color:T.textMuted, textTransform:"uppercase", padding:"0 8px", marginBottom:"8px" }}>Menu</div>
           {NAV.map(item => {
             const Icon = item.icon;
@@ -968,7 +968,7 @@ export default function BranchAdminDashboard({
       </aside>
 
       {/* ── Main ─────────────────────────────────────────────────────────── */}
-      <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
+      <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden", minWidth:0, minHeight:0 }}>
 
         {/* Topbar */}
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"14px 28px", borderBottom:`1px solid ${T.border}`, background:T.surface, flexShrink:0 }}>
@@ -999,7 +999,7 @@ export default function BranchAdminDashboard({
         </div>
 
         {/* Page content */}
-        <div style={{ flex:1, overflowY:"auto", padding:"26px 28px" }}>
+        <div style={{ flex:1, minWidth:0, minHeight:0, overflowY:"auto", overscrollBehavior:"contain", padding:"26px 28px" }}>
           {nav==="overview"   && <OverviewView />}
           {nav==="patients"   && <PatientListView data={patients}     exportFile={`all_patients_${resolvedBranchKey}_${range}`}      title="All Patients" />}
           {nav==="cash"       && <PatientListView data={cashPats}     exportFile={`cash_patients_${resolvedBranchKey}_${range}`}     title="Cash Patients" />}

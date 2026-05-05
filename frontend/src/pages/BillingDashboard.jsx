@@ -965,9 +965,9 @@ const CSS = `
   --r:10px;--r2:14px;--sh:var(--shadow-sm);--sh2:var(--shadow-md);
 }
 body{background:var(--bg);color:var(--text);font-family:var(--ui-font-sans);font-size:15px}
-.app{display:flex;flex-direction:column;min-height:100vh}
-.layout{display:flex;flex:1}
-.main{flex:1;overflow-y:auto;padding:28px 32px}
+.app{display:flex;flex-direction:column;height:100dvh;min-height:100vh;overflow:hidden}
+.layout{display:flex;flex:1;min-height:0;overflow:hidden}
+.main{flex:1;min-width:0;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:28px 32px}
 .topbar{height:60px;background:var(--hdr-bg);display:flex;align-items:center;padding:0 28px;justify-content:space-between;position:sticky;top:0;z-index:200;box-shadow:var(--shadow-md)}
 .logo{width:38px;height:38px;border-radius:9px;background:var(--hdr-chip-bg);border:1px solid var(--hdr-chip-border);display:flex;align-items:center;justify-content:center;font-family:var(--ui-font-sans);color:var(--hdr-text);font-size:17px;font-weight:800;flex-shrink:0}
 .brand-name{font-size:16px;font-weight:700;color:var(--hdr-text)}
@@ -977,7 +977,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--ui-font-sans);font
 .user-id{font-size:12px;color:var(--hdr-sub)}
 .so-btn{padding:6px 14px;border-radius:7px;font-size:13px;font-weight:600;background:var(--hdr-chip-bg);border:1px solid var(--hdr-chip-border);color:var(--hdr-text);cursor:pointer;font-family:inherit}
 .so-btn:hover{filter:brightness(1.07)}
-.sidebar{width:210px;min-width:210px;background:var(--white);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:20px 10px;position:sticky;top:60px;height:calc(100vh - 60px);overflow-y:auto}
+.sidebar{width:210px;min-width:210px;background:var(--white);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:20px 10px;min-height:0;overflow-y:auto;overscroll-behavior:contain}
 .slbl{font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.1em;text-transform:uppercase;padding:0 10px 8px}
 .si{display:flex;align-items:center;gap:9px;padding:9px 11px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;color:var(--text2);transition:.13s;position:relative}
 .si:hover{background:var(--bg);color:var(--text)}
@@ -1125,6 +1125,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--ui-font-sans);font
 export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
   const resolvedBranchKey = locId||(String(currentUser?.branch||"").toUpperCase()==="RYM"?"raya":"laxmi");
   const [patients, setPatients]     = useState([]);
+  const [assignedTasks, setAssignedTasks] = useState([]);
   const [view, setView]             = useState("tasks");
   const [sel, setSel]               = useState(null);
   const [activeTab, setActiveTab]   = useState("discharge");
@@ -1140,6 +1141,20 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
   const [eBilling, setEBilling] = useState({});
   const [eSaved, setESaved]   = useState({});
 
+  useEffect(() => {
+    const loadAssignedTasks = async () => {
+      try {
+        const data = await apiService.getMyTasks();
+        setAssignedTasks(Array.isArray(data) ? data : []);
+      } catch (error) {
+        console.error("Failed to fetch billing assignments", error);
+        setAssignedTasks([]);
+      }
+    };
+
+    loadAssignedTasks();
+  }, []);
+
   // ── FIX: Robust db → patients normalization ─────────────────────────────────
   // db can be:
   //   { laxmi: [...], raya: [...] }   — branch-keyed object (expected)
@@ -1148,6 +1163,7 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
   //   a single patient object         — accidentally unwrapped
   useEffect(() => {
     let rawRecords = [];
+    let mapped = [];
 
     if (!db) {
       rawRecords = [];
@@ -1180,11 +1196,76 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
       }
     }
 
-    const mapped = mapLivePatients(rawRecords, resolvedBranchKey);
-    setPatients(mapped);
+    const shouldMergeAllBranches = String(currentUser?.branch || "").toUpperCase() === "ALL" && db && typeof db === "object";
+    if (shouldMergeAllBranches && (Array.isArray(db.laxmi) || Array.isArray(db.raya))) {
+      mapped = [
+        ...mapLivePatients(Array.isArray(db.laxmi) ? db.laxmi : [], "laxmi"),
+        ...mapLivePatients(Array.isArray(db.raya) ? db.raya : [], "raya"),
+      ];
+    } else {
+      mapped = mapLivePatients(rawRecords, resolvedBranchKey);
+    }
+
+    if (assignedTasks.length > 0) {
+      const mappedByUhid = new Map(mapped.map((patient) => [String(patient.uhid || ""), patient]));
+      const nextPatients = [];
+
+      for (const task of assignedTasks) {
+        const taskUhid = String(task.patient_uhid || "");
+        const taskPatient = mappedByUhid.get(taskUhid);
+        const taskStatusRaw = String(task.status || "").toLowerCase();
+        const normalizedTaskStatus = taskStatusRaw.includes("complete") ? "completed" : "pending";
+
+        if (taskPatient) {
+          nextPatients.push({
+            ...taskPatient,
+            assignedTo: task.assigned_to || taskPatient.assignedTo || null,
+            assignedToName: task.assigned_to_name || taskPatient.assignedToName || "",
+            department: task.department || taskPatient.department || "Billing",
+            taskStatus: normalizedTaskStatus,
+          });
+          continue;
+        }
+
+        nextPatients.push({
+          uhid: taskUhid || `task-${task.id}`,
+          admNo: "—",
+          assignedTo: task.assigned_to || null,
+          assignedToName: task.assigned_to_name || "",
+          department: task.department || "Billing",
+          branch: "—",
+          patientName: task.patient_name || "Assigned Patient",
+          age: "—",
+          gender: "",
+          phone: "",
+          address: "",
+          doa: "",
+          dod: "",
+          expectedDod: "",
+          ward: "",
+          bed: "",
+          doctor: "",
+          diagnosis: task.title || "",
+          status: "admitted",
+          taskStatus: normalizedTaskStatus,
+          saved: { discharge: false, admission: false, reports: false, medicines: false, billing: false },
+          discharge: {},
+          medicalHistory: {},
+          services: [],
+          labReports: [],
+          medicalBill: [],
+          billing: { printStatus: "DRAFT", tpaInfo: {}, tpaDocStatus: {} },
+        });
+      }
+
+      setPatients(nextPatients);
+    } else {
+      setPatients(mapped);
+    }
+
     setView("tasks");
     setSel(null);
-  }, [db, resolvedBranchKey]);
+  }, [db, resolvedBranchKey, currentUser?.branch, assignedTasks]);
 
   const toast = (msg, type = "s") => {
     const id = _tid++;

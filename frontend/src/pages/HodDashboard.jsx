@@ -356,14 +356,15 @@ const CSS = `
   ::-webkit-scrollbar-track { background:transparent; }
   ::-webkit-scrollbar-thumb { background:var(--border-strong); border-radius:2px; }
 
-  .hod-root { display:flex; height:100vh; background:var(--bg); color:var(--text); font-family:var(--ui-font-sans); overflow:hidden; }
+  .hod-root { display:flex; height:100dvh; min-height:100vh; background:var(--bg); color:var(--text); font-family:var(--ui-font-sans); overflow:hidden; }
 
   /* ── Sidebar ── */
-  .hod-sb { width:224px; min-width:224px; background:var(--surface); border-right:1px solid var(--border); display:flex; flex-direction:column; transition:width .22s; overflow:hidden; position:relative; z-index:10; }
+  .hod-sb { width:224px; min-width:224px; background:var(--surface); border-right:1px solid var(--border); display:flex; flex-direction:column; transition:width .22s; overflow:hidden; position:relative; z-index:10; min-height:0; }
   .hod-sb.col { width:62px; min-width:62px; }
   .hod-sb-head { padding:16px 14px 16px 16px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; gap:8px; min-height:64px; }
   .hod-logo { width:32px; height:32px; border-radius:8px; background:rgba(16,185,129,0.15); border:1px solid rgba(16,185,129,0.3); display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:800; color:#10b981; flex-shrink:0; }
   .hod-col-btn { width:24px; height:24px; border-radius:5px; background:var(--surface-2); border:1px solid var(--border); color:var(--text-muted); cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:11px; flex-shrink:0; }
+  .hod-sb-scroll { flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain; padding-bottom:12px; }
   .hod-slbl { font-size:8px; letter-spacing:.12em; color:var(--text-muted); text-transform:uppercase; padding:12px 16px 5px; white-space:nowrap; overflow:hidden; }
 
   /* ── FIX: Nav items — proper icon alignment, no clipping ── */
@@ -396,8 +397,8 @@ const CSS = `
   .hod-hdr-logout:hover { background:rgba(239,68,68,0.18); border-color:rgba(239,68,68,0.5); }
 
   /* ── Main ── */
-  .hod-main { flex:1; display:flex; flex-direction:column; overflow:hidden; }
-  .hod-content { flex:1; overflow-y:auto; padding:22px 26px; }
+  .hod-main { flex:1; display:flex; flex-direction:column; overflow:hidden; min-width:0; min-height:0; }
+  .hod-content { flex:1; overflow-y:auto; min-width:0; min-height:0; overscroll-behavior:contain; padding:22px 26px; }
 
   /* ── Cards & Grids ── */
   .hod-stat-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:12px; margin-bottom:22px; }
@@ -504,8 +505,8 @@ const CSS = `
   .hod-dept-icon-wrap { width:36px; height:36px; border-radius:9px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
 
   /* ── HOD Billing work (patient detail view) ── */
-  .hod-work-root { flex:1; display:flex; flex-direction:column; overflow:hidden; }
-  .hod-work-content { flex:1; overflow-y:auto; padding:22px 26px; }
+  .hod-work-root { flex:1; display:flex; flex-direction:column; overflow:hidden; min-width:0; min-height:0; }
+  .hod-work-content { flex:1; overflow-y:auto; min-width:0; min-height:0; overscroll-behavior:contain; padding:22px 26px; }
   .hod-checklist { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:18px 20px; margin-bottom:16px; }
   .hod-checklist-steps { display:flex; align-items:center; margin-bottom:16px; }
   .hod-step { display:flex; align-items:center; gap:8px; flex:1; min-width:0; padding:9px 10px; border-radius:9px; cursor:pointer; transition:.13s; }
@@ -912,55 +913,56 @@ export default function HodDashboard({ currentUser, onLogout }) {
         <button className="hod-col-btn" onClick={() => setCollapsed(c => !c)}>{collapsed ? "»" : "«"}</button>
       </div>
 
-      {!collapsed && (
-        <div className="hod-sb-mini-stats">
-          {[{ val:pendingCount, col:"#f59e0b", lbl:"Pend" }, { val:overdueCount, col:"#ef4444", lbl:"Over" }, { val:completedCount, col:"#10b981", lbl:"Done" }].map((s,i) => (
-            <div key={i} className="hod-mini-stat" style={{ background:`${s.col}10`, borderColor:`${s.col}25` }}>
-              <div style={{ fontSize:15, fontWeight:800, color:s.col }}>{s.val}</div>
-              <div style={{ fontSize:8, color:"var(--text-muted)", letterSpacing:".08em", textTransform:"uppercase", marginTop:1 }}>{s.lbl}</div>
-            </div>
-          ))}
-        </div>
-      )}
+      <div className="hod-sb-scroll">
+        {!collapsed && (
+          <div className="hod-sb-mini-stats">
+            {[{ val:pendingCount, col:"#f59e0b", lbl:"Pend" }, { val:overdueCount, col:"#ef4444", lbl:"Over" }, { val:completedCount, col:"#10b981", lbl:"Done" }].map((s,i) => (
+              <div key={i} className="hod-mini-stat" style={{ background:`${s.col}10`, borderColor:`${s.col}25` }}>
+                <div style={{ fontSize:15, fontWeight:800, color:s.col }}>{s.val}</div>
+                <div style={{ fontSize:8, color:"var(--text-muted)", letterSpacing:".08em", textTransform:"uppercase", marginTop:1 }}>{s.lbl}</div>
+              </div>
+            ))}
+          </div>
+        )}
 
-      <div className="hod-slbl">{collapsed ? "DEPT" : "Departments"}</div>
-      {DEPARTMENTS.map(dept => {
-        const meta = DEPT_META[dept] || {};
-        const Icon = meta.icon;
-        return (
-          <button key={dept}
-            className={`hod-nav-item${activeDept === dept && activeView === "dept-tasks" ? " act" : ""}`}
-            style={{ borderLeftColor: activeDept === dept && activeView === "dept-tasks" ? meta.color : "transparent" }}
-            onClick={() => { setActiveDept(dept); setActiveView("dept-tasks"); setMyWorkView("list"); }}>
-            {/* FIX: icon wrapper with correct colour background and visible overflow */}
-            <div className="hod-nav-icon" style={{
-              background: `${meta.color || "#64748b"}18`,
-              color: meta.color || "#64748b",
-            }}>
-              {Icon && <Icon size={15} strokeWidth={1.8} style={{ display:"block", color: meta.color || "#64748b" }}/>}
-            </div>
-            {!collapsed && <span style={{ flex:1 }}>{dept}</span>}
-          </button>
-        );
-      })}
+        <div className="hod-slbl">{collapsed ? "DEPT" : "Departments"}</div>
+        {DEPARTMENTS.map(dept => {
+          const meta = DEPT_META[dept] || {};
+          const Icon = meta.icon;
+          return (
+            <button key={dept}
+              className={`hod-nav-item${activeDept === dept && activeView === "dept-tasks" ? " act" : ""}`}
+              style={{ borderLeftColor: activeDept === dept && activeView === "dept-tasks" ? meta.color : "transparent" }}
+              onClick={() => { setActiveDept(dept); setActiveView("dept-tasks"); setMyWorkView("list"); }}>
+              <div className="hod-nav-icon" style={{
+                background: `${meta.color || "#64748b"}18`,
+                color: meta.color || "#64748b",
+              }}>
+                {Icon && <Icon size={15} strokeWidth={1.8} style={{ display:"block", color: meta.color || "#64748b" }}/>}
+              </div>
+              {!collapsed && <span style={{ flex:1 }}>{dept}</span>}
+            </button>
+          );
+        })}
 
-      <div className="hod-slbl">{collapsed ? "NAV" : "Navigation"}</div>
-      {VIEWS.map(v => {
-        const Icon = v.icon;
-        return (
-          <button key={v.id}
-            className={`hod-nav-item${activeView === v.id ? " act" : ""}`}
-            onClick={() => { setActiveView(v.id); if (v.id !== "my-work") setMyWorkView("list"); }}>
-            <div className="hod-nav-icon" style={{
-              background: activeView === v.id ? "rgba(16,185,129,0.15)" : "var(--surface-2)",
-              color: activeView === v.id ? "#10b981" : "var(--text-muted)",
-            }}>
-              {Icon && <Icon size={15} strokeWidth={1.8} style={{ display:"block" }}/>}
-            </div>
-            {!collapsed && v.label}
-          </button>
-        );
-      })}
+        <div className="hod-slbl">{collapsed ? "NAV" : "Navigation"}</div>
+        {VIEWS.map(v => {
+          const Icon = v.icon;
+          return (
+            <button key={v.id}
+              className={`hod-nav-item${activeView === v.id ? " act" : ""}`}
+              onClick={() => { setActiveView(v.id); if (v.id !== "my-work") setMyWorkView("list"); }}>
+              <div className="hod-nav-icon" style={{
+                background: activeView === v.id ? "rgba(16,185,129,0.15)" : "var(--surface-2)",
+                color: activeView === v.id ? "#10b981" : "var(--text-muted)",
+              }}>
+                {Icon && <Icon size={15} strokeWidth={1.8} style={{ display:"block" }}/>}
+              </div>
+              {!collapsed && v.label}
+            </button>
+          );
+        })}
+      </div>
 
       <div className="hod-sb-footer">
         {!collapsed && currentUser && (
