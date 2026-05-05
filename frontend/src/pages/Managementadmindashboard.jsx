@@ -381,31 +381,6 @@ const mapTaskFromApi = (task) => ({
 });
 
 // ── EXPORT UTILS ──────────────────────────────────────────────────────────────
-function exportPatientHistoryXLSX(pts, filename = "patient_history.xlsx") {
-  const wb = XLSX.utils.book_new();
-  const ROW1="FFEBF5FB", ROW2="FFFFFFFF", CASH_GRN="FFD5F5E3", CASH_YLW="FFFEF9E7", TOTAL_BG="FFF0F3F4";
-  const hStyle = (bg="FF1A3C5E") => ({ font:{bold:true,color:{rgb:"FFFFFFFF"},sz:10,name:"Arial"}, fill:{patternType:"solid",fgColor:{rgb:bg}}, alignment:{horizontal:"center",vertical:"center",wrapText:true}, border:{top:{style:"thin",color:{rgb:"FFB2BEC3"}},bottom:{style:"thin",color:{rgb:"FFB2BEC3"}},left:{style:"thin",color:{rgb:"FFB2BEC3"}},right:{style:"thin",color:{rgb:"FFB2BEC3"}}} });
-  const cStyle = (bg=ROW1, bold=false, color="FF000000") => ({ font:{sz:9,name:"Arial",bold,color:{rgb:color}}, fill:{patternType:"solid",fgColor:{rgb:bg}}, alignment:{horizontal:"center",vertical:"center",wrapText:true}, border:{top:{style:"thin",color:{rgb:"FFB2BEC3"}},bottom:{style:"thin",color:{rgb:"FFB2BEC3"}},left:{style:"thin",color:{rgb:"FFB2BEC3"}},right:{style:"thin",color:{rgb:"FFB2BEC3"}}} });
-  const headers = ["SR.NO","PATIENT NAME","AGE","GENDER","UHID","BRANCH","DEPT","DOA","DOD","STATUS","SUMMARY TYPE","DOCTOR","PHONE","ADDRESS","PAYMENT TYPE"];
-  const aoa = [["SANGI HOSPITAL — IPD PATIENT HISTORY RECORD",...Array(14).fill("")],[`Generated: ${new Date().toLocaleDateString("en-IN")}  |  Confidential`,...Array(14).fill("")],Array(15).fill(""),headers];
-  pts.forEach((p, i) => { const adm = p.admissions?.[0] || {}; aoa.push([i+1,p.patientName||p.name||"—",p.age||adm.age||"—",p.gender||adm.gender||"—",p.uhid||"—",p._branchLabel||p.branch||"—",p.dept||adm.dept||"—",p.doa||adm.doa||"—",p.dod||adm.dod||"—",p.status||"Discharged",p.dischargeSummary?.type||adm.dischargeSummary?.type||"Normal",p.doctor||adm.doctor||"—",p.phone||adm.phone||"—",p.address||adm.address||"—",p.paymentMode||adm.paymentMode||"Cash"]); });
-  aoa.push(["TOTAL PATIENTS","",pts.length,...Array(12).fill("")]);
-  const ws = XLSX.utils.aoa_to_sheet(aoa);
-  ws["!merges"] = [{s:{r:0,c:0},e:{r:0,c:14}},{s:{r:1,c:0},e:{r:1,c:14}},{s:{r:aoa.length-1,c:0},e:{r:aoa.length-1,c:1}}];
-  const enc = (r,c) => XLSX.utils.encode_cell({r,c});
-  ws[enc(0,0)] = {v:"SANGI HOSPITAL — IPD PATIENT HISTORY RECORD",t:"s",s:{font:{bold:true,sz:14,name:"Arial",color:{rgb:"FFFFFFFF"}},fill:{patternType:"solid",fgColor:{rgb:"FF1A3C5E"}},alignment:{horizontal:"center",vertical:"center"}}};
-  ws[enc(1,0)] = {v:`Generated: ${new Date().toLocaleDateString("en-IN")}  |  Confidential`,t:"s",s:{font:{italic:true,sz:10,name:"Arial",color:{rgb:"FFFFFFFF"}},fill:{patternType:"solid",fgColor:{rgb:"FF2E6DA4"}},alignment:{horizontal:"center",vertical:"center"}}};
-  headers.forEach((h,c) => { ws[enc(3,c)] = {v:h,t:"s",s:hStyle()}; });
-  pts.forEach((p,i) => { const r=4+i; const bg=i%2===0?ROW1:ROW2; const payment=aoa[r][14]; const payBg=payment==="Cash"?CASH_GRN:CASH_YLW; const payColor=payment==="Cash"?"FF1E8449":"FF7D6608"; const summType=aoa[r][10]; const summColor=summType==="Critical"?"FFC0392B":"FF1E8449"; for(let c=0;c<15;c++){const val=aoa[r][c];if(c===14)ws[enc(r,c)]={v:val,t:"s",s:cStyle(payBg,true,payColor)};else if(c===0)ws[enc(r,c)]={v:val,t:"n",s:cStyle("FFD6E4F0",true,"FF1A3C5E")};else if(c===10)ws[enc(r,c)]={v:val,t:"s",s:cStyle(bg,true,summColor)};else ws[enc(r,c)]={v:val,t:typeof val==="number"?"n":"s",s:cStyle(bg)};} });
-  const tr=4+pts.length;
-  ws[enc(tr,0)]={v:"TOTAL PATIENTS",t:"s",s:cStyle(TOTAL_BG,true,"FF1A3C5E")}; ws[enc(tr,2)]={v:pts.length,t:"n",s:cStyle(TOTAL_BG,true,"FF1A3C5E")};
-  for(let c=1;c<15;c++) if(c!==2) ws[enc(tr,c)]={v:"",t:"s",s:cStyle(TOTAL_BG)};
-  ws["!cols"]=[6,20,6,8,13,14,10,11,11,12,14,13,12,32,13].map(w=>({wch:w}));
-  ws["!rows"]=[{hpt:28},{hpt:18},{hpt:6},{hpt:36},...pts.map(()=>({hpt:20})),{hpt:20}];
-  XLSX.utils.book_append_sheet(wb, ws, "Patient History");
-  XLSX.writeFile(wb, filename, {bookType:"xlsx",cellStyles:true});
-}
-
 function exportTasksXLSX(tasks, filename = "task_report.xlsx") {
   const wb = XLSX.utils.book_new();
   const headers = ["Task ID","Title","Assigned To","Department","Priority","Status","Due Date","Created Date","Description","Completed Date","Patient Name","Patient UHID"];
@@ -427,16 +402,6 @@ function exportTxt(filename, content) {
 function buildDischargeSummaryText(p, branchLabel, ds={}, mh={}, meds=[], reps=[]) {
   return `========================================\n  SANGI HOSPITAL — ${branchLabel.toUpperCase()}\n  DISCHARGE SUMMARY [${ds.type||"Normal"}]\n========================================\n\nPatient Name  : ${p.patientName||p.name||""}\nUHID          : ${p.uhid}\nAge / Gender  : ${p.ageYY||p.age||""}Y / ${p.gender||""}\nDepartment    : ${ds.wardName||p.dept||""}\nAdmit Date    : ${fmtDt(p.admissions?.[0]?.dateTime||p.admitDate)}\nDischarge Date: ${ds.dod||ds.date||"—"}\nExpected DOD  : ${ds.expectedDod||"—"}\nTreating Dr.  : ${ds.doctorName||mh.treatingDoctor||"—"}\n\n── CLINICAL ────────────────────────────\nDiagnosis     : ${ds.diagnosis||"—"}\nTreatment     : ${ds.treatment||"—"}\nFollow-up     : ${ds.followUp||"—"}\nNotes         : ${ds.notes||"—"}\n\n── MEDICAL HISTORY ─────────────────────\nPrevious Dx   : ${mh.previousDiagnosis||"—"}\nPast Surgeries: ${mh.pastSurgeries||"—"}\nAllergies     : ${mh.knownAllergies||"—"}\nChronic Cond. : ${mh.chronicConditions||"—"}\nCurrent Meds  : ${mh.currentMedications||"—"}\nSmoking       : ${mh.smokingStatus||"—"}\nAlcohol       : ${mh.alcoholUse||"—"}\n\n── MEDICINES PRESCRIBED ────────────────\n${meds.map(m=>`  - ${m.name} | Qty: ${m.qty} | Rate: ₹${m.rate}`).join("\n")||"  None"}\n\n── INVESTIGATIONS ──────────────────────\n${reps.map(r=>`  - ${r.name} (${r.date||""}): ${r.result||""}`).join("\n")||"  None"}\n\n========================================\n  Generated: ${new Date().toLocaleString("en-IN")}\n========================================`;
 }
-
-// ── SEED DATA ─────────────────────────────────────────────────────────────────
-const SEED_MEDS = {
-  laxmi: [[{id:1,name:"Aspirin",qty:30,rate:5},{id:2,name:"Atorvastatin",qty:14,rate:12}],[{id:1,name:"Ibuprofen",qty:20,rate:8},{id:2,name:"Calcium",qty:30,rate:6}]],
-  raya:  [[{id:1,name:"Metformin",qty:60,rate:4},{id:2,name:"Glimepiride",qty:30,rate:9}],[{id:1,name:"Azithromycin",qty:5,rate:25},{id:2,name:"Paracetamol",qty:15,rate:3}]],
-};
-const SEED_REPS = {
-  laxmi: [[{id:1,name:"ECG",date:"2026-03-29",result:"Normal sinus rhythm"},{id:2,name:"Blood Panel",date:"2026-03-30",result:"Cholesterol elevated"}],[{id:1,name:"X-Ray Knee",date:"2026-03-21",result:"Mild arthritis"}]],
-  raya:  [[{id:1,name:"HbA1c",date:"2026-04-04",result:"8.2%"},{id:2,name:"FBS",date:"2026-04-03",result:"210 mg/dL"}],[{id:1,name:"Chest X-Ray",date:"2026-03-26",result:"Consolidation RLL"}]],
-};
 
 // ── DYNAMIC CSS ────────────────────────────────────────────────────────────────
 const DYNAMIC_CSS = (accent, isDark) => `

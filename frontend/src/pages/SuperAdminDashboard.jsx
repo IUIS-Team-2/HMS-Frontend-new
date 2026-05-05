@@ -447,10 +447,6 @@ export function DischargeSummaryPrintModal({ p, branchKey, onClose }) {
 
   if (!p) return null;
 
-  const bInfo = {
-    laxmi: { name: "Lakshmi Nagar Branch", address: "Lakshmi Nagar, Mathura, Uttar Pradesh", phone: "+91-9717444531 / +91-9717444532", email: "laxminagar@sangihospital.com" },
-    raya:  { name: "Raya Branch", address: "Raya, Mathura, Uttar Pradesh - 281204", phone: "+91-9311212090 / +91-9311212091", email: "info@sangihospital.com" },
-  };
   const col = bColor(branchKey || p._branch, T);
 
   const handleSave = async () => {
