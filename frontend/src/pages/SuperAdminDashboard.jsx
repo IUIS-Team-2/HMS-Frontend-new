@@ -5,6 +5,7 @@ import { apiService, BASE_URL } from "../services/apiService";
 import { toast } from "react-toastify";
 import ThemeModeDock from "../components/ui/ThemeModeDock";
 import MedicalHistoryPage from "./MedicalHistoryPage";
+import UpdateRecordsPanel from "../components/admin/UpdateRecordsPanel";
 import {
   LayoutDashboard, Hospital, Hotel, Users, CreditCard, Stethoscope, DoorOpen,
   FileDown, UserCog, Building2, Star, ClipboardList, Wallet, Landmark,
@@ -1915,6 +1916,7 @@ export default function SuperAdminDashboard({ db = {}, onLogout }) {
     { id:"labreports",  icon:FlaskConical,    label:"Lab Reports" },
     { section:"Management" },
     { id:"reports",     icon:FileDown,        label:"Reports and Export" },
+    { id:"records",     icon:Upload,          label:"Update Records" },
     { id:"admins",      icon:UserCog,         label:"Admin Management" },
     { id:"departments", icon:Building2,       label:"Departments" },
     { id:"performance", icon:Star,            label:"Task Performance" },
@@ -1993,6 +1995,7 @@ export default function SuperAdminDashboard({ db = {}, onLogout }) {
             {tab==="discharge"   && <DischargeTab all={all}/>}
             {tab==="labreports"  && <LabReportsTab all={all}/>}
             {tab==="reports"     && <ReportsTab all={all}/>}
+            {tab==="records"     && <UpdateRecordsPanel roleLabel="Super Admin"/>}
             {tab==="admins"      && <AdminsTab/>}
             {tab==="departments" && <DepartmentsTab all={all}/>}
             {tab==="performance" && <TaskPerformanceTab/>}

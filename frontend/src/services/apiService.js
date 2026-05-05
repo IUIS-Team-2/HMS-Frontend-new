@@ -101,6 +101,20 @@ export const apiService = {
         return Array.isArray(response.data) ? response.data : (response.data?.results || response.data || []);
     },
 
+    getMedicineMaster: async () => {
+        const response = await axios.get(`${BASE_URL}/medicine-master/`);
+        return Array.isArray(response.data) ? response.data : (response.data?.results || response.data || []);
+    },
+
+    importMedicineMasterExcel: async (file) => {
+        const formData = new FormData();
+        formData.append("file", file);
+        const response = await axios.post(`${BASE_URL}/medicine-master/import-excel/`, formData, {
+            headers: { "Content-Type": "multipart/form-data" },
+        });
+        return response.data;
+    },
+
     updateMedicalHistory: async (uhid, admNo, medicalData) => {
         const response = await axios.patch(`${BASE_URL}/patients/${uhid}/update_medical/`, { admNo, medicalData });
         return response.data;

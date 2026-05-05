@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect } from "react";
 import { apiService } from "../services/apiService";
 import { useTheme } from "../context/ThemeContext";
 import ThemeModeDock from "../components/ui/ThemeModeDock";
+import UpdateRecordsPanel from "../components/admin/UpdateRecordsPanel";
 import {
   Home,
   Users,
@@ -261,6 +262,7 @@ const NAV = [
   { id: "billing",     label: "Billing",      icon: CreditCard },
   { id: "tasks",       label: "Task Manager", icon: CheckSquare },
   { id: "taskreport",  label: "Task Report",  icon: BarChart3 },
+  { id: "records",     label: "Update Records", icon: AlertTriangle },
   { id: "departments", label: "Departments",  icon: Building2 },
   { id: "employees",   label: "Employees",    icon: Users },
   { id: "profile",     label: "My Profile",   icon: UserRound },
@@ -2073,6 +2075,7 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
       
       case "tasks":       return renderTasks();
       case "taskreport":  return renderTaskReport();
+      case "records":     return <UpdateRecordsPanel roleLabel="Office Admin" />;
       case "departments": return renderDepartments();
       case "employees":   return renderEmployees();
       case "profile":     return renderProfile();

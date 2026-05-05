@@ -104,6 +104,14 @@ function statusColor(status) {
   return "#059669";
 }
 
+function normalizeMedicineKey(value = "") {
+  return String(value)
+    .toLowerCase()
+    .replace(/[^\w\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 // ─── SearchMultiDropdown ──────────────────────────────────────────────────────
 function SearchMultiDropdown({ value, onChange, groups, placeholder, chipColor="#0369a1", chipBg="#e0f2fe", chipBorder="#7dd3fc", allowCustom=false, singleSelect=false }) {
   const [open, setOpen]     = useState(false);
@@ -1177,6 +1185,7 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
   const resolvedBranchKey = locId||(String(currentUser?.branch||"").toUpperCase()==="RYM"?"raya":"laxmi");
   const [patients, setPatients]     = useState([]);
   const [assignedTasks, setAssignedTasks] = useState([]);
+  const [medicineMaster, setMedicineMaster] = useState([]);
   const [view, setView]             = useState("tasks");
   const [sel, setSel]               = useState(null);
   const [activeTab, setActiveTab]   = useState("discharge");
@@ -1204,6 +1213,20 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
     };
 
     loadAssignedTasks();
+  }, []);
+
+  useEffect(() => {
+    const loadMedicineMaster = async () => {
+      try {
+        const data = await apiService.getMedicineMaster();
+        setMedicineMaster(Array.isArray(data) ? data : []);
+      } catch (error) {
+        console.error("Failed to fetch medicine master", error);
+        setMedicineMaster([]);
+      }
+    };
+
+    loadMedicineMaster();
   }, []);
 
   // ── FIX: Robust db → patients normalization ─────────────────────────────────
@@ -1475,9 +1498,28 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
   const addTest = ri => setELabRep(p => { const n = JSON.parse(JSON.stringify(p)); n[ri].tests.push({ id: Date.now(), name:"", value:"", unit:"", refRange:"", status:"Normal" }); return n; });
   const delTest = (ri, ti) => setELabRep(p => { const n = JSON.parse(JSON.stringify(p)); n[ri].tests.splice(ti, 1); return n; });
 
+  const findMedicineMasterMatch = (medName) => {
+    const needle = normalizeMedicineKey(medName);
+    if (!needle) return null;
+    return medicineMaster.find((entry) => normalizeMedicineKey(entry?.name) === needle) || null;
+  };
+
   const addMedFromPicker = (medName) => {
-    setEMedBill(p => [...p, { id: Date.now(), item: medName, date: new Date().toISOString().slice(0,10), amount: 0 }]);
-    toast(`Added: ${medName.slice(0,40)}${medName.length > 40 ? "…" : ""}`);
+    const master = findMedicineMasterMatch(medName);
+    const quantity = 1;
+    const rate = Number(master?.rate || 0);
+    setEMedBill(p => [...p, {
+      id: Date.now(),
+      item: medName,
+      date: new Date().toISOString().slice(0,10),
+      quantity,
+      rate,
+      amount: quantity * rate,
+      batchNo: master?.batch_no || "",
+      expiryDate: master?.expiry_date || "",
+      availableQty: Number(master?.quantity || 0),
+    }]);
+    toast(`Added: ${medName.slice(0,40)}${medName.length > 40 ? "…" : ""}${master ? " with master pricing" : ""}`);
   };
 
   const patientName = sel?.patientName || "";
@@ -1809,23 +1851,27 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
                       <div className="secb">
                         <div className="tw">
                           <table className="tbl">
-                            <thead><tr><th>Item Description</th><th>Date</th><th style={{ width:130 }}>Amount</th><th style={{ width:44 }}></th></tr></thead>
+                            <thead><tr><th>Item Description</th><th>Date</th><th style={{ width:90 }}>Qty</th><th style={{ width:110 }}>Rate</th><th style={{ width:150 }}>Batch No.</th><th style={{ width:150 }}>Expiry</th><th style={{ width:130 }}>Amount</th><th style={{ width:44 }}></th></tr></thead>
                             <tbody>
                               {eMedBill.map((r, i) => (
                                 <tr key={r.id}>
                                   <td><input className="tinp" value={r.item} onChange={e => { const n = [...eMedBill]; n[i] = { ...n[i], item: e.target.value }; setEMedBill(n); }}/></td>
                                   <td><input className="tinp" type="date" value={r.date} onChange={e => { const n = [...eMedBill]; n[i] = { ...n[i], date: e.target.value }; setEMedBill(n); }}/></td>
-                                  <td><input className="tinp" type="number" value={r.amount} onChange={e => { const n = [...eMedBill]; n[i] = { ...n[i], amount: Number(e.target.value) }; setEMedBill(n); }}/></td>
+                                  <td><input className="tinp" type="number" min="1" value={r.quantity ?? 1} onChange={e => { const n = [...eMedBill]; const quantity = Math.max(1, Number(e.target.value) || 1); const rate = Number(n[i].rate || 0); n[i] = { ...n[i], quantity, amount: quantity * rate }; setEMedBill(n); }}/></td>
+                                  <td><input className="tinp" type="number" min="0" step="0.01" value={r.rate ?? 0} onChange={e => { const n = [...eMedBill]; const rate = Number(e.target.value) || 0; const quantity = Number(n[i].quantity || 1); n[i] = { ...n[i], rate, amount: quantity * rate }; setEMedBill(n); }}/></td>
+                                  <td><input className="tinp" value={r.batchNo || ""} onChange={e => { const n = [...eMedBill]; n[i] = { ...n[i], batchNo: e.target.value }; setEMedBill(n); }}/></td>
+                                  <td><input className="tinp" type="date" value={r.expiryDate || ""} onChange={e => { const n = [...eMedBill]; n[i] = { ...n[i], expiryDate: e.target.value }; setEMedBill(n); }}/></td>
+                                  <td><input className="tinp" type="number" min="0" step="0.01" value={r.amount} onChange={e => { const n = [...eMedBill]; n[i] = { ...n[i], amount: Number(e.target.value) || 0 }; setEMedBill(n); }}/></td>
                                   <td><button className="delbtn" onClick={() => setEMedBill(p => p.filter((_, j) => j !== i))}>X</button></td>
                                 </tr>
                               ))}
                               {eMedBill.length === 0 && (
-                                <tr><td colSpan={4} style={{ textAlign:"center", color:"var(--text3)", fontStyle:"italic", padding:"18px" }}>No medicines added yet. Use the picker above or click + Add.</td></tr>
+                                <tr><td colSpan={8} style={{ textAlign:"center", color:"var(--text3)", fontStyle:"italic", padding:"18px" }}>No medicines added yet. Use the picker above or click + Add.</td></tr>
                               )}
                             </tbody>
                           </table>
                         </div>
-                        <button className="addbtn" onClick={() => setEMedBill(p => [...p, { id: Date.now(), item:"", date: new Date().toISOString().slice(0,10), amount: 0 }])}>+ Add Medicine Manually</button>
+                        <button className="addbtn" onClick={() => setEMedBill(p => [...p, { id: Date.now(), item:"", date: new Date().toISOString().slice(0,10), quantity: 1, rate: 0, batchNo: "", expiryDate: "", amount: 0 }])}>+ Add Medicine Manually</button>
                         <div className="totbox"><div className="tr2 fin"><span>Medicine Total</span><span>{fmt(eMedBill.reduce((a, r) => a + Number(r.amount || 0), 0))}</span></div></div>
                       </div>
                     </div>
