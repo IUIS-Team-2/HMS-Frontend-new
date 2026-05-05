@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 import { T } from "../data/constants";
 import { Ico, IC } from "../components/ui/Icons";
+import { EXAMINATION_FIELDS, getFieldUnit } from "../data/examinationFields";
+import { SearchableSelect } from "../components/SearchableSelect";
 
 // ─── REPORT TEMPLATES ─────────────────────────────────────────────────────────
 const REPORT_TEMPLATES = {
@@ -273,6 +275,60 @@ function Inp({ label, req, placeholder, value, onChange, type="text" }) {
   );
 }
 
+// Enhanced input with unit display for examination fields
+function InpWithUnit({ fieldName, label, req, placeholder, value, onChange, type="text" }) {
+  const unit = getFieldUnit(fieldName);
+  const fieldConfig = EXAMINATION_FIELDS[fieldName];
+  const normalValue = fieldConfig?.normal || '';
+
+  return (
+    <Field label={label} req={req}>
+      <div style={{ position: 'relative' }}>
+        <input
+          type={type}
+          placeholder={placeholder}
+          value={value}
+          onChange={onChange}
+          style={{
+            fontFamily: "DM Sans,sans-serif",
+            fontSize: 14,
+            color: T.text,
+            background: T.white,
+            border: `1.5px solid ${T.border}`,
+            borderRadius: 10,
+            padding: "11px 14px",
+            width: "100%",
+            outline: "none",
+            boxSizing: "border-box",
+            paddingRight: unit ? '60px' : '14px',
+          }}
+        />
+        {unit && (
+          <span style={{
+            position: 'absolute',
+            right: '14px',
+            top: '50%',
+            transform: 'translateY(-50%)',
+            fontSize: '12px',
+            color: T.textMuted,
+            fontWeight: 600,
+            pointerEvents: 'none',
+            background: T.white,
+            padding: '0 4px',
+          }}>
+            {unit}
+          </span>
+        )}
+      </div>
+      {normalValue && (
+        <div style={{ fontSize: '11px', color: T.textMuted, marginTop: '4px' }}>
+          Normal: {normalValue}
+        </div>
+      )}
+    </Field>
+  );
+}
+
 function Txta({ label, req, placeholder, value, onChange, rows=3 }) {
   return (
     <Field label={label} req={req}>
@@ -378,16 +434,16 @@ export default function MedicalHistoryPage({ data, setData, onSave, onSkip, pati
       {/* Examinations */}
       <Section title="Examinations" subtitle="Vitals and clinical examination findings" icon={IC.pulse}>
         <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:16, marginBottom:16 }}>
-          <Inp label="BP (mmHg)"  placeholder="e.g. 120/80mmHg" value={data.bp||""}    onChange={setE("bp")}/>
-          <Inp label="PR (/min)"  placeholder="e.g. 82/min"     value={data.pr||""}    onChange={setE("pr")}/>
-          <Inp label="SPO2"       placeholder="e.g. 98% On RA"  value={data.spo2||""}  onChange={setE("spo2")}/>
-          <Inp label="TEMP"       placeholder="e.g. 98.6°F"     value={data.temp||""}  onChange={setE("temp")}/>
+          <InpWithUnit fieldName="bp" label="BP (mmHg)"  placeholder="e.g. 120/80mmHg" value={data.bp||""}    onChange={setE("bp")}/>
+          <InpWithUnit fieldName="pr" label="PR (/min)"  placeholder="e.g. 82/min"     value={data.pr||""}    onChange={setE("pr")}/>
+          <InpWithUnit fieldName="spo2" label="SPO2"       placeholder="e.g. 98% On RA"  value={data.spo2||""}  onChange={setE("spo2")}/>
+          <InpWithUnit fieldName="temp" label="TEMP"       placeholder="e.g. 98.6°F"     value={data.temp||""}  onChange={setE("temp")}/>
         </div>
         <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:16 }}>
-          <Inp label="Chest" placeholder="e.g. B/L Crepts+" value={data.chest||""} onChange={setE("chest")}/>
-          <Inp label="CVS"   placeholder="e.g. S1 S2 +"     value={data.cvs||""}  onChange={setE("cvs")}/>
-          <Inp label="CNS"   placeholder="e.g. Conscious"   value={data.cns||""}  onChange={setE("cns")}/>
-          <Inp label="P/A"   placeholder="e.g. Distended"   value={data.pa||""}   onChange={setE("pa")}/>
+          <InpWithUnit fieldName="chest" label="Chest" placeholder="e.g. B/L Crepts+" value={data.chest||""} onChange={setE("chest")}/>
+          <InpWithUnit fieldName="cvs" label="CVS"   placeholder="e.g. S1 S2 +"     value={data.cvs||""}  onChange={setE("cvs")}/>
+          <InpWithUnit fieldName="cns" label="CNS"   placeholder="e.g. Conscious"   value={data.cns||""}  onChange={setE("cns")}/>
+          <InpWithUnit fieldName="pa" label="P/A"   placeholder="e.g. Distended"   value={data.pa||""}   onChange={setE("pa")}/>
         </div>
       </Section>
 

@@ -383,6 +383,7 @@ const mapTaskFromApi = (task) => ({
   patientUhid: task.patient_uhid || task.patient_uhids?.[0] || "",
   patientNames: task.patient_names || (task.patient_name ? [task.patient_name] : []),
   patientUhids: task.patient_uhids || (task.patient_uhid ? [task.patient_uhid] : []),
+  patientDetail: task.patient_detail || task.patientDetail || null,
   createdBy: task.assigned_by_name || "—",
 });
 

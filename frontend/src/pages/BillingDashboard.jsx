@@ -1273,7 +1273,7 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
     setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 3000);
   };
 
-  const openPatient = p => {
+  const openPatient = async (p) => {
     setSel(p);
     setEDis({ ...p.discharge });
     setEMed({ ...p.medicalHistory });
@@ -1285,6 +1285,23 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
     setRepFilter("All");
     setActiveTab("discharge");
     setView("patient");
+
+    // Auto-fetch lab reports from backend if not already populated
+    if (p.uhid && p.admNo && (!p.labReports || p.labReports.length === 0)) {
+      try {
+        const reports = await apiService.getLabReports(p.uhid, p.admNo);
+        if (reports && Array.isArray(reports)) {
+          const normalizedReports = normalizeLabReports(reports, []);
+          setELabRep(normalizedReports);
+          // Update the selected patient's lab reports in the list
+          setPatients(prev => prev.map(patient =>
+            patient.uhid === p.uhid ? { ...patient, labReports: normalizedReports } : patient
+          ));
+        }
+      } catch (err) {
+        console.log("Note: Lab reports may not be available yet for this patient");
+      }
+    }
   };
 
   const syncSelectedPatient = (overrides = {}) => {

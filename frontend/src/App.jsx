@@ -85,6 +85,13 @@ export default function App() {
   const [db, setDb] = useState({ laxmi: [], raya: [] });
   const [masterServices, setMasterServices] = useState([]); // eslint-disable-line no-unused-vars
 
+  const normalizePatientList = (response) => {
+    if (Array.isArray(response)) return response;
+    if (Array.isArray(response?.results)) return response.results;
+    if (Array.isArray(response?.data)) return response.data;
+    return Object.values(response || {}).flat().filter(Array.isArray).flat();
+  };
+
   const splitPatientsByBranch = (patients) => {
     const laxmiPatients = patients.filter(p => p.branch_location === 'LNM' || !p.branch_location);
     const rayaPatients  = patients.filter(p => p.branch_location === 'RYM');
@@ -135,41 +142,53 @@ export default function App() {
 
   const loadDashboardData = async (userRole) => {
     try {
-      let livePatients   = await apiService.getPatients();
-      const liveServices = await apiService.getServiceMaster();
-      setMasterServices(liveServices);
+      const [patientsResult, servicesResult] = await Promise.allSettled([
+        apiService.getPatients(),
+        apiService.getServiceMaster(),
+      ]);
 
-      const safeRole = String(userRole).toLowerCase();
-      if (safeRole === "office_admin" || safeRole === "managementadmin") {
-        livePatients = livePatients.filter(p => {
-          const pMode = String(p.paymentMode || p.payMode || p.payment_mode || "").toLowerCase();
-          if (pMode.includes("cashless")) return true;
-          const hasCashlessBill = p.admissions && p.admissions.some(a => {
-            const aMode = String(a.paymentMode || a.billing?.paymentMode || a.billing?.billType || "").toLowerCase();
-            return aMode.includes("cashless");
-          });
-          return hasCashlessBill;
-        });
+      const livePatients = normalizePatientList(patientsResult.status === "fulfilled" ? patientsResult.value : []);
+      if (servicesResult.status === "fulfilled") {
+        setMasterServices(Array.isArray(servicesResult.value) ? servicesResult.value : (servicesResult.value?.results || []));
+      } else {
+        setMasterServices([]);
       }
 
-      setDb(splitPatientsByBranch(livePatients));
+      const safeRole = String(userRole).toLowerCase();
+      const scopedPatients = safeRole === "office_admin" || safeRole === "managementadmin"
+        ? livePatients.filter(p => {
+            const pMode = String(p.paymentMode || p.payMode || p.payment_mode || "").toLowerCase();
+            if (pMode.includes("cashless")) return true;
+            const hasCashlessBill = p.admissions && p.admissions.some(a => {
+              const aMode = String(a.paymentMode || a.billing?.paymentMode || a.billing?.billType || "").toLowerCase();
+              return aMode.includes("cashless");
+            });
+            return hasCashlessBill;
+          })
+        : livePatients;
+
+      setDb(splitPatientsByBranch(scopedPatients));
 
       if (userRole === "superadmin") {
-        const pendingPatients = await apiService.getPendingPrints();
-        const formattedRequests = [];
-        pendingPatients.forEach(p => {
-          p.admissions.forEach(adm => {
-            if (adm.billing && adm.billing.printStatus === 'PENDING') {
-              formattedRequests.push({
-                uhid: p.uhid, admNo: adm.admNo,
-                locId: p.branch_location === 'LNM' ? 'laxmi' : 'raya',
-                patient: p, adm: adm, svcs: adm.services || [],
-                requestedAt: adm.billing.printRequestedAt || new Date().toISOString()
-              });
-            }
+        try {
+          const pendingPatients = await apiService.getPendingPrints();
+          const formattedRequests = [];
+          pendingPatients.forEach(p => {
+            p.admissions.forEach(adm => {
+              if (adm.billing && adm.billing.printStatus === 'PENDING') {
+                formattedRequests.push({
+                  uhid: p.uhid, admNo: adm.admNo,
+                  locId: p.branch_location === 'LNM' ? 'laxmi' : 'raya',
+                  patient: p, adm: adm, svcs: adm.services || [],
+                  requestedAt: adm.billing.printRequestedAt || new Date().toISOString()
+                });
+              }
+            });
           });
-        });
-        setPrintRequests(formattedRequests);
+          setPrintRequests(formattedRequests);
+        } catch (printError) {
+          console.error("Failed to load pending print requests:", printError);
+        }
       }
     } catch (error) {
       console.error("Failed to load live backend data:", error);
