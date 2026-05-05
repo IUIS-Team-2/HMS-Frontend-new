@@ -96,6 +96,11 @@ export const apiService = {
         return response.data;
     },
 
+    getDoctors: async () => {
+        const response = await axios.get(`${BASE_URL}/doctors/`);
+        return Array.isArray(response.data) ? response.data : (response.data?.results || response.data || []);
+    },
+
     updateMedicalHistory: async (uhid, admNo, medicalData) => {
         const response = await axios.patch(`${BASE_URL}/patients/${uhid}/update_medical/`, { admNo, medicalData });
         return response.data;

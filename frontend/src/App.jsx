@@ -69,6 +69,7 @@ export default function App() {
   const [showPrint, setShowPrint] = useState(false);
   const [showPatientDetail, setShowPatientDetail] = useState(null);
   const [printRequests, setPrintRequests] = useState([]);
+  const [doctors, setDoctors] = useState([]);
 
   const [patient, setPatient] = useState(blankPatient());
   const [medicalHistory, setMedicalHistory] = useState({
@@ -142,9 +143,10 @@ export default function App() {
 
   const loadDashboardData = useCallback(async (userRole) => {
     try {
-      const [patientsResult, servicesResult] = await Promise.allSettled([
+      const [patientsResult, servicesResult, doctorsResult] = await Promise.allSettled([
         apiService.getPatients(),
         apiService.getServiceMaster(),
+        apiService.getDoctors(),
       ]);
 
       const livePatients = normalizePatientList(patientsResult.status === "fulfilled" ? patientsResult.value : []);
@@ -152,6 +154,11 @@ export default function App() {
         setMasterServices(Array.isArray(servicesResult.value) ? servicesResult.value : (servicesResult.value?.results || []));
       } else {
         setMasterServices([]);
+      }
+      if (doctorsResult.status === "fulfilled") {
+        setDoctors(Array.isArray(doctorsResult.value) ? doctorsResult.value : []);
+      } else {
+        setDoctors([]);
       }
 
       const safeRole = String(userRole).toLowerCase();
@@ -842,11 +849,19 @@ export default function App() {
               <MedicalHistoryPage
                 data={medicalHistory} setData={setMedicalHistory}
                 onSave={handleSaveMedical} onSkip={handleSaveMedical}
-                patient={patient} discharge={discharge} locId={locId}
+                patient={patient} discharge={discharge} locId={locId} doctors={doctors}
               />
             )}
             {page === "discharge" && (
-              <DischargePage data={discharge} setData={setDischarge} onSave={handleSaveDischarge} uhid={uhid} admNo={admNo} />
+              <DischargePage
+                data={discharge}
+                setData={setDischarge}
+                onSave={handleSaveDischarge}
+                uhid={uhid}
+                admNo={admNo}
+                admissionRecord={findAdmissionRecord(uhid, admNo, locId)}
+                doctors={doctors}
+              />
             )}
             {page === "services" && (
               <ServicesPage svcs={svcs} setSvcs={setSvcs} billing={billing} setBilling={setBilling} onSave={handleSaveServices} />

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { T } from "../data/constants";
 import { Ico, IC } from "../components/ui/Icons";
 import { EXAMINATION_FIELDS, getFieldUnit } from "../data/examinationFields";
@@ -413,11 +413,50 @@ export function downloadAdmissionNote(data, patient, discharge, locId) {
 }
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
-export default function MedicalHistoryPage({ data, setData, onSave, onSkip, patient, discharge, locId }) {
+export default function MedicalHistoryPage({ data, setData, onSave, onSkip, patient, discharge, locId, doctors = [] }) {
+  const doctorDirectory = useMemo(() => {
+    const normalized = doctors
+      .map((doctor) => {
+        const name = String(doctor?.name || "").trim();
+        const qualification = String(doctor?.qualification || "").trim();
+        if (!name) return null;
+        return {
+          name,
+          qualification,
+          display: qualification ? `${name} (${qualification})` : name,
+        };
+      })
+      .filter(Boolean);
+    return normalized.length
+      ? normalized
+      : DOCTOR_LIST.map((display) => ({
+          name: display,
+          qualification: getDoctorQualification(display) || "",
+          display,
+        }));
+  }, [doctors]);
+
+  const doctorOptions = doctorDirectory.map((doctor) => doctor.display);
+  const qualificationOptions = Array.from(
+    new Set([
+      ...doctorDirectory.map((doctor) => doctor.qualification).filter(Boolean),
+      ...QUALIFICATION_LIST,
+    ])
+  );
+
+  const resolveDoctorQualification = useCallback((doctorValue = "") => {
+    const trimmed = String(doctorValue || "").trim();
+    if (!trimmed) return "";
+    const match = doctorDirectory.find(
+      (doctor) => doctor.display === trimmed || doctor.name === trimmed
+    );
+    return match?.qualification || getDoctorQualification(trimmed) || "";
+  }, [doctorDirectory]);
+
   const set = k => v => setData(p => ({ ...p, [k]: v }));
   const setE = k => e => setData(p => ({ ...p, [k]: e.target.value }));
   const setDoctor = (doctorValue) => {
-    const qualification = getDoctorQualification(doctorValue);
+    const qualification = resolveDoctorQualification(doctorValue);
     setData(prev => ({
       ...prev,
       treatingDoctor: doctorValue,
@@ -427,15 +466,15 @@ export default function MedicalHistoryPage({ data, setData, onSave, onSkip, pati
 
   useEffect(() => {
     if (!data?.treatingDoctor || data?.doctorQual) return;
-    const qualification = getDoctorQualification(data.treatingDoctor);
+    const qualification = resolveDoctorQualification(data.treatingDoctor);
     if (!qualification) return;
     setData(prev => (prev.doctorQual ? prev : { ...prev, doctorQual: qualification }));
-  }, [data?.treatingDoctor, data?.doctorQual, setData]);
+  }, [data?.treatingDoctor, data?.doctorQual, setData, resolveDoctorQualification]);
   const isFilled = data.presentComplaints || data.previousDiagnosis || data.provisionalDiagnosis;
 
   // Doctor groups for dropdown
-  const doctorGroups = [{ group:"👨‍⚕️ Doctors", color:"#0369a1", items: DOCTOR_LIST }];
-  const qualGroups   = [{ group:"🎓 Qualifications", color:"#7c3aed", items: QUALIFICATION_LIST }];
+  const doctorGroups = [{ group:"👨‍⚕️ Doctors", color:"#0369a1", items: doctorOptions }];
+  const qualGroups   = [{ group:"🎓 Qualifications", color:"#7c3aed", items: qualificationOptions }];
   const medGroups    = MEDICATION_GROUPS.map(g => ({ group: g.group, color:"#059669", items: g.items }));
 
   return (
