@@ -1,5 +1,4 @@
-import { T, LOCATIONS } from "../data/constants";
-import { Ico, IC } from "../components/ui/Icons";
+import { LOCATIONS } from "../data/constants";
 
 function isPathologyCategory(category = "") {
   const normalized = String(category).toLowerCase();

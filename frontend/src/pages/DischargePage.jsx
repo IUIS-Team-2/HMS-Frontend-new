@@ -1,5 +1,5 @@
 import { DISC_ST, DEPARTMENTS } from "../data/constants";
-import { Ico, IC } from "../components/ui/Icons";
+import { IC } from "../components/ui/Icons";
 import { Card, Inp, Sel, Txta } from "../components/ui/SharedUI";
 
 export default function DischargePage({data, setData, onSave}){

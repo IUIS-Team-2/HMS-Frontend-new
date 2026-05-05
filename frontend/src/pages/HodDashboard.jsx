@@ -1,10 +1,10 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import ThemeModeDock from "../components/ui/ThemeModeDock";
 import {
   IndianRupee, Upload, CircleHelp, Hospital,
   ClipboardList, CheckSquare, BarChart3, Star, Users,
-  FileText, Activity, Send, ChevronDown, ChevronUp,
-  AlertCircle, Clock, CheckCircle, XCircle, RefreshCw,
+  FileText, Activity, Send,
+  AlertCircle, RefreshCw,
   Stethoscope, BookOpen, Search, Filter, LogOut,
 } from "lucide-react";
 
@@ -75,7 +75,6 @@ const TAB_MAP        = { discharge:"discharge", admission:"medical", reports:"re
 const isRadiologyType = (rt = "") => RADIOLOGY_REPORT_TYPES.includes(rt);
 const fmtRs = n => "₹" + Number(n || 0).toLocaleString("en-IN");
 const fmtDt = d => d ? new Date(d).toLocaleDateString("en-IN", { day:"2-digit", month:"short", year:"numeric" }) : "—";
-const fmtDtShort = d => d ? new Date(d).toLocaleDateString("en-IN", { day:"numeric", month:"short" }) : "--";
 const initials = name => (name || "?").trim().split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
 
 const emptyPathReport = () => ({
@@ -298,8 +297,6 @@ function MedicineHistoryPicker({ eMed, onAdd }) {
   const [search, setSearch] = useState("");
   const [expanded, setExpanded] = useState(false);
   const historyMeds = eMed?.currentMedications ? eMed.currentMedications.split(", ").filter(Boolean) : [];
-  const allMeds = MEDICATION_GROUPS.flatMap(g => g.items);
-  const filtered = search.trim() ? allMeds.filter(m => m.toLowerCase().includes(search.toLowerCase())) : allMeds;
   const histFiltered = search.trim() ? historyMeds.filter(m => m.toLowerCase().includes(search.toLowerCase())) : historyMeds;
   if (!expanded) return (
     <div style={{ background:"rgba(16,185,129,0.06)", border:"1.5px dashed rgba(16,185,129,0.4)", borderRadius:10, padding:"10px 16px", marginBottom:14, display:"flex", alignItems:"center", justifyContent:"space-between" }}>

@@ -5,13 +5,14 @@ import { Ico, IC } from "../components/ui/Icons";
 import { statusBadge } from "../components/ui/SharedUI";
 import { apiService } from "../services/apiService";
 
-export default function PatientDetailModal({patient,onClose,onDischarge}){
+export default function PatientDetailModal({patient,onClose,onDischarge,onSaved}){
   const [tab,setTab]=useState("info");
   const [isEditing,setIsEditing]=useState(false);
   const [editData,setEditData]=useState({
     patientName:patient.patientName||"",
     guardianName:patient.guardianName||"",
     gender:patient.gender||"",
+    dob:patient.dob||"",
     bloodGroup:patient.bloodGroup||"",
     maritalStatus:patient.maritalStatus||"",
     nationalId:patient.nationalId||"",
@@ -21,6 +22,13 @@ export default function PatientDetailModal({patient,onClose,onDischarge}){
     address:patient.address||"",
     remarks:patient.remarks||"",
     allergies:patient.allergies||"",
+    tpa:patient.tpa||"",
+    tpaCard:patient.tpaCard||"",
+    tpaValidity:patient.tpaValidity||"",
+    tpaCardType:patient.tpaCardType||"",
+    tpaPanelCardNo:patient.tpaPanelCardNo||"",
+    tpaPanelValidity:patient.tpaPanelValidity||"",
+    payMode:patient.payMode||"",
   });
   const [saving,setSaving]=useState(false);
   const [saveError,setSaveError]=useState("");
@@ -34,10 +42,9 @@ export default function PatientDetailModal({patient,onClose,onDischarge}){
     setSaving(true);
     setSaveError("");
     try{
-      await apiService.updatePatient(patient.uhid,editData);
+      const updatedPatient = await apiService.updatePatient(patient.uhid,editData);
+      onSaved?.(updatedPatient);
       setIsEditing(false);
-      // Reload or notify parent to refresh
-      window.location.reload();
     }catch(err){
       setSaveError(err.response?.data?.detail||err.message||"Failed to save patient details");
     }finally{
@@ -71,6 +78,7 @@ export default function PatientDetailModal({patient,onClose,onDischarge}){
                   <div style={{gridColumn:"span 1.5"}}><div className="pdm-lbl">Patient Name</div><input type="text" value={editData.patientName} onChange={e=>handleEditChange("patientName",e.target.value)} style={{width:"100%",padding:"8px",borderRadius:6,border:"1px solid #ddd",fontSize:13}} /></div>
                   <div style={{gridColumn:"span 1.5"}}><div className="pdm-lbl">Guardian</div><input type="text" value={editData.guardianName} onChange={e=>handleEditChange("guardianName",e.target.value)} style={{width:"100%",padding:"8px",borderRadius:6,border:"1px solid #ddd",fontSize:13}} /></div>
                   <div><div className="pdm-lbl">Gender</div><select value={editData.gender} onChange={e=>handleEditChange("gender",e.target.value)} style={{width:"100%",padding:"8px",borderRadius:6,border:"1px solid #ddd",fontSize:13}}><option value="">Select</option><option value="M">Male</option><option value="F">Female</option><option value="O">Other</option></select></div>
+                  <div><div className="pdm-lbl">Date of Birth</div><input type="date" value={editData.dob} onChange={e=>handleEditChange("dob",e.target.value)} style={{width:"100%",padding:"8px",borderRadius:6,border:"1px solid #ddd",fontSize:13}} /></div>
                   <div><div className="pdm-lbl">Blood Group</div><input type="text" value={editData.bloodGroup} onChange={e=>handleEditChange("bloodGroup",e.target.value)} style={{width:"100%",padding:"8px",borderRadius:6,border:"1px solid #ddd",fontSize:13}} placeholder="O+" /></div>
                   <div><div className="pdm-lbl">Marital Status</div><input type="text" value={editData.maritalStatus} onChange={e=>handleEditChange("maritalStatus",e.target.value)} style={{width:"100%",padding:"8px",borderRadius:6,border:"1px solid #ddd",fontSize:13}} /></div>
                   <div><div className="pdm-lbl">National ID</div><input type="text" value={editData.nationalId} onChange={e=>handleEditChange("nationalId",e.target.value)} style={{width:"100%",padding:"8px",borderRadius:6,border:"1px solid #ddd",fontSize:13}} /></div>
@@ -109,7 +117,8 @@ export default function PatientDetailModal({patient,onClose,onDischarge}){
             </div>
             {!isEditing&&(patient.allergies||patient.remarks)&&<><div className="pdm-section-title">Notes</div><div className="pdm-grid">{patient.remarks&&<div className="pdm-item" style={{gridColumn:"span 1.5"}}><div className="pdm-lbl">Remarks</div><div className="pdm-val">{patient.remarks}</div></div>}{patient.allergies&&<div className="pdm-item" style={{gridColumn:"span 1.5"}}><div className="pdm-lbl">Allergies</div><div className="pdm-val">{patient.allergies}</div></div>}</div></>}
             {isEditing&&<><div className="pdm-section-title">Additional Notes</div><div className="pdm-grid"><div style={{gridColumn:"span 1.5"}}><div className="pdm-lbl">Remarks</div><textarea value={editData.remarks} onChange={e=>handleEditChange("remarks",e.target.value)} style={{width:"100%",padding:"8px",borderRadius:6,border:"1px solid #ddd",fontSize:13,minHeight:"50px",fontFamily:"inherit"}} /></div><div style={{gridColumn:"span 1.5"}}><div className="pdm-lbl">Allergies</div><textarea value={editData.allergies} onChange={e=>handleEditChange("allergies",e.target.value)} style={{width:"100%",padding:"8px",borderRadius:6,border:"1px solid #ddd",fontSize:13,minHeight:"50px",fontFamily:"inherit"}} /></div></div></>}
-            {!isEditing&&patient.tpa&&<><div className="pdm-section-title">TPA / Insurance</div><div className="pdm-grid">{[{l:"Panel",v:patient.tpa},{l:"Card Type",v:patient.tpaCardType||patient.tpaCard},{l:"Validity",v:fmtDate(patient.tpaValidity)}].map(({l,v})=>(<div key={l} className="pdm-item"><div className="pdm-lbl">{l}</div><div className="pdm-val">{v||"—"}</div></div>))}</div></>}
+            {isEditing&&<><div className="pdm-section-title">Payment / Insurance</div><div className="pdm-grid"><div><div className="pdm-lbl">Payment Mode</div><input type="text" value={editData.payMode} onChange={e=>handleEditChange("payMode",e.target.value)} style={{width:"100%",padding:"8px",borderRadius:6,border:"1px solid #ddd",fontSize:13}} /></div><div><div className="pdm-lbl">TPA / Panel</div><input type="text" value={editData.tpa} onChange={e=>handleEditChange("tpa",e.target.value)} style={{width:"100%",padding:"8px",borderRadius:6,border:"1px solid #ddd",fontSize:13}} /></div><div><div className="pdm-lbl">TPA Card</div><input type="text" value={editData.tpaCard} onChange={e=>handleEditChange("tpaCard",e.target.value)} style={{width:"100%",padding:"8px",borderRadius:6,border:"1px solid #ddd",fontSize:13}} /></div><div><div className="pdm-lbl">TPA Validity</div><input type="date" value={editData.tpaValidity} onChange={e=>handleEditChange("tpaValidity",e.target.value)} style={{width:"100%",padding:"8px",borderRadius:6,border:"1px solid #ddd",fontSize:13}} /></div><div><div className="pdm-lbl">Panel Card Type</div><input type="text" value={editData.tpaCardType} onChange={e=>handleEditChange("tpaCardType",e.target.value)} style={{width:"100%",padding:"8px",borderRadius:6,border:"1px solid #ddd",fontSize:13}} /></div><div><div className="pdm-lbl">Panel Card No.</div><input type="text" value={editData.tpaPanelCardNo} onChange={e=>handleEditChange("tpaPanelCardNo",e.target.value)} style={{width:"100%",padding:"8px",borderRadius:6,border:"1px solid #ddd",fontSize:13}} /></div><div><div className="pdm-lbl">Panel Validity</div><input type="date" value={editData.tpaPanelValidity} onChange={e=>handleEditChange("tpaPanelValidity",e.target.value)} style={{width:"100%",padding:"8px",borderRadius:6,border:"1px solid #ddd",fontSize:13}} /></div></div></>}
+            {!isEditing&&(patient.tpa||patient.tpaCard||patient.tpaPanelCardNo||patient.payMode)&&<><div className="pdm-section-title">TPA / Insurance</div><div className="pdm-grid">{[{l:"Panel",v:patient.tpa},{l:"Card Type",v:patient.tpaCardType||patient.tpaCard},{l:"Card No.",v:patient.tpaPanelCardNo||patient.tpaCard},{l:"Validity",v:fmtDate(patient.tpaValidity||patient.tpaPanelValidity)},{l:"Payment Mode",v:patient.payMode}].map(({l,v})=>(<div key={l} className="pdm-item"><div className="pdm-lbl">{l}</div><div className="pdm-val">{v||"—"}</div></div>))}</div></>}
           </>)}
 
           {tab==="admissions"&&(patient.admissions.length===0?<div style={{textAlign:"center",padding:"40px 0",color:T.textMuted}}>No admissions recorded.</div>:[...patient.admissions].reverse().map((adm,i)=>{

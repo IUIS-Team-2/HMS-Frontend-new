@@ -161,7 +161,7 @@ export default function DoctorDashboard({ currentUser, onLogout }) {
       } catch {}
       setLoading(false);
     })();
-  }, []);
+  }, [today]);
 
   const persist = useCallback(async (entries) => {
     try { await window.storage.set(STORAGE_KEY, JSON.stringify({ allEntries: entries })); } catch {}

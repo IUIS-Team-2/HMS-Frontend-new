@@ -281,12 +281,6 @@ function MedicineHistoryPicker({ eMed, onAdd }) {
     ? eMed.currentMedications.split(", ").filter(Boolean)
     : [];
 
-  const allMeds = MEDICATION_GROUPS.flatMap(g => g.items);
-
-  const filtered = search.trim()
-    ? allMeds.filter(m => m.toLowerCase().includes(search.toLowerCase()))
-    : allMeds;
-
   const historyFiltered = search.trim()
     ? historyMeds.filter(m => m.toLowerCase().includes(search.toLowerCase()))
     : historyMeds;

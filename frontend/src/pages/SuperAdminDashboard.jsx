@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef, createContext, useContext } from "react";
+import { useState, useMemo, useEffect, createContext, useContext } from "react";
 import { useTheme } from "../context/ThemeContext";
 import * as XLSX from "xlsx";
 import { apiService, BASE_URL } from "../services/apiService";
@@ -451,7 +451,6 @@ export function DischargeSummaryPrintModal({ p, branchKey, onClose }) {
     laxmi: { name: "Lakshmi Nagar Branch", address: "Lakshmi Nagar, Mathura, Uttar Pradesh", phone: "+91-9717444531 / +91-9717444532", email: "laxminagar@sangihospital.com" },
     raya:  { name: "Raya Branch", address: "Raya, Mathura, Uttar Pradesh - 281204", phone: "+91-9311212090 / +91-9311212091", email: "info@sangihospital.com" },
   };
-  const branch = bInfo[branchKey || p._branch] || bInfo.laxmi;
   const col = bColor(branchKey || p._branch, T);
 
   const handleSave = async () => {

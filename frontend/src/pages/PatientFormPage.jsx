@@ -1,8 +1,6 @@
-import { useState } from "react";
 import { T, GENDERS, MARITAL, BLOOD_GRP, TPA_LIST, TPA_CARD_TYPES } from "../data/constants";
 import { Ico, IC } from "../components/ui/Icons";
 import { Card, Inp, Sel, Txta, Field } from "../components/ui/SharedUI";
-import { apiService } from '../services/apiService';
 
 export default function PatientFormPage({data, setData, onSubmit, errs, onBack}) {
   const set = k => e => setData(p => ({ ...p, [k]: e.target.value }));

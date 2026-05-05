@@ -1,4 +1,4 @@
-import { useState, useEffect, createContext } from "react";
+import { useState, useEffect, useCallback, createContext } from "react";
 import { NAV_PAGES } from "./data/constants";
 import { blankPatient, blankDischarge, blankBilling } from "./utils/helpers";
 import { Ico, IC, PAGE_ICONS } from "./components/ui/Icons";
@@ -140,7 +140,7 @@ export default function App() {
     } catch {}
   };
 
-  const loadDashboardData = async (userRole) => {
+  const loadDashboardData = useCallback(async (userRole) => {
     try {
       const [patientsResult, servicesResult] = await Promise.allSettled([
         apiService.getPatients(),
@@ -193,13 +193,27 @@ export default function App() {
     } catch (error) {
       console.error("Failed to load live backend data:", error);
     }
-  };
+  }, []);
 
   useEffect(() => {
     if (loggedIn && currentUser) {
       loadDashboardData(currentUser.role);
     }
-  }, [loggedIn, currentUser]);
+  }, [loggedIn, currentUser, loadDashboardData]);
+
+  useEffect(() => {
+    if (!loggedIn || !currentUser) return;
+    if (page === "history" || (page === "patient" && subPage === "search")) {
+      loadDashboardData(currentUser.role);
+    }
+  }, [loggedIn, currentUser, page, subPage, loadDashboardData]);
+
+  useEffect(() => {
+    if (!loggedIn || !currentUser) return undefined;
+    const onFocus = () => loadDashboardData(currentUser.role);
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [loggedIn, currentUser, loadDashboardData]);
 
   const currentDb = db[locId] || [];
 
@@ -526,6 +540,37 @@ export default function App() {
     } catch (error) { toast.error("Failed to process approval."); }
   };
 
+  const handlePatientSaved = (updatedPatient) => {
+    if (!updatedPatient?.uhid) return;
+    setDb(prev => {
+      const next = JSON.parse(JSON.stringify(prev));
+      Object.keys(next).forEach(bucket => {
+        next[bucket] = (next[bucket] || []).map(existing => {
+          if (existing.uhid !== updatedPatient.uhid) return existing;
+          return {
+            ...existing,
+            ...updatedPatient,
+            admissions: updatedPatient.admissions || existing.admissions || [],
+          };
+        });
+      });
+      return next;
+    });
+
+    if (uhid === updatedPatient.uhid) {
+      setPatient(prev => ({ ...prev, ...updatedPatient }));
+    }
+
+    setShowPatientDetail(prev => {
+      if (!prev || prev.uhid !== updatedPatient.uhid) return prev;
+      return {
+        ...prev,
+        ...updatedPatient,
+        admissions: updatedPatient.admissions || prev.admissions || [],
+      };
+    });
+  };
+
   const activeAdmission = findAdmissionRecord(uhid, admNo, locId);
 
   const handleNewPatient = (type = "IPD") => {
@@ -676,7 +721,8 @@ export default function App() {
         {showPatientDetail && (
           <PatientDetailModal patient={showPatientDetail}
             onClose={() => setShowPatientDetail(null)}
-            onDischarge={handleDischargeFromHistory} />
+            onDischarge={handleDischargeFromHistory}
+            onSaved={handlePatientSaved} />
         )}
 
         <header className="hdr">

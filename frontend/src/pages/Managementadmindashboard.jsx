@@ -11,21 +11,14 @@ import {
   Pill,
   ClipboardList,
   CreditCard,
-  FileDown,
   CheckSquare,
   BarChart3,
   Building2,
   UserRound,
   Hospital,
-  Microscope,
   Clock3,
   AlertTriangle,
 } from "lucide-react";
-
-const LOCATION_DB = {
-  laxmi: [],
-  raya: []
-};
 
 
 // ── CONSTANTS ─────────────────────────────────────────────────────────────────
@@ -445,15 +438,6 @@ const SEED_REPS = {
   raya:  [[{id:1,name:"HbA1c",date:"2026-04-04",result:"8.2%"},{id:2,name:"FBS",date:"2026-04-03",result:"210 mg/dL"}],[{id:1,name:"Chest X-Ray",date:"2026-03-26",result:"Consolidation RLL"}]],
 };
 
-function seedPatients(dbBranch, branchKey) {
-  return (dbBranch||[]).map((p,idx) => ({
-    ...p,
-    medicines: p.medicines || (SEED_MEDS[branchKey]?.[idx]||[]),
-    reports:   p.reports   || (SEED_REPS[branchKey]?.[idx] ||[]),
-    dischargeSummary: p.dischargeSummary || {type:"Normal",diagnosis:"",treatment:"",followUp:"",notes:"",doctorName:"",date:"",expectedDod:""},
-  }));
-}
-
 // ── DYNAMIC CSS ────────────────────────────────────────────────────────────────
 const DYNAMIC_CSS = (accent, isDark) => `
   option { background: var(--surface); color: var(--text); }
@@ -767,9 +751,6 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
   const [summaryForm,       setSummaryForm]       = useState({});
   const [newReport,         setNewReport]         = useState({ name:"", date:"", result:"" });
   const [dischSumFilter,    setDischSumFilter]    = useState("All");
-  const [exportBranchFilter,setExportBranchFilter]= useState("All");
-  const [exportType,        setExportType]        = useState("discharge");
-  const [exportSumType,     setExportSumType]     = useState("All");
 
   const toast = (msg, type="ok") => { setNotif({msg,type}); setTimeout(()=>setNotif(null), 3200); };
 
@@ -778,7 +759,10 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
 
   const allPatientsFlat   = useMemo(() => BRANCH_KEYS.flatMap(bk => (allPatients[bk]||[]).map(p=>({...p,_branch:bk,_branchLabel:BC[bk].label}))), [allPatients]);
   const allDeptOptions    = [...DEPT_OPTIONS, ...departments.filter(d=>!DEPT_OPTIONS.includes(d.name)).map(d=>d.name)];
-  const locationPatients  = isOfficeAdmin ? allPatientsFlat : (allPatients[viewBranch] || []);
+  const locationPatients  = useMemo(
+    () => (isOfficeAdmin ? allPatientsFlat : (allPatients[viewBranch] || [])),
+    [isOfficeAdmin, allPatientsFlat, allPatients, viewBranch]
+  );
   const allAdmissions     = useMemo(() => locationPatients.flatMap(p => (p.admissions||[]).map(a => ({...a, patientName:p.patientName||p.name, uhid:p.uhid, gender:p.gender, bloodGroup:p.bloodGroup, phone:p.phone}))), [locationPatients]);
   const currentlyAdmitted = allAdmissions.filter(a => !a.discharge?.dod).length;
   const discharged        = allAdmissions.filter(a =>  a.discharge?.dod).length;
@@ -878,7 +862,6 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
   const openReportEditor = (p) => { setEditRepPt(JSON.parse(JSON.stringify(p))); setNewReport({name:"",date:"",result:""}); setShowReportModal(true); };
 
   const delReport    = (idx) => setEditRepPt(prev=>({...prev,reports:prev.reports.filter((_,i)=>i!==idx)}));
-  const updateReport = (idx, field, val) => setEditRepPt(prev=>{ const r=[...prev.reports]; r[idx]={...r[idx],[field]:val}; return {...prev,reports:r}; });
   const saveReports  = async () => {
     try {
       const cleanAdm = String(editRepPt.admissions?.[0]?.admNo || 1).replace(/\D/g, "");
@@ -1107,19 +1090,6 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
   };
 
   // ── EXPORT HELPERS ────────────────────────────────────────────────────────
-  const getExportPatients = () => {
-    let pts = exportBranchFilter==="All" ? allPatientsFlat : allPatientsFlat.filter(p=>p._branchLabel===exportBranchFilter);
-    if (exportSumType!=="All") pts = pts.filter(p=>p.dischargeSummary?.type===exportSumType);
-    return pts;
-  };
-  const doExport = () => {
-    const pts = getExportPatients(); if (!pts.length) { toast("No records match","err"); return; }
-    if (exportType==="discharge")      { pts.forEach(p=>{ const adm=p.admissions?.[0]||{}; exportTxt(`discharge_${p.uhid}.txt`,buildDischargeSummaryText(p,p._branchLabel,{...adm.discharge,...(p.dischargeSummary||{})},adm.medicalHistory||p.medicalHistory||{},p.medicines||[],p.reports||[])); }); toast(`Exported ${pts.length} discharge summary(s)`); }
-    else if (exportType==="medical")   { pts.forEach(p=>{ const mh=(p.admissions?.[0]||{}).medicalHistory||p.medicalHistory||{}; exportTxt(`medhistory_${p.uhid}.txt`,`SANGI HOSPITAL — ${p._branchLabel}\nMEDICAL HISTORY\n\nPatient: ${p.patientName||p.name}\nUHID: ${p.uhid}\n\nPrevious Dx: ${mh.previousDiagnosis||"—"}\nPast Surgeries: ${mh.pastSurgeries||"—"}\nAllergies: ${mh.knownAllergies||"—"}\nChronic: ${mh.chronicConditions||"—"}\nCurrent Meds: ${mh.currentMedications||"—"}\nSmoking: ${mh.smokingStatus||"—"}\nAlcohol: ${mh.alcoholUse||"—"}\nNotes: ${mh.notes||"—"}`); }); toast(`Exported ${pts.length} file(s)`); }
-    else if (exportType==="medicines") { exportCSV("medicines_export.csv",pts.flatMap(p=>(p.medicines||[]).map(m=>({Branch:p._branchLabel,Patient:p.patientName||p.name,UHID:p.uhid,Medicine:m.name,Qty:m.qty,Rate:m.rate,Total:m.qty*m.rate}))),["Branch","Patient","UHID","Medicine","Qty","Rate","Total"]); toast("Medicines CSV exported"); }
-    else if (exportType==="reports")   { exportCSV("reports_export.csv",pts.flatMap(p=>(p.reports||[]).map(r=>({Branch:p._branchLabel,Patient:p.patientName||p.name,UHID:p.uhid,Report:r.name,Date:r.date,Result:r.result}))),["Branch","Patient","UHID","Report","Date","Result"]); toast("Reports CSV exported"); }
-    else if (exportType==="patientHistory") { exportPatientHistoryXLSX(pts,"patient_history.xlsx"); toast("Patient history Excel exported ✓"); }
-  };
 
   // ── SMALL RENDER HELPERS ──────────────────────────────────────────────────
   const Badge = ({ col, children }) => (

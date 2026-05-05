@@ -1,4 +1,3 @@
-import { T } from "../../data/constants";
 import { Ico, IC } from "./Icons";
 
 export const statusBadge = status => {
