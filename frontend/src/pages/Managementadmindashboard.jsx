@@ -2044,7 +2044,7 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
         }}>+ Create Employee</button>
       </div>
       {!employees.length ? <EmptyState icon="👤" label="No employees yet" sub='Click "Create Employee" to add your first employee'/> : (
-                  <input style={{ ...fi, fontFamily:UI_MONO_STACK }} value={empForm.empId} onChange={e => updateEmpField("empId", e.target.value)} placeholder="Auto-generated" readOnly />
+        <>
           <TableWrap heads={["Emp ID","Full Name","Username","Role","Department","Email","Phone","Status","Actions"]}>
             {employees.map((emp,i)=>(
               <tr key={i} style={{ borderBottom:"1px solid #1e2a3a" }}>
@@ -2067,7 +2067,7 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
               </tr>
             ))}
           </TableWrap>
-        </div>
+        </>
       )}
     </div>
   );

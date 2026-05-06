@@ -436,24 +436,6 @@ export default function BranchAdminDashboard({
     };
 
     loadLiveData();
-
-    useEffect(() => {
-      if (modal !== "emp") return;
-
-      const loadNextEmployeeId = async () => {
-        try {
-          const data = await apiService.getNextEmpId({ role: "receptionist", branch: resolvedBranchCode });
-          setEmpForm((currentForm) => ({ ...currentForm, employeeId: data?.next_id || currentForm.employeeId }));
-        } catch (error) {
-          setEmpForm((currentForm) => ({
-            ...currentForm,
-            employeeId: currentForm.employeeId || `${resolvedBranchCode.slice(0, 3) || "EMP"}0001`,
-          }));
-        }
-      };
-
-      loadNextEmployeeId();
-    }, [modal, resolvedBranchCode]);
     return () => { active = false; };
   }, [nav, range, fromDate, toDate, db, resolvedBranchKey]);
 
@@ -555,6 +537,17 @@ export default function BranchAdminDashboard({
   const EmptyRow = ({ cols, msg="NO DATA" }) => (
     <tr><td colSpan={cols} style={{ padding:"52px 20px", textAlign:"center", color:T.textMuted, fontSize:"10px", letterSpacing:"3px" }}>{msg}</td></tr>
   );
+  const TableShell = ({ title, count, children }) => (
+    <div style={{ background:T.card, border:`1px solid ${T.border}`, borderRadius:"12px", overflow:"hidden", boxShadow:`0 18px 40px ${theme.glow || "rgba(0,0,0,0.08)"}` }}>
+      <div style={{ padding:"16px 18px", borderBottom:`1px solid ${T.border}`, display:"flex", alignItems:"center", justifyContent:"space-between", gap:"12px", background:T.surface }}>
+        <div style={{ fontSize:"11px", color:T.text, fontWeight:"700", letterSpacing:"0.2px" }}>{title}</div>
+        <div style={{ fontSize:"10px", color:T.textMuted }}>{count ?? 0}</div>
+      </div>
+      <div style={{ overflowX:"auto" }}>
+        {children}
+      </div>
+    </div>
+  );
 
   function StatCard({ label, value, sub, color, prefix="" }) {
     const c = color || theme.primary;
@@ -570,43 +563,44 @@ export default function BranchAdminDashboard({
     );
   }
 
-  function TableShell({ title, count, action, children }) {
-    return (
-      <div style={{ background:T.card, border:`1px solid ${T.border}`, borderRadius:"10px", overflow:"hidden", marginBottom:"22px" }}>
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"12px 18px", borderBottom:`1px solid ${T.border}`, background:T.surfaceRaised }}>
-          <div style={{ display:"flex", alignItems:"center", gap:"10px" }}>
-            <span style={{ fontSize:"10px", letterSpacing:"2px", color:T.textSub, textTransform:"uppercase" }}>{title}</span>
-            {count !== undefined && <span style={{ fontSize:"10px", color:T.textMuted, background:T.surface, border:`1px solid ${T.border}`, padding:"1px 8px", borderRadius:"20px" }}>{count}</span>}
-          </div>
-          {action}
-        </div>
-        <div style={{ overflowX:"auto" }}>{children}</div>
-      </div>
-    );
-  }
+  useEffect(() => {
+    if (modal !== "emp") return;
 
-  function FilterBar({ data, onExport, exportLabel="Export Excel" }) {
-    return (
-      <div style={{ display:"flex", gap:"10px", marginBottom:"18px", flexWrap:"wrap", alignItems:"center" }}>
-        <div style={{ position:"relative" }}>
-          <span style={{ position:"absolute", left:"11px", top:"50%", transform:"translateY(-50%)", color:T.textMuted }}>⌕</span>
-          <input
-            style={{ ...mkInput(), paddingLeft:"30px", width:"220px" }}
-            placeholder="Search name / ID..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
-        </div>
-        <select style={{ ...mkInput(), cursor:"pointer" }} value={statusFil} onChange={e => setStatusFil(e.target.value)}>
-          <option value="all">All Status</option>
-          <option value="admitted">Admitted</option>
-          <option value="discharged">Discharged</option>
-          <option value="pending">Pending</option>
-        </select>
-        <button style={{ ...mkBtn("excel", theme), marginLeft:"auto" }} onClick={onExport}>↓ {exportLabel}</button>
+    const loadNextEmployeeId = async () => {
+      try {
+        const data = await apiService.getNextEmpId({ role: "receptionist", branch: resolvedBranchCode });
+        setEmpForm((currentForm) => ({ ...currentForm, employeeId: data?.next_id || currentForm.employeeId }));
+      } catch (error) {
+        setEmpForm((currentForm) => ({
+          ...currentForm,
+          employeeId: currentForm.employeeId || `${resolvedBranchCode.slice(0, 3) || "EMP"}0001`,
+        }));
+      }
+    };
+
+    loadNextEmployeeId();
+  }, [modal, resolvedBranchCode]);
+
+  const FilterBar = ({ exportLabel, onExport }) => (
+    <div style={{ display:"flex", gap:"10px", marginBottom:"18px", flexWrap:"wrap", alignItems:"center" }}>
+      <div style={{ position:"relative" }}>
+        <span style={{ position:"absolute", left:"11px", top:"50%", transform:"translateY(-50%)", color:T.textMuted }}>⌕</span>
+        <input
+          style={{ ...mkInput(), paddingLeft:"30px", width:"220px" }}
+          placeholder="Search name / ID..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
       </div>
-    );
-  }
+      <select style={{ ...mkInput(), cursor:"pointer" }} value={statusFil} onChange={e => setStatusFil(e.target.value)}>
+        <option value="all">All Status</option>
+        <option value="admitted">Admitted</option>
+        <option value="discharged">Discharged</option>
+        <option value="pending">Pending</option>
+      </select>
+      <button style={{ ...mkBtn("excel", theme), marginLeft:"auto" }} onClick={onExport}>↓ {exportLabel}</button>
+    </div>
+  );
 
   // ─── Views ────────────────────────────────────────────────────────────────
   function OverviewView() {
