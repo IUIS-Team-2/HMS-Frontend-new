@@ -640,18 +640,38 @@ export default function HodDashboard({ currentUser, onLogout }) {
   const loadAllPatients = useCallback(async () => {
     const data = await request("/patients/");
     if (data) setAllPatients(Array.isArray(data) ? data : data.results || data.patients || []);
-  }, [request]);
+  }, [request, currentUser]);
 
   const loadEmployees = useCallback(async (dept = null) => {
     const q = dept ? `?department=${encodeURIComponent(dept)}` : "";
     const data = await request(`/hod/employees/${q}`);
     if (data) {
       const list = Array.isArray(data) ? data : data.employees || data.results || [];
-      setEmployees(list);
-      return list;
+      const targetDept = String(dept || "").trim().toLowerCase();
+      const currentDept = String(currentUser?.department || currentUser?.dept || "").trim().toLowerCase();
+      const nextList = [...list];
+
+      if (
+        currentUser?.role === "hod" &&
+        targetDept &&
+        currentDept === targetDept &&
+        !nextList.some((employee) => String(employee.id) === String(currentUser.id))
+      ) {
+        nextList.unshift({
+          id: currentUser.id,
+          name: currentUser.name || currentUser.full_name || currentUser.username,
+          role: currentUser.role,
+          employee_code: currentUser.employee_code || currentUser.employeeCode,
+          employeeCode: currentUser.employeeCode || currentUser.employee_code,
+          email: currentUser.email,
+        });
+      }
+
+      setEmployees(nextList);
+      return nextList;
     }
     return [];
-  }, [request]);
+  }, [request, currentUser]);
 
   const loadTasks = useCallback(async () => {
     const params = new URLSearchParams({ department: activeDept });
@@ -715,18 +735,21 @@ export default function HodDashboard({ currentUser, onLogout }) {
   const deptColor = DEPT_META[activeDept]?.color || "#10b981";
 
   // ── Assignment handlers ────────────────────────────────────────────────────
-  const openAssignModal = async (dept = activeDept) => {
+  const openAssignModal = async (dept = activeDept, preselectedEmployeeId = "") => {
     setAssignDept(dept);
     setAssignPatients([]);
     setAssignPatientIds([]);
     setAssignPatientNames([]);
-    setAssignEmployee("");
+    setAssignEmployee(preselectedEmployeeId ? String(preselectedEmployeeId) : "");
     setAssignNotes("");
     setAssignDueDate("");
     setAssignPriority("Medium");
     setPatientSearch("");
     const list = await loadEmployees(dept);
     setDeptEmployees(list);
+    if (preselectedEmployeeId && !list.some((employee) => String(employee.id) === String(preselectedEmployeeId))) {
+      setAssignEmployee("");
+    }
     setShowAssignModal(true);
   };
 
@@ -1834,7 +1857,7 @@ export default function HodDashboard({ currentUser, onLogout }) {
                   ))}
                 </div>
                 <div style={{ display:"flex", gap:8 }}>
-                  <button className="hod-btn hod-btn-primary" style={{ flex:1, fontSize:"10px", padding:"5px" }} onClick={() => { setAssignEmployee(String(emp.id)); openAssignModal(activeDept); }}>Assign Task</button>
+                  <button className="hod-btn hod-btn-primary" style={{ flex:1, fontSize:"10px", padding:"5px" }} onClick={() => openAssignModal(activeDept, emp.id)}>Assign Task</button>
                   <button className="hod-btn hod-btn-ghost" style={{ flex:1, fontSize:"10px", padding:"5px" }} onClick={() => openReview(null,emp)}>Review</button>
                 </div>
               </div>

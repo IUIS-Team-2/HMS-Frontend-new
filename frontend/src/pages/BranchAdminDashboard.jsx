@@ -602,10 +602,9 @@ export default function BranchAdminDashboard({
             ["Pending Discharge", "pendingDischarge", T.warning    ],
           ].map(([l,k,c]) => <StatCard key={k} label={l} value={overview?.[k]} color={c} />)}
         </div>
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:"14px", marginBottom:"14px" }}>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:"14px", marginBottom:"14px" }}>
           {[
             ["Cash Revenue",     "cashRevenue",     T.success,     "₹"],
-            ["Cashless Revenue", "cashlessRevenue", T.purple,      "₹"],
             ["Total Revenue",    "totalRevenue",    theme.primary, "₹"],
             ["Pending Dues",     "pendingDues",     T.danger,      "₹"],
           ].map(([l,k,c,p]) => <StatCard key={k} label={l} value={overview?.[k]} color={c} prefix={p} />)}

@@ -1305,6 +1305,7 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
         if (taskPatient) {
           nextPatients.push({
             ...taskPatient,
+            taskId: task.id,
             assignedTo: task.assigned_to || taskPatient.assignedTo || null,
             assignedToName: task.assigned_to_name || taskPatient.assignedToName || "",
             department: task.department || taskPatient.department || "Billing",
@@ -1334,6 +1335,7 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
           : [];
 
         nextPatients.push({
+          taskId: task.id,
           uhid: taskUhid || `task-${task.id}`,
           admNo: task.admNo || task.admission_no || task.current_admission_no || taskAdmissionDetail.admNo || "—",
           assignedTo: task.assigned_to || null,
@@ -1384,6 +1386,37 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
     setView("tasks");
     setSel(null);
   }, [db, resolvedBranchKey, currentUser?.branch, assignedTasks]);
+
+  const buildSubmissionNotes = (patient) => {
+    const discharge = patient?.discharge || {};
+    const medicalHistory = patient?.medicalHistory || {};
+    const services = Array.isArray(patient?.services) ? patient.services : [];
+    const labReports = Array.isArray(patient?.labReports) ? patient.labReports : [];
+    const medicines = Array.isArray(patient?.medicalBill) ? patient.medicalBill : [];
+    const billing = patient?.billing || {};
+
+    const reportLines = labReports.map((report) => {
+      const testNames = Array.isArray(report.tests)
+        ? report.tests.map((test) => test.name || test.testName).filter(Boolean)
+        : [];
+      const label = report.reportName || report.name || report.reportType || "Report";
+      const detail = report.result || report.remarks || testNames.join(", ") || "Completed";
+      return `- ${label}${report.date ? ` (${report.date})` : ""}: ${detail}`;
+    });
+
+    return [
+      `UHID: ${patient?.uhid || ""}`,
+      `Admission No: ${patient?.admNo || ""}`,
+      `Patient: ${patient?.patientName || ""}`,
+      `Diagnosis: ${discharge.diagnosis || medicalHistory.previousDiagnosis || ""}`,
+      `Treatment: ${discharge.treatment || ""}`,
+      `Follow-up: ${discharge.followUp || ""}`,
+      `Services: ${services.map((service) => service.name || service.serviceName || service.title).filter(Boolean).join(" | ") || "None"}`,
+      `Lab Reports:\n${reportLines.length ? reportLines.join("\n") : "- None"}`,
+      `Medicine Bill: ${medicines.length}`,
+      `Billing: discount=${billing.discount || 0}, advance=${billing.advance || 0}, paidNow=${billing.paidNow || 0}`,
+    ].join("\n");
+  };
 
   const toast = (msg, type = "s") => {
     const id = _tid++;
@@ -1478,15 +1511,21 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
   const submitTask = async () => {
     if (!sel) return;
     try {
+      if (sel.taskId) {
+        await apiService.updateTask(sel.taskId, {
+          status: "Completed",
+          description: buildSubmissionNotes(sel),
+        });
+      }
       await apiService.requestPrint(sel.uhid, sel.admNo);
       setPatients(prev => prev.map(p =>
         p.uhid === sel.uhid && p.admNo === sel.admNo
-          ? { ...p, taskStatus:"submitted", billing:{...p.billing, printStatus:"PENDING"} }
+          ? { ...p, taskStatus:"completed", billing:{...p.billing, printStatus:"PENDING"} }
           : p
       ));
-      setSel(prev => prev ? ({ ...prev, taskStatus:"submitted", billing:{...prev.billing, printStatus:"PENDING"} }) : prev);
+      setSel(prev => prev ? ({ ...prev, taskStatus:"completed", billing:{...prev.billing, printStatus:"PENDING"} }) : prev);
       setShowConfirm(false);
-      toast("Submitted to Admin print queue ✓");
+      toast("Submitted to HOD and Admin ✓");
     } catch (error) {
       toast("Failed to submit billing task", "e");
     }

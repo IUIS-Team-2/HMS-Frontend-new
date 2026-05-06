@@ -402,7 +402,15 @@ function exportTxt(filename, content) {
   const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([content],{type:"text/plain"})); a.download = filename; a.click();
 }
 function buildDischargeSummaryText(p, branchLabel, ds={}, mh={}, meds=[], reps=[]) {
-  return `========================================\n  SANGI HOSPITAL — ${branchLabel.toUpperCase()}\n  DISCHARGE SUMMARY [${ds.type||"Normal"}]\n========================================\n\nPatient Name  : ${p.patientName||p.name||""}\nUHID          : ${p.uhid}\nAge / Gender  : ${p.ageYY||p.age||""}Y / ${p.gender||""}\nDepartment    : ${ds.wardName||p.dept||""}\nAdmit Date    : ${fmtDt(p.admissions?.[0]?.dateTime||p.admitDate)}\nDischarge Date: ${ds.dod||ds.date||"—"}\nExpected DOD  : ${ds.expectedDod||"—"}\nTreating Dr.  : ${ds.doctorName||mh.treatingDoctor||"—"}\n\n── CLINICAL ────────────────────────────\nDiagnosis     : ${ds.diagnosis||"—"}\nTreatment     : ${ds.treatment||"—"}\nFollow-up     : ${ds.followUp||"—"}\nNotes         : ${ds.notes||"—"}\n\n── MEDICAL HISTORY ─────────────────────\nPrevious Dx   : ${mh.previousDiagnosis||"—"}\nPast Surgeries: ${mh.pastSurgeries||"—"}\nAllergies     : ${mh.knownAllergies||"—"}\nChronic Cond. : ${mh.chronicConditions||"—"}\nCurrent Meds  : ${mh.currentMedications||"—"}\nSmoking       : ${mh.smokingStatus||"—"}\nAlcohol       : ${mh.alcoholUse||"—"}\n\n── MEDICINES PRESCRIBED ────────────────\n${meds.map(m=>`  - ${m.name} | Qty: ${m.qty} | Rate: ₹${m.rate}`).join("\n")||"  None"}\n\n── INVESTIGATIONS ──────────────────────\n${reps.map(r=>`  - ${r.name} (${r.date||""}): ${r.result||""}`).join("\n")||"  None"}\n\n========================================\n  Generated: ${new Date().toLocaleString("en-IN")}\n========================================`;
+  const reportLines = reps.map((report) => {
+    const label = report.reportName || report.name || report.reportType || "Report";
+    const testNames = Array.isArray(report.tests)
+      ? report.tests.map((test) => test.name || test.testName).filter(Boolean)
+      : [];
+    const detail = report.result || report.remarks || testNames.join(", ") || "Completed";
+    return `  - ${label}${report.date ? ` (${report.date})` : ""}: ${detail}`;
+  });
+  return `========================================\n  SANGI HOSPITAL — ${branchLabel.toUpperCase()}\n  DISCHARGE SUMMARY [${ds.type||"Normal"}]\n========================================\n\nPatient Name  : ${p.patientName||p.name||""}\nUHID          : ${p.uhid}\nAge / Gender  : ${p.ageYY||p.age||""}Y / ${p.gender||""}\nDepartment    : ${ds.wardName||p.dept||""}\nAdmit Date    : ${fmtDt(p.admissions?.[0]?.dateTime||p.admitDate)}\nDischarge Date: ${ds.dod||ds.date||"—"}\nExpected DOD  : ${ds.expectedDod||"—"}\nTreating Dr.  : ${ds.doctorName||mh.treatingDoctor||"—"}\n\n── CLINICAL ────────────────────────────\nDiagnosis     : ${ds.diagnosis||"—"}\nTreatment     : ${ds.treatment||"—"}\nFollow-up     : ${ds.followUp||"—"}\nNotes         : ${ds.notes||"—"}\n\n── MEDICAL HISTORY ─────────────────────\nPrevious Dx   : ${mh.previousDiagnosis||"—"}\nPast Surgeries: ${mh.pastSurgeries||"—"}\nAllergies     : ${mh.knownAllergies||"—"}\nChronic Cond. : ${mh.chronicConditions||"—"}\nCurrent Meds  : ${mh.currentMedications||"—"}\nSmoking       : ${mh.smokingStatus||"—"}\nAlcohol       : ${mh.alcoholUse||"—"}\n\n── MEDICINES PRESCRIBED ────────────────\n${meds.map(m=>`  - ${m.name} | Qty: ${m.qty} | Rate: ₹${m.rate}`).join("\n")||"  None"}\n\n── INVESTIGATIONS ──────────────────────\n${reportLines.join("\n")||"  None"}\n\n========================================\n  Generated: ${new Date().toLocaleString("en-IN")}\n========================================`;
 }
 
 // ── DYNAMIC CSS ────────────────────────────────────────────────────────────────
@@ -826,7 +834,13 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
   const confirmDelete = (p) => { setDeletePt(p); setShowDeleteConfirm(true); };
   const doDeleteSummary = () => { updatePatient(viewBranch, deletePt.uhid, p=>({...p,dischargeSummary:{type:"Normal",diagnosis:"",treatment:"",followUp:"",notes:"",doctorName:"",date:"",expectedDod:""}})); toast("Summary cleared"); setShowDeleteConfirm(false); setDeletePt(null); };
 
-  const openReportEditor = (p) => { setEditRepPt(JSON.parse(JSON.stringify(p))); setNewReport({name:"",date:"",result:""}); setShowReportModal(true); };
+  const openReportEditor = (p) => {
+    const next = JSON.parse(JSON.stringify(p));
+    next.reports = getPreferredReports(p);
+    setEditRepPt(next);
+    setNewReport({name:"",date:"",result:""});
+    setShowReportModal(true);
+  };
 
   const delReport    = (idx) => setEditRepPt(prev=>({...prev,reports:prev.reports.filter((_,i)=>i!==idx)}));
   const saveReports  = async () => {
@@ -1123,9 +1137,16 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
     );
   };
 
+  const getPreferredAdmission = (p) => p.admissions?.[0] || {};
+  const getPreferredReports = (p) => p.reports?.length ? p.reports : (getPreferredAdmission(p).labReports || []);
+  const getPreferredDischarge = (p) => ({ ...(getPreferredAdmission(p).discharge || {}), ...(p.dischargeSummary || {}) });
+
   const downloadDischarge = (p, branchLabel) => {
-    const adm=p.admissions?.[0]||{}; const ds=p.dischargeSummary||{}; const mh=adm.medicalHistory||p.medicalHistory||{};
-    exportTxt(`discharge_${p.uhid}.txt`, buildDischargeSummaryText(p, branchLabel, {...adm.discharge,...ds}, mh, p.medicines||[], p.reports||[]));
+    const adm = getPreferredAdmission(p);
+    const ds = getPreferredDischarge(p);
+    const mh = adm.medicalHistory || p.medicalHistory || {};
+    const reports = getPreferredReports(p);
+    exportTxt(`discharge_${p.uhid}.txt`, buildDischargeSummaryText(p, branchLabel, ds, mh, p.medicines||[], reports));
     toast("Downloaded");
   };
 
@@ -1255,9 +1276,9 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
 
   // ── PAGE: DISCHARGE ───────────────────────────────────────────────────────
   const renderDischarge = () => {
-    const summaryStats = SUMMARY_TYPES.reduce((acc,t)=>{acc[t]=locationPatients.filter(p=>p.dischargeSummary?.type===t).length; return acc;},{});
-    const unset = locationPatients.filter(p=>!p.dischargeSummary?.diagnosis).length;
-    const filtered = dischSumFilter==="All" ? locationPatients : locationPatients.filter(p=>p.dischargeSummary?.type===dischSumFilter);
+    const summaryStats = SUMMARY_TYPES.reduce((acc,t)=>{acc[t]=locationPatients.filter(p=>getPreferredDischarge(p)?.type===t).length; return acc;},{});
+    const unset = locationPatients.filter(p=>!getPreferredDischarge(p)?.diagnosis).length;
+    const filtered = dischSumFilter==="All" ? locationPatients : locationPatients.filter(p=>getPreferredDischarge(p)?.type===dischSumFilter);
     return (
       <div>
         <BranchHeader title="Discharge Summaries"/>
@@ -1281,7 +1302,7 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
           {filtered.length===0 ? <div className="hms-empty">No summaries match this filter.</div> : (
             <TableWrap heads={["Patient","UHID","Type","Diagnosis","Doctor","Discharge Date","Exp. DOD","Meds","Reports","Actions"]}>
               {filtered.map((p,i)=>{
-                const ds=p.dischargeSummary||{}; const adm=p.admissions?.[0]||{}; const d=adm.discharge||{};
+                const ds=getPreferredDischarge(p); const adm=getPreferredAdmission(p); const d=adm.discharge||{}; const reports=getPreferredReports(p);
                 return (
                   <tr key={i} className="hms-tr-alt">
                     <Td><span className="hms-td-hi">{p.patientName||p.name}</span><div className="hms-td-mono">{p.gender} · {p.ageYY||p.age}y</div></Td>
@@ -1292,7 +1313,7 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
                     <Td sm>{fmtDt(ds.date||d.dod)}</Td>
                     <Td>{(ds.expectedDod||d.expectedDod)?<span className="hms-exp-dod-pill">⏱ {fmtDt(ds.expectedDod||d.expectedDod)}</span>:<span style={{ color:"#64748b", fontSize:10 }}>—</span>}</Td>
                     <Td><Badge col="#34d399">{(p.medicines||[]).length}</Badge></Td>
-                    <Td><Badge col="#34d399">{(p.reports||[]).length}</Badge></Td>
+                    <Td><Badge col="#34d399">{reports.length}</Badge></Td>
                     <Td>
                       <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
                         <ActionBtn col="#34d399" onClick={()=>openViewModal(p)}>View</ActionBtn>
@@ -1485,24 +1506,26 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
   const renderReports = () => (
     <div>
       <BranchHeader title="Reports"/>
-      {locationPatients.map(p=>(
+      {locationPatients.map(p=>{
+        const reports = getPreferredReports(p);
+        return (
         <div key={p.uhid} className="hms-card">
-          <CardRow title={<><span className="hms-td-hi">{p.patientName||p.name}</span> <span className="hms-td-mono">{p.uhid} · {(p.reports||[]).length} report(s)</span></>}
+          <CardRow title={<><span className="hms-td-hi">{p.patientName||p.name}</span> <span className="hms-td-mono">{p.uhid} · {reports.length} report(s)</span></>}
             action={
               <div style={{ display:"flex", gap:8 }}>
-                <ActionBtn col="#f59e0b" onClick={()=>{exportCSV(`reports_${p.uhid}.csv`,(p.reports||[]).map(r=>({Report:r.name,Date:r.date,Result:r.result})),["Report","Date","Result"]);toast("Downloaded");}}>↓ CSV</ActionBtn>
-                <button className="hms-add-btn" onClick={()=>openReportEditor(p)}>Edit</button>
+                <ActionBtn col="#f59e0b" onClick={()=>{exportCSV(`reports_${p.uhid}.csv`,reports.map(r=>({Report:r.reportName||r.name||r.reportType||"Report",Date:r.date||"",Result:r.result||r.remarks||((r.tests||[]).map(t=>t.name||t.testName).filter(Boolean).join(", "))})),["Report","Date","Result"]);toast("Downloaded");}}>↓ CSV</ActionBtn>
+                <button className="hms-add-btn" onClick={()=>openReportEditor({...p, reports})}>Edit</button>
               </div>
             }/>
-          {!(p.reports||[]).length ? <div className="hms-empty">No reports.</div> : (
+          {!reports.length ? <div className="hms-empty">No reports.</div> : (
             <TableWrap heads={["Report","Date","Result"]}>
-              {(p.reports||[]).map((r,i)=>(
-                <tr key={i}><Td hi>{r.name}</Td><Td sm>{r.date}</Td><Td>{r.result}</Td></tr>
+              {reports.map((r,i)=>(
+                <tr key={i}><Td hi>{r.reportName||r.name||r.reportType||"Report"}</Td><Td sm>{r.date||""}</Td><Td>{r.result||r.remarks||((r.tests||[]).map(t=>t.name||t.testName).filter(Boolean).join(", "))||"—"}</Td></tr>
               ))}
             </TableWrap>
           )}
         </div>
-      ))}
+      )})}
       {!locationPatients.length && <div className="hms-card hms-empty">No patients.</div>}
     </div>
   );
