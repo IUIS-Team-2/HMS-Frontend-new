@@ -1,11 +1,11 @@
 import { toast } from "../components/ui/Toast";
 import { useState } from "react";
-import { T, LOCATIONS } from "../data/constants";
+import { T } from "../data/constants";
 import { Ico, IC } from "../components/ui/Icons";
 import { initials } from "../utils/helpers";
 import { Hospital, Stethoscope, Moon, AlertTriangle, Search, ClipboardList, Zap } from "lucide-react";
 
-export default function SearchPage({db,locId,onNewAdmission,onNewPatient}){
+export default function SearchPage({db,locId,onNewAdmission,onNewPatient,branch}){
   const [searchType,setSearchType]=useState("phone");
   const [admissionType,setAdmissionType]=useState("");
   const [query,setQuery]=useState("");
@@ -15,7 +15,7 @@ export default function SearchPage({db,locId,onNewAdmission,onNewPatient}){
   // 🔧 FIX: Separate state to track if admission type error should show
   const [showAdmTypeErr,setShowAdmTypeErr]=useState(false);
 
-  const loc=LOCATIONS.find(l=>l.id===locId);
+  const loc = branch || { id: locId, name: "Hospital", city: "Mathura", color: "var(--info)" };
 
   const ADMISSION_TYPES=[
     {id:"IPD",label:"IPD",sub:"In Patient Department",icon:Hospital,color:"var(--info)",bg:"var(--info-soft)"},

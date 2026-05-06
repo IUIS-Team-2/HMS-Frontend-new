@@ -1,5 +1,3 @@
-import { LOCATIONS } from "../data/constants";
-
 function isPathologyCategory(category = "") {
   const normalized = String(category).toLowerCase();
   return ["path", "lab", "bio", "haem", "micro", "sero", "histo", "radiology", "x-ray", "scan", "echo", "usg", "mri", "ct"].some((key) => normalized.includes(key));
@@ -10,7 +8,7 @@ function isMedicineCategory(category = "") {
   return ["med", "pharma", "drug"].some((key) => normalized.includes(key));
 }
 
-export default function PrintModal({uhid,patient,discharge,svcs,billing,locId,admNo,admission,onClose}){
+export default function PrintModal({uhid,patient,discharge,svcs,billing,locId,admNo,admission,onClose,branch}){
   const today=new Date().toLocaleDateString("en-IN",{day:"2-digit",month:"2-digit",year:"numeric"});
   const nowTime=new Date().toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit",hour12:false});
   const serviceRows = (svcs || [])
@@ -53,12 +51,13 @@ export default function PrintModal({uhid,patient,discharge,svcs,billing,locId,ad
   const adv=parseFloat(billing.advance)||0;
   const paid=parseFloat(billing.paidNow)||0;
   const net=Math.max(0,total-disc-adv-paid);
-  const loc=LOCATIONS.find(l=>l.id===locId)||{name:"Sangi",color:"#0EA5E9"};
-  const branchInfo={
-    "laxmi":{address:"Lakshmi Nagar, Mathura, Uttar Pradesh - 281004",phone1:"+91-9717444531",phone2:"+91-9717444532",email:"laxminagar@sangihospital.com"},
-    "raya":{address:"Raya, Mathura, Uttar Pradesh - 281204",phone1:"+91-9311212090",phone2:"+91-9311212091",landline:"05663-299009",email:"info@sangihospital.com"}
+  const loc = branch || { name:"Sangi", color:"#0EA5E9", address:"", phone:"", email:"" };
+  const branchInfo = {
+    address: loc.address || "Mathura, Uttar Pradesh",
+    phone1: (loc.phone || "").split("/")[0]?.trim() || "—",
+    phone2: (loc.phone || "").split("/")[1]?.trim() || "—",
+    email: loc.email || "info@sangihospital.com",
   };
-  const branch=branchInfo[locId]||branchInfo["laxmi"];
   const actualIpdNo = admission?.ipdNo || "—";
   const actualBillNo = billing?.id ? String(billing.id) : "—";
   const actualClaimId = patient.tpaPanelCardNo || patient.tpaCard || "—";
@@ -108,7 +107,7 @@ export default function PrintModal({uhid,patient,discharge,svcs,billing,locId,ad
               </div>
               <div style={{fontSize:11,color:"#666",textAlign:"right"}}>
                 <span style={{display:"inline-block",width:7,height:7,borderRadius:"50%",background:loc.color,marginRight:4,verticalAlign:"middle"}}/>
-{loc.name} Branch · {branch.address} · 📞 {branch.phone1} / {branch.phone2} · ✉ {branch.email} · 🌐 www.sangihospital.com
+{loc.name} Branch · {branchInfo.address} · 📞 {branchInfo.phone1} / {branchInfo.phone2} · ✉ {branchInfo.email} · 🌐 www.sangihospital.com
               </div>
             </div>
           </div>

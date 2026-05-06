@@ -62,6 +62,26 @@ export const apiService = {
         return response.data;
     },
 
+    getHospitalBranches: async () => {
+        const response = await axios.get(`${BASE_URL}/hospital-settings/`);
+        return Array.isArray(response.data) ? response.data : (response.data?.results || response.data || []);
+    },
+
+    createHospitalBranch: async (payload) => {
+        const response = await axios.post(`${BASE_URL}/hospital-settings/`, payload);
+        return response.data;
+    },
+
+    updateHospitalBranch: async (branchId, payload) => {
+        const response = await axios.patch(`${BASE_URL}/hospital-settings/${branchId}/`, payload);
+        return response.data;
+    },
+
+    deleteHospitalBranch: async (branchId) => {
+        const response = await axios.delete(`${BASE_URL}/hospital-settings/${branchId}/`);
+        return response.data;
+    },
+
     getPatients: async () => {
         try {
             const response = await axios.get(`${BASE_URL}/patients/`);

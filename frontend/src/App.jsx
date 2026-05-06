@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, createContext } from "react";
+import { useState, useEffect, useCallback, useMemo, createContext } from "react";
 import { NAV_PAGES } from "./data/constants";
 import { blankPatient, blankDischarge, blankBilling } from "./utils/helpers";
 import { Ico, IC, PAGE_ICONS } from "./components/ui/Icons";
@@ -47,6 +47,22 @@ function ToastBridge() {
 }
 
 export default function App() {
+  const normalizeBranches = (response) => {
+    const rows = Array.isArray(response) ? response : (response?.results || response?.data || []);
+    return rows.map((row, index) => ({
+      id: row.id ?? row.branch ?? index,
+      code: String(row.branch || "").toUpperCase(),
+      slug: String(row.slug || row.branch || `branch-${index + 1}`).toLowerCase(),
+      name: row.branch_name || row.branch || `Branch ${index + 1}`,
+      hospitalName: row.hospital_name || "Sangi Hospital",
+      color: ["#3b82f6", "#2563eb", "#10b981", "#f59e0b", "#8b5cf6", "#ef4444"][index % 6],
+      address: row.address || "",
+      phone: row.phone || "",
+      email: row.email || "",
+      uhidPrefix: row.uhid_prefix || "",
+    }));
+  };
+
   const [loggedIn, setLoggedIn] = useState(() => {
     try { return sessionStorage.getItem('hms_loggedIn') === 'true'; } catch { return false; }
   });
@@ -70,6 +86,14 @@ export default function App() {
   const [showPatientDetail, setShowPatientDetail] = useState(null);
   const [printRequests, setPrintRequests] = useState([]);
   const [doctors, setDoctors] = useState([]);
+  const [branchSettings, setBranchSettings] = useState(() => {
+    try {
+      const raw = sessionStorage.getItem("hms_branches");
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  });
 
   const [patient, setPatient] = useState(blankPatient());
   const [medicalHistory, setMedicalHistory] = useState({
@@ -83,8 +107,23 @@ export default function App() {
   const [billing, setBilling] = useState(blankBilling());
   const [errs, setErrs] = useState({});
 
-  const [db, setDb] = useState({ laxmi: [], raya: [] });
+  const [db, setDb] = useState({});
   const [masterServices, setMasterServices] = useState([]); // eslint-disable-line no-unused-vars
+
+  const getBranchBySlug = useCallback((slug) => {
+    const normalized = String(slug || "").toLowerCase();
+    return branchSettings.find((branch) => branch.slug === normalized) || null;
+  }, [branchSettings]);
+
+  const getBranchByCode = useCallback((code) => {
+    const normalized = String(code || "").toUpperCase();
+    return branchSettings.find((branch) => branch.code === normalized) || null;
+  }, [branchSettings]);
+
+  const defaultBranch = useMemo(
+    () => branchSettings[0] || { slug: "laxmi", code: "LNM", name: "Lakshmi Nagar", color: "#3b82f6" },
+    [branchSettings]
+  );
 
   const normalizePatientList = (response) => {
     if (Array.isArray(response)) return response;
@@ -93,14 +132,20 @@ export default function App() {
     return Object.values(response || {}).flat().filter(Array.isArray).flat();
   };
 
-  const splitPatientsByBranch = (patients) => {
-    const laxmiPatients = patients.filter(p => p.branch_location === 'LNM' || !p.branch_location);
-    const rayaPatients  = patients.filter(p => p.branch_location === 'RYM');
-    return { laxmi: laxmiPatients, raya: rayaPatients };
-  };
+  const splitPatientsByBranch = useCallback((patients) => {
+    const branches = branchSettings.length ? branchSettings : [defaultBranch];
+    const grouped = Object.fromEntries(branches.map((branch) => [branch.slug, []]));
+    patients.forEach((patient) => {
+      const branchMeta = getBranchByCode(patient.branch_location) || defaultBranch;
+      const targetSlug = branchMeta?.slug || defaultBranch.slug;
+      if (!grouped[targetSlug]) grouped[targetSlug] = [];
+      grouped[targetSlug].push(patient);
+    });
+    return grouped;
+  }, [branchSettings, defaultBranch, getBranchByCode]);
 
   const findAdmissionRecord = (lookupUhid, lookupAdmNo, lookupLocId = null) => {
-    const buckets = lookupLocId ? [lookupLocId] : ['laxmi', 'raya'];
+    const buckets = lookupLocId ? [lookupLocId] : Object.keys(db);
     for (const bucket of buckets) {
       const patientRecord = (db[bucket] || []).find(p => p.uhid === lookupUhid);
       if (!patientRecord) continue;
@@ -143,11 +188,20 @@ export default function App() {
 
   const loadDashboardData = useCallback(async (userRole) => {
     try {
-      const [patientsResult, servicesResult, doctorsResult] = await Promise.allSettled([
+      const [patientsResult, servicesResult, doctorsResult, branchesResult] = await Promise.allSettled([
         apiService.getPatients(),
         apiService.getServiceMaster(),
         apiService.getDoctors(),
+        apiService.getHospitalBranches(),
       ]);
+
+      if (branchesResult.status === "fulfilled") {
+        const normalizedBranches = normalizeBranches(branchesResult.value);
+        if (normalizedBranches.length) {
+          setBranchSettings(normalizedBranches);
+          try { sessionStorage.setItem("hms_branches", JSON.stringify(normalizedBranches)); } catch {}
+        }
+      }
 
       const livePatients = normalizePatientList(patientsResult.status === "fulfilled" ? patientsResult.value : []);
       if (servicesResult.status === "fulfilled") {
@@ -185,7 +239,7 @@ export default function App() {
               if (adm.billing && adm.billing.printStatus === 'PENDING') {
                 formattedRequests.push({
                   uhid: p.uhid, admNo: adm.admNo,
-                  locId: p.branch_location === 'LNM' ? 'laxmi' : 'raya',
+                  locId: (getBranchByCode(p.branch_location)?.slug) || defaultBranch.slug,
                   patient: p, adm: adm, svcs: adm.services || [],
                   requestedAt: adm.billing.printRequestedAt || new Date().toISOString()
                 });
@@ -200,7 +254,7 @@ export default function App() {
     } catch (error) {
       console.error("Failed to load live backend data:", error);
     }
-  }, []);
+  }, [defaultBranch.slug, getBranchByCode, splitPatientsByBranch]);
 
   useEffect(() => {
     if (loggedIn && currentUser) {
@@ -223,6 +277,7 @@ export default function App() {
   }, [loggedIn, currentUser, loadDashboardData]);
 
   const currentDb = db[locId] || [];
+  const currentBranch = getBranchBySlug(locId) || defaultBranch;
 
   const resetAll = () => {
     setPage("patient");
@@ -247,9 +302,9 @@ export default function App() {
     });
   };
 
-  const handleLogin = (user, loc) => {
+  const handleLogin = useCallback((user, loc) => {
     setCurrentUser(user);
-    setLocId(loc || "laxmi");
+    setLocId(loc || user?.locations?.[0] || defaultBranch.slug);
     setLoggedIn(true);
 
     let startingPage = "patient";
@@ -276,18 +331,19 @@ export default function App() {
 
     if (startingPage === "patient") { setPage("patient"); setSubPage("search"); }
     else setPage(startingPage);
-  };
+  }, [defaultBranch.slug]);
 
-  useEffect(() => { setLoginCallback(handleLogin); }, []);
+  useEffect(() => { setLoginCallback(handleLogin); }, [handleLogin]);
 
   const syncDb = (currentUhid, currentAdmNo, dataKey, dataValue) => {
     setDb(prev => {
       const nextDb = JSON.parse(JSON.stringify(prev));
-      const p = nextDb[locId].find(x => x.uhid === currentUhid);
-      if (p) {
+      Object.keys(nextDb).forEach((bucket) => {
+        const p = (nextDb[bucket] || []).find(x => x.uhid === currentUhid);
+        if (!p) return;
         const a = p.admissions.find(x => x.admNo === currentAdmNo);
         if (a) a[dataKey] = dataValue;
-      }
+      });
       return nextDb;
     });
   };
@@ -410,9 +466,24 @@ export default function App() {
       if (isReturning && uhid) {
         await apiService.updatePatient(uhid, sanitizedPayload);
         const admResponse = await apiService.newAdmission(uhid, selectedAdmissionType);
-        const livePatients = await apiService.getPatients();
-        setDb(splitPatientsByBranch(livePatients));
-        setAdmNo(admResponse.admNo || admNo + 1);
+        if (admResponse?.uhid) {
+          setDb((prev) => {
+            const next = JSON.parse(JSON.stringify(prev));
+            Object.keys(next).forEach((bucket) => {
+              next[bucket] = (next[bucket] || []).filter((existing) => existing.uhid !== admResponse.uhid);
+            });
+            const branchMeta = getBranchByCode(admResponse.branch_location) || currentBranch || defaultBranch;
+            if (!next[branchMeta.slug]) next[branchMeta.slug] = [];
+            next[branchMeta.slug].unshift(admResponse);
+            return next;
+          });
+          setLocId((getBranchByCode(admResponse.branch_location)?.slug) || locId);
+          setAdmNo(admResponse.current_admission_no || admNo + 1);
+        } else {
+          const livePatients = normalizePatientList(await apiService.getPatients());
+          setDb(splitPatientsByBranch(livePatients));
+          setAdmNo(admNo + 1);
+        }
         setDischarge(prev => ({ ...prev, doa: doaValue }));
         setShowUHID(true);
         setSubPage("search");
@@ -436,7 +507,8 @@ export default function App() {
         setAdmNo(1);
         setIsReturning(false);
         setDischarge(prev => ({ ...prev, doa: doaValue }));
-        setDb(prev => ({ ...prev, [locId]: [savedPatient, ...(prev[locId] || [])] }));
+        const savedBranch = getBranchByCode(savedPatient.branch_location) || currentBranch || defaultBranch;
+        setDb(prev => ({ ...prev, [savedBranch.slug]: [savedPatient, ...(prev[savedBranch.slug] || [])] }));
         setShowUHID(true);
       }
 
@@ -605,12 +677,13 @@ export default function App() {
           {showPrint && (
             <PrintModal uhid={uhid} patient={patient} discharge={discharge}
               svcs={svcs} billing={billing} locId={locId} admNo={admNo}
-              admission={activeAdmission}
+              admission={activeAdmission} branch={currentBranch}
               onClose={() => setShowPrint(false)} />
           )}
           <SuperAdminDashboard
-            db={db} printRequests={printRequests}
+            db={db} branches={branchSettings} printRequests={printRequests}
             onApprovePrint={handleApprovePrint} onViewBill={handleViewBill}
+            onBranchesChanged={() => currentUser && loadDashboardData(currentUser.role)}
             onLogout={handleLogout}
           />
           <ToastBridge />
@@ -722,7 +795,7 @@ export default function App() {
       <>
         {showPrint && (
           <PrintModal uhid={uhid} patient={patient} discharge={discharge}
-            svcs={svcs} billing={billing} locId={locId} admNo={admNo} admission={activeAdmission}
+            svcs={svcs} billing={billing} locId={locId} admNo={admNo} admission={activeAdmission} branch={currentBranch}
             onClose={() => setShowPrint(false)} />
         )}
         {showPatientDetail && (
@@ -752,7 +825,7 @@ export default function App() {
                 <div style={{ fontSize: 12, lineHeight: 1.4, textAlign: "right" }}>
                   <div style={{ fontWeight: 700, color: "var(--hdr-text)" }}>{currentUser.name}</div>
                   <div style={{ color: "var(--hdr-sub)" }}>
-                    {locId === "laxmi" ? "Laxmi Nagar Branch" : "Raya Branch"}
+                    {currentUser?.accessScope === "all_hospitals" ? "All hospitals" : `${currentBranch?.name || "Branch"} Branch`}
                   </div>
                 </div>
                 <button onClick={handleLogout}
@@ -824,6 +897,7 @@ export default function App() {
               <SearchPage
                 db={currentDb}
                 locId={locId}
+                branch={currentBranch}
                 onNewAdmission={handleNewAdmission}
                 onNewPatient={handleNewPatient}
               />
@@ -867,11 +941,11 @@ export default function App() {
               <ServicesPage svcs={svcs} setSvcs={setSvcs} billing={billing} setBilling={setBilling} onSave={handleSaveServices} />
             )}
             {page === "summary" && (
-              <SummaryPage uhid={uhid} patient={patient} discharge={discharge} svcs={svcs} billing={billing} locId={locId} admNo={admNo} onPrint={() => setShowPrint(true)} onRequestPrint={handleRequestPrint} />
+              <SummaryPage uhid={uhid} patient={patient} discharge={discharge} svcs={svcs} billing={billing} locId={locId} admNo={admNo} branch={currentBranch} onPrint={() => setShowPrint(true)} onRequestPrint={handleRequestPrint} />
             )}
             {page === "history" && (
               <PatientsHistoryPage
-                db={currentDb} locId={locId}
+                db={currentDb} locId={locId} branch={currentBranch}
                 onBack={() => setPage("patient")}
                 onDischarge={handleDischargeFromHistory}
                 onGenerateBill={handleGenerateBillFromHistory}

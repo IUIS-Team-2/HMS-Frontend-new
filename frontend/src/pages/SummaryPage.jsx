@@ -1,13 +1,13 @@
-import { T, LOCATIONS } from "../data/constants";
+import { T } from "../data/constants";
 import { fmtDT } from "../utils/helpers";
 import { Ico, IC } from "../components/ui/Icons";
 import { Card } from "../components/ui/SharedUI";
 
-export default function SummaryPage({uhid,patient,discharge,svcs,billing,locId,admNo,onPrint,onRequestPrint}){
+export default function SummaryPage({uhid,patient,discharge,svcs,billing,locId,admNo,onPrint,onRequestPrint,branch}){
   const total=svcs.reduce((a,s)=>a+(parseFloat(s.rate)||0)*(parseInt(s.qty)||0),0);
   const disc=parseFloat(billing.discount)||0;const adv=parseFloat(billing.advance)||0;const paid=parseFloat(billing.paidNow)||0;const net=Math.max(0,total-disc-adv-paid);
   const today=new Date().toLocaleDateString("en-IN",{day:"2-digit",month:"short",year:"numeric"});
-  const loc=LOCATIONS.find(l=>l.id===locId);
+  const loc = branch || { id: locId, name: "Hospital" };
 
   const handlePrintInvoice = () => {
   if (onPrint) onPrint();

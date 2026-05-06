@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, createContext, useContext } from "react";
+import { useState, useMemo, useEffect, useCallback, createContext, useContext } from "react";
 import { useTheme } from "../context/ThemeContext";
 import * as XLSX from "xlsx";
 import { apiService, BASE_URL } from "../services/apiService";
@@ -35,8 +35,20 @@ const SD = "0 4px 32px rgba(0,0,0,.5)";
 const cardStyle = (t) => ({ background: t.card, borderRadius: 14, padding: 20, boxShadow: SD });
 const ALL_HOSPITALS_LABEL = "All Hospitals";
 const isGlobalAccessUser = (user) => user?.role === "superadmin" || user?.role === "office_admin" || user?.branch === "ALL";
-const bColor = (loc, t) => loc === "ALL" ? t.amber : (loc === "laxmi" ? t.laxmi : t.raya);
-const bName = loc => loc === "ALL" ? ALL_HOSPITALS_LABEL : (loc === "laxmi" ? "Lakshmi Nagar" : "Raya");
+const BRANCH_ACCENTS = ["#3b82f6", "#2563eb", "#10b981", "#f59e0b", "#8b5cf6", "#ef4444"];
+let BRANCH_REGISTRY = [];
+const getBranchMeta = (loc) => {
+  if (loc === "ALL" || loc === "all") return { slug: "all", name: ALL_HOSPITALS_LABEL, color: T.amber };
+  const normalized = String(loc || "").toLowerCase();
+  return BRANCH_REGISTRY.find((branch) => branch.slug === normalized) || {
+    slug: normalized,
+    name: normalized ? normalized.replace(/-/g, " ").replace(/\b\w/g, (ch) => ch.toUpperCase()) : "Branch",
+    color: BRANCH_ACCENTS[0],
+  };
+};
+const bColor = (loc, t) => getBranchMeta(loc).color || t.laxmi;
+const bName = (loc) => getBranchMeta(loc).name;
+const branchFilterOptions = () => [["all", ALL_HOSPITALS_LABEL], ...BRANCH_REGISTRY.map((branch) => [branch.slug, branch.name])];
 const fmt = d => { try { const dt = new Date(d); return isNaN(dt) ? "--" : dt.toLocaleDateString("en-IN"); } catch { return "--"; } };
 const inr = v => "Rs." + Number(v || 0).toLocaleString("en-IN");
 
@@ -197,11 +209,13 @@ function BillPrintModal({ p, onClose }) {
   const T = useT();
   if (!p) return null;
 
-  const branchInfo = {
-    laxmi: { name: "Lakshmi Nagar Branch", address: "Lakshmi Nagar, Mathura, Uttar Pradesh", phone: "+91-9717444531 / +91-9717444532", email: "laxminagar@sangihospital.com" },
-    raya:  { name: "Raya Branch", address: "Raya, Mathura, Uttar Pradesh - 281204", phone: "+91-9311212090 / +91-9311212091", email: "info@sangihospital.com" },
+  const branchMeta = getBranchMeta(p._branch);
+  const branch = {
+    name: `${branchMeta.name} Branch`,
+    address: branchMeta.address || "Mathura, Uttar Pradesh",
+    phone: branchMeta.phone || "—",
+    email: branchMeta.email || "info@sangihospital.com",
   };
-  const branch = branchInfo[p._branch] || branchInfo.laxmi;
   const billDate = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" })
     + " " + new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: false }) + " HRS";
   const today  = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" });
@@ -802,36 +816,35 @@ function PTable({ rows, showBranch, filename }) {
 /* ══════════════════════════════════════════════════════════════
    DASHBOARD TAB
 ══════════════════════════════════════════════════════════════ */
-function DashboardTab({ all, laxmi, raya }) {
+function DashboardTab({ all, branchRows }) {
   const T = useT();
   const totalRev = all.reduce((s, p) => s + p.grand, 0);
-  const lRev = laxmi.reduce((s, p) => s + p.grand, 0);
-  const rRev = raya.reduce((s, p) => s + p.grand, 0);
   const pend = all.reduce((s, p) => s + p.pending, 0);
   const admitted = all.filter(p => !p.dischargeDate).length;
   const disch = all.filter(p => p.dischargeDate).length;
   const cash = all.filter(p => p.admType === "Cash").length;
   const cashless = all.filter(p => p.admType === "Cashless").length;
+  const branchEntries = Object.entries(branchRows || {});
 
   return (
     <div>
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 14 }}>
         <StatCard icon={Users} label="Total Patients" value={all.length} sub={admitted + " admitted / " + disch + " discharged"} color={T.laxmi} />
         <StatCard icon={Wallet} label="Total Revenue" value={inr(totalRev)} sub={pend > 0 ? inr(pend) + " pending" : "All collected"} color={T.green} />
-        <StatCard icon={Hospital} label="Laxmi Nagar" value={laxmi.length} sub={inr(lRev)} color={T.laxmi} />
-        <StatCard icon={Hotel} label="Raya" value={raya.length} sub={inr(rRev)} color={T.raya} />
+        <StatCard icon={Hospital} label="Hospital Branches" value={branchEntries.length} sub="Configured branches" color={T.amber} />
+        <StatCard icon={Landmark} label="Cashless / TPA" value={cashless} sub={Math.round(cashless/Math.max(all.length,1)*100)+"%"} color={T.amber} />
       </div>
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 22 }}>
         <StatCard icon={Stethoscope} label="Currently Admitted" value={admitted} sub="Active patients" color={T.amber} />
         <StatCard icon={DoorOpen} label="Discharged" value={disch} sub="Completed" color={T.green} />
         <StatCard icon={CreditCard} label="Cash Patients" value={cash} sub={Math.round(cash/Math.max(all.length,1)*100)+"%"} color={T.green} />
-        <StatCard icon={Landmark} label="Cashless / TPA" value={cashless} sub={Math.round(cashless/Math.max(all.length,1)*100)+"%"} color={T.amber} />
+        <StatCard icon={ClipboardList} label="Admissions" value={all.length} sub="Across all branches" color={T.laxmi} />
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 22 }}>
-        {[["laxmi", laxmi, T.laxmi], ["raya", raya, T.raya]].map(([br, pts, col]) => (
-          <div key={br} style={{ ...cardStyle(T), borderTop: `3px solid ${col}` }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(320px,1fr))", gap: 14, marginBottom: 22 }}>
+        {branchEntries.map(([br, pts]) => (
+          <div key={br} style={{ ...cardStyle(T), borderTop: `3px solid ${bColor(br, T)}` }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
-              <Pill color={col}>{bName(br)}</Pill>
+              <Pill color={bColor(br, T)}>{bName(br)}</Pill>
               <span style={{ fontSize: 12, color: T.dim }}>Branch Summary</span>
             </div>
             {[["Total Admissions", pts.length], ["Admitted", pts.filter(p=>!p.dischargeDate).length],
@@ -905,12 +918,11 @@ function AllPatientsTab({ all }) {
     <div>
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 18 }}>
         <StatCard icon={Users} label="All Patients" value={all.length} color={T.laxmi} />
-        <StatCard icon={Hospital} label="Laxmi Nagar" value={all.filter(p=>p._branch==="laxmi").length} color={T.laxmi} />
-        <StatCard icon={Hotel} label="Raya" value={all.filter(p=>p._branch==="raya").length} color={T.raya} />
+        <StatCard icon={Hospital} label="Hospital Branches" value={BRANCH_REGISTRY.length} color={T.amber} />
         <StatCard icon={Wallet} label="Combined Revenue" value={inr(all.reduce((s,p)=>s+p.grand,0))} color={T.green} />
       </div>
       <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-        <FilterSelect value={branch} onChange={setBranch} options={[["all","All Hospitals"],["laxmi","Lakshmi Nagar"],["raya","Raya"]]} />
+        <FilterSelect value={branch} onChange={setBranch} options={branchFilterOptions()} />
       </div>
       <PTable rows={rows} showBranch={branch==="all"} filename="all_patients.xlsx" />
     </div>
@@ -951,7 +963,7 @@ function BillingTab({ all }) {
         <StatCard icon={CreditCard} label="Records" value={rows.length} color={T.laxmi} />
       </div>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 12 }}>
-        <FilterSelect value={branch} onChange={setBranch} options={[["all","All Hospitals"],["laxmi","Lakshmi Nagar"],["raya","Raya"]]} />
+        <FilterSelect value={branch} onChange={setBranch} options={branchFilterOptions()} />
         <FilterSelect value={typeF} onChange={setTypeF} options={[["all","All Types"],["cash","Cash"],["cashless","Cashless / TPA"]]} />
         <XlsBtn onClick={() => exportXLSX(rows, BCOLS, "billing_all.xlsx")} />
       </div>
@@ -1054,11 +1066,10 @@ function MedicalTab({ all }) {
     <div>
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 18 }}>
         <StatCard icon={ClipboardList} label="With Medical History" value={withMed.length} sub={"of "+all.length+" total"} color={T.laxmi} />
-        <StatCard icon={Hospital} label="Laxmi Nagar" value={withMed.filter(p=>p._branch==="laxmi").length} color={T.laxmi} />
-        <StatCard icon={Hotel} label="Raya" value={withMed.filter(p=>p._branch==="raya").length} color={T.raya} />
+        <StatCard icon={Hospital} label="Hospital Branches" value={BRANCH_REGISTRY.length} color={T.amber} />
       </div>
       <div style={{ display: "flex", gap: 8, marginBottom: 12, alignItems: "center" }}>
-        <FilterSelect value={branch} onChange={setBranch} options={[["all","All Hospitals"],["laxmi","Lakshmi Nagar"],["raya","Raya"]]} />
+        <FilterSelect value={branch} onChange={setBranch} options={branchFilterOptions()} />
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search name or UHID..." style={{ marginLeft: "auto", padding: "7px 13px", borderRadius: 8, border: `1px solid ${T.border2}`, background: T.card, color: T.white, fontSize: 13, outline: "none", width: 240 }} />
       </div>
       <div style={{ ...cardStyle(T), padding: 0, overflow: "hidden" }}>
@@ -1111,12 +1122,11 @@ function DischargeTab({ all }) {
     <div>
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 18 }}>
         <StatCard icon={DoorOpen} label="Total Discharges" value={disch.length} color={T.dim} />
-        <StatCard icon={Hospital} label="Laxmi Nagar" value={disch.filter(p=>p._branch==="laxmi").length} color={T.laxmi} />
-        <StatCard icon={Hotel} label="Raya" value={disch.filter(p=>p._branch==="raya").length} color={T.raya} />
+        <StatCard icon={Hospital} label="Hospital Branches" value={BRANCH_REGISTRY.length} color={T.amber} />
         <StatCard icon={Wallet} label="Revenue" value={inr(disch.reduce((s,p)=>s+p.grand,0))} color={T.amber} />
       </div>
       <div style={{ display: "flex", gap: 8, marginBottom: 12, alignItems: "center" }}>
-        <FilterSelect value={branch} onChange={setBranch} options={[["all","All Hospitals"],["laxmi","Lakshmi Nagar"],["raya","Raya"]]} />
+        <FilterSelect value={branch} onChange={setBranch} options={branchFilterOptions()} />
         <XlsBtn onClick={() => exportXLSX(rows, DCOLS, "discharge_summary.xlsx")} />
       </div>
       <div style={{ ...cardStyle(T), padding: 0, overflow: "hidden" }}>
@@ -1194,11 +1204,8 @@ function LabReportsTab({ all }) {
   };
 
   const handlePrintReport = (report) => {
-    const branchInfo = {
-      laxmi: { name: "Lakshmi Nagar Branch", address: "Lakshmi Nagar, Mathura, UP", phone: "+91-9717444531" },
-      raya:  { name: "Raya Branch", address: "Raya, Mathura, UP - 281204", phone: "+91-9311212090" },
-    };
-    const bi = branchInfo[selectedPatient?._branch] || branchInfo.laxmi;
+    const branchMeta = getBranchMeta(selectedPatient?._branch);
+    const bi = { name: `${branchMeta.name} Branch`, address: branchMeta.address || "Mathura, Uttar Pradesh", phone: branchMeta.phone || "—" };
     const dept = report.department || "PATHOLOGY";
     const deptStyle = LAB_TEST_COLORS[dept] || { color: "#333", bg: "#f9f9f9" };
 
@@ -1328,11 +1335,10 @@ function LabReportsTab({ all }) {
     <div>
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 18 }}>
         <StatCard icon={FlaskConical} label="Total Patients" value={all.length} sub="Select to view reports" color={T.laxmi} />
-        <StatCard icon={Hospital} label="Laxmi Nagar" value={all.filter(p=>p._branch==="laxmi").length} color={T.laxmi} />
-        <StatCard icon={Hotel} label="Raya" value={all.filter(p=>p._branch==="raya").length} color={T.raya} />
+        <StatCard icon={Hospital} label="Hospital Branches" value={BRANCH_REGISTRY.length} color={T.amber} />
       </div>
       <div style={{ display: "flex", gap: 8, marginBottom: 12, alignItems: "center" }}>
-        <FilterSelect value={branch} onChange={setBranch} options={[["all","All Hospitals"],["laxmi","Lakshmi Nagar"],["raya","Raya"]]} />
+        <FilterSelect value={branch} onChange={setBranch} options={branchFilterOptions()} />
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search name or UHID..." style={{ marginLeft: "auto", padding: "7px 13px", borderRadius: 8, border: `1px solid ${T.border2}`, background: T.card, color: T.white, fontSize: 13, outline: "none", width: 240 }} />
       </div>
       <div style={{ ...cardStyle(T), padding: 0, overflow: "hidden" }}>
@@ -1403,7 +1409,7 @@ function ReportsTab({ all }) {
   return (
     <div>
       <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
-        <FilterSelect value={branch} onChange={setBranch} options={[["all","All Hospitals"],["laxmi","Lakshmi Nagar"],["raya","Raya"]]} />
+        <FilterSelect value={branch} onChange={setBranch} options={branchFilterOptions()} />
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14 }}>
         {REPORTS.map(r => (
@@ -1422,10 +1428,128 @@ function ReportsTab({ all }) {
   );
 }
 
+function HospitalBranchesTab({ branches = [], onChanged }) {
+  const T = useT();
+  const EMPTY_FORM = {
+    branch: "",
+    slug: "",
+    uhid_prefix: "",
+    hospital_name: "SANGI HOSPITAL",
+    branch_name: "",
+    address: "",
+    phone: "",
+    email: "",
+    website: "https://www.sangihospital.com",
+  };
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [editId, setEditId] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const updateField = (key) => (e) => setForm((prev) => ({ ...prev, [key]: e.target.value }));
+  const reset = () => { setForm(EMPTY_FORM); setEditId(null); };
+
+  const submit = async () => {
+    if (!form.branch || !form.slug || !form.uhid_prefix || !form.branch_name) {
+      toast.error("Branch code, slug, UHID prefix, and branch name are required.");
+      return;
+    }
+    setLoading(true);
+    try {
+      if (editId) await apiService.updateHospitalBranch(editId, form);
+      else await apiService.createHospitalBranch(form);
+      toast.success(editId ? "Hospital branch updated." : "Hospital branch created.");
+      reset();
+      onChanged?.();
+    } catch (error) {
+      toast.error(error.response?.data?.branch?.[0] || error.response?.data?.slug?.[0] || "Failed to save hospital branch.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const removeBranch = async (branch) => {
+    if (!window.confirm(`Delete ${branch.branch_name}?`)) return;
+    try {
+      await apiService.deleteHospitalBranch(branch.id);
+      toast.success("Hospital branch deleted.");
+      onChanged?.();
+    } catch (error) {
+      toast.error(error.response?.data?.branch?.[0] || "Failed to delete branch.");
+    }
+  };
+
+  const inputSt = { width: "100%", padding: "9px 13px", borderRadius: 8, border: `1px solid ${T.border2}`, background: T.card, color: T.white, fontSize: 13, outline: "none", boxSizing: "border-box" };
+  const labelSt = { fontSize: 11, color: T.dim, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 4, display: "block" };
+
+  return (
+    <div>
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 18 }}>
+        <StatCard icon={Building2} label="Hospital Branches" value={branches.length} color={T.laxmi} />
+        <StatCard icon={Hospital} label="UHID Prefixes" value={new Set(branches.map((branch) => branch.uhidPrefix || branch.uhid_prefix)).size} color={T.green} />
+      </div>
+      <div style={{ ...cardStyle(T), marginBottom: 18 }}>
+        <div style={{ fontSize: 15, fontWeight: 800, color: T.white, marginBottom: 14 }}>{editId ? "Edit Hospital Branch" : "Create Hospital Branch"}</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 12 }}>
+          {[["Branch Code","branch"],["Slug","slug"],["UHID Prefix","uhid_prefix"],["Branch Name","branch_name"],["Hospital Name","hospital_name"],["Phone","phone"],["Email","email"],["Website","website"]].map(([label, key]) => (
+            <div key={key}>
+              <label style={labelSt}>{label}</label>
+              <input value={form[key]} onChange={updateField(key)} style={inputSt} />
+            </div>
+          ))}
+          <div style={{ gridColumn: "1 / -1" }}>
+            <label style={labelSt}>Address</label>
+            <textarea value={form.address} onChange={updateField("address")} style={{ ...inputSt, minHeight: 90, resize: "vertical" }} />
+          </div>
+        </div>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
+          {editId ? <button onClick={reset} style={{ padding:"9px 18px",borderRadius:8,background:"transparent",border:`1px solid ${T.border2}`,color:T.dim,fontWeight:700,cursor:"pointer" }}>Cancel</button> : null}
+          <button onClick={submit} disabled={loading} style={{ padding:"9px 18px",borderRadius:8,background:T.laxmi,color:"#000",border:"none",fontWeight:800,cursor:"pointer",opacity:loading?0.7:1 }}>{loading ? "Saving..." : (editId ? "Save Branch" : "Create Branch")}</button>
+        </div>
+      </div>
+      <div style={{ ...cardStyle(T), padding: 0, overflow: "hidden" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead><tr>{["Branch", "Code", "Slug", "UHID Prefix", "Contact", "Actions"].map((h) => <TH key={h} h={h} />)}</tr></thead>
+          <tbody>
+            {branches.map((branch, index) => (
+              <tr key={branch.id || index} style={{ borderBottom: `1px solid ${T.border}`, background: index % 2 === 0 ? T.card : T.surface }}>
+                <td style={{ padding: "10px 12px" }}><div style={{ fontSize: 13, fontWeight: 700, color: T.white }}>{branch.name || branch.branch_name}</div><div style={{ fontSize: 11, color: T.dim }}>{branch.hospitalName || branch.hospital_name}</div></td>
+                <td style={{ padding: "10px 12px", color: T.dim }}>{branch.code || branch.branch}</td>
+                <td style={{ padding: "10px 12px", color: T.dim }}>{branch.slug}</td>
+                <td style={{ padding: "10px 12px" }}><Pill color={bColor(branch.slug, T)}>{branch.uhidPrefix || branch.uhid_prefix}</Pill></td>
+                <td style={{ padding: "10px 12px", color: T.dim }}>{branch.phone || "—"}</td>
+                <td style={{ padding: "10px 12px" }}>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    <button onClick={() => {
+                      setForm({
+                        branch: branch.code || branch.branch || "",
+                        slug: branch.slug || "",
+                        uhid_prefix: branch.uhidPrefix || branch.uhid_prefix || "",
+                        hospital_name: branch.hospitalName || branch.hospital_name || "SANGI HOSPITAL",
+                        branch_name: branch.name || branch.branch_name || "",
+                        address: branch.address || "",
+                        phone: branch.phone || "",
+                        email: branch.email || "",
+                        website: branch.website || "https://www.sangihospital.com",
+                      });
+                      setEditId(branch.id);
+                    }} style={{ padding: "5px 12px", borderRadius: 7, background: T.laxmi+"20", color: T.laxmi, border: `1px solid ${T.laxmi}44`, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>✏ Edit</button>
+                    <button onClick={() => removeBranch(branch)} style={{ padding: "5px 12px", borderRadius: 7, background: T.red+"15", color: T.red, border: `1px solid ${T.red}44`, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>🗑 Delete</button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+            {branches.length === 0 ? <tr><td colSpan={6} style={{ padding: 40, textAlign: "center", color: T.dim }}>No hospital branches configured.</td></tr> : null}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 /* ══════════════════════════════════════════════════════════════
    ADMIN MANAGEMENT TAB
 ══════════════════════════════════════════════════════════════ */
-function AdminsTab() {
+function AdminsTab({ branches = [] }) {
   const T = useT();
   const [users, setUsers] = useState([]);
   const [subTab, setSubTab] = useState("all");
@@ -1434,6 +1558,7 @@ function AdminsTab() {
   const [confirmModal, setConfirmModal] = useState(null);
   const [search, setSearch] = useState("");
 
+  const defaultBranchSlug = branches[0]?.slug || "laxmi";
   const EMPTY_FORM = { id: "", name: "", password: "", confirmPassword: "", role: "office_admin", branch: "ALL" };
   const [form, setForm] = useState(EMPTY_FORM);
   const [editForm, setEditForm] = useState({});
@@ -1443,21 +1568,21 @@ function AdminsTab() {
   const [passErr, setPassErr] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
       const data = await apiService.getUsers();
       const formatted = data.map(u => ({
         ...u, id: u.id, username: u.username,
         name: `${u.first_name} ${u.last_name}`.trim() || u.username,
         role: u.role === "admin" ? "branch_admin" : u.role,
-        branch: ["superadmin","office_admin"].includes(u.role) ? "ALL" : (u.branch==="LNM" ? "laxmi" : (u.branch==="RYM" ? "raya" : "ALL")),
+        branch: ["superadmin","office_admin"].includes(u.role) ? "ALL" : (branches.find((branch) => branch.code === u.branch)?.slug || defaultBranchSlug),
         isActive: u.is_active, lastLogin: u.last_login,
       }));
       setUsers(formatted);
     } catch { setUsers([]); }
-  };
+  }, [branches, defaultBranchSlug]);
 
-  useEffect(() => { fetchUsers(); }, []);
+  useEffect(() => { fetchUsers(); }, [fetchUsers]);
 
   const filtered = users.filter(u => {
     const matchSearch = !search || u.name?.toLowerCase().includes(search.toLowerCase()) || u.username?.toLowerCase().includes(search.toLowerCase()) || u.role?.toLowerCase().includes(search.toLowerCase());
@@ -1473,14 +1598,14 @@ function AdminsTab() {
 
   const sf = k => e => { setForm(f => ({ ...f, [k]: e.target.value })); setPassErr(""); };
   const sef = k => e => setEditForm(f => ({ ...f, [k]: e.target.value }));
-  const handleRoleChange = val => setForm(f => ({ ...f, role: val, branch: val==="office_admin" ? "ALL" : (f.branch==="ALL" ? "laxmi" : f.branch) }));
+  const handleRoleChange = val => setForm(f => ({ ...f, role: val, branch: val==="office_admin" ? "ALL" : (f.branch==="ALL" ? defaultBranchSlug : f.branch) }));
 
   const handleCreate = async () => {
     if (!form.id||!form.name||!form.password) { toast.error("Fill all required fields"); return; }
     if (form.password !== form.confirmPassword) { setPassErr("Passwords do not match"); return; }
     const isOfficeAdmin = form.role === "office_admin";
     const backendRole = form.role === "branch_admin" ? "admin" : form.role;
-    const branchCode = isOfficeAdmin ? "ALL" : (form.branch==="laxmi" ? "LNM" : "RYM");
+    const branchCode = isOfficeAdmin ? "ALL" : (branches.find((branch) => branch.slug === form.branch)?.code || defaultBranchSlug.toUpperCase());
     const nameParts = form.name.split(" ");
     const payload = { username: form.id, first_name: nameParts[0], last_name: nameParts.length>1 ? nameParts.slice(1).join(" ") : ".", password: form.password, confirm_password: form.password, role: backendRole, branch: branchCode, email: `${form.id}@sangihospital.com` };
     try {
@@ -1495,7 +1620,7 @@ function AdminsTab() {
     }
   };
 
-  const openEdit = (u) => { setEditForm({ name: u.name||"", role: u.role||"branch_admin", branch: u.branch||"laxmi", newPass: "", confirmNewPass: "" }); setEditModal(u); };
+  const openEdit = (u) => { setEditForm({ name: u.name||"", role: u.role||"branch_admin", branch: u.branch||defaultBranchSlug, newPass: "", confirmNewPass: "" }); setEditModal(u); };
 
   const handleSaveEdit = async () => {
     if (!editForm.name) { toast.error("Name cannot be empty"); return; }
@@ -1503,7 +1628,7 @@ function AdminsTab() {
     setLoading(true);
     const nameParts = editForm.name.split(" ");
     const backendRole = editForm.role === "branch_admin" ? "admin" : editForm.role;
-    const branchCode = editForm.role === "office_admin" ? "ALL" : (editForm.branch==="laxmi" ? "LNM" : "RYM");
+    const branchCode = editForm.role === "office_admin" ? "ALL" : (branches.find((branch) => branch.slug === editForm.branch)?.code || defaultBranchSlug.toUpperCase());
     const payload = { first_name: nameParts[0], last_name: nameParts.length>1 ? nameParts.slice(1).join(" ") : ".", role: backendRole, branch: branchCode, ...(editForm.newPass ? { password: editForm.newPass, confirm_password: editForm.newPass } : {}) };
     try {
       await apiService.updateUser(editModal.id, payload);
@@ -1631,7 +1756,7 @@ function AdminsTab() {
               {form.role==="office_admin" ? (
                 <div style={{ padding:"9px 13px",borderRadius:8,border:`1px solid ${T.border}`,background:T.bg,color:T.dim,fontSize:13,display:"flex",gap:8 }}><Pill color={T.laxmi}>{ALL_HOSPITALS_LABEL}</Pill></div>
               ) : (
-                <select value={form.branch} onChange={sf("branch")} style={{ ...inputSt,cursor:"pointer" }}><option value="laxmi">Lakshmi Nagar</option><option value="raya">Raya</option></select>
+                <select value={form.branch} onChange={sf("branch")} style={{ ...inputSt,cursor:"pointer" }}>{branches.map((branch) => <option key={branch.slug} value={branch.slug}>{branch.name}</option>)}</select>
               )}
             </div>
             <div style={{ display:"flex",gap:8,justifyContent:"flex-end" }}>
@@ -1654,7 +1779,7 @@ function AdminsTab() {
             <div style={{ marginBottom:12 }}><label style={labelSt}>Full Name <span style={{ color:T.red }}>*</span></label><input type="text" value={editForm.name} onChange={sef("name")} style={inputSt}/></div>
             <div style={{ marginBottom:12 }}>
               <label style={labelSt}>Role</label>
-              <select value={editForm.role} onChange={e => setEditForm(f => ({ ...f,role:e.target.value,branch:e.target.value==="office_admin"?"ALL":(f.branch==="ALL"?"laxmi":f.branch) }))} style={{ ...inputSt,cursor:"pointer" }}>
+              <select value={editForm.role} onChange={e => setEditForm(f => ({ ...f,role:e.target.value,branch:e.target.value==="office_admin"?"ALL":(f.branch==="ALL"?defaultBranchSlug:f.branch) }))} style={{ ...inputSt,cursor:"pointer" }}>
                 <option value="office_admin">Office Admin (All Hospitals)</option>
                 <option value="branch_admin">Branch Admin (Single Branch)</option>
               </select>
@@ -1664,7 +1789,7 @@ function AdminsTab() {
               {editForm.role==="office_admin" ? (
                 <div style={{ padding:"9px 13px",borderRadius:8,border:`1px solid ${T.border}`,background:T.bg,display:"flex",gap:8 }}><Pill color={T.laxmi}>{ALL_HOSPITALS_LABEL}</Pill></div>
               ) : (
-                <select value={editForm.branch} onChange={sef("branch")} style={{ ...inputSt,cursor:"pointer" }}><option value="laxmi">Lakshmi Nagar</option><option value="raya">Raya</option></select>
+                <select value={editForm.branch} onChange={sef("branch")} style={{ ...inputSt,cursor:"pointer" }}>{branches.map((branch) => <option key={branch.slug} value={branch.slug}>{branch.name}</option>)}</select>
               )}
             </div>
             <div style={{ borderTop:`1px solid ${T.border}`,margin:"18px 0 14px",fontSize:11,color:T.dim,fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",paddingTop:14 }}>
@@ -1736,8 +1861,8 @@ function DepartmentsTab({ all }) {
     <div>
       <div style={{ display:"flex",gap:12,flexWrap:"wrap",marginBottom:20 }}>
         <StatCard icon={Building2} label="Total Departments" value={allDepts} color={T.laxmi} />
-        <StatCard icon={Hospital} label="Laxmi Nagar Depts" value={new Set(all.filter(p=>p._branch==="laxmi").map(p=>p.department)).size} color={T.laxmi} />
-        <StatCard icon={Hotel} label="Raya Depts" value={new Set(all.filter(p=>p._branch==="raya").map(p=>p.department)).size} color={T.raya} />
+        <StatCard icon={Hospital} label="Active Branches" value={BRANCH_REGISTRY.length} color={T.amber} />
+        <StatCard icon={Hotel} label="Mapped Records" value={all.length} color={T.raya} />
       </div>
       <div style={{ display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14 }}>
         {depts.map((d, i) => {
@@ -1818,10 +1943,7 @@ function TaskPerformanceTab() {
   });
 
   const overallAvg = filtered.length ? (filtered.reduce((s,e)=>s+e.rating,0)/filtered.length).toFixed(1) : "—";
-  const laxmiEntries = performances.filter(e=>e.branch==="laxmi");
-  const rayaEntries = performances.filter(e=>e.branch==="raya");
-  const laxmiAvg = laxmiEntries.length ? (laxmiEntries.reduce((s,e)=>s+e.rating,0)/laxmiEntries.length).toFixed(1) : "—";
-  const rayaAvg = rayaEntries.length ? (rayaEntries.reduce((s,e)=>s+e.rating,0)/rayaEntries.length).toFixed(1) : "—";
+  const branchReviewCount = new Set(performances.map((entry) => entry.branch).filter(Boolean)).size;
   const poorCount = performances.filter(e=>e.rating<=2).length;
 
   const PERF_COLS = [
@@ -1837,12 +1959,12 @@ function TaskPerformanceTab() {
     <div>
       <div style={{ display:"flex",gap:12,flexWrap:"wrap",marginBottom:18 }}>
         <StatCard icon={Star} label="Overall Avg Rating" value={overallAvg} sub={performances.length+" total reviews"} color={T.amber} />
-        <StatCard icon={Hospital} label="Laxmi Nagar Avg" value={laxmiAvg} sub="Branch average" color={T.laxmi} />
-        <StatCard icon={Hotel} label="Raya Avg" value={rayaAvg} sub="Branch average" color={T.raya} />
+        <StatCard icon={Hospital} label="Branches Reviewed" value={branchReviewCount} sub="Performance coverage" color={T.laxmi} />
+        <StatCard icon={Hotel} label="Departments Reviewed" value={new Set(performances.map((entry) => entry.department)).size} sub="Across all branches" color={T.raya} />
         <StatCard icon={AlertTriangle} label="Poor Ratings (≤2)" value={poorCount} sub="Needs attention" color={poorCount>0?T.red:T.green} />
       </div>
       <div style={{ display:"flex",gap:8,flexWrap:"wrap",alignItems:"center",marginBottom:14 }}>
-        <FilterSelect value={branchF} onChange={setBranchF} options={[["all","All Hospitals"],["laxmi","Lakshmi Nagar"],["raya","Raya"]]} />
+        <FilterSelect value={branchF} onChange={setBranchF} options={branchFilterOptions()} />
         <FilterSelect value={deptF} onChange={setDeptF} options={[["all","All Departments"],...DEPARTMENTS_PERF.map(d=>[d,d])]} />
         <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search staff, task, dept..." style={{ marginLeft:"auto",padding:"7px 13px",borderRadius:8,border:`1px solid ${T.border2}`,background:T.card,color:T.white,fontSize:13,outline:"none",width:210 }}/>
         <XlsBtn onClick={() => exportXLSX(filtered, PERF_COLS, "performance_ratings.xlsx")} />
@@ -1891,22 +2013,33 @@ function TaskPerformanceTab() {
 /* ══════════════════════════════════════════════════════════════
    MAIN EXPORT
 ══════════════════════════════════════════════════════════════ */
-export default function SuperAdminDashboard({ db = {}, onLogout }) {
+export default function SuperAdminDashboard({ db = {}, branches = [], onBranchesChanged, onLogout }) {
   const { isDark } = useTheme();
   // eslint-disable-next-line no-global-assign
   T = isDark ? T_DARK : T_LIGHT;
+  BRANCH_REGISTRY = branches.map((branch, index) => ({
+    ...branch,
+    color: branch.color || BRANCH_ACCENTS[index % BRANCH_ACCENTS.length],
+  }));
   const [tab, setTab] = useState("dashboard");
 
-  const all   = useMemo(() => flattenDB(db, "all"),   [db]);
-  const laxmi = useMemo(() => flattenDB(db, "laxmi"), [db]);
-  const raya  = useMemo(() => flattenDB(db, "raya"),  [db]);
+  const all = useMemo(() => flattenDB(db, "all"), [db]);
+  const branchRows = useMemo(
+    () => Object.fromEntries((branches || []).map((branch) => [branch.slug, flattenDB(db, branch.slug)])),
+    [branches, db]
+  );
+  const branchTabs = (branches || []).map((branch, index) => ({
+    id: branch.slug,
+    icon: index % 2 === 0 ? Hospital : Hotel,
+    label: branch.name,
+  }));
 
   const NAV = [
     { section:"Analytics" },
     { id:"dashboard",   icon:LayoutDashboard, label:"Dashboard" },
     { section:"Branches" },
-    { id:"laxmi",       icon:Hospital,        label:"Lakshmi Nagar" },
-    { id:"raya",        icon:Hotel,           label:"Raya" },
+    { id:"hospitalbranches", icon:Building2,  label:"Hospital Branches" },
+    ...branchTabs,
     { id:"allpatients", icon:Users,           label:"All Patients" },
     { section:"Finance" },
     { id:"billing",     icon:CreditCard,      label:"Billing and Invoices" },
@@ -1982,13 +2115,14 @@ export default function SuperAdminDashboard({ db = {}, onLogout }) {
           <div style={{ padding:"18px 28px 4px" }}>
             <div style={{ fontSize:12, color:T.dim }}>
               {new Date().toLocaleDateString("en-IN",{weekday:"long",year:"numeric",month:"long",day:"numeric"})}
-              {" · "}{all.length} total records · {laxmi.length} Laxmi Nagar · {raya.length} Raya
+              {" · "}{all.length} total records
+              {Object.entries(branchRows).map(([slug, rows]) => ` · ${rows.length} ${bName(slug)}`).join("")}
             </div>
           </div>
           <div style={{ padding:"16px 28px 28px" }}>
-            {tab==="dashboard"   && <DashboardTab all={all} laxmi={laxmi} raya={raya}/>}
-            {tab==="laxmi"       && <BranchTab pts={laxmi} branch="laxmi"/>}
-            {tab==="raya"        && <BranchTab pts={raya} branch="raya"/>}
+            {tab==="dashboard"   && <DashboardTab all={all} branchRows={branchRows}/>}
+            {tab==="hospitalbranches" && <HospitalBranchesTab branches={branches} onChanged={onBranchesChanged} />}
+            {branchTabs.some((branch) => branch.id === tab) && <BranchTab pts={branchRows[tab] || []} branch={tab}/>}
             {tab==="allpatients" && <AllPatientsTab all={all}/>}
             {tab==="billing"     && <BillingTab all={all}/>}
             {tab==="medical"     && <MedicalTab all={all}/>}
@@ -1996,7 +2130,7 @@ export default function SuperAdminDashboard({ db = {}, onLogout }) {
             {tab==="labreports"  && <LabReportsTab all={all}/>}
             {tab==="reports"     && <ReportsTab all={all}/>}
             {tab==="records"     && <UpdateRecordsPanel roleLabel="Super Admin"/>}
-            {tab==="admins"      && <AdminsTab/>}
+            {tab==="admins"      && <AdminsTab branches={branches}/>}
             {tab==="departments" && <DepartmentsTab all={all}/>}
             {tab==="performance" && <TaskPerformanceTab/>}
           </div>

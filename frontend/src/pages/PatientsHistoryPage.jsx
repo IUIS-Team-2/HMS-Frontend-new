@@ -1,12 +1,12 @@
 import { useState } from "react";
-import { T, LOCATIONS } from "../data/constants";
+import { T } from "../data/constants";
 import { fmtDT } from "../utils/helpers";
 import { Ico, IC } from "../components/ui/Icons";
 import { statusBadge } from "../components/ui/SharedUI";
 import { downloadAdmissionNote } from './MedicalHistoryPage';
 
-export default function PatientsHistoryPage({ db, locId, onBack, onDischarge, onGenerateBill, onViewPatient, onViewMedical }) {
-  const loc = LOCATIONS.find(l => l.id === locId);
+export default function PatientsHistoryPage({ db, locId, onBack, onDischarge, onGenerateBill, onViewPatient, onViewMedical, branch }) {
+  const loc = branch || { id: locId, name: "Hospital", color: "#0EA5E9" };
 
   const [filterDate,   setFilterDate]  = useState("");
   const [filterMonth,  setFilterMonth] = useState("");

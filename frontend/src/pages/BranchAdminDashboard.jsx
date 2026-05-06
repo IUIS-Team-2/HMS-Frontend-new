@@ -183,7 +183,9 @@ function buildPatientRecords(patient, admission) {
 }
 
 function mapBranchUsers(users = [], resolvedBranchKey = "laxmi") {
-  const branchCode = resolvedBranchKey === "raya" ? "RYM" : "LNM";
+  const branchCode = String(resolvedBranchKey || "").toUpperCase() === resolvedBranchKey
+    ? resolvedBranchKey
+    : (resolvedBranchKey === "raya" ? "RYM" : resolvedBranchKey === "laxmi" || resolvedBranchKey === "lakshmi" ? "LNM" : String(resolvedBranchKey || "").toUpperCase());
   return users
     .filter((user) => user.branch === branchCode)
     .map((user) => ({
@@ -376,7 +378,8 @@ export default function BranchAdminDashboard({
   branchName = "",
   adminName  = "Admin",
 }) {
-  const resolvedBranchKey  = locId || currentUser?.branch || branchId;
+  const resolvedBranchKey  = locId || String(currentUser?.branch || "").toLowerCase() || branchId;
+  const resolvedBranchCode = String(currentUser?.branchCode || "").toUpperCase() || (resolvedBranchKey === "raya" ? "RYM" : resolvedBranchKey === "laxmi" || resolvedBranchKey === "lakshmi" ? "LNM" : String(resolvedBranchKey || "").toUpperCase());
   const theme              = BRANCH_THEMES[resolvedBranchKey] || BRANCH_THEMES.default;
   const resolvedBranchName = branchName || theme.label;
   const resolvedAdminName  = currentUser?.name || adminName;
@@ -461,6 +464,14 @@ export default function BranchAdminDashboard({
     }
 
     const [firstName, ...rest] = empForm.name.trim().split(/\s+/);
+    const roleMap = {
+      Receptionist: "receptionist",
+      HOD: "hod",
+      OPD: "opd",
+      Intimation: "intimation",
+      Query: "query",
+      Uploading: "uploading",
+    };
 
     try {
       await apiService.createUser({
@@ -470,8 +481,8 @@ export default function BranchAdminDashboard({
         last_name: rest.join(" ") || ".",
         emp_id: empForm.employeeId || empForm.username,
         phone_number: empForm.phone,
-        role: "receptionist",
-        branch: resolvedBranchKey === "raya" ? "RYM" : "LNM",
+        role: roleMap[empForm.role] || "receptionist",
+        branch: resolvedBranchCode,
         password: empForm.password,
         confirm_password: empForm.confirmPassword,
       });

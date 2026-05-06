@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useEffect } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { apiService, BASE_URL } from "../services/apiService";
 import appIcon from '../assets/app_icon.png';
@@ -49,6 +50,14 @@ const primaryBtnStyle = (disabled) => ({
 });
 
 export default function LoginPage({ onLogin }) {
+  const [branches, setBranches] = useState(() => {
+    try {
+      const raw = sessionStorage.getItem("hms_branches");
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  });
   const [showPassword, setShowPassword] = useState(false);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -63,6 +72,24 @@ export default function LoginPage({ onLogin }) {
   const [forgotError, setForgotError] = useState('');
   const [forgotLoading, setForgotLoading] = useState(false);
 
+  useEffect(() => {
+    let ignore = false;
+    apiService.getHospitalBranches()
+      .then((rows) => {
+        if (ignore) return;
+        const normalized = (Array.isArray(rows) ? rows : []).map((row, index) => ({
+          id: row.id ?? row.branch ?? index,
+          code: String(row.branch || "").toUpperCase(),
+          slug: String(row.slug || row.branch || `branch-${index + 1}`).toLowerCase(),
+          name: row.branch_name || row.branch || `Branch ${index + 1}`,
+        }));
+        setBranches(normalized);
+        try { sessionStorage.setItem("hms_branches", JSON.stringify(normalized)); } catch {}
+      })
+      .catch(() => {});
+    return () => { ignore = true; };
+  }, []);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -74,27 +101,30 @@ export default function LoginPage({ onLogin }) {
       const payload = JSON.parse(atob(data.access.split('.')[1]));
 
       let frontendBranch = payload.branch;
-      if (frontendBranch === "LNM") frontendBranch = "laxmi";
-      if (frontendBranch === "RYM") frontendBranch = "raya";
+      if (frontendBranch && frontendBranch !== "ALL") {
+        frontendBranch = branches.find((branch) => branch.code === frontendBranch)?.slug || String(frontendBranch).toLowerCase();
+      }
       if (frontendBranch === "ALL") frontendBranch = "all";
 
       const isGlobalUser =
         payload.access_scope === "all_hospitals" ||
         frontendBranch === "all" ||
         ["superadmin", "office_admin"].includes(payload.role);
-      const userLocations = isGlobalUser ? ["laxmi", "raya"] : [frontendBranch];
+      const allBranchSlugs = branches.map((branch) => branch.slug);
+      const userLocations = isGlobalUser ? (allBranchSlugs.length ? allBranchSlugs : ["laxmi", "raya"]) : [frontendBranch];
 
       const loggedInUser = {
         id: payload.username,
         username: payload.username,
         name: payload.name,
         role: payload.role,
+        branchCode: payload.branch,
         branch: isGlobalUser ? null : frontendBranch,
         accessScope: isGlobalUser ? "all_hospitals" : "single_hospital",
         locations: userLocations,
       };
 
-      onLogin(loggedInUser, isGlobalUser ? "laxmi" : (frontendBranch || "laxmi"));
+      onLogin(loggedInUser, isGlobalUser ? (userLocations[0] || "laxmi") : (frontendBranch || userLocations[0] || "laxmi"));
     } catch (err) {
       setError(err.response?.data?.detail || "Invalid username or password");
     }
