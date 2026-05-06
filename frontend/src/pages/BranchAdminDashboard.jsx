@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { apiService } from "../services/apiService";
 import ThemeModeDock from "../components/ui/ThemeModeDock";
@@ -6,7 +5,6 @@ import {
   LayoutDashboard,
   Users,
   Wallet,
-  Landmark,
   FileText,
   BarChart3,
   UserRound,
@@ -19,10 +17,8 @@ const EMPTY_EMP_FORM = {
   username: "",
   email: "",
   phone: "",
-  role: "",
+  role: "Receptionist",
   employeeId: "",
-  designation: "",
-  departmentName: "",
   password: "",
   confirmPassword: "",
 };
@@ -63,15 +59,13 @@ const BRANCH_THEMES = {
   },
 };
 
-
 const NAV = [
-  { id: "overview",   label: "Overview",          icon: LayoutDashboard },
-  { id: "patients",   label: "All Patients",      icon: Users },
-  { id: "cash",       label: "Cash Patients",     icon: Wallet },
-  { id: "cashless",   label: "Cashless Patients", icon: Landmark },
-  { id: "records",    label: "Patient Records",   icon: FileText },
-  { id: "financials", label: "Financials",        icon: BarChart3 },
-  { id: "employees",  label: "Employees",         icon: UserRound },
+  { id: "overview",   label: "Overview",        icon: LayoutDashboard },
+  { id: "patients",   label: "All Patients",    icon: Users },
+  { id: "cash",       label: "Cash Patients",   icon: Wallet },
+  { id: "records",    label: "Patient Records", icon: FileText },
+  { id: "financials", label: "Financials",      icon: BarChart3 },
+  { id: "employees",  label: "Employees",       icon: UserRound },
 ];
 
 const RECORD_TYPES = [
@@ -265,7 +259,6 @@ function buildOverviewData(patientRows = [], employees = []) {
 
 function buildFinancialData(patientRows = []) {
   const cashRows = patientRows.filter((row) => row.paymentMode === "cash");
-  const cashlessRows = patientRows.filter((row) => row.paymentMode === "cashless");
   const cashTxns = cashRows.map((row) => ({
     patientId: row.id,
     patientName: row.name,
@@ -275,30 +268,16 @@ function buildFinancialData(patientRows = []) {
     receivedBy: "Billing Desk",
     status: admissionDue(row.admObj) > 0 ? "pending" : "paid",
   }));
-  const cashlessTxns = cashlessRows.map((row) => ({
-    patientId: row.id,
-    patientName: row.name,
-    date: row.admissionDate,
-    amount: admissionGross(row.admObj),
-    paymentType: row.paymentType || "Cashless",
-    authCode: row.patientObj?.tpaPanelCardNo || row.patientObj?.tpaCard || "—",
-    insurerOrBank: row.patientObj?.tpa || row.patientObj?.cashlessType || "—",
-    status: admissionDue(row.admObj) > 0 ? "pending" : "paid",
-  }));
 
   return {
     cashTotal: cashTxns.reduce((sum, row) => sum + row.amount, 0),
-    cashlessTotal: cashlessTxns.reduce((sum, row) => sum + row.amount, 0),
-    tpaTotal: cashlessTxns.filter((row) => String(row.paymentType).toUpperCase() === "TPA").reduce((sum, row) => sum + row.amount, 0),
-    cardTotal: cashlessTxns.filter((row) => String(row.paymentType).toUpperCase() === "CARD").reduce((sum, row) => sum + row.amount, 0),
-    grandTotal: [...cashTxns, ...cashlessTxns].reduce((sum, row) => sum + row.amount, 0),
-    collectedToday: [...cashTxns, ...cashlessTxns]
+    grandTotal: cashTxns.reduce((sum, row) => sum + row.amount, 0),
+    collectedToday: cashTxns
       .filter((row) => row.date === new Date().toISOString().slice(0, 10))
       .reduce((sum, row) => sum + row.amount, 0),
     pendingDues: patientRows.reduce((sum, row) => sum + admissionDue(row.admObj), 0),
-    txnCount: cashTxns.length + cashlessTxns.length,
+    txnCount: cashTxns.length,
     cashTxns,
-    cashlessTxns,
   };
 }
 
@@ -407,12 +386,11 @@ export default function BranchAdminDashboard({
   const [fromDate, setFromDate] = useState("");
   const [toDate,   setToDate]   = useState("");
 
-  const [overview,     setOverview]     = useState(null);
-  const [patients,     setPatients]     = useState([]);
-  const [cashPats,     setCashPats]     = useState([]);
-  const [cashlessPats, setCashlessPats] = useState([]);
-  const [financials,   setFinancials]   = useState(null);
-  const [employees,    setEmployees]    = useState([]);
+  const [overview,   setOverview]   = useState(null);
+  const [patients,   setPatients]   = useState([]);
+  const [cashPats,   setCashPats]   = useState([]);
+  const [financials, setFinancials] = useState(null);
+  const [employees,  setEmployees]  = useState([]);
 
   const [selPatient, setSelPatient] = useState(null);
   const [recTab,     setRecTab]     = useState("discharge_summary");
@@ -421,11 +399,11 @@ export default function BranchAdminDashboard({
   const [search,    setSearch]    = useState("");
   const [statusFil, setStatusFil] = useState("all");
 
-  const [empForm, setEmpForm] = useState(EMPTY_EMP_FORM);
+  const [empForm,  setEmpForm]  = useState(EMPTY_EMP_FORM);
   const [empError, setEmpError] = useState("");
-  const [modal,   setModal]   = useState(null);
+  const [modal,    setModal]    = useState(null);
 
-  // ─── Load mock data ───────────────────────────────────────────────────────
+  // ─── Load data ────────────────────────────────────────────────────────────
   useEffect(() => {
     let active = true;
     const loadLiveData = async () => {
@@ -439,7 +417,6 @@ export default function BranchAdminDashboard({
 
       setPatients(mappedPatients);
       setCashPats(mappedPatients.filter(p => p.paymentMode === "cash"));
-      setCashlessPats(mappedPatients.filter(p => p.paymentMode === "cashless"));
       setFinancials(buildFinancialData(mappedPatients));
 
       try {
@@ -472,11 +449,11 @@ export default function BranchAdminDashboard({
     return matchSearch && matchStatus;
   });
 
-  // ─── Mutations (frontend-only) ────────────────────────────────────────────
+  // ─── Mutations ────────────────────────────────────────────────────────────
   async function addEmployee(e) {
     e.preventDefault();
     setEmpError("");
-    if (!empForm.name || !empForm.username || !empForm.role || !empForm.password) {
+    if (!empForm.name || !empForm.username || !empForm.password) {
       setEmpError("Fill all required fields."); return;
     }
     if (empForm.password !== empForm.confirmPassword) {
@@ -484,15 +461,6 @@ export default function BranchAdminDashboard({
     }
 
     const [firstName, ...rest] = empForm.name.trim().split(/\s+/);
-    const roleMap = {
-      
-      Receptionist: "receptionist",
-      HOD: "hod",
-      OPD: "opd",
-      Intimation: "intimation",
-      Query: "query",
-      Uploading: "uploading",
-    };
 
     try {
       await apiService.createUser({
@@ -502,7 +470,7 @@ export default function BranchAdminDashboard({
         last_name: rest.join(" ") || ".",
         emp_id: empForm.employeeId || empForm.username,
         phone_number: empForm.phone,
-        role: roleMap[empForm.role] || "receptionist",
+        role: "receptionist",
         branch: resolvedBranchKey === "raya" ? "RYM" : "LNM",
         password: empForm.password,
         confirm_password: empForm.confirmPassword,
@@ -518,10 +486,12 @@ export default function BranchAdminDashboard({
       setEmpError(data.username?.[0] || data.emp_id?.[0] || data.password?.[0] || "Failed to create employee.");
     }
   }
+
   function updateEmpField(field, value) {
     setEmpForm((currentForm) => ({ ...currentForm, [field]: value }));
     if (empError) setEmpError("");
   }
+
   async function deleteEmp(id) {
     if (!window.confirm("Remove this employee?")) return;
     try {
@@ -712,30 +682,18 @@ export default function BranchAdminDashboard({
   function FinancialsView() {
     return (
       <>
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:"14px", marginBottom:"14px" }}>
-          {[
-            ["Cash Total",     "cashTotal",     T.success, "₹"],
-            ["Cashless Total", "cashlessTotal", T.purple,  "₹"],
-            ["TPA Total",      "tpaTotal",      T.blue,    "₹"],
-            ["Card Total",     "cardTotal",     T.warning, "₹"],
-          ].map(([l,k,c,p]) => <StatCard key={k} label={l} value={financials?.[k]} color={c} prefix={p} />)}
-        </div>
         <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:"14px", marginBottom:"24px" }}>
           {[
+            ["Cash Total",      "cashTotal",      T.success,     "₹"],
             ["Grand Total",     "grandTotal",     theme.primary, "₹"],
-            ["Collected Today", "collectedToday", T.success,     "₹"],
+            ["Collected Today", "collectedToday", T.blue,        "₹"],
             ["Pending Dues",    "pendingDues",    T.danger,      "₹"],
-            ["Transactions",    "txnCount",       T.blue        ],
           ].map(([l,k,c,p]) => <StatCard key={k} label={l} value={financials?.[k]} color={c} prefix={p||""} />)}
         </div>
 
         <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:"16px" }}>
           <button style={mkBtn("excel", theme)} onClick={() => {
-            const rows = [
-              ...(financials?.cashTxns||[]).map(r=>({...r, __mode:"CASH"})),
-              ...(financials?.cashlessTxns||[]).map(r=>({...r, __mode:"CASHLESS"})),
-            ];
-            exportExcel(rows, `financials_${resolvedBranchKey}_${range}`);
+            exportExcel(financials?.cashTxns || [], `financials_${resolvedBranchKey}_${range}`);
           }}>↓ Export Excel</button>
         </div>
 
@@ -759,28 +717,6 @@ export default function BranchAdminDashboard({
             </tbody>
           </table>
         </TableShell>
-
-        <TableShell title="Cashless Transactions — TPA / Card" count={financials?.cashlessTxns?.length}>
-          <table style={{ width:"100%", borderCollapse:"collapse", fontSize:"12px" }}>
-            <thead><tr>{["Patient ID","Name","Date","Amount","Mode","Auth Code","Insurer / Bank","Status"].map(h=><Th key={h}>{h}</Th>)}</tr></thead>
-            <tbody>
-              {!(financials?.cashlessTxns?.length)
-                ? <EmptyRow cols={8} msg="NO CASHLESS TRANSACTIONS" />
-                : financials.cashlessTxns.map((r,i) => (
-                  <tr key={i}>
-                    <Td><span style={{color:T.textMuted,fontSize:"10px"}}>#{r.patientId}</span></Td>
-                    <Td primary>{r.patientName}</Td>
-                    <Td>{r.date}</Td>
-                    <Td hi={T.purple} style={{fontWeight:"700"}}>₹{r.amount?.toLocaleString()}</Td>
-                    <Td><span style={mkBadge(r.paymentType)}>{r.paymentType}</span></Td>
-                    <Td>{r.authCode||"—"}</Td>
-                    <Td>{r.insurerOrBank||"—"}</Td>
-                    <Td><span style={mkBadge(r.status)}>{r.status}</span></Td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
-        </TableShell>
       </>
     );
   }
@@ -791,7 +727,7 @@ export default function BranchAdminDashboard({
         <div style={{ fontSize:"40px", marginBottom:"16px", color:T.textMuted }}>◈</div>
         <div style={{ fontSize:"11px", letterSpacing:"3px", color:T.textMuted, marginBottom:"12px" }}>NO PATIENT SELECTED</div>
         <p style={{ color:T.textSub, fontSize:"13px", maxWidth:"360px", margin:"0 auto 24px" }}>
-          Open All Patients, Cash Patients, or Cashless Patients and click "View" on any row.
+          Open All Patients or Cash Patients and click "View" on any row.
         </p>
         <button style={mkBtn("dim", theme)} onClick={() => setNav("patients")}>→ Go to Patients</button>
       </div>
@@ -868,7 +804,7 @@ export default function BranchAdminDashboard({
     return (
       <>
         <div style={{ display:"flex", justifyContent:"flex-end", gap:"10px", marginBottom:"20px" }}>
-          <button style={mkBtn("excel", theme)} onClick={() => exportExcel(employees.map(e=>({ "Emp ID":e.employeeId, Name:e.name, Email:e.email, Phone:e.phone, Role:e.role, Designation:e.designation, Department:e.departmentName, Joined:e.joinedDate, Branch:resolvedBranchName })), `employees_${resolvedBranchKey}`)}>↓ Excel</button>
+          <button style={mkBtn("excel", theme)} onClick={() => exportExcel(employees.map(e=>({ "Emp ID":e.employeeId, Name:e.name, Email:e.email, Phone:e.phone, Role:e.role, Joined:e.joinedDate, Branch:resolvedBranchName })), `employees_${resolvedBranchKey}`)}>↓ Excel</button>
           <button style={mkBtn("primary", theme)} onClick={() => setModal("emp")}>+ Add Employee</button>
         </div>
 
@@ -881,15 +817,14 @@ export default function BranchAdminDashboard({
 
         <TableShell title="Employees" count={employees.length}>
           <table style={{ width:"100%", borderCollapse:"collapse", fontSize:"12px" }}>
-            <thead><tr>{["Emp ID","Name","Designation","Email","Phone","Role","Department","Joined","Action"].map(h=><Th key={h}>{h}</Th>)}</tr></thead>
+            <thead><tr>{["Emp ID","Name","Email","Phone","Role","Joined","Action"].map(h=><Th key={h}>{h}</Th>)}</tr></thead>
             <tbody>
               {!employees.length
-                ? <EmptyRow cols={9} msg="NO EMPLOYEES" />
+                ? <EmptyRow cols={7} msg="NO EMPLOYEES" />
                 : employees.map(emp => (
                   <tr key={emp.id}>
                     <Td><span style={{color:T.textMuted,fontSize:"10px"}}>{emp.employeeId}</span></Td>
                     <Td primary>{emp.name}</Td>
-                    <Td>{emp.designation||"—"}</Td>
                     <Td>{emp.email}</Td>
                     <Td>{emp.phone}</Td>
                     <Td>
@@ -897,7 +832,6 @@ export default function BranchAdminDashboard({
                         {emp.role}
                       </span>
                     </Td>
-                    <Td>{emp.departmentName}</Td>
                     <Td>{emp.joinedDate}</Td>
                     <Td><button style={{ ...mkBtn("danger",theme), padding:"4px 12px", fontSize:"10px" }} onClick={()=>deleteEmp(emp.id)}>Remove</button></Td>
                   </tr>
@@ -910,7 +844,6 @@ export default function BranchAdminDashboard({
   }
 
   const fi = { ...mkInput(), width:"100%" };
-  const fs = { ...mkInput(), width:"100%", cursor:"pointer" };
 
   // ─── Render ───────────────────────────────────────────────────────────────
   return (
@@ -1001,9 +934,8 @@ export default function BranchAdminDashboard({
         {/* Page content */}
         <div style={{ flex:1, minWidth:0, minHeight:0, overflowY:"auto", overscrollBehavior:"contain", padding:"26px 28px" }}>
           {nav==="overview"   && <OverviewView />}
-          {nav==="patients"   && <PatientListView data={patients}     exportFile={`all_patients_${resolvedBranchKey}_${range}`}      title="All Patients" />}
-          {nav==="cash"       && <PatientListView data={cashPats}     exportFile={`cash_patients_${resolvedBranchKey}_${range}`}     title="Cash Patients" />}
-          {nav==="cashless"   && <PatientListView data={cashlessPats} exportFile={`cashless_patients_${resolvedBranchKey}_${range}`} title="Cashless Patients — TPA / Card" />}
+          {nav==="patients"   && <PatientListView data={patients}  exportFile={`all_patients_${resolvedBranchKey}_${range}`}  title="All Patients" />}
+          {nav==="cash"       && <PatientListView data={cashPats}  exportFile={`cash_patients_${resolvedBranchKey}_${range}`} title="Cash Patients" />}
           {nav==="records"    && <RecordsView />}
           {nav==="financials" && <FinancialsView />}
           {nav==="employees"  && <EmployeesView />}
@@ -1017,14 +949,14 @@ export default function BranchAdminDashboard({
           onClick={() => setModal(null)}
         >
           <div
-            style={{ background:T.surface, border:`1px solid ${T.borderLight}`, borderRadius:"18px", padding:"32px", width:"560px", maxHeight:"88vh", overflowY:"auto", boxShadow:`0 30px 80px rgba(0,0,0,0.55), 0 0 0 1px ${theme.primary}24` }}
+            style={{ background:T.surface, border:`1px solid ${T.borderLight}`, borderRadius:"18px", padding:"32px", width:"520px", maxHeight:"88vh", overflowY:"auto", boxShadow:`0 30px 80px rgba(0,0,0,0.55), 0 0 0 1px ${theme.primary}24` }}
             onClick={e => e.stopPropagation()}
           >
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:"24px" }}>
               <div>
                 <div style={{ fontSize:"11px", letterSpacing:"0.18em", color:theme.primary, textTransform:"uppercase", marginBottom:"6px", fontWeight:"700" }}>{resolvedBranchName}</div>
                 <div style={{ fontSize:"28px", fontWeight:"800", color:T.text, lineHeight:1.1 }}>Add Employee</div>
-                <div style={{ fontSize:"13px", color:T.textSub, marginTop:"6px" }}>Create a staff account for this branch with the same form behavior and styling used across the admin dashboards.</div>
+                <div style={{ fontSize:"13px", color:T.textSub, marginTop:"6px" }}>Create a receptionist account for this branch.</div>
               </div>
               <button type="button" style={{ ...mkBtn("ghost",theme), padding:"8px 11px" }} onClick={() => setModal(null)}>✕</button>
             </div>
@@ -1053,14 +985,10 @@ export default function BranchAdminDashboard({
                 </div>
                 <div>
                   <label style={{ display:"block", fontSize:"12px", fontWeight:"700", color:T.textSub, marginBottom:"7px" }}>Role</label>
-                  <select style={fs} value={empForm.role} onChange={e => updateEmpField("role", e.target.value)} required>
-                    <option value="">Select role</option>
-                    {["Billing","Receptionist","HOD","OPD","Intimation","Query","Uploading"].map(r => <option key={r} value={r}>{r}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label style={{ display:"block", fontSize:"12px", fontWeight:"700", color:T.textSub, marginBottom:"7px" }}>Designation</label>
-                  <input style={fi} value={empForm.designation} onChange={e => updateEmpField("designation", e.target.value)} placeholder="Senior Consultant" />
+                  <div style={{ ...fi, display:"flex", alignItems:"center", gap:"8px", cursor:"default", userSelect:"none" }}>
+                    <span style={{ width:"8px", height:"8px", borderRadius:"50%", background:theme.primary, flexShrink:0 }} />
+                    <span style={{ color:T.text, fontWeight:"600" }}>Receptionist</span>
+                  </div>
                 </div>
                 <div>
                   <label style={{ display:"block", fontSize:"12px", fontWeight:"700", color:T.textSub, marginBottom:"7px" }}>Password</label>
@@ -1070,11 +998,6 @@ export default function BranchAdminDashboard({
                   <label style={{ display:"block", fontSize:"12px", fontWeight:"700", color:T.textSub, marginBottom:"7px" }}>Confirm Password</label>
                   <input type="password" style={fi} value={empForm.confirmPassword} onChange={e => updateEmpField("confirmPassword", e.target.value)} placeholder="Repeat the password" required />
                 </div>
-              </div>
-
-              <div style={{ marginTop:"16px" }}>
-                <label style={{ display:"block", fontSize:"12px", fontWeight:"700", color:T.textSub, marginBottom:"7px" }}>Department Name</label>
-                <input style={fi} value={empForm.departmentName} onChange={e => updateEmpField("departmentName", e.target.value)} placeholder="Cardiology, ICU" required />
               </div>
 
               {empError && <div style={{ color:T.danger, fontSize:"12px", marginTop:"12px" }}>{empError}</div>}
