@@ -135,6 +135,43 @@ async function apiFetch(path, options = {}) {
   return res.json();
 }
 
+/** Backend `EmployeeTaskUpdateAPIView` only allows PATCH (POST → 405 Method Not Allowed). */
+async function patchTaskUpdateStatus(taskId, body) {
+  return apiFetch(`/tasks/${taskId}/update-status/`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
+const UI_STATUS_TO_BACKEND = {
+  pending: "Pending",
+  "in-progress": "In Progress",
+  completed: "Completed",
+  overdue: "Overdue",
+  submitted: "Completed",
+  "on-hold": "On Hold",
+};
+
+function backendStatusFromUi(uiStatus) {
+  const key = String(uiStatus || "").toLowerCase();
+  return UI_STATUS_TO_BACKEND[key] || uiStatus;
+}
+
+function hodTaskRowStatus(t) {
+  const s = t?.status;
+  return typeof s === "string" ? s.toLowerCase() : "";
+}
+
+function isHodTaskCompleted(t) {
+  const s = hodTaskRowStatus(t);
+  return s === "completed";
+}
+
+/** Works for HOD list (lowercase) and `/tasks/my-tasks/` (e.g. `Completed`). */
+function isTaskRowCompleted(t) {
+  return String(t?.status || "").toLowerCase() === "completed";
+}
+
 // ─── PathologyReportCard ──────────────────────────────────────────────────────
 function PathologyReportCard({ rep, ri, patientName, updRep, updTest, addTest, delTest, onRemove }) {
   return (
@@ -325,7 +362,7 @@ function MedicineHistoryPicker({ eMed, onAdd }) {
       <div style={{ maxHeight:260, overflowY:"auto", padding:"12px 16px", display:"flex", flexDirection:"column", gap:10 }}>
         {histFiltered.length > 0 && (
           <div>
-            <div style={{ fontSize:10, fontWeight:700, color:"#10b981", textTransform:"uppercase", letterSpacing:".08em", marginBottom:7 }}>⭐ From This Patient's Medical History</div>
+            <div style={{ fontSize:10, fontWeight:700, color:"#10b981", textTransform:"uppercase", letterSpacing:".08em", marginBottom:7 }}>⭐ From This Patient{"\u2019"}s Medical History</div>
             <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
               {histFiltered.map(med => (
                 <button key={med} onClick={() => onAdd(med)} style={{ background:"rgba(16,185,129,0.12)", border:"1.5px solid rgba(16,185,129,0.4)", borderRadius:20, padding:"5px 12px", fontSize:12, color:"#059669", fontWeight:600, cursor:"pointer", fontFamily:"inherit" }}>+ {med}</button>
@@ -568,7 +605,7 @@ export default function HodDashboard({ currentUser, onLogout }) {
   const [activeDept,  setActiveDept]  = useState("Billing");
   const [collapsed,   setCollapsed]   = useState(false);
   const [loading,     setLoading]     = useState(false);
-  const [error,       setError]       = useState(null);
+  const [,           setError]       = useState(null);
   const [toasts,      setToasts]      = useState([]);
 
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -649,7 +686,7 @@ export default function HodDashboard({ currentUser, onLogout }) {
   const loadAllPatients = useCallback(async () => {
     const data = await request("/patients/");
     if (data) setAllPatients(Array.isArray(data) ? data : data.results || data.patients || []);
-  }, [request, currentUser]);
+  }, [request]);
 
   const loadEmployees = useCallback(async (dept = null) => {
     const q = dept ? `?department=${encodeURIComponent(dept)}` : "";
@@ -727,7 +764,12 @@ export default function HodDashboard({ currentUser, onLogout }) {
   }, [activeView, activeDept, filterRange]); // eslint-disable-line
 
   // ── Derived ────────────────────────────────────────────────────────────────
-  const assignedUhids = new Set(tasks.flatMap(t => t.patient_uhids || (t.patient_uhid ? [t.patient_uhid] : [])));
+  const assignedUhids = new Set(
+    tasks.flatMap((t) => {
+      if (t.patientId) return [t.patientId];
+      return t.patient_uhids || (t.patient_uhid ? [t.patient_uhid] : []);
+    })
+  );
   const unassignedPatients = allPatients.filter(p => !assignedUhids.has(p.uhid));
 
   const filteredPatientSearch = allPatients.filter(p =>
@@ -739,7 +781,7 @@ export default function HodDashboard({ currentUser, onLogout }) {
   const pendingCount   = tasks.filter(t => t.status === "pending").length;
   const overdueCount   = tasks.filter(t => t.status === "overdue").length;
   const completedCount = tasks.filter(t => t.status === "completed").length;
-  const submittedCount = tasks.filter(t => t.status === "submitted").length;
+  const submittedCount = tasks.filter((t) => isTaskRowCompleted(t)).length;
 
   const deptColor = DEPT_META[activeDept]?.color || "#10b981";
 
@@ -846,7 +888,7 @@ export default function HodDashboard({ currentUser, onLogout }) {
       const nextSaved = { ...myESaved, [sectionKey]: true };
       setMyESaved(nextSaved);
       toast(`${label} saved ✓`);
-    } catch (err) {
+    } catch (_err) {
       toast(`Failed to save ${label}`, "e");
     }
   };
@@ -857,7 +899,11 @@ export default function HodDashboard({ currentUser, onLogout }) {
     try {
       const existingTask = hodOwnTasks.find(t => t.patient_uhid === myWorkSel.uhid);
       if (existingTask) {
-        await apiFetch(`/tasks/${existingTask.id}/update-status/`, { method:"POST", body:JSON.stringify({ status:"submitted", note: submitNote }) });
+        await patchTaskUpdateStatus(existingTask.id, {
+          status: "Completed",
+          remarks: submitNote,
+          notes: submitNote,
+        });
       } else {
         await apiFetch("/hod/tasks/", {
           method:"POST",
@@ -866,7 +912,8 @@ export default function HodDashboard({ currentUser, onLogout }) {
             employeeId: currentUser?.id,
             patientId: myWorkSel.uhid,
             taskType: `HOD Work — ${myWorkSel.patientName || myWorkSel.name}`,
-            status: "submitted",
+            status: "completed",
+            priority: "medium",
             notes: submitNote,
           }),
         });
@@ -875,7 +922,7 @@ export default function HodDashboard({ currentUser, onLogout }) {
       setMyShowConfirm(false);
       setMyWorkView("list");
       loadHodOwnTasks();
-    } catch (err) {
+    } catch (_err) {
       toast("Failed to submit", "e");
     }
   };
@@ -900,9 +947,22 @@ export default function HodDashboard({ currentUser, onLogout }) {
   };
   const submitReview = async () => {
     if (!reviewTarget) return;
+    const employeeId =
+      reviewForm.employeeId ||
+      reviewTarget.employee?.id ||
+      reviewTarget.task?.employeeId ||
+      reviewTarget.task?.assigned_to;
     const data = await request("/hod/reviews/", {
       method: "POST",
-      body: JSON.stringify({ ...reviewForm, department:activeDept, employee_id:reviewForm.employeeId||reviewTarget.employee?.id||reviewTarget.task?.assigned_to, task_id:reviewTarget.task?.id, performance_score:reviewForm.score }),
+      body: JSON.stringify({
+        department: activeDept,
+        employeeId,
+        rating: reviewForm.rating,
+        comments: reviewForm.comments,
+        period: reviewForm.period,
+        performanceScore: reviewForm.score,
+        taskName: reviewTarget.task?.taskType || reviewTarget.task?.title || "Department Performance",
+      }),
     });
     if (data) { toast("Review submitted ✓"); setShowReviewModal(false); loadReviews(); }
   };
@@ -910,21 +970,49 @@ export default function HodDashboard({ currentUser, onLogout }) {
   const openSubmitToAdmin = target => { setSubmitTarget(target); setSubmitNote(""); setShowSubmitModal(true); };
   const confirmSubmitToAdmin = async () => {
     if (!submitTarget) return;
-    const data = await request(`/tasks/${submitTarget.id}/update-status/`, { method:"POST", body:JSON.stringify({ status:"submitted", note:submitNote }) });
-    if (data) { toast("Submitted to Admin Management ✓"); setShowSubmitModal(false); setSubmitTarget(null); loadTasks(); loadHodOwnTasks(); }
+    try {
+      await patchTaskUpdateStatus(submitTarget.id, {
+        status: "Completed",
+        remarks: submitNote,
+        notes: submitNote,
+      });
+      toast("Submitted to Admin Management ✓");
+      setShowSubmitModal(false);
+      setSubmitTarget(null);
+      loadTasks();
+      loadHodOwnTasks();
+    } catch {
+      toast("Failed to submit", "e");
+    }
   };
-  const updateTaskStatus = async (id, status) => {
-    const data = await request(`/tasks/${id}/update-status/`, { method:"POST", body:JSON.stringify({ status }) });
-    if (data) { toast(`Status → ${status}`); loadTasks(); }
+  const updateTaskStatus = async (id, uiStatus) => {
+    try {
+      await patchTaskUpdateStatus(id, {
+        status: backendStatusFromUi(uiStatus),
+      });
+      toast(`Status → ${uiStatus}`);
+      loadTasks();
+      loadHodOwnTasks();
+    } catch {
+      toast("Could not update task status", "e");
+    }
   };
 
   // ── Render helpers ─────────────────────────────────────────────────────────
   const StatusBadge = ({ status }) => {
-    const m = STATUS_META[status] || STATUS_META.pending;
+    const key = String(status ?? "")
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, "-")
+      .replace(/^in-progress$/, "in-progress");
+    const metaKey = key === "inprogress" ? "in-progress" : key;
+    const m = STATUS_META[metaKey] || STATUS_META.pending;
     return <span className="hod-badge" style={{ background:m.bg, color:m.text, borderColor:m.border }}>{m.label}</span>;
   };
   const PriorityBadge = ({ priority }) => {
-    const m = PRIORITY_META[priority] || PRIORITY_META.Medium;
+    const raw = String(priority ?? "Medium").trim();
+    const priKey = raw.length ? raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase() : "Medium";
+    const m = PRIORITY_META[priKey] || PRIORITY_META.Medium;
     return <span className="hod-badge" style={{ background:m.bg, color:m.color, borderColor:m.color+"40" }}>{priority}</span>;
   };
 
@@ -1317,7 +1405,7 @@ export default function HodDashboard({ currentUser, onLogout }) {
                     <td style={{ fontSize:11 }}>{fmtDt(t.due_date)}</td>
                     <td>
                       <div style={{ display:"flex", gap:6 }}>
-                        {t.status !== "submitted" && (
+                        {!isTaskRowCompleted(t) && (
                           <>
                             <button className="hod-btn hod-btn-ghost" style={{ padding:"4px 10px", fontSize:"10px" }}
                               onClick={() => openMyWork({ uhid:t.patient_uhid, patientName:t.patient_name, id:t.patient, admNo:t.admNo||"", doa:"", ward:"", ...( t.extra_data||{}) })}>
@@ -1329,7 +1417,7 @@ export default function HodDashboard({ currentUser, onLogout }) {
                             </button>
                           </>
                         )}
-                        {t.status === "submitted" && <span style={{ fontSize:11, color:"#6366f1", fontWeight:600 }}>✓ Submitted</span>}
+                        {isTaskRowCompleted(t) && <span style={{ fontSize:11, color:"#6366f1", fontWeight:600 }}>✓ Submitted</span>}
                       </div>
                     </td>
                   </tr>
@@ -1676,9 +1764,10 @@ export default function HodDashboard({ currentUser, onLogout }) {
   // ── View: Department Tasks
   // ─────────────────────────────────────────────────────────────────────────
   const renderDeptTasks = () => {
-    const filtered = tasks.filter(t => {
-      if (filterStatus   && t.status !== filterStatus) return false;
-      if (filterEmployee && String(t.assigned_to) !== filterEmployee) return false;
+    const filtered = tasks.filter((t) => {
+      if (filterStatus && hodTaskRowStatus(t) !== String(filterStatus).toLowerCase()) return false;
+      const empId = t.employeeId ?? t.assigned_to;
+      if (filterEmployee && String(empId) !== filterEmployee) return false;
       return true;
     });
     return (
@@ -1701,10 +1790,10 @@ export default function HodDashboard({ currentUser, onLogout }) {
         </div>
         <div className="hod-stat-grid" style={{ marginBottom:18 }}>
           {[
-            { label:"Total",     val:tasks.filter(t=>t.department===activeDept).length,                         col:deptColor },
-            { label:"Pending",   val:tasks.filter(t=>t.department===activeDept&&t.status==="pending").length,   col:"#f59e0b" },
-            { label:"Completed", val:tasks.filter(t=>t.department===activeDept&&t.status==="completed").length, col:"#10b981" },
-            { label:"Overdue",   val:tasks.filter(t=>t.department===activeDept&&t.status==="overdue").length,   col:"#ef4444" },
+            { label:"Total",     val:tasks.filter(t=>t.department===activeDept).length, col:deptColor },
+            { label:"Pending",   val:tasks.filter(t=>t.department===activeDept && hodTaskRowStatus(t)==="pending").length,   col:"#f59e0b" },
+            { label:"Completed", val:tasks.filter(t=>t.department===activeDept && hodTaskRowStatus(t)==="completed").length, col:"#10b981" },
+            { label:"Overdue",   val:tasks.filter(t=>t.department===activeDept && hodTaskRowStatus(t)==="overdue").length,   col:"#ef4444" },
           ].map((s,i) => (
             <div key={i} className="hod-stat-card">
               <div style={{ fontSize:24, fontWeight:800, color:s.col }}>{s.val}</div>
@@ -1721,29 +1810,33 @@ export default function HodDashboard({ currentUser, onLogout }) {
                 : filtered.map(task => (
                   <tr key={task.id}>
                     <td>
-                      <div style={{ fontWeight:600, color:"var(--text)", fontSize:12 }}>{task.title}</div>
-                      {task.notes && <div style={{ fontSize:10, color:"var(--text-muted)", marginTop:2 }}>{task.notes.slice(0,50)}{task.notes.length>50?"…":""}</div>}
+                      <div style={{ fontWeight:600, color:"var(--text)", fontSize:12 }}>{task.taskType || task.title}</div>
+                      {task.notes && <div style={{ fontSize:10, color:"var(--text-muted)", marginTop:2 }}>{String(task.notes).slice(0,50)}{String(task.notes).length>50?"…":""}</div>}
                     </td>
                     <td>
-                      {(task.patient_uhids||(task.patient_uhid?[task.patient_uhid]:[])).map((u,i) => (
-                        <div key={i} style={{ fontSize:10, color:"#06b6d4", fontFamily:"monospace" }}>{(task.patient_names||[])[i]||u}</div>
-                      ))}
+                      {task.patientId ? (
+                        <div style={{ fontSize:10, color:"#06b6d4", fontFamily:"monospace" }}>{task.patientId}</div>
+                      ) : (
+                        (task.patient_uhids||(task.patient_uhid?[task.patient_uhid]:[])).map((u,i) => (
+                          <div key={i} style={{ fontSize:10, color:"#06b6d4", fontFamily:"monospace" }}>{(task.patient_names||[])[i]||u}</div>
+                        ))
+                      )}
                     </td>
-                    <td style={{ fontWeight:600 }}>{task.assigned_to_name||"—"}</td>
+                    <td style={{ fontWeight:600 }}>{task.employeeName || task.assigned_to_name || "—"}</td>
                     <td><PriorityBadge priority={task.priority||"Medium"}/></td>
                     <td>
-                      <select className="hod-sel" style={{ width:"auto", padding:"3px 8px", fontSize:10, background:STATUS_META[task.status]?.bg||"transparent", color:STATUS_META[task.status]?.text||"var(--text-mid)", borderColor:STATUS_META[task.status]?.border||"var(--border)" }}
-                        value={task.status} onChange={e => updateTaskStatus(task.id, e.target.value)}>
+                      <select className="hod-sel" style={{ width:"auto", padding:"3px 8px", fontSize:10, background:STATUS_META[hodTaskRowStatus(task)]?.bg||"transparent", color:STATUS_META[hodTaskRowStatus(task)]?.text||"var(--text-mid)", borderColor:STATUS_META[hodTaskRowStatus(task)]?.border||"var(--border)" }}
+                        value={hodTaskRowStatus(task)} onChange={e => updateTaskStatus(task.id, e.target.value)}>
                         {Object.entries(STATUS_META).map(([k,v]) => <option key={k} value={k}>{v.label}</option>)}
                       </select>
                     </td>
-                    <td style={{ fontSize:11 }}>{fmtDt(task.due_date)}</td>
+                    <td style={{ fontSize:11 }}>{fmtDt(task.dueDate || task.due_date)}</td>
                     <td style={{ fontSize:11 }}>{task.submitted_at?<span style={{ color:"#6366f1" }}>✓ {fmtDt(task.submitted_at)}</span>:"—"}</td>
                     <td>
                       <div style={{ display:"flex", gap:5 }}>
                         <button className="hod-btn hod-btn-ghost" style={{ padding:"3px 9px", fontSize:"10px" }} onClick={() => openReview(task,null)}><Star size={10}/> Review</button>
-                        {task.status === "completed" && !task.submitted_at && (
-                          <button className="hod-btn hod-btn-blue" style={{ padding:"3px 9px", fontSize:"10px" }} onClick={() => openSubmitToAdmin({ id:task.id, type:"task", name:task.title })}><Send size={10}/> Submit</button>
+                        {isHodTaskCompleted(task) && !task.submitted_at && (
+                          <button className="hod-btn hod-btn-blue" style={{ padding:"3px 9px", fontSize:"10px" }} onClick={() => openSubmitToAdmin({ id:task.id, type:"task", name:task.taskType || task.title })}><Send size={10}/> Submit</button>
                         )}
                       </div>
                     </td>
