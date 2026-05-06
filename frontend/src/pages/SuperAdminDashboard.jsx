@@ -2060,9 +2060,9 @@ export default function SuperAdminDashboard({ db = {}, branches = [], onBranches
 
   return (
     <TC.Provider value={T}>
-      <div style={{ minHeight:"100vh", background:T.bg, fontFamily:"'Segoe UI',system-ui,sans-serif" }}>
+      <div style={{ height:"100vh", background:T.bg, fontFamily:"'Segoe UI',system-ui,sans-serif", overflow:"hidden", display:"flex" }}>
         {/* SIDEBAR */}
-        <div style={{ width:228, minHeight:"100vh", background:T.sidebar, display:"flex", flexDirection:"column", position:"fixed", top:0, left:0, zIndex:50, borderRight:`1px solid ${T.border}` }}>
+        <div style={{ width:228, height:"100vh", background:T.sidebar, display:"flex", flexDirection:"column", position:"fixed", top:0, left:0, zIndex:50, borderRight:`1px solid ${T.border}`, overflow:"hidden" }}>
           <div style={{ padding:"18px 14px 14px", borderBottom:`1px solid ${T.border}` }}>
             <div style={{ display:"flex", alignItems:"center", gap:10 }}>
               <img src="/app_icon.png" alt="logo" style={{ width:36, height:36, borderRadius:10, objectFit:"cover" }}/>
@@ -2097,8 +2097,8 @@ export default function SuperAdminDashboard({ db = {}, branches = [], onBranches
         </div>
 
         {/* MAIN CONTENT */}
-        <div style={{ marginLeft:228, flex:1, minHeight:"100vh", overflowX:"hidden" }}>
-          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 28px", borderBottom:`1px solid ${T.border}`, background:T.sidebar, position:"sticky", top:0, zIndex:40 }}>
+        <div style={{ marginLeft:228, flex:1, height:"100vh", overflow:"hidden", display:"flex", flexDirection:"column", minWidth:0 }}>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 28px", borderBottom:`1px solid ${T.border}`, background:T.sidebar, position:"sticky", top:0, zIndex:40, flexShrink:0 }}>
             <div style={{ fontSize:13, fontWeight:700, color:T.white, display:"inline-flex", alignItems:"center", gap:8 }}>
               {ActiveIcon ? <ActiveIcon size={14} strokeWidth={2}/> : null}
               {activeLabel?.label}
@@ -2112,27 +2112,29 @@ export default function SuperAdminDashboard({ db = {}, branches = [], onBranches
               <button onClick={onLogout} style={{ background:"transparent", border:`1px solid ${T.border}`, color:T.dim, padding:"5px 13px", borderRadius:8, cursor:"pointer", fontSize:11, fontWeight:600, display:"flex", alignItems:"center", gap:5 }}>↪ Logout</button>
             </div>
           </div>
-          <div style={{ padding:"18px 28px 4px" }}>
-            <div style={{ fontSize:12, color:T.dim }}>
-              {new Date().toLocaleDateString("en-IN",{weekday:"long",year:"numeric",month:"long",day:"numeric"})}
-              {" · "}{all.length} total records
-              {Object.entries(branchRows).map(([slug, rows]) => ` · ${rows.length} ${bName(slug)}`).join("")}
+          <div style={{ flex:1, overflowY:"auto", overflowX:"hidden" }}>
+            <div style={{ padding:"18px 28px 4px" }}>
+              <div style={{ fontSize:12, color:T.dim }}>
+                {new Date().toLocaleDateString("en-IN",{weekday:"long",year:"numeric",month:"long",day:"numeric"})}
+                {" · "}{all.length} total records
+                {Object.entries(branchRows).map(([slug, rows]) => ` · ${rows.length} ${bName(slug)}`).join("")}
+              </div>
             </div>
-          </div>
-          <div style={{ padding:"16px 28px 28px" }}>
-            {tab==="dashboard"   && <DashboardTab all={all} branchRows={branchRows}/>}
-            {tab==="hospitalbranches" && <HospitalBranchesTab branches={branches} onChanged={onBranchesChanged} />}
-            {branchTabs.some((branch) => branch.id === tab) && <BranchTab pts={branchRows[tab] || []} branch={tab}/>}
-            {tab==="allpatients" && <AllPatientsTab all={all}/>}
-            {tab==="billing"     && <BillingTab all={all}/>}
-            {tab==="medical"     && <MedicalTab all={all}/>}
-            {tab==="discharge"   && <DischargeTab all={all}/>}
-            {tab==="labreports"  && <LabReportsTab all={all}/>}
-            {tab==="reports"     && <ReportsTab all={all}/>}
-            {tab==="records"     && <UpdateRecordsPanel roleLabel="Super Admin"/>}
-            {tab==="admins"      && <AdminsTab branches={branches}/>}
-            {tab==="departments" && <DepartmentsTab all={all}/>}
-            {tab==="performance" && <TaskPerformanceTab/>}
+            <div style={{ padding:"16px 28px 28px" }}>
+              {tab==="dashboard"   && <DashboardTab all={all} branchRows={branchRows}/>} 
+              {tab==="hospitalbranches" && <HospitalBranchesTab branches={branches} onChanged={onBranchesChanged} />}
+              {branchTabs.some((branch) => branch.id === tab) && <BranchTab pts={branchRows[tab] || []} branch={tab}/>}
+              {tab==="allpatients" && <AllPatientsTab all={all}/>}
+              {tab==="billing"     && <BillingTab all={all}/>}
+              {tab==="medical"     && <MedicalTab all={all}/>}
+              {tab==="discharge"   && <DischargeTab all={all}/>}
+              {tab==="labreports"  && <LabReportsTab all={all}/>}
+              {tab==="reports"     && <ReportsTab all={all}/>}
+              {tab==="records"     && <UpdateRecordsPanel roleLabel="Super Admin"/>}
+              {tab==="admins"      && <AdminsTab branches={branches}/>}
+              {tab==="departments" && <DepartmentsTab all={all}/>}
+              {tab==="performance" && <TaskPerformanceTab/>}
+            </div>
           </div>
         </div>
       </div>
