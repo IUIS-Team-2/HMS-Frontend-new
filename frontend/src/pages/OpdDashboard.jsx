@@ -380,7 +380,7 @@ export default function OpdDashboard({ currentUser, onLogout }) {
         <div style={{ display:"flex", gap:2, flexShrink:0 }}>
           {[
             { id:"entry",    label:"Daily Entry", Icon:ClipboardList },
-            { id:"records",  label:"Records",     Icon:Archive },
+            
             { id:"patients", label:"Patients",    Icon:Users, badge: patients.length > 0 ? patients.length : null },
           ].map(tab => (
             <button key={tab.id} className="otab-btn" onClick={() => setViewTab(tab.id)}
@@ -407,9 +407,9 @@ export default function OpdDashboard({ currentUser, onLogout }) {
               <button className="oaction-btn" onClick={handleDownload} style={{ padding:"6px 14px", borderRadius:8, fontSize:11, fontFamily:"var(--ui-font-sans)", cursor:"pointer", background:"var(--surface-2)", border:"1.5px solid var(--border)", color:"var(--info)", fontWeight:600, transition:"all 0.15s" }}>↓ Export</button>
             </>
           )}
-          {viewTab === "records" && (
+          
             <button className="oaction-btn" onClick={handleDownload} style={{ padding:"6px 14px", borderRadius:8, fontSize:11, fontFamily:"var(--ui-font-sans)", cursor:"pointer", background:"var(--surface-2)", border:"1.5px solid var(--border)", color:"var(--info)", fontWeight:600, transition:"all 0.15s" }}>↓ Export XLSX</button>
-          )}
+          
         </div>
       </div>
 
@@ -477,81 +477,7 @@ export default function OpdDashboard({ currentUser, onLogout }) {
           </div>
         )}
 
-        {/* ═══ RECORDS TAB ═══ */}
-        {viewTab === "records" && (
-          <div style={{ flex:1, overflow:"auto", padding:"20px 20px" }} className="ofade-in">
-            <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:18, padding:"12px 18px", background:"var(--card)", border:"1.5px solid #fecdd3", borderRadius:12, flexWrap:"wrap", boxShadow:"0 2px 8px #f8717108" }}>
-              <span style={{ fontSize:9, color:"#fca5a5", letterSpacing:"2.5px", textTransform:"uppercase", marginRight:4, fontWeight:600 }}>Period:</span>
-              {[{id:"today",label:"Today"},{id:"week",label:"This Week"},{id:"month",label:"This Month"},{id:"year",label:"This Year"},{id:"custom",label:"Custom"}].map(f => (
-                <button key={f.id} className="ofilter-chip" onClick={() => setFilterMode(f.id)}
-                  style={{ padding:"5px 14px", borderRadius:20, fontSize:11, fontFamily:"var(--ui-font-sans)", cursor:"pointer", background: filterMode===f.id ? `${accent}15` : "#f9fafb", border:`1.5px solid ${filterMode===f.id ? accent : "#fecdd3"}`, color: filterMode===f.id ? accent : "#6b7280", fontWeight: filterMode===f.id ? 700 : 600, transition:"all 0.15s" }}>
-                  {f.label}
-                </button>
-              ))}
-              {filterMode === "custom" && (
-                <div style={{ display:"flex", alignItems:"center", gap:8, marginLeft:8 }}>
-                  <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)} style={{ background:"var(--bg)", border:"1.5px solid #fecdd3", color:"var(--text)", padding:"6px 10px", borderRadius:8, fontSize:11, outline:"none" }} />
-                  <span style={{ color:"#9ca3af", fontSize:10 }}>to</span>
-                  <input type="date" value={customEnd}   onChange={e => setCustomEnd(e.target.value)}   style={{ background:"var(--bg)", border:"1.5px solid #fecdd3", color:"var(--text)", padding:"6px 10px", borderRadius:8, fontSize:11, outline:"none" }} />
-                </div>
-              )}
-              <div style={{ marginLeft:"auto", padding:"4px 14px", borderRadius:20, background:`${accent}15`, border:`1.5px solid ${accent}`, fontSize:12, color:accent, fontWeight:700 }}>
-                {filteredEntries.length} records
-              </div>
-            </div>
-
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12, marginBottom:18 }}>
-              {[
-                { label:"Total Records",    val:filteredEntries.length,                                             col:accent },
-                { label:"Unique Patients",  val:new Set(filteredEntries.map(e => e.patientName)).size,              col:"#10b981" },
-                { label:"Unique Hospitals", val:new Set(filteredEntries.map(e => e.hospital).filter(Boolean)).size, col:"#f59e0b" },
-                { label:"Days Covered",     val:new Set(filteredEntries.map(e => e.createdAt?.slice(0,10))).size,   col:"#818cf8" },
-              ].map(({ label, val, col }) => (
-                <div key={label} style={{ background:"var(--card)", border:"1.5px solid #fecdd3", borderTop:`4px solid ${col}`, borderRadius:12, padding:"14px 16px", boxShadow:"0 2px 8px #f8717108" }}>
-                  <div style={{ fontSize:8, letterSpacing:"2.5px", color:"#9ca3af", textTransform:"uppercase", marginBottom:6, fontWeight:700 }}>{label}</div>
-                  <div style={{ fontSize:28, fontWeight:700, color:col, lineHeight:1 }}>{val}</div>
-                </div>
-              ))}
-            </div>
-
-            {filteredEntries.length === 0 ? (
-              <div style={{ textAlign:"center", padding:48, color:"#fecdd3", fontSize:12, letterSpacing:"3px", background:"var(--card)", border:"1.5px solid #fecdd3", borderRadius:12, fontWeight:700 }}>NO RECORDS FOUND FOR THIS PERIOD</div>
-            ) : (
-              <div style={{ background:"var(--card)", border:"1.5px solid #fecdd3", borderRadius:12, overflow:"hidden" }}>
-                <div style={{ overflowX:"auto" }}>
-                  <table style={{ borderCollapse:"collapse", width:"100%", fontSize:12 }}>
-                    <thead>
-                      <tr style={{ background:"#ffe4e6" }}>
-                        {COLUMNS.map(col => (
-                          <th key={col.key} style={{ padding:"10px 12px", textAlign:"left", fontSize:9, letterSpacing:"2px", color:"#be123c", textTransform:"uppercase", borderBottom:"2px solid #fecdd3", whiteSpace:"nowrap", fontFamily:"var(--ui-font-sans)", fontWeight:700, borderRight:"1px solid #fecdd3" }}>{col.label}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredEntries.map((row, i) => (
-                        <tr key={row.id || i} style={{ borderBottom:"1px solid #ffe4e6" }}>
-                          <td style={{ padding:"9px 12px", color:"#fca5a5", fontSize:10, borderRight:"1px solid #ffe4e6" }}>{i+1}</td>
-                          <td style={{ padding:"9px 12px", color:"#0ea5e9", fontWeight:600, borderRight:"1px solid #ffe4e6" }}>{row.uhid || "—"}</td>
-                          <td style={{ padding:"9px 12px", color:accent, fontWeight:600, borderRight:"1px solid #ffe4e6" }}>{row.claimId || "—"}</td>
-                          <td style={{ padding:"9px 12px", color:"#374151", borderRight:"1px solid #ffe4e6" }}>{row.opdNo || "—"}</td>
-                          <td style={{ padding:"9px 12px", color:"var(--text)", fontWeight:700, borderRight:"1px solid #ffe4e6" }}>{row.patientName || "—"}</td>
-                          <td style={{ padding:"9px 12px", color:"#6b7280", fontSize:11, borderRight:"1px solid #ffe4e6" }}>{row.opdDate || "—"}</td>
-                          <td style={{ padding:"9px 12px", borderRight:"1px solid #ffe4e6" }}>
-                            <span style={{ padding:"2px 8px", borderRadius:6, background:`${accent}15`, color:accent, fontSize:10, fontWeight:600 }}>{row.uploadDate || "—"}</span>
-                          </td>
-                          <td style={{ padding:"9px 12px", color:"#374151", borderRight:"1px solid #ffe4e6" }}>{row.hospital || "—"}</td>
-                          <td style={{ padding:"9px 12px", color:"#374151", borderRight:"1px solid #ffe4e6" }}>{row.prepareBy || "—"}</td>
-                          <td style={{ padding:"9px 12px", color:"#6b7280", maxWidth:180, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", borderRight:"1px solid #ffe4e6" }}>{row.remarks || "—"}</td>
-                          <td style={{ padding:"9px 12px", color:"#374151" }}>{row.addedBy || "—"}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
+        
 
         {/* ═══ PATIENTS TAB ═══ */}
         {viewTab === "patients" && (
