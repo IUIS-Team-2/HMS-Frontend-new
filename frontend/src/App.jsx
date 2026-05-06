@@ -47,7 +47,7 @@ function ToastBridge() {
 }
 
 export default function App() {
-  const normalizeBranches = (response) => {
+  const normalizeBranches = useCallback((response) => {
     const rows = Array.isArray(response) ? response : (response?.results || response?.data || []);
     return rows.map((row, index) => ({
       id: row.id ?? row.branch ?? index,
@@ -61,7 +61,7 @@ export default function App() {
       email: row.email || "",
       uhidPrefix: row.uhid_prefix || "",
     }));
-  };
+  }, []);
 
   const [loggedIn, setLoggedIn] = useState(() => {
     try { return sessionStorage.getItem('hms_loggedIn') === 'true'; } catch { return false; }
@@ -132,6 +132,24 @@ export default function App() {
     return Object.values(response || {}).flat().filter(Array.isArray).flat();
   };
 
+  const loadBranches = useCallback(async () => {
+    try {
+      const branchesResponse = await apiService.getHospitalBranches();
+      const normalizedBranches = normalizeBranches(branchesResponse);
+      if (!normalizedBranches.length) return;
+
+      setBranchSettings((prev) => {
+        const prevSerialized = JSON.stringify(prev);
+        const nextSerialized = JSON.stringify(normalizedBranches);
+        if (prevSerialized === nextSerialized) return prev;
+        try { sessionStorage.setItem("hms_branches", nextSerialized); } catch {}
+        return normalizedBranches;
+      });
+    } catch (error) {
+      console.error("Failed to load hospital branches:", error);
+    }
+  }, [normalizeBranches]);
+
   const splitPatientsByBranch = useCallback((patients) => {
     const branches = branchSettings.length ? branchSettings : [defaultBranch];
     const grouped = Object.fromEntries(branches.map((branch) => [branch.slug, []]));
@@ -188,20 +206,11 @@ export default function App() {
 
   const loadDashboardData = useCallback(async (userRole) => {
     try {
-      const [patientsResult, servicesResult, doctorsResult, branchesResult] = await Promise.allSettled([
+      const [patientsResult, servicesResult, doctorsResult] = await Promise.allSettled([
         apiService.getPatients(),
         apiService.getServiceMaster(),
         apiService.getDoctors(),
-        apiService.getHospitalBranches(),
       ]);
-
-      if (branchesResult.status === "fulfilled") {
-        const normalizedBranches = normalizeBranches(branchesResult.value);
-        if (normalizedBranches.length) {
-          setBranchSettings(normalizedBranches);
-          try { sessionStorage.setItem("hms_branches", JSON.stringify(normalizedBranches)); } catch {}
-        }
-      }
 
       const livePatients = normalizePatientList(patientsResult.status === "fulfilled" ? patientsResult.value : []);
       if (servicesResult.status === "fulfilled") {
@@ -255,6 +264,11 @@ export default function App() {
       console.error("Failed to load live backend data:", error);
     }
   }, [defaultBranch.slug, getBranchByCode, splitPatientsByBranch]);
+
+  useEffect(() => {
+    if (!loggedIn || !currentUser) return;
+    loadBranches();
+  }, [loggedIn, currentUser, loadBranches]);
 
   useEffect(() => {
     if (loggedIn && currentUser) {
@@ -683,7 +697,10 @@ export default function App() {
           <SuperAdminDashboard
             db={db} branches={branchSettings} printRequests={printRequests}
             onApprovePrint={handleApprovePrint} onViewBill={handleViewBill}
-            onBranchesChanged={() => currentUser && loadDashboardData(currentUser.role)}
+            onBranchesChanged={async () => {
+              await loadBranches();
+              if (currentUser) await loadDashboardData(currentUser.role);
+            }}
             onLogout={handleLogout}
           />
           <ToastBridge />

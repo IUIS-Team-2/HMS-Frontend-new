@@ -42,17 +42,17 @@ export default function ServicesPage({svcs, billing, onSave}){
   const disc = parseFloat(billState.discount)||0; const adv = parseFloat(billState.advance)||0; const paid = parseFloat(billState.paidNow)||0; 
   const net = Math.max(0, total - disc - adv - paid);
 
-  const MasterRow = ({ item, i, setter, isGen }) => (
+  const MasterRow = ({ item, i, setter, isGen, svcType }) => (
     <div style={{display:"grid", gridTemplateColumns: isGen ? "1.2fr 2fr 100px 80px 70px 90px 36px" : "2fr 100px 80px 70px 90px 36px", gap: 10, alignItems:"center", padding:"11px 14px", background:T.offwhite, border:`1px solid ${T.border}`, borderRadius:12, marginBottom:10}}>
       {isGen && (
         <div className="sc-w"><select className="sc" value={item.type} onChange={e => handleGenCatSelect(i, e.target.value)}><option value="">Category...</option>{Object.keys(MASTER_SERVICES).map(c=><option key={c} value={c}>{c}</option>)}</select><span className="sc-a"><Ico d={IC.dn} size={11} sw={2.5}/></span></div>
       )}
       <div className="sc-w">
-        <select className="sc" value={item.title} onChange={e => isGen ? handleGenItemSelect(i, item.type, e.target.value) : setter === setRoomSvcs ? handleRoomSelect(i, e.target.value) : handleDocSelect(i, e.target.value)}>
+        <select className="sc" value={item.title} onChange={e => isGen ? handleGenItemSelect(i, item.type, e.target.value) : svcType === 'room' ? handleRoomSelect(i, e.target.value) : handleDocSelect(i, e.target.value)}>
           <option value="">Select specific item...</option>
           {isGen && item.type && MASTER_SERVICES[item.type]?.map(o => <option key={o.title} value={o.title}>{o.title}</option>)}
-          {!isGen && setter === setRoomSvcs && MASTER_ROOMS.map(o => <option key={o.title} value={o.title}>{o.title}</option>)}
-          {!isGen && setter === setDocSvcs && MASTER_CONSULTANTS.map(o => <option key={o.title} value={o.title}>{o.title}</option>)}
+          {!isGen && svcType === 'room' && MASTER_ROOMS.map(o => <option key={o.title} value={o.title}>{o.title}</option>)}
+          {!isGen && svcType === 'consultant' && MASTER_CONSULTANTS.map(o => <option key={o.title} value={o.title}>{o.title}</option>)}
         </select>
         <span className="sc-a"><Ico d={IC.dn} size={11} sw={2.5}/></span>
       </div>
@@ -69,12 +69,12 @@ export default function ServicesPage({svcs, billing, onSave}){
     <div className="stat-grid">{[{l:"Total Items",v:combinedSvcs.length,s:"added"},{l:"Gross Total",v:`₹${total.toFixed(2)}`,s:"before deductions"},{l:"Discount",v:`₹${disc.toFixed(2)}`,s:"applied"},{l:"Net Payable",v:`₹${net.toFixed(2)}`,s:"final"}].map(sc=>(<div className="stat-card" key={sc.l}><div className="stat-lbl">{sc.l}</div><div className="stat-val">{sc.v}</div><div className="stat-sub">{sc.s}</div></div>))}</div>
     
     <Card icon={IC.bed} title="1. Room & Ward Charges" subtitle="Select room type and number of days" delay={0}>
-      {roomSvcs.map((s,i) => <MasterRow key={i} item={s} i={i} setter={setRoomSvcs} isGen={false} />)}
+      {roomSvcs.map((s,i) => <MasterRow key={i} item={s} i={i} setter={setRoomSvcs} isGen={false} svcType="room" />)}
       <button className="add-svc" onClick={() => addSvc(setRoomSvcs, 'Room Charge')}><Ico d={IC.plus} size={14} sw={2.5}/> Add Room Stay</button>
     </Card>
 
     <Card icon={IC.person} title="2. Consultant Visits" subtitle="Select doctor and number of visits" delay={0.05}>
-      {docSvcs.map((s,i) => <MasterRow key={i} item={s} i={i} setter={setDocSvcs} isGen={false} />)}
+      {docSvcs.map((s,i) => <MasterRow key={i} item={s} i={i} setter={setDocSvcs} isGen={false} svcType="consultant" />)}
       <button className="add-svc" onClick={() => addSvc(setDocSvcs, 'Consultant')}><Ico d={IC.plus} size={14} sw={2.5}/> Add Doctor Visit</button>
     </Card>
 
