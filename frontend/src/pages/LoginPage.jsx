@@ -96,7 +96,19 @@ export default function LoginPage({ onLogin }) {
     setLoading(true);
 
     try {
-      const data = await apiService.login(username, password);
+      const normalizedUsername = String(username || "").trim().toLowerCase();
+      const normalizedPassword = String(password || "").trim();
+      if (!normalizedUsername) {
+        setError("Username is required");
+        setLoading(false);
+        return;
+      }
+      if (!normalizedPassword) {
+        setError("Password is required");
+        setLoading(false);
+        return;
+      }
+      const data = await apiService.login(normalizedUsername, normalizedPassword);
       sessionStorage.setItem('hms_token', data.access);
       const payload = JSON.parse(atob(data.access.split('.')[1]));
 
@@ -126,7 +138,12 @@ export default function LoginPage({ onLogin }) {
 
       onLogin(loggedInUser, isGlobalUser ? (userLocations[0] || "laxmi") : (frontendBranch || userLocations[0] || "laxmi"));
     } catch (err) {
-      setError(err.response?.data?.detail || "Invalid username or password");
+      const backendDetail = err.response?.data?.detail;
+      if (backendDetail) {
+        setError(backendDetail);
+      } else {
+        setError("Login request failed before reaching server. Refresh and retry.");
+      }
     }
     setLoading(false);
   };

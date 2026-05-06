@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import ThemeModeDock from "../components/ui/ThemeModeDock";
+import { BASE_URL } from "../services/apiService";
 import {
   IndianRupee, Upload, CircleHelp, Hospital,
   ClipboardList, CheckSquare, BarChart3, Star, Users,
@@ -107,7 +108,7 @@ function calcTotals(svcs, labReports, med, billing) {
   return { s, p, m, gross, disc, adv, paid, net: gross - disc, due: gross - disc - adv - paid };
 }
 
-const API_BASE = "http://localhost:8000/api";
+const API_BASE = BASE_URL;
 
 async function apiFetch(path, options = {}) {
   const token = sessionStorage.getItem("hms_token");
