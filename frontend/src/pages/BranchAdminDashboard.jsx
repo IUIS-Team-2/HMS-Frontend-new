@@ -436,6 +436,24 @@ export default function BranchAdminDashboard({
     };
 
     loadLiveData();
+
+    useEffect(() => {
+      if (modal !== "emp") return;
+
+      const loadNextEmployeeId = async () => {
+        try {
+          const data = await apiService.getNextEmpId({ role: "receptionist", branch: resolvedBranchCode });
+          setEmpForm((currentForm) => ({ ...currentForm, employeeId: data?.next_id || currentForm.employeeId }));
+        } catch (error) {
+          setEmpForm((currentForm) => ({
+            ...currentForm,
+            employeeId: currentForm.employeeId || `${resolvedBranchCode.slice(0, 3) || "EMP"}0001`,
+          }));
+        }
+      };
+
+      loadNextEmployeeId();
+    }, [modal, resolvedBranchCode]);
     return () => { active = false; };
   }, [nav, range, fromDate, toDate, db, resolvedBranchKey]);
 
@@ -983,7 +1001,7 @@ export default function BranchAdminDashboard({
                 </div>
                 <div>
                   <label style={{ display:"block", fontSize:"12px", fontWeight:"700", color:T.textSub, marginBottom:"7px" }}>Employee ID</label>
-                  <input style={{ ...fi, fontFamily:UI_MONO_STACK }} value={empForm.employeeId} onChange={e => updateEmpField("employeeId", e.target.value)} placeholder="EMP-001" />
+                  <input style={{ ...fi, fontFamily:UI_MONO_STACK }} value={empForm.employeeId} onChange={e => updateEmpField("employeeId", e.target.value)} placeholder="Auto-generated" readOnly />
                 </div>
                 <div>
                   <label style={{ display:"block", fontSize:"12px", fontWeight:"700", color:T.textSub, marginBottom:"7px" }}>Email</label>

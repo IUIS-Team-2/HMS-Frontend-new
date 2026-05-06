@@ -784,6 +784,25 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
     return `${prefix}${String(highestSuffix + 1).padStart(4, "0")}`;
   };
 
+  useEffect(() => {
+    if (!showEmpModal || editEmpId) return;
+
+    const loadNextEmployeeId = async () => {
+      const branchCode = getEmployeeBranchCode();
+      try {
+        const data = await apiService.getNextEmpId({ role: empForm.role, branch: branchCode });
+        setEmpForm((currentForm) => ({ ...currentForm, empId: data?.next_id || currentForm.empId }));
+      } catch (error) {
+        setEmpForm((currentForm) => ({
+          ...currentForm,
+          empId: currentForm.empId || buildEmployeeId(branchCode),
+        }));
+      }
+    };
+
+    loadNextEmployeeId();
+  }, [showEmpModal, editEmpId, empForm.role, viewBranch, currentUser?.role]);
+
   const currentDisplayName = `${profileForm.first_name || ""} ${profileForm.last_name || ""}`.trim() || currentUser?.name;
 
   const saveMyProfile = async () => {
@@ -2020,13 +2039,12 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
       <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:16 }}>
         <button className="hms-add-btn-lg" onClick={() => {
           setEditEmpId(null); setEmpPassErr("");
-          const branchCode = getEmployeeBranchCode();
-          setEmpForm({fullName:"",username:"",empId:buildEmployeeId(branchCode),dept:"HOD",email:"",phone:"",role:"hod",password:"",confirmPassword:""});
+          setEmpForm({fullName:"",username:"",empId:"",dept:"HOD",email:"",phone:"",role:"hod",password:"",confirmPassword:""});
           setShowEmpModal(true);
         }}>+ Create Employee</button>
       </div>
       {!employees.length ? <EmptyState icon="👤" label="No employees yet" sub='Click "Create Employee" to add your first employee'/> : (
-        <div className="hms-card" style={{ padding:0, overflow:"hidden" }}>
+                  <input style={{ ...fi, fontFamily:UI_MONO_STACK }} value={empForm.empId} onChange={e => updateEmpField("empId", e.target.value)} placeholder="Auto-generated" readOnly />
           <TableWrap heads={["Emp ID","Full Name","Username","Role","Department","Email","Phone","Status","Actions"]}>
             {employees.map((emp,i)=>(
               <tr key={i} style={{ borderBottom:"1px solid #1e2a3a" }}>

@@ -62,6 +62,11 @@ export const apiService = {
         return response.data;
     },
 
+    getNextEmpId: async (params = {}) => {
+        const response = await axios.get(`${BASE_URL}/users/next-emp-id/`, { params });
+        return response.data;
+    },
+
     getHospitalBranches: async () => {
         const response = await axios.get(`${BASE_URL}/hospital-settings/`);
         return Array.isArray(response.data) ? response.data : (response.data?.results || response.data || []);
