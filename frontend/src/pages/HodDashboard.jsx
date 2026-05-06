@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback } from "react";
 import ThemeModeDock from "../components/ui/ThemeModeDock";
-import { BASE_URL } from "../services/apiService";
+import { apiService, BASE_URL } from "../services/apiService";
 import {
   IndianRupee, Upload, CircleHelp, Hospital,
   ClipboardList, CheckSquare, BarChart3, Star, Users,
   FileText, Activity, Send,
-  AlertCircle, RefreshCw,
+  RefreshCw,
   Stethoscope, BookOpen, Search, Filter, LogOut,
 } from "lucide-react";
 
@@ -122,7 +122,15 @@ async function apiFetch(path, options = {}) {
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail || err.message || `API error ${res.status}`);
+    const backendMessage =
+      err.error ||
+      err.detail ||
+      err.message ||
+      (typeof err === "string" ? err : "");
+    if (res.status === 400) {
+      throw new Error(backendMessage || "Request could not be processed.");
+    }
+    throw new Error(backendMessage || "Request failed.");
   }
   return res.json();
 }
@@ -630,8 +638,8 @@ export default function HodDashboard({ currentUser, onLogout }) {
     try {
       return await apiFetch(path, options);
     } catch (e) {
-      setError(e.message);
-      toast(e.message, "e");
+      // Keep page clean: show concise toast, avoid persistent inline API error banner.
+      toast(e.message || "Request failed", "e");
       return null;
     } finally {
       setLoading(false);
@@ -676,8 +684,8 @@ export default function HodDashboard({ currentUser, onLogout }) {
 
   const loadTasks = useCallback(async () => {
     const params = new URLSearchParams({ department: activeDept });
-    if (filterEmployee) params.append("assigned_to", filterEmployee);
-    if (filterDate)     params.append("due_date",    filterDate);
+    if (filterEmployee) params.append("employeeId", filterEmployee);
+    if (filterDate)     params.append("date",       filterDate);
     if (filterStatus)   params.append("status",      filterStatus);
     const data = await request(`/hod/tasks/?${params}`);
     if (data) setTasks(Array.isArray(data) ? data : data.results || data.tasks || []);
@@ -782,7 +790,7 @@ export default function HodDashboard({ currentUser, onLogout }) {
     // Build a clean payload — no duplicate fields, no undefined values
     const payload = {
       department:  assignDept,
-      assigned_to: empId,
+      assign_to:   empId,
       patient_ids: assignPatientIds,   // single authoritative field
       title:       `${assignDept} — ${assignPatients.length} patient(s)`,
       priority:    assignPriority,
@@ -822,16 +830,18 @@ export default function HodDashboard({ currentUser, onLogout }) {
   const saveMySection = async (sectionKey, label) => {
     if (!myWorkSel) return;
     try {
+      const admNo = myWorkSel.admNo || myWorkSel.id;
       if (myActiveTab === "discharge") {
-        await apiFetch(`/patients/${myWorkSel.uhid}/admissions/${myWorkSel.admNo||myWorkSel.id}/discharge/`, { method:"POST", body:JSON.stringify(myEDis) });
+        await apiService.dischargePatient(myWorkSel.uhid, admNo, myEDis);
       } else if (myActiveTab === "medical") {
-        await apiFetch(`/patients/${myWorkSel.uhid}/admissions/${myWorkSel.admNo||myWorkSel.id}/medical-history/`, { method:"POST", body:JSON.stringify(myEMed) });
+        await apiService.updateMedicalHistory(myWorkSel.uhid, admNo, myEMed);
       } else if (myActiveTab === "reports") {
-        await apiFetch(`/patients/${myWorkSel.uhid}/admissions/${myWorkSel.admNo||myWorkSel.id}/lab-reports/bulk/`, { method:"POST", body:JSON.stringify(myELabRep) });
+        await apiService.saveLabReportsBulk(myWorkSel.uhid, admNo, myELabRep);
       } else if (myActiveTab === "med_bill") {
-        await apiFetch(`/patients/${myWorkSel.uhid}/admissions/${myWorkSel.admNo||myWorkSel.id}/pharmacy/bulk/`, { method:"POST", body:JSON.stringify(myEMedBill) });
+        await apiService.savePharmacyRecordsBulk(myWorkSel.uhid, admNo, myEMedBill);
       } else if (myActiveTab === "finalbill") {
-        await apiFetch(`/patients/${myWorkSel.uhid}/admissions/${myWorkSel.admNo||myWorkSel.id}/billing/`, { method:"POST", body:JSON.stringify({ services:myESvc, billing:myEBilling }) });
+        await apiService.saveServicesBulk(myWorkSel.uhid, admNo, myESvc);
+        await apiService.updateBilling(myWorkSel.uhid, admNo, myEBilling);
       }
       const nextSaved = { ...myESaved, [sectionKey]: true };
       setMyESaved(nextSaved);
@@ -849,7 +859,17 @@ export default function HodDashboard({ currentUser, onLogout }) {
       if (existingTask) {
         await apiFetch(`/tasks/${existingTask.id}/update-status/`, { method:"POST", body:JSON.stringify({ status:"submitted", note: submitNote }) });
       } else {
-        await apiFetch("/hod/tasks/", { method:"POST", body:JSON.stringify({ department:activeDept, patient:myWorkSel.id, title:`HOD Work — ${myWorkSel.patientName||myWorkSel.name}`, status:"submitted", notes:submitNote }) });
+        await apiFetch("/hod/tasks/", {
+          method:"POST",
+          body:JSON.stringify({
+            department: activeDept,
+            employeeId: currentUser?.id,
+            patientId: myWorkSel.uhid,
+            taskType: `HOD Work — ${myWorkSel.patientName || myWorkSel.name}`,
+            status: "submitted",
+            notes: submitNote,
+          }),
+        });
       }
       toast("Submitted to Admin Management ✓");
       setMyShowConfirm(false);
@@ -2035,13 +2055,6 @@ export default function HodDashboard({ currentUser, onLogout }) {
         <div className="hod-main">
           {renderHeader()}
           <div className="hod-content">
-            {error && (
-              <div style={{ background:"rgba(239,68,68,0.1)", border:"1px solid rgba(239,68,68,0.3)", color:"#ef4444", padding:"10px 16px", borderRadius:8, fontSize:12, marginBottom:16, display:"flex", alignItems:"center", gap:8 }}>
-                <AlertCircle size={14}/> {error}
-                <button style={{ marginLeft:"auto", background:"none", border:"none", color:"#ef4444", cursor:"pointer", fontSize:11 }} onClick={() => setError(null)}>✕</button>
-              </div>
-            )}
-
             {activeView === "overview"   && renderOverview()}
             {activeView === "assign"     && renderAssign()}
             {activeView === "my-work"    && (myWorkView === "patient" ? renderMyWorkPatient() : renderMyWorkList())}

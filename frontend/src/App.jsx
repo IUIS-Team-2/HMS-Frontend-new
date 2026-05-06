@@ -224,18 +224,7 @@ export default function App() {
         setDoctors([]);
       }
 
-      const safeRole = String(userRole).toLowerCase();
-      const scopedPatients = safeRole === "office_admin" || safeRole === "managementadmin"
-        ? livePatients.filter(p => {
-            const pMode = String(p.paymentMode || p.payMode || p.payment_mode || "").toLowerCase();
-            if (pMode.includes("cashless")) return true;
-            const hasCashlessBill = p.admissions && p.admissions.some(a => {
-              const aMode = String(a.paymentMode || a.billing?.paymentMode || a.billing?.billType || "").toLowerCase();
-              return aMode.includes("cashless");
-            });
-            return hasCashlessBill;
-          })
-        : livePatients;
+      const scopedPatients = livePatients;
 
       setDb(splitPatientsByBranch(scopedPatients));
 
@@ -288,6 +277,18 @@ export default function App() {
     const onFocus = () => loadDashboardData(currentUser.role);
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
+  }, [loggedIn, currentUser, loadDashboardData]);
+
+  useEffect(() => {
+    if (!loggedIn || !currentUser) return undefined;
+    const refreshRoles = new Set(["office_admin", "managementadmin", "admin", "branchadmin"]);
+    if (!refreshRoles.has(String(currentUser.role || "").toLowerCase())) return undefined;
+
+    const timer = window.setInterval(() => {
+      loadDashboardData(currentUser.role);
+    }, 20000);
+
+    return () => window.clearInterval(timer);
   }, [loggedIn, currentUser, loadDashboardData]);
 
   const currentDb = db[locId] || [];

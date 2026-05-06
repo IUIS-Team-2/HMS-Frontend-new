@@ -1,7 +1,7 @@
 import * as XLSX from "xlsx";
 import MedDrawer from "../components/MedDrawer";
 import { useState, useMemo, useEffect } from "react";
-import { apiService } from "../services/apiService";
+import { apiService, BASE_URL } from "../services/apiService";
 import { useTheme } from "../context/ThemeContext";
 import ThemeModeDock from "../components/ui/ThemeModeDock";
 import UpdateRecordsPanel from "../components/admin/UpdateRecordsPanel";
@@ -47,7 +47,14 @@ const DEPT_OPTIONS = [
 
 const TASK_STATUS   = ["Pending", "In Progress", "Completed", "On Hold", "Overdue"];
 const TASK_PRIORITY = ["Low", "Medium", "High", "Urgent"];
-const SUMMARY_TYPES = ["Normal", "LAMA", "Refer", "Death", "DAMA"];
+const SUMMARY_TYPES = ["NORMAL", "LAMA", "REFER", "DEATH", "DOPR"];
+const SUMMARY_LABELS = { NORMAL: "Normal", LAMA: "LAMA", REFER: "Refer", DEATH: "Death", DOPR: "DOPR" };
+const normalizeSummaryType = (t) => {
+  const u = String(t || "NORMAL").toUpperCase();
+  if (u.startsWith("REFER")) return "REFER";
+  if (u === "DAMA") return "DOPR";
+  return SUMMARY_TYPES.includes(u) ? u : "NORMAL";
+};
 const EMPLOYEE_ID_PREFIXES = { LNM: "LAK", RYM: "RAY", ALL: "OFF" };
 const LAB_TEMPLATES = {
     "Complete Blood Count (CBC)": {
@@ -269,11 +276,11 @@ const NAV = [
 ];
 
 const SUMMARY_META = {
-  Normal: { color: "#34d399", bg: "#34d39916" },
+  NORMAL: { color: "#34d399", bg: "#34d39916" },
   LAMA:   { color: "#f59e0b", bg: "#f59e0b16" },
-  Refer:  { color: "#34d399", bg: "#22d3ee16" },
-  Death:  { color: "#f87171", bg: "#f8717116" },
-  DAMA:   { color: "#c084fc", bg: "#c084fc16" },
+  REFER:  { color: "#22d3ee", bg: "#22d3ee16" },
+  DEATH:  { color: "#f87171", bg: "#f8717116" },
+  DOPR:   { color: "#c084fc", bg: "#c084fc16" },
 };
 const TASK_STATUS_META = {
   "Pending":     { color: "#f59e0b", bg: "#f59e0b18" },
@@ -401,18 +408,6 @@ function exportCSV(filename, rows, headers) {
 function exportTxt(filename, content) {
   const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([content],{type:"text/plain"})); a.download = filename; a.click();
 }
-function buildDischargeSummaryText(p, branchLabel, ds={}, mh={}, meds=[], reps=[]) {
-  const reportLines = reps.map((report) => {
-    const label = report.reportName || report.name || report.reportType || "Report";
-    const testNames = Array.isArray(report.tests)
-      ? report.tests.map((test) => test.name || test.testName).filter(Boolean)
-      : [];
-    const detail = report.result || report.remarks || testNames.join(", ") || "Completed";
-    return `  - ${label}${report.date ? ` (${report.date})` : ""}: ${detail}`;
-  });
-  return `========================================\n  SANGI HOSPITAL — ${branchLabel.toUpperCase()}\n  DISCHARGE SUMMARY [${ds.type||"Normal"}]\n========================================\n\nPatient Name  : ${p.patientName||p.name||""}\nUHID          : ${p.uhid}\nAge / Gender  : ${p.ageYY||p.age||""}Y / ${p.gender||""}\nDepartment    : ${ds.wardName||p.dept||""}\nAdmit Date    : ${fmtDt(p.admissions?.[0]?.dateTime||p.admitDate)}\nDischarge Date: ${ds.dod||ds.date||"—"}\nExpected DOD  : ${ds.expectedDod||"—"}\nTreating Dr.  : ${ds.doctorName||mh.treatingDoctor||"—"}\n\n── CLINICAL ────────────────────────────\nDiagnosis     : ${ds.diagnosis||"—"}\nTreatment     : ${ds.treatment||"—"}\nFollow-up     : ${ds.followUp||"—"}\nNotes         : ${ds.notes||"—"}\n\n── MEDICAL HISTORY ─────────────────────\nPrevious Dx   : ${mh.previousDiagnosis||"—"}\nPast Surgeries: ${mh.pastSurgeries||"—"}\nAllergies     : ${mh.knownAllergies||"—"}\nChronic Cond. : ${mh.chronicConditions||"—"}\nCurrent Meds  : ${mh.currentMedications||"—"}\nSmoking       : ${mh.smokingStatus||"—"}\nAlcohol       : ${mh.alcoholUse||"—"}\n\n── MEDICINES PRESCRIBED ────────────────\n${meds.map(m=>`  - ${m.name} | Qty: ${m.qty} | Rate: ₹${m.rate}`).join("\n")||"  None"}\n\n── INVESTIGATIONS ──────────────────────\n${reportLines.join("\n")||"  None"}\n\n========================================\n  Generated: ${new Date().toLocaleString("en-IN")}\n========================================`;
-}
-
 // ── DYNAMIC CSS ────────────────────────────────────────────────────────────────
 const DYNAMIC_CSS = (accent, isDark) => `
   option { background: var(--surface); color: var(--text); }
@@ -723,7 +718,11 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
   const [editRepPt,         setEditRepPt]         = useState(null);
   const [viewPt,            setViewPt]            = useState(null);
   const [deletePt,          setDeletePt]          = useState(null);
-  const [summaryForm,       setSummaryForm]       = useState({});
+  const [summaryType,       setSummaryType]       = useState("NORMAL");
+  const [summaryContent,    setSummaryContent]    = useState(null);
+  const [summaryAdmNo,      setSummaryAdmNo]      = useState(null);
+  const [summaryLoading,    setSummaryLoading]    = useState(false);
+  const [summarySaving,     setSummarySaving]     = useState(false);
   const [newReport,         setNewReport]         = useState({ name:"", date:"", result:"" });
   const [dischSumFilter,    setDischSumFilter]    = useState("All");
 
@@ -847,11 +846,117 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
   const delMedRow = (idx) => setEditMedPt(prev => ({...prev,medicines:prev.medicines.filter((_,i)=>i!==idx)}));
   const saveMeds  = () => { updatePatient(viewBranch, editMedPt.uhid, p=>({...p,medicines:editMedPt.medicines})); toast("Medicines saved"); setShowMedModal(false); setEditMedPt(null); };
 
-  const openSummaryEditor = (p) => { setEditSumPt(p); setSummaryForm({...(p.dischargeSummary||{type:"Normal",diagnosis:"",treatment:"",followUp:"",notes:"",doctorName:"",date:"",expectedDod:""})}); setShowSummaryModal(true); };
-  const saveSummary = () => { updatePatient(viewBranch, editSumPt.uhid, p=>({...p,dischargeSummary:{...summaryForm}})); toast("Summary saved"); setShowSummaryModal(false); setEditSumPt(null); };
+  const resolveAdmNo = (p) => {
+    const raw = p?.admissions?.[0]?.admNo ?? p?.admNo ?? 1;
+    const clean = String(raw).replace(/\D/g, "");
+    return clean || "1";
+  };
+
+  const normalizeSummarySections = (content) => {
+    if (!content) return content;
+    const next = { ...content };
+    if (next.sections && !Array.isArray(next.sections)) {
+      next.sections = Object.entries(next.sections).map(([k, v]) => ({ key: k, ...v }));
+    }
+    return next;
+  };
+
+  const fetchSummaryTemplate = async (uhid, admNo, requestedType) => {
+    setSummaryLoading(true);
+    try {
+      const res = await apiService.getDynamicSummary(uhid, admNo, requestedType);
+      const content = normalizeSummarySections(res?.content || { sections: [] });
+      const resolvedType = normalizeSummaryType(res?.summary_type || requestedType);
+      setSummaryContent(content);
+      setSummaryType(resolvedType);
+    } catch (_err) {
+      setSummaryContent({ sections: [] });
+      toast("Failed to load discharge summary template", "err");
+    } finally {
+      setSummaryLoading(false);
+    }
+  };
+
+  const openSummaryEditor = (p) => {
+    setEditSumPt(p);
+    const initialType = normalizeSummaryType(p.dischargeSummary?.type);
+    const admNo = resolveAdmNo(p);
+    setSummaryType(initialType);
+    setSummaryContent(null);
+    setSummaryAdmNo(admNo);
+    setShowSummaryModal(true);
+    fetchSummaryTemplate(p.uhid, admNo, initialType);
+  };
+
+  const reloadSummary = (newType) => {
+    if (!editSumPt) return;
+    const next = normalizeSummaryType(newType);
+    setSummaryType(next);
+    setSummaryContent(null);
+    fetchSummaryTemplate(editSumPt.uhid, summaryAdmNo || resolveAdmNo(editSumPt), next);
+  };
+
+  const updateSummarySection = (idx, val) => {
+    setSummaryContent(prev => {
+      if (!prev || !Array.isArray(prev.sections)) return prev;
+      const sections = [...prev.sections];
+      sections[idx] = { ...sections[idx], value: val };
+      return { ...prev, sections };
+    });
+  };
+
+  const updateSummaryVital = (idx, vKey, val) => {
+    setSummaryContent(prev => {
+      if (!prev || !Array.isArray(prev.sections)) return prev;
+      const sections = [...prev.sections];
+      const current = sections[idx]?.value && typeof sections[idx].value === "object" ? sections[idx].value : {};
+      sections[idx] = { ...sections[idx], value: { ...current, [vKey]: val } };
+      return { ...prev, sections };
+    });
+  };
+
+  const saveSummary = async () => {
+    if (!editSumPt) return;
+    const admNo = summaryAdmNo || resolveAdmNo(editSumPt);
+    setSummarySaving(true);
+    try {
+      await apiService.saveDynamicSummary(editSumPt.uhid, admNo, {
+        summary_type: summaryType,
+        content: summaryContent || { sections: [] },
+      });
+      const branchKey = editSumPt._branch || viewBranch;
+      updatePatient(branchKey, editSumPt.uhid, p => ({
+        ...p,
+        dischargeSummary: { ...(p.dischargeSummary || {}), type: summaryType },
+      }));
+      toast("Discharge summary saved");
+      setShowSummaryModal(false);
+      setEditSumPt(null);
+    } catch (_err) {
+      toast("Failed to save discharge summary", "err");
+    } finally {
+      setSummarySaving(false);
+    }
+  };
+
+  const handlePrintSummary = (p) => {
+    if (!p?.uhid) return;
+    const admNo = resolveAdmNo(p);
+    window.open(`${BASE_URL}/patients/${p.uhid}/admissions/${admNo}/dynamic-summary/print/`, "_blank");
+  };
+
   const openViewModal = (p) => { setViewPt(p); setShowViewModal(true); };
   const confirmDelete = (p) => { setDeletePt(p); setShowDeleteConfirm(true); };
-  const doDeleteSummary = () => { updatePatient(viewBranch, deletePt.uhid, p=>({...p,dischargeSummary:{type:"Normal",diagnosis:"",treatment:"",followUp:"",notes:"",doctorName:"",date:"",expectedDod:""}})); toast("Summary cleared"); setShowDeleteConfirm(false); setDeletePt(null); };
+  const doDeleteSummary = () => {
+    const branchKey = deletePt?._branch || viewBranch;
+    updatePatient(branchKey, deletePt.uhid, p=>({
+      ...p,
+      dischargeSummary:{type:"NORMAL",diagnosis:"",treatment:"",followUp:"",notes:"",doctorName:"",date:"",expectedDod:""},
+    }));
+    toast("Summary cleared");
+    setShowDeleteConfirm(false);
+    setDeletePt(null);
+  };
 
   const openReportEditor = (p) => {
     const next = JSON.parse(JSON.stringify(p));
@@ -1098,7 +1203,11 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
   const Pill = ({ col, bg, children, small }) => (
     <span className={small?"hms-pill-sm":"hms-pill"} style={{ background:bg||`${col}20`, color:col, borderColor:`${col}40` }}>{children}</span>
   );
-  const SummaryPill = ({ type }) => { const m=SUMMARY_META[type]||{color:"#6b7280",bg:"#6b728018"}; return <Pill col={m.color} bg={m.bg}><span className="hms-pill-dot" style={{ background:m.color }}/>{type||"Normal"}</Pill>; };
+  const SummaryPill = ({ type }) => {
+    const key = normalizeSummaryType(type);
+    const m = SUMMARY_META[key] || { color:"#6b7280", bg:"#6b728018" };
+    return <Pill col={m.color} bg={m.bg}><span className="hms-pill-dot" style={{ background:m.color }}/>{SUMMARY_LABELS[key] || "Normal"}</Pill>;
+  };
   const StatusPill  = ({ s }) => { const m=TASK_STATUS_META[s]||{color:"#6b7280",bg:"#6b728018"}; return <Pill col={m.color} bg={m.bg}>{s}</Pill>; };
   const PriorityPill= ({ p }) => { const m=TASK_PRIORITY_META[p]||{color:"#6b7280",bg:"#6b728018"}; return <Pill small col={m.color} bg={m.bg}>{p}</Pill>; };
   const ActionBtn   = ({ col, onClick, children }) => <button className="hms-action-btn" style={{ borderColor:`${col}40`, color:col }} onClick={onClick}>{children}</button>;
@@ -1160,13 +1269,8 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
   const getPreferredReports = (p) => p.reports?.length ? p.reports : (getPreferredAdmission(p).labReports || []);
   const getPreferredDischarge = (p) => ({ ...(getPreferredAdmission(p).discharge || {}), ...(p.dischargeSummary || {}) });
 
-  const downloadDischarge = (p, branchLabel) => {
-    const adm = getPreferredAdmission(p);
-    const ds = getPreferredDischarge(p);
-    const mh = adm.medicalHistory || p.medicalHistory || {};
-    const reports = getPreferredReports(p);
-    exportTxt(`discharge_${p.uhid}.txt`, buildDischargeSummaryText(p, branchLabel, ds, mh, p.medicines||[], reports));
-    toast("Downloaded");
+  const downloadDischarge = (p) => {
+    handlePrintSummary(p);
   };
 
   // ── PAGE: HOME ────────────────────────────────────────────────────────────
@@ -1295,14 +1399,14 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
 
   // ── PAGE: DISCHARGE ───────────────────────────────────────────────────────
   const renderDischarge = () => {
-    const summaryStats = SUMMARY_TYPES.reduce((acc,t)=>{acc[t]=locationPatients.filter(p=>getPreferredDischarge(p)?.type===t).length; return acc;},{});
+    const summaryStats = SUMMARY_TYPES.reduce((acc,t)=>{acc[t]=locationPatients.filter(p=>normalizeSummaryType(getPreferredDischarge(p)?.type)===t).length; return acc;},{});
     const unset = locationPatients.filter(p=>!getPreferredDischarge(p)?.diagnosis).length;
-    const filtered = dischSumFilter==="All" ? locationPatients : locationPatients.filter(p=>getPreferredDischarge(p)?.type===dischSumFilter);
+    const filtered = dischSumFilter==="All" ? locationPatients : locationPatients.filter(p=>normalizeSummaryType(getPreferredDischarge(p)?.type)===dischSumFilter);
     return (
       <div>
         <BranchHeader title="Discharge Summaries"/>
         <div style={{ display:"flex", gap:10, flexWrap:"wrap", marginBottom:16 }}>
-          {[{label:"Total",val:locationPatients.length,col:accent},...SUMMARY_TYPES.map(t=>({label:t,val:summaryStats[t]||0,col:SUMMARY_META[t].color})),{label:"Pending",val:unset,col:"#64748b"}].map((s,i)=>(
+          {[{label:"Total",val:locationPatients.length,col:accent},...SUMMARY_TYPES.map(t=>({label:SUMMARY_LABELS[t]||t,val:summaryStats[t]||0,col:SUMMARY_META[t].color})),{label:"Pending",val:unset,col:"#64748b"}].map((s,i)=>(
             <div key={i} className="hms-stat-card" style={{ padding:"10px 14px", minWidth:90, border:`1px solid ${s.col}15` }}>
               <div className="hms-stat-num" style={{ fontSize:18, color:s.col }}>{s.val}</div>
               <div className="hms-stat-label">{s.label}</div>
@@ -1312,12 +1416,12 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
         <div style={{ marginBottom:14 }}>
           <select className="hms-branch-select" style={{ width:"auto", padding:"7px 28px 7px 12px" }} value={dischSumFilter} onChange={e=>setDischSumFilter(e.target.value)}>
             <option value="All">All Types</option>
-            {SUMMARY_TYPES.map(t=><option key={t}>{t}</option>)}
+            {SUMMARY_TYPES.map(t=><option key={t} value={t}>{SUMMARY_LABELS[t]||t}</option>)}
           </select>
         </div>
         <div className="hms-card">
           <CardRow title={`${filtered.length} Record${filtered.length!==1?"s":""} — ${bc.label}`}
-            action={<ActionBtn col="#f59e0b" onClick={()=>{ filtered.forEach(p=>{ downloadDischarge(p,bc.label); }); toast(`Downloaded ${filtered.length} summaries`); }}>↓ Export All</ActionBtn>}/>
+            action={<ActionBtn col="#f59e0b" onClick={()=>{ filtered.forEach(p=>{ handlePrintSummary(p); }); toast(`Opened ${filtered.length} summaries`); }}>↓ Export All</ActionBtn>}/>
           {filtered.length===0 ? <div className="hms-empty">No summaries match this filter.</div> : (
             <TableWrap heads={["Patient","UHID","Type","Diagnosis","Doctor","Discharge Date","Exp. DOD","Meds","Reports","Actions"]}>
               {filtered.map((p,i)=>{
@@ -2423,28 +2527,114 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
       {/* ══ EDIT SUMMARY MODAL ══ */}
       {showSummaryModal && editSumPt && (
         <div className="hms-modal-overlay" onClick={e=>e.target===e.currentTarget&&(setShowSummaryModal(false),setEditSumPt(null))}>
-          <div className="hms-modal-box" style={{ width:520 }}>
-            <div className="hms-modal-title">Edit Discharge Summary — {editSumPt.patientName||editSumPt.name}</div>
-            <label className="hms-lbl">Summary Type</label>
-            <select className="hms-sel" value={summaryForm.type||"Normal"} onChange={e=>setSummaryForm(f=>({...f,type:e.target.value}))}>
-              {SUMMARY_TYPES.map(t=><option key={t}>{t}</option>)}
-            </select>
-            <div className="hms-g2">
-              <div><label className="hms-lbl">Doctor Name</label><input className="hms-inp" value={summaryForm.doctorName||""} onChange={e=>setSummaryForm(f=>({...f,doctorName:e.target.value}))}/></div>
-              <div><label className="hms-lbl">Discharge Date</label><input className="hms-inp" type="date" value={summaryForm.date||""} onChange={e=>setSummaryForm(f=>({...f,date:e.target.value}))}/></div>
+          <div className="hms-modal-box" style={{ width:760, maxHeight:"92vh", display:"flex", flexDirection:"column" }}>
+            <div className="hms-modal-title" style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:12 }}>
+              <div>
+                <div>Discharge Summary — {editSumPt.patientName||editSumPt.name}</div>
+                <div style={{ fontSize:11, color:"#64748b", fontWeight:500, marginTop:3 }}>
+                  {editSumPt.uhid} · {editSumPt._branchLabel || bc.label}
+                </div>
+              </div>
+              <SummaryPill type={summaryType}/>
             </div>
-            <div className="hms-g2">
-              <div><label className="hms-lbl">Expected DOD</label><input className="hms-inp" type="date" value={summaryForm.expectedDod||""} onChange={e=>setSummaryForm(f=>({...f,expectedDod:e.target.value}))}/></div>
-              <div/>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr", gap:6, marginBottom:10 }}>
+              <label className="hms-lbl">Summary Type / Format</label>
+              <select
+                className="hms-sel"
+                value={summaryType}
+                disabled={summaryLoading || summarySaving}
+                onChange={e=>reloadSummary(e.target.value)}
+              >
+                {SUMMARY_TYPES.map(t=><option key={t} value={t}>{SUMMARY_LABELS[t]||t}</option>)}
+              </select>
+              <div style={{ fontSize:10, color:"#64748b", marginTop:-2 }}>
+                Picking a type loads the official template for that discharge format.
+              </div>
             </div>
-            <label className="hms-lbl">Diagnosis</label><input className="hms-inp" value={summaryForm.diagnosis||""} onChange={e=>setSummaryForm(f=>({...f,diagnosis:e.target.value}))}/>
-            <label className="hms-lbl">Treatment</label><input className="hms-inp" value={summaryForm.treatment||""} onChange={e=>setSummaryForm(f=>({...f,treatment:e.target.value}))}/>
-            <label className="hms-lbl">Follow-up Instructions</label><input className="hms-inp" value={summaryForm.followUp||""} onChange={e=>setSummaryForm(f=>({...f,followUp:e.target.value}))}/>
-            <label className="hms-lbl">Notes</label><input className="hms-inp" value={summaryForm.notes||""} onChange={e=>setSummaryForm(f=>({...f,notes:e.target.value}))}/>
+
+            <div style={{ flex:1, overflowY:"auto", paddingRight:4 }}>
+              {summaryLoading ? (
+                <div style={{ textAlign:"center", padding:"40px 12px", color:"#64748b", fontSize:13 }}>
+                  Loading {SUMMARY_LABELS[summaryType]||summaryType} template…
+                </div>
+              ) : !summaryContent || !Array.isArray(summaryContent.sections) || summaryContent.sections.length === 0 ? (
+                <div style={{ textAlign:"center", padding:"40px 12px", color:"#64748b", fontSize:13 }}>
+                  No template sections available for this type.
+                  <div style={{ marginTop:10 }}>
+                    <button className="hms-add-btn" onClick={()=>reloadSummary(summaryType)}>Retry</button>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+                  {summaryContent.sections.map((sec, idx) => {
+                    const key = sec.key || `sec-${idx}`;
+                    if (sec.type === "textarea") {
+                      return (
+                        <div key={key}>
+                          <label className="hms-lbl">{sec.label}</label>
+                          <textarea
+                            className="hms-inp"
+                            style={{ minHeight:80, resize:"vertical", fontFamily:"inherit" }}
+                            value={sec.value || ""}
+                            rows={3}
+                            onChange={e=>updateSummarySection(idx, e.target.value)}
+                          />
+                        </div>
+                      );
+                    }
+                    if (sec.type === "text") {
+                      return (
+                        <div key={key}>
+                          <label className="hms-lbl">{sec.label}</label>
+                          <input
+                            className="hms-inp"
+                            type="text"
+                            value={sec.value || ""}
+                            onChange={e=>updateSummarySection(idx, e.target.value)}
+                          />
+                        </div>
+                      );
+                    }
+                    if (sec.type === "vitals_grid") {
+                      const vitals = (sec.value && typeof sec.value === "object") ? sec.value : {};
+                      const vitalKeys = Object.keys(vitals).length ? Object.keys(vitals) : (sec.fields || []);
+                      return (
+                        <div key={key} style={{ border:`1px solid ${accent}25`, borderRadius:8, padding:14 }}>
+                          <div className="hms-lbl" style={{ marginBottom:10 }}>{sec.label}</div>
+                          <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:10 }}>
+                            {vitalKeys.map((vKey) => (
+                              <div key={vKey}>
+                                <div style={{ fontSize:10, color:"#64748b", textTransform:"uppercase", marginBottom:4, fontWeight:700 }}>{vKey}</div>
+                                <input
+                                  className="hms-inp"
+                                  type="text"
+                                  value={vitals[vKey] || ""}
+                                  onChange={e=>updateSummaryVital(idx, vKey, e.target.value)}
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })}
+                </div>
+              )}
+            </div>
+
             <div className="hms-modal-foot">
-              <button className="hms-cancel-btn" onClick={()=>{setShowSummaryModal(false);setEditSumPt(null);}}>Cancel</button>
-              <button style={{ background:"transparent", border:`1px solid ${accent}40`, color:accent, padding:"8px 14px", borderRadius:7, cursor:"pointer", fontSize:11, fontWeight:700 }} onClick={()=>{ exportTxt(`discharge_${editSumPt.uhid}.txt`,buildDischargeSummaryText(editSumPt,bc.label,summaryForm,{},editSumPt.medicines||[],editSumPt.reports||[])); toast("Downloaded"); }}>↓ Download</button>
-              <button className="hms-save-btn" onClick={saveSummary}>Save</button>
+              <button className="hms-cancel-btn" onClick={()=>{setShowSummaryModal(false);setEditSumPt(null);}} disabled={summarySaving}>Cancel</button>
+              <button
+                style={{ background:"transparent", border:`1px solid ${accent}40`, color:accent, padding:"8px 14px", borderRadius:7, cursor:"pointer", fontSize:11, fontWeight:700 }}
+                onClick={()=>handlePrintSummary(editSumPt)}
+                disabled={summaryLoading || summarySaving}
+              >↓ Print PDF</button>
+              <button
+                className="hms-save-btn"
+                onClick={saveSummary}
+                disabled={summaryLoading || summarySaving || !summaryContent}
+              >{summarySaving ? "Saving…" : "Save"}</button>
             </div>
           </div>
         </div>
