@@ -8,6 +8,7 @@ export default function SummaryPage({uhid,patient,discharge,svcs,billing,locId,a
   const disc=parseFloat(billing.discount)||0;const adv=parseFloat(billing.advance)||0;const paid=parseFloat(billing.paidNow)||0;const net=Math.max(0,total-disc-adv-paid);
   const today=new Date().toLocaleDateString("en-IN",{day:"2-digit",month:"short",year:"numeric"});
   const loc = branch || { id: locId, name: "Hospital" };
+  const printApproved = String(billing?.printStatus || "").toUpperCase() === "APPROVED";
 
   const handlePrintInvoice = () => {
   if (onPrint) onPrint();
@@ -25,9 +26,14 @@ export default function SummaryPage({uhid,patient,discharge,svcs,billing,locId,a
     </div>
     {billing.paymentMode&&<div className="pay-pill"><Ico d={IC.wallet} size={13} sw={2}/> Payment via: <strong>{billing.paymentMode}</strong></div>}
 
-        <div className="btn-row">
-      <button className="btn btn-print" onClick={handlePrintInvoice}>
-        <Ico d={IC.print} size={15} sw={2}/> Print Invoice
+  <div className="btn-row" style={{ gap:10 }}>
+      {!printApproved && onRequestPrint && (
+        <button className="btn btn-ghost" onClick={onRequestPrint}>
+          <Ico d={IC.send} size={15} sw={2}/> Request Branch Admin Approval
+        </button>
+      )}
+      <button className="btn btn-print" onClick={handlePrintInvoice} disabled={!printApproved} title={printApproved ? "Print Invoice" : "Waiting for Branch Admin approval"}>
+        <Ico d={IC.print} size={15} sw={2}/> {printApproved ? "Print Invoice" : "Print Locked (Awaiting Approval)"}
       </button>
     </div>
   </div>

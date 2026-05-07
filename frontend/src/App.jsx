@@ -228,7 +228,7 @@ export default function App() {
 
       setDb(splitPatientsByBranch(scopedPatients));
 
-      if (userRole === "superadmin") {
+      if (["superadmin", "admin", "branchadmin"].includes(String(userRole || "").toLowerCase())) {
         try {
           const pendingPatients = await apiService.getPendingPrints();
           const formattedRequests = [];
@@ -771,7 +771,15 @@ export default function App() {
     if (page === "branchadmin") {
       return (
         <>
-          <BranchAdminDashboard currentUser={currentUser} db={db} locId={locId} onLogout={handleLogout} />
+          <BranchAdminDashboard
+            currentUser={currentUser}
+            db={db}
+            locId={locId}
+            printRequests={printRequests}
+            onApprovePrint={handleApprovePrint}
+            onViewBill={handleViewBill}
+            onLogout={handleLogout}
+          />
           <ToastBridge />
         </>
       );

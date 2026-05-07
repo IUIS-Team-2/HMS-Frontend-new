@@ -1296,11 +1296,35 @@ function LabReportsTab({ all }) {
                   </div>
                   {isExpanded && (
                     <div style={{ padding: "0 18px 18px", borderTop: `1px solid ${T.border}` }}>
-                      {Array.isArray(report.fields) && report.fields.length > 0 ? (
+                      {(() => {
+                        const mappedTests = Array.isArray(report.tests)
+                          ? report.tests.map((test) => ({
+                              name: test.name || test.test_name || test.parameter || "Test",
+                              value: test.value || test.result || "--",
+                              unit: test.unit || "--",
+                              normal: test.refRange || test.normal || test.normal_value || "--",
+                              isAbnormal: String(test.status || "").toLowerCase() === "high" || String(test.status || "").toLowerCase() === "low",
+                            }))
+                          : [];
+                        const mappedModality = report.modalityDetails && typeof report.modalityDetails === "object"
+                          ? Object.entries(report.modalityDetails).map(([key, val]) => ({
+                              name: key.replace(/_/g, " "),
+                              value: String(val ?? "--"),
+                              unit: "--",
+                              normal: "--",
+                              isAbnormal: false,
+                            }))
+                          : [];
+                        const detailFields = Array.isArray(report.fields) && report.fields.length > 0
+                          ? report.fields
+                          : (mappedTests.length > 0 ? mappedTests : mappedModality);
+
+                        if (detailFields.length > 0) {
+                          return (
                         <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 12 }}>
                           <thead><tr>{["Test Name","Value","Unit","Normal Range"].map(h => <TH key={h} h={h} />)}</tr></thead>
                           <tbody>
-                            {report.fields.map((f, fi) => (
+                            {detailFields.map((f, fi) => (
                               <tr key={fi} style={{ borderBottom: `1px solid ${T.border}`, background: fi%2===0 ? T.card : T.surface }}>
                                 <td style={{ padding: "8px 12px", fontSize: 12, color: T.white }}>{f.name||f.label}</td>
                                 <td style={{ padding: "8px 12px", fontSize: 13, fontWeight: 800, color: f.isAbnormal ? T.red : T.green }}>{f.value||"--"}</td>
@@ -1310,11 +1334,17 @@ function LabReportsTab({ all }) {
                             ))}
                           </tbody>
                         </table>
-                      ) : report.narrative ? (
-                        <div style={{ background: T.bg, borderRadius: 8, padding: 14, marginTop: 12, fontSize: 13, color: T.white, lineHeight: 1.7 }}>{report.narrative}</div>
-                      ) : (
-                        <div style={{ textAlign: "center", padding: "20px", color: T.dim, fontSize: 12 }}>No detailed fields available</div>
-                      )}
+                          );
+                        }
+                        if (report.narrative || report.findings || report.impression) {
+                          return (
+                            <div style={{ background: T.bg, borderRadius: 8, padding: 14, marginTop: 12, fontSize: 13, color: T.white, lineHeight: 1.7 }}>
+                              {report.narrative || [report.findings, report.impression].filter(Boolean).join("\n\n")}
+                            </div>
+                          );
+                        }
+                        return <div style={{ textAlign: "center", padding: "20px", color: T.dim, fontSize: 12 }}>No detailed fields available</div>;
+                      })()}
                       {report.remarks && (
                         <div style={{ marginTop: 10, background: T.amber+"10", border: `1px solid ${T.amber}40`, borderRadius: 8, padding: "10px 14px", fontSize: 12, color: T.amber }}>
                           <strong>Remarks:</strong> {report.remarks}
@@ -1375,6 +1405,7 @@ function LabReportsTab({ all }) {
 function ReportsTab({ all }) {
   const T = useT();
   const [branch, setBranch] = useState("all");
+  const [openReport, setOpenReport] = useState("Complete Patient Register");
   const base = branch === "all" ? all : all.filter(p => p._branch === branch);
 
   const REPORTS = [
@@ -1419,11 +1450,57 @@ function ReportsTab({ all }) {
             <div style={{ fontSize: 12, color: T.dim, flex: 1 }}>{r.desc}</div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span style={{ fontSize: 13, fontWeight: 700, color: T.amber }}>{r.rows.length} records</span>
-              <XlsBtn onClick={() => exportXLSX(r.rows, r.cols, r.file)} />
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <button
+                  onClick={() => setOpenReport(r.title)}
+                  style={{ padding: "7px 12px", borderRadius: 8, border: `1px solid ${T.border2}`, background: T.card2, color: T.white, fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+                >
+                  View Format
+                </button>
+                <XlsBtn onClick={() => exportXLSX(r.rows, r.cols, r.file)} />
+              </div>
             </div>
           </div>
         ))}
       </div>
+
+      {(() => {
+        const selected = REPORTS.find((r) => r.title === openReport) || REPORTS[0];
+        const previewRows = (selected?.rows || []).slice(0, 8);
+        const previewCols = (selected?.cols || []).slice(0, 6);
+        return (
+          <div style={{ ...cardStyle(T), marginTop: 18, padding: 0, overflow: "hidden" }}>
+            <div style={{ padding: "14px 16px", borderBottom: `1px solid ${T.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: T.white }}>{selected?.title}</div>
+                <div style={{ fontSize: 11, color: T.dim, marginTop: 2 }}>{selected?.desc} · Showing top {previewRows.length} rows</div>
+              </div>
+              <XlsBtn onClick={() => exportXLSX(selected?.rows || [], selected?.cols || [], selected?.file || "report.xlsx")} label="Download Full Report" />
+            </div>
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead>
+                  <tr>{previewCols.map((col) => <TH key={col.label} h={col.label} />)}</tr>
+                </thead>
+                <tbody>
+                  {!previewRows.length ? (
+                    <tr><td colSpan={Math.max(previewCols.length, 1)} style={{ padding: 40, textAlign: "center", color: T.dim }}>No data available for this report.</td></tr>
+                  ) : (
+                    previewRows.map((row, idx) => (
+                      <tr key={idx} style={{ borderBottom: `1px solid ${T.border}`, background: idx % 2 === 0 ? T.card : T.surface }}>
+                        {previewCols.map((col) => {
+                          const val = typeof col.get === "function" ? col.get(row) : (row[col.key] ?? "—");
+                          return <td key={col.label} style={{ padding: "9px 12px", fontSize: 12, color: T.white }}>{String(val || "—")}</td>;
+                        })}
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

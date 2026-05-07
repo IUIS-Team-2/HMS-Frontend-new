@@ -373,6 +373,9 @@ export default function BranchAdminDashboard({
   currentUser,
   db,
   locId,
+  printRequests = [],
+  onApprovePrint,
+  onViewBill,
   onLogout,
   branchId   = "raya",
   branchName = "",
@@ -604,6 +607,10 @@ export default function BranchAdminDashboard({
 
   // ─── Views ────────────────────────────────────────────────────────────────
   function OverviewView() {
+    const branchPendingPrints = (printRequests || []).filter((request) => {
+      const requestBranch = String(request?.patient?.branch_location || "").toUpperCase();
+      return requestBranch === resolvedBranchCode;
+    });
     return (
       <>
         <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:"14px", marginBottom:"14px" }}>
@@ -646,6 +653,41 @@ export default function BranchAdminDashboard({
                     <Td><span style={mkBadge(p.paymentMode)}>{p.paymentMode}</span></Td>
                     <Td><span style={mkBadge(p.paymentType)}>{p.paymentType||"—"}</span></Td>
                     <Td><span style={mkBadge(p.status)}>{p.status}</span></Td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+        </TableShell>
+
+        <div style={{ height:"16px" }} />
+        <TableShell title="Print Approval Queue" count={branchPendingPrints.length}>
+          <table style={{ width:"100%", borderCollapse:"collapse", fontSize:"12px" }}>
+            <thead><tr>{["UHID","Patient","Admission","Requested At","Action"].map(h=><Th key={h}>{h}</Th>)}</tr></thead>
+            <tbody>
+              {!branchPendingPrints.length
+                ? <EmptyRow cols={5} msg="NO PENDING PRINT REQUESTS" />
+                : branchPendingPrints.map((req) => (
+                  <tr key={`${req.uhid}-${req.admNo}`}>
+                    <Td><span style={{ color:T.textMuted, fontSize:"10px" }}>{req.uhid}</span></Td>
+                    <Td primary>{req?.patient?.patientName || req?.patient?.name || "Patient"}</Td>
+                    <Td>#{req.admNo}</Td>
+                    <Td>{String(req.requestedAt || "").slice(0, 16).replace("T", " ") || "—"}</Td>
+                    <Td>
+                      <div style={{ display:"flex", gap:"8px", flexWrap:"wrap" }}>
+                        <button
+                          style={{ ...mkBtn("primary", theme), padding:"4px 12px", fontSize:"10px" }}
+                          onClick={() => onApprovePrint?.(req, "approve")}
+                        >Approve</button>
+                        <button
+                          style={{ ...mkBtn("danger", theme), padding:"4px 12px", fontSize:"10px" }}
+                          onClick={() => onApprovePrint?.(req, "reject")}
+                        >Reject</button>
+                        <button
+                          style={{ ...mkBtn("dim", theme), padding:"4px 12px", fontSize:"10px" }}
+                          onClick={() => onViewBill?.(req)}
+                        >View</button>
+                      </div>
+                    </Td>
                   </tr>
                 ))}
             </tbody>
@@ -755,13 +797,51 @@ export default function BranchAdminDashboard({
       </div>
     );
 
-    const cols = {
-      discharge_summary:["Date","Summary","Doctor","Next Visit","Instructions"],
-      reports:          ["Date","Report Type","Result","Lab / Tech","Doctor","File"],
-      medicines:        ["Date","Medicine","Dosage","Frequency","Duration","Prescribed By"],
-      admission_note:   ["Date","Note","Doctor","Diagnosis","Plan"],
-      medical_history:  ["Date","Condition","Treatment","Doctor","Notes"],
+    const selectedAdmission = selPatient.admObj || {};
+    const selectedDischarge = selectedAdmission.discharge || {};
+    const selectedMedical = selectedAdmission.medicalHistory || {};
+    const selectedReports = Array.isArray(selectedAdmission.labReports) ? selectedAdmission.labReports : [];
+    const selectedMedicines = Array.isArray(selectedAdmission.pharmacyRecords) ? selectedAdmission.pharmacyRecords : [];
+
+    const recordRows = {
+      discharge_summary: [{
+        date: selectedDischarge.dod || selectedDischarge.doa || selectedAdmission.dateTime || "—",
+        summary: selectedDischarge.diagnosis || selectedMedical.provisionalDiagnosis || "—",
+        doctor: selectedDischarge.doctorName || selectedMedical.treatingDoctor || "—",
+        nextVisit: selectedDischarge.expectedDod || "—",
+        instructions: selectedDischarge.instructions || selectedMedical.treatmentAdvised || "—",
+      }],
+      reports: selectedReports.map((report) => ({
+        date: report.date || report.report_date || "—",
+        reportType: report.reportName || report.report_name || report.reportType || report.report_type || "Report",
+        result: report.remarks || report.impression || report.findings || "Saved in reports",
+        lab: report.reportCategory || report.report_category || "Lab",
+        doctor: report.orderedBy || report.ordered_by || selectedDischarge.doctorName || selectedMedical.treatingDoctor || "—",
+      })),
+      medicines: selectedMedicines.map((record) => ({
+        date: record.date || record.date_given || "—",
+        medicine: record.item || record.medicine_name || "Medicine",
+        dosage: String(record.quantity || 1),
+        frequency: "—",
+        duration: "—",
+        prescribedBy: selectedDischarge.doctorName || selectedMedical.treatingDoctor || "—",
+      })),
+      admission_note: [{
+        date: selectedAdmission.dateTime || selectedDischarge.doa || "—",
+        note: selectedMedical.notes || selectedMedical.presentComplaints || "—",
+        doctor: selectedMedical.treatingDoctor || selectedDischarge.doctorName || "—",
+        diagnosis: selectedMedical.provisionalDiagnosis || selectedDischarge.diagnosis || "—",
+        plan: selectedMedical.treatmentAdvised || "—",
+      }],
+      medical_history: [{
+        date: selectedAdmission.dateTime || selectedDischarge.doa || "—",
+        condition: selectedMedical.previousDiagnosis || "—",
+        treatment: selectedMedical.currentMedications || selectedMedical.treatmentAdvised || "—",
+        doctor: selectedMedical.treatingDoctor || selectedDischarge.doctorName || "—",
+        notes: selectedMedical.notes || "—",
+      }],
     };
+    const activeRows = (recordRows[recTab] || []).filter((row) => Object.values(row).some((value) => value && value !== "—"));
 
     return (
       <>
@@ -798,24 +878,25 @@ export default function BranchAdminDashboard({
           ))}
         </div>
 
-        <TableShell title={RECORD_TYPES.find(r=>r.id===recTab)?.label} count={records.length}>
-          <table style={{ width:"100%", borderCollapse:"collapse", fontSize:"12px" }}>
-            <thead><tr>{(cols[recTab]||[]).map(h=><Th key={h}>{h}</Th>)}</tr></thead>
-            <tbody>
-              {!records.length
-                ? <EmptyRow cols={(cols[recTab]||[]).length} msg={`NO ${recTab.replace(/_/g," ").toUpperCase()} RECORDS`} />
-                : records.map((rec,i) => (
-                  <tr key={i}>
-                    <Td>{rec.date}</Td>
-                    {recTab==="discharge_summary" && <><Td style={{maxWidth:"180px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{rec.summary}</Td><Td>{rec.doctor}</Td><Td>{rec.nextVisit}</Td><Td>{rec.instructions}</Td></>}
-                    {recTab==="reports" && <><Td primary>{rec.reportType}</Td><Td>{rec.result}</Td><Td>{rec.lab}</Td><Td>{rec.doctor}</Td><Td>{rec.fileUrl ? <a href={rec.fileUrl} target="_blank" rel="noreferrer" style={{color:theme.primary}}>↗</a> : "—"}</Td></>}
-                    {recTab==="medicines" && <><Td primary>{rec.medicine}</Td><Td>{rec.dosage}</Td><Td>{rec.frequency}</Td><Td>{rec.duration}</Td><Td>{rec.prescribedBy}</Td></>}
-                    {recTab==="admission_note" && <><Td style={{maxWidth:"180px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{rec.note}</Td><Td>{rec.doctor}</Td><Td>{rec.diagnosis}</Td><Td>{rec.plan}</Td></>}
-                    {recTab==="medical_history" && <><Td primary>{rec.condition}</Td><Td>{rec.treatment}</Td><Td>{rec.doctor}</Td><Td style={{maxWidth:"160px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{rec.notes}</Td></>}
-                  </tr>
-                ))}
-            </tbody>
-          </table>
+        <TableShell title={RECORD_TYPES.find(r=>r.id===recTab)?.label} count={activeRows.length}>
+          {!activeRows.length ? (
+            <div style={{ padding:"52px 20px", textAlign:"center", color:T.textMuted, fontSize:"10px", letterSpacing:"3px" }}>
+              {`NO ${recTab.replace(/_/g," ").toUpperCase()} RECORDS`}
+            </div>
+          ) : (
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))", gap:"12px", padding:"14px" }}>
+              {activeRows.map((row, idx) => (
+                <div key={idx} style={{ background:T.surface, border:`1px solid ${T.border}`, borderRadius:"10px", padding:"12px 14px" }}>
+                  {Object.entries(row).map(([field, value]) => (
+                    <div key={field} style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:"10px", padding:"5px 0", borderBottom:`1px solid ${T.border}33` }}>
+                      <div style={{ fontSize:"10px", letterSpacing:"1px", textTransform:"uppercase", color:T.textMuted }}>{field.replace(/([A-Z])/g, " $1").trim()}</div>
+                      <div style={{ fontSize:"12px", color:T.text, fontWeight:"600", textAlign:"right", maxWidth:"65%" }}>{value || "—"}</div>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
         </TableShell>
       </>
     );
