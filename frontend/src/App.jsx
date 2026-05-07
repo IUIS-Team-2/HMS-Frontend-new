@@ -455,12 +455,15 @@ export default function App() {
 
   const validatePatient = () => {
     const e = {};
+    const nationalIdRaw = String(patient.nationalId || "");
+    const nationalIdDigits = nationalIdRaw.replace(/\D/g, "");
+    const emailRaw = String(patient.email || "").trim();
     if (!patient.patientName.trim())  e.patientName  = "Required";
     if (!patient.guardianName.trim()) e.guardianName = "Required";
     if (!patient.gender) e.gender = "Required";
     if (!patient.phone || String(patient.phone).replace(/\D/g, "").length !== 10) e.phone = "Must be 10 digits";
-    if (!patient.email || !patient.email.includes("@")) e.email = "Valid email required";
-    if (!patient.nationalId.trim()) e.nationalId = "Required";
+    if (emailRaw && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailRaw)) e.email = "Enter a valid email or leave it blank";
+    if (!/^\d{12}$/.test(nationalIdDigits)) e.nationalId = "Aadhaar must be exactly 12 digits";
     if (!patient.address.trim()) e.address = "Required";
     setErrs(e); return !Object.keys(e).length;
   };
@@ -468,7 +471,9 @@ export default function App() {
   const handleRegister = async () => {
     if (!validatePatient()) return;
 
-    const sanitizedPayload = { ...patient };
+    const normalizedAadhaar = String(patient.nationalId || "").replace(/\D/g, "").replace(/(\d{4})(?=\d)/g, "$1 ").trim();
+    const sanitizedPayload = { ...patient, nationalId: normalizedAadhaar };
+    if (!String(sanitizedPayload.email || "").trim()) sanitizedPayload.email = "";
     if (!sanitizedPayload.dob)              sanitizedPayload.dob              = null;
     if (!sanitizedPayload.tpaValidity)      sanitizedPayload.tpaValidity      = null;
     if (!sanitizedPayload.tpaPanelValidity) sanitizedPayload.tpaPanelValidity = null;
@@ -820,7 +825,8 @@ export default function App() {
           <PatientDetailModal patient={showPatientDetail}
             onClose={() => setShowPatientDetail(null)}
             onDischarge={handleDischargeFromHistory}
-            onSaved={handlePatientSaved} />
+            onSaved={handlePatientSaved}
+            currentUser={currentUser} />
         )}
 
         <header className="hdr">

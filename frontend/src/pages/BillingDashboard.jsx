@@ -1531,7 +1531,12 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
     }
   };
 
-  const updSvc  = (i, k, v) => setESvc(prev => { const n = [...prev]; n[i] = { ...n[i], [k]: v }; if (k === "qty" || k === "rate") n[i].amount = Number(n[i].qty || 0) * Number(n[i].rate || 0); return n; });
+  const updSvc  = (i, k, v) => setESvc(prev => {
+    const n = [...prev];
+    n[i] = { ...n[i], [k]: v };
+    if (k === "qty" || k === "rate") n[i].amount = Number.parseFloat(n[i].qty || 0) * Number.parseFloat(n[i].rate || 0);
+    return n;
+  });
   const updRep  = (ri, k, v) => setELabRep(p => { const n = JSON.parse(JSON.stringify(p)); n[ri][k] = v; return n; });
   const updTest = (ri, ti, k, v) => setELabRep(p => { const n = JSON.parse(JSON.stringify(p)); n[ri].tests[ti][k] = v; return n; });
   const addTest = ri => setELabRep(p => { const n = JSON.parse(JSON.stringify(p)); n[ri].tests.push({ id: Date.now(), name:"", value:"", unit:"", refRange:"", status:"Normal" }); return n; });
@@ -1566,6 +1571,7 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
   const radReps     = eLabRep.filter(r =>  isRadiologyType(r.reportType));
   const pathTotal   = pathReps.reduce((a, r) => a + Number(r.amount || 0), 0);
   const radTotal    = radReps.reduce((a, r) => a + Number(r.amount || 0), 0);
+  const isCashlessPatient = String(sel?.payMode || "").toLowerCase() === "cashless" || (eBilling?.insuranceType && eBilling.insuranceType !== "Self Pay");
 
   const repFilterOptions = ["All", "🧪 Pathology", "🩻 Radiology", ...Array.from(new Set(eLabRep.map(r => r.reportType)))];
   const visibleReps = eLabRep.filter(r => {
@@ -1990,8 +1996,8 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
                                     <tr key={r.id}>
                                       <td><input className="tinp" value={r.name} onChange={e => updSvc(i, "name", e.target.value)}/></td>
                                       <td><input className="tinp" value={r.category} onChange={e => updSvc(i, "category", e.target.value)}/></td>
-                                      <td><input className="tinp" type="number" value={r.qty} onChange={e => updSvc(i, "qty", e.target.value)}/></td>
-                                      <td><input className="tinp" type="number" value={r.rate} onChange={e => updSvc(i, "rate", e.target.value)}/></td>
+                                      <td><input className="tinp" type="number" min="1" step="1" value={r.qty} onChange={e => updSvc(i, "qty", e.target.value)}/></td>
+                                      <td><input className="tinp" type="number" min="0" step="0.01" value={r.rate} onChange={e => updSvc(i, "rate", e.target.value)}/></td>
                                       <td style={{ fontWeight:700 }}>{fmt(r.amount)}</td>
                                       <td><button className="delbtn" onClick={() => setESvc(p => p.filter((_, j) => j !== i))}>X</button></td>
                                     </tr>
@@ -2012,11 +2018,13 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
                               {[{ k:"discount", lbl:"Discount (Rs.)" }, { k:"advance", lbl:"Advance Paid (Rs.)" }, { k:"paidNow", lbl:"Paid Now (Rs.)" }].map(f => (
                                 <div key={f.k} className="fg"><label className="flbl">{f.lbl}</label><input className="finp" type="number" value={eBilling?.[f.k] || 0} onChange={e => setEBilling(p => ({ ...p, [f.k]: e.target.value }))}/></div>
                               ))}
-                              <div className="fg"><label className="flbl">Payment Mode</label>
-                                <select className="fsel" value={eBilling?.paymentMode || "Cash"} onChange={e => setEBilling(p => ({ ...p, paymentMode: e.target.value }))}>
-                                  {["Cash", "UPI", "Card", "Insurance", "NEFT", "Cheque"].map(m => <option key={m}>{m}</option>)}
-                                </select>
-                              </div>
+                              {!isCashlessPatient && (
+                                <div className="fg"><label className="flbl">Payment Mode</label>
+                                  <select className="fsel" value={eBilling?.paymentMode || "Cash"} onChange={e => setEBilling(p => ({ ...p, paymentMode: e.target.value }))}>
+                                    {["Cash", "UPI", "Card", "Insurance", "NEFT", "Cheque"].map(m => <option key={m}>{m}</option>)}
+                                  </select>
+                                </div>
+                              )}
                               <div className="fg"><label className="flbl">Insurance Type</label>
                                 <select className="fsel" value={eBilling?.insuranceType || "Self Pay"} onChange={e => setEBilling(p => ({ ...p, insuranceType: e.target.value }))}>
                                   {INSURANCE_TYPES.map(t => <option key={t}>{t}</option>)}

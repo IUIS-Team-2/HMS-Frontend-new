@@ -5,9 +5,10 @@ import { Ico, IC } from "../components/ui/Icons";
 import { statusBadge } from "../components/ui/SharedUI";
 import { apiService } from "../services/apiService";
 
-export default function PatientDetailModal({patient,onClose,onDischarge,onSaved}){
+export default function PatientDetailModal({patient,onClose,onDischarge,onSaved,currentUser}){
   const [tab,setTab]=useState("info");
   const [isEditing,setIsEditing]=useState(false);
+  const canEditPatient = String(currentUser?.role || "").toLowerCase() !== "receptionist";
   const [editData,setEditData]=useState({
     patientName:patient.patientName||"",
     guardianName:patient.guardianName||"",
@@ -59,7 +60,7 @@ export default function PatientDetailModal({patient,onClose,onDischarge,onSaved}
         <div className="pdm-hd">
           <div className="pdm-hd-left"><div className="pdm-avatar">{initials(patient.patientName)}</div><div><div className="pdm-hd-name">{patient.patientName}</div><div className="pdm-hd-meta">{patient.uhid} · {patient.gender} · {patient.bloodGroup} · {patient.phone}</div></div></div>
           <div style={{display:"flex",gap:8,alignItems:"center"}}>
-            {tab==="info"&&!isEditing&&<button onClick={()=>{setIsEditing(true);setSaveError("");}} style={{padding:"7px 14px",borderRadius:8,border:"1px solid #3b82f6",background:"#eff6ff",color:"#3b82f6",fontSize:13,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:5}}><Ico d={IC.edit} size={13} sw={2}/>Edit</button>}
+            {canEditPatient && tab==="info"&&!isEditing&&<button onClick={()=>{setIsEditing(true);setSaveError("");}} style={{padding:"7px 14px",borderRadius:8,border:"1px solid #3b82f6",background:"#eff6ff",color:"#3b82f6",fontSize:13,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:5}}><Ico d={IC.edit} size={13} sw={2}/>Edit</button>}
             {isEditing&&<div style={{display:"flex",gap:6}}><button onClick={handleSave} disabled={saving} style={{padding:"7px 14px",borderRadius:8,border:"none",background:saving?"#ccc":"#10b981",color:"#fff",fontSize:13,fontWeight:600,cursor:saving?"not-allowed":"pointer",display:"flex",alignItems:"center",gap:5}}><Ico d={IC.check} size={13} sw={2}/>{saving?"Saving...":"Save"}</button><button onClick={()=>setIsEditing(false)} style={{padding:"7px 14px",borderRadius:8,border:"1px solid #ddd",background:"#fff",color:"#666",fontSize:13,fontWeight:600,cursor:"pointer"}}>Cancel</button></div>}
             <button className="pdm-close" onClick={onClose}><Ico d={IC.x} size={15} sw={2}/></button>
           </div>
@@ -141,7 +142,7 @@ export default function PatientDetailModal({patient,onClose,onDischarge,onSaved}
               </div>
               {billMade&&(<div className="pdm-adm-body">
                 <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:12}}>{[["Gross Total",`₹${tot.toFixed(2)}`],["Discount",`₹${disc.toFixed(2)}`],["Advance",`₹${adv.toFixed(2)}`],["Net Payable",`₹${net.toFixed(2)}`]].map(([l,v])=>(<div key={l} className={`pdm-item${l==="Net Payable"?" hi":""}`}><div className="pdm-lbl">{l}</div><div className="pdm-val">{v}</div></div>))}</div>
-                {adm.billing?.paymentMode&&<div style={{fontSize:13,color:T.textMid}}><strong>Payment Mode:</strong> {adm.billing.paymentMode}</div>}
+                {adm.billing?.paymentMode && String(patient?.payMode || "").toLowerCase() !== "cashless" && <div style={{fontSize:13,color:T.textMid}}><strong>Payment Mode:</strong> {adm.billing.paymentMode}</div>}
                 {(adm.services||[]).length>0&&<><div style={{fontSize:11,fontWeight:700,color:T.textLight,textTransform:"uppercase",letterSpacing:".07em",margin:"14px 0 8px"}}>Services</div>{adm.services.map((s,si)=>(<div key={si} style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"5px 0",borderBottom:`1px solid ${T.border}`,color:T.textMid}}><span>{s.title||s.type} {s.code?`(${s.code})`:""} × {s.qty}</span><span style={{fontWeight:600}}>₹{((parseFloat(s.rate)||0)*(parseInt(s.qty)||0)).toFixed(2)}</span></div>))}</>}
               </div>)}
             </div>);

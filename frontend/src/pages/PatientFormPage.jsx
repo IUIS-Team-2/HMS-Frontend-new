@@ -5,6 +5,11 @@ import { Card, Inp, Sel, Txta, Field } from "../components/ui/SharedUI";
 export default function PatientFormPage({data, setData, onSubmit, errs, onBack}) {
   const set = k => e => setData(p => ({ ...p, [k]: e.target.value }));
   const setVal = k => v => setData(p => ({ ...p, [k]: v }));
+  const setAadhaar = (e) => {
+    const digits = String(e.target.value || "").replace(/\D/g, "").slice(0, 12);
+    const formatted = digits.replace(/(\d{4})(?=\d)/g, "$1 ").trim();
+    setData((p) => ({ ...p, nationalId: formatted }));
+  };
   
   const handleDob = e => {
     const dob = e.target.value;
@@ -47,8 +52,8 @@ export default function PatientFormPage({data, setData, onSubmit, errs, onBack})
         <div className="g2">
           <Inp label="Phone Number" req type="tel" placeholder="10-digit mobile" value={data.phone} onChange={set("phone")} err={errs?.phone} />
           <Inp label="Alternate Number" type="tel" placeholder="10-digit alternate" value={data.altPhone} onChange={set("altPhone")} />
-          <Inp label="Email Address" type="email" placeholder="patient@email.com" value={data.email} onChange={set("email")} err={errs?.email} />
-          <Inp label="National ID" req placeholder="Aadhar / PAN / Passport" value={data.nationalId} onChange={set("nationalId")} err={errs?.nationalId} />
+          <Inp label="Email Address (Optional)" type="email" placeholder="patient@email.com" value={data.email} onChange={set("email")} err={errs?.email} />
+          <Inp label="Aadhaar Number" req placeholder="1234 5678 9012" value={data.nationalId} onChange={setAadhaar} err={errs?.nationalId} />
           <div className="s2"><Field label="Residential Address" req err={errs?.address}><textarea className={`ctrl${errs?.address ? " err" : ""}`} rows={2} placeholder="Full address with city, state and PIN code" value={data.address} onChange={set("address")} /></Field></div>
         </div>
       </Card>

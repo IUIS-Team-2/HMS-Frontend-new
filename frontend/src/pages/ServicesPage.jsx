@@ -41,6 +41,7 @@ export default function ServicesPage({svcs, billing, onSave}){
   const total = combinedSvcs.reduce((a,s) => a + (parseFloat(s.rate)||0) * (parseInt(s.qty)||0), 0);
   const disc = parseFloat(billState.discount)||0; const adv = parseFloat(billState.advance)||0; const paid = parseFloat(billState.paidNow)||0; 
   const net = Math.max(0, total - disc - adv - paid);
+  const isCashlessPatient = String(billState?.insuranceType || "").toLowerCase() !== "self pay" && String(billState?.insuranceType || "").trim() !== "";
 
   const MasterRow = ({ item, i, setter, isGen, svcType }) => (
     <div style={{display:"grid", gridTemplateColumns: isGen ? "1.2fr 2fr 100px 80px 70px 90px 36px" : "2fr 100px 80px 70px 90px 36px", gap: 10, alignItems:"center", padding:"11px 14px", background:T.offwhite, border:`1px solid ${T.border}`, borderRadius:12, marginBottom:10}}>
@@ -57,8 +58,8 @@ export default function ServicesPage({svcs, billing, onSave}){
         <span className="sc-a"><Ico d={IC.dn} size={11} sw={2.5}/></span>
       </div>
       <input className="sc" placeholder="Code" value={item.code} readOnly style={{background: T.bgPage, color: T.textMuted}} />
-      <input className="sc" type="number" placeholder="Rate ₹" value={item.rate} onChange={e => updSvc(setter, i, 'rate', e.target.value)} />
-      <input className="sc" type="number" placeholder="Qty" min="1" value={item.qty} onChange={e => updSvc(setter, i, 'qty', e.target.value)} />
+      <input className="sc" type="number" min="0" step="0.01" placeholder="Rate ₹" value={item.rate} onChange={e => updSvc(setter, i, 'rate', e.target.value)} />
+      <input className="sc" type="number" placeholder="Qty" min="1" step="1" value={item.qty} onChange={e => updSvc(setter, i, 'qty', e.target.value)} />
       <span className="svc-tot">₹{((parseFloat(item.rate)||0)*(parseInt(item.qty)||0)).toFixed(2)}</span>
       <button className="svc-del" onClick={() => remSvc(setter, i)}><Ico d={IC.trash} size={13} sw={2}/></button>
     </div>
@@ -88,7 +89,9 @@ export default function ServicesPage({svcs, billing, onSave}){
         <Inp label="Discount Amount (₹)" placeholder="0.00" type="number" value={billState.discount} onChange={e=>setBillState(p=>({...p, discount: e.target.value}))}/>
         <Inp label="Advance Payment (₹)" placeholder="Amount received earlier" type="number" value={billState.advance} onChange={e=>setBillState(p=>({...p, advance: e.target.value}))}/>
         <Inp label="Amount Paid Now (₹)" placeholder="Amount paid at discharge" type="number" value={billState.paidNow} onChange={e=>setBillState(p=>({...p, paidNow: e.target.value}))}/>
-        <Sel label="Payment Mode" req opts={PAY_MODES} placeholder="Select mode" value={billState.paymentMode} onChange={e=>setBillState(p=>({...p, paymentMode: e.target.value}))}/>
+        {!isCashlessPatient && (
+          <Sel label="Payment Mode" req opts={PAY_MODES} placeholder="Select mode" value={billState.paymentMode} onChange={e=>setBillState(p=>({...p, paymentMode: e.target.value}))}/>
+        )}
       </div>
     </Card>
 
