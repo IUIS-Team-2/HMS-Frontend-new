@@ -962,7 +962,7 @@ export default function App() {
               />
             )}
             {page === "services" && (
-              <ServicesPage svcs={svcs} setSvcs={setSvcs} billing={billing} setBilling={setBilling} onSave={handleSaveServices} />
+              <ServicesPage svcs={svcs} setSvcs={setSvcs} billing={billing} setBilling={setBilling} onSave={handleSaveServices} patientPayMode={patient?.payMode} />
             )}
             {page === "summary" && (
               <SummaryPage uhid={uhid} patient={patient} discharge={discharge} svcs={svcs} billing={billing} locId={locId} admNo={admNo} branch={currentBranch} onPrint={() => setShowPrint(true)} onRequestPrint={handleRequestPrint} />

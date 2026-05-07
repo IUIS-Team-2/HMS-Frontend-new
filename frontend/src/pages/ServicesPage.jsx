@@ -3,7 +3,7 @@ import { T, PAY_MODES, MASTER_ROOMS, MASTER_CONSULTANTS, MASTER_SERVICES } from 
 import { Ico, IC } from "../components/ui/Icons";
 import { Card, Inp, Sel } from "../components/ui/SharedUI";
 
-export default function ServicesPage({svcs, billing, onSave}){
+export default function ServicesPage({svcs, billing, onSave, patientPayMode = ""}){
   // Split the main services array into UI sections
   const [roomSvcs, setRoomSvcs] = useState(svcs.filter(s => s.type === 'Room Charge'));
   const [docSvcs, setDocSvcs] = useState(svcs.filter(s => s.type === 'Consultant'));
@@ -41,7 +41,9 @@ export default function ServicesPage({svcs, billing, onSave}){
   const total = combinedSvcs.reduce((a,s) => a + (parseFloat(s.rate)||0) * (parseInt(s.qty)||0), 0);
   const disc = parseFloat(billState.discount)||0; const adv = parseFloat(billState.advance)||0; const paid = parseFloat(billState.paidNow)||0; 
   const net = Math.max(0, total - disc - adv - paid);
-  const isCashlessPatient = String(billState?.insuranceType || "").toLowerCase() !== "self pay" && String(billState?.insuranceType || "").trim() !== "";
+  const isCashlessByPayMode = String(billState?.payMode || patientPayMode || "").toLowerCase() === "cashless";
+  const isCashlessByInsurance = String(billState?.insuranceType || "").toLowerCase() !== "self pay" && String(billState?.insuranceType || "").trim() !== "";
+  const isCashlessPatient = isCashlessByPayMode || isCashlessByInsurance;
 
   const MasterRow = ({ item, i, setter, isGen, svcType }) => (
     <div style={{display:"grid", gridTemplateColumns: isGen ? "1.2fr 2fr 100px 80px 70px 90px 36px" : "2fr 100px 80px 70px 90px 36px", gap: 10, alignItems:"center", padding:"11px 14px", background:T.offwhite, border:`1px solid ${T.border}`, borderRadius:12, marginBottom:10}}>
