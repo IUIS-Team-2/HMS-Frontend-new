@@ -50,7 +50,7 @@ export const LOCATIONS = [
 export const BLOOD_GRP   = ["A+", "A−", "B+", "B−", "O+", "O−", "AB+", "AB−"];
 export const GENDERS     = ["Male", "Female", "Other"];
 export const MARITAL     = ["Single", "Married", "Divorced", "Widowed"];
-export const DISC_ST     = ["Recovered", "Referred", "LAMA (Left Against Medical Advice)", "Death"];
+export const DISC_ST     = ["Recovered", "Referred", "LAMA (Left Against Medical Advice)", "DOR", "Death"];
 export const PAY_MODES   = ["Cash", "UPI / QR code", "Credit card", "Debit card", "Net banking", "NEFT / RTGS", "Cheque", "Insurance (TPA)", "Partial payment"];
 
 export const TPA_LIST = [

@@ -58,7 +58,7 @@ export default function ServicesPage({svcs, billing, onSave}){
         <span className="sc-a"><Ico d={IC.dn} size={11} sw={2.5}/></span>
       </div>
       <input className="sc" placeholder="Code" value={item.code} readOnly style={{background: T.bgPage, color: T.textMuted}} />
-      <input className="sc" type="number" min="0" step="0.01" placeholder="Rate ₹" value={item.rate} onChange={e => updSvc(setter, i, 'rate', e.target.value)} />
+      <input className="sc" type="text" inputMode="decimal" placeholder="Rate ₹" value={item.rate} onChange={e => updSvc(setter, i, 'rate', e.target.value)} />
       <input className="sc" type="number" placeholder="Qty" min="1" step="1" value={item.qty} onChange={e => updSvc(setter, i, 'qty', e.target.value)} />
       <span className="svc-tot">₹{((parseFloat(item.rate)||0)*(parseInt(item.qty)||0)).toFixed(2)}</span>
       <button className="svc-del" onClick={() => remSvc(setter, i)}><Ico d={IC.trash} size={13} sw={2}/></button>

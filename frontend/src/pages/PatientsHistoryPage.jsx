@@ -3,7 +3,6 @@ import { T } from "../data/constants";
 import { fmtDT } from "../utils/helpers";
 import { Ico, IC } from "../components/ui/Icons";
 import { statusBadge } from "../components/ui/SharedUI";
-import { downloadAdmissionNote } from './MedicalHistoryPage';
 
 export default function PatientsHistoryPage({ db, locId, onBack, onDischarge, onGenerateBill, onViewPatient, onViewMedical, branch }) {
   const loc = branch || { id: locId, name: "Hospital", color: "#0EA5E9" };
@@ -11,7 +10,6 @@ export default function PatientsHistoryPage({ db, locId, onBack, onDischarge, on
   const [filterDate,   setFilterDate]  = useState("");
   const [filterMonth,  setFilterMonth] = useState("");
   const [filterYear,   setFilterYear]  = useState("");
-  const [medHistModal, setMedHistModal] = useState(null);
 
   const patients = Array.isArray(db) ? db : [];
   const allRows = patients.flatMap((p) => {
@@ -47,8 +45,6 @@ export default function PatientsHistoryPage({ db, locId, onBack, onDischarge, on
   const billed     = filtered.filter(r => r.billing && (r.billing.paidNow || r.billing.paymentMode)).length;
   const clearFilters = () => { setFilterDate(""); setFilterMonth(""); setFilterYear(""); };
   const hasFilter = filterDate || filterMonth || filterYear;
-  const medHistData = medHistModal?.data || {};
-
   const downloadExcel = async () => {
     const ExcelJS    = (await import("exceljs")).default;
     const { saveAs } = await import("file-saver");
@@ -238,12 +234,6 @@ export default function PatientsHistoryPage({ db, locId, onBack, onDischarge, on
                       {hasMedHist ? (
                         <div style={{ display:"inline-flex", alignItems:"center", gap:6, flexWrap:"wrap" }}>
                           <button
-                            onClick={e => { e.stopPropagation(); setMedHistModal({ data: mh, patientObj: r.patientObj, admObj: r.admObj }); }}
-                            style={{ display:"inline-flex", alignItems:"center", gap:5, fontSize:12, fontWeight:600, padding:"4px 11px", borderRadius:20, background:"#ECFDF5", color:"#059669", border:"1px solid #A7F3D0", cursor:"pointer" }}
-                          >
-                            ✓ View History
-                          </button>
-                          <button
                             onClick={e => { e.stopPropagation(); onViewMedical(r.patientObj, r.admObj); }}
                             style={{ display:"inline-flex", alignItems:"center", gap:5, fontSize:12, fontWeight:600, padding:"4px 11px", borderRadius:20, background:"#EEF2FF", color:"#4338CA", border:"1px solid #C7D2FE", cursor:"pointer" }}
                           >
@@ -301,65 +291,6 @@ export default function PatientsHistoryPage({ db, locId, onBack, onDischarge, on
               })}
             </tbody>
           </table>
-        </div>
-      )}
-
-      {/* ── Medical History View Modal (read-only quick view) ── */}
-      {medHistModal && (
-        <div className="pdm-overlay" onClick={e => { if (e.target === e.currentTarget) setMedHistModal(null); }}>
-          <div className="pdm-modal" style={{ maxWidth:580 }}>
-            <div className="pdm-hd" style={{ padding:"16px 22px", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-              <div>
-                <div className="pdm-hd-name" style={{ fontSize:17 }}>Medical History</div>
-                <div style={{ fontSize:12, color:"rgba(255,255,255,.5)", marginTop:2 }}>Admission note summary</div>
-              </div>
-              <button className="pdm-close" onClick={() => setMedHistModal(null)}><Ico d={IC.x} size={15} sw={2} /></button>
-            </div>
-
-            <div style={{ padding:"22px 24px", display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, maxHeight:"60vh", overflowY:"auto" }}>
-              {[
-                ["Present Complaints",    medHistData.presentComplaints],
-                ["Chief Complaints",      medHistData.chiefComplaints],
-                ["Provisional Diagnosis", medHistData.provisionalDiagnosis],
-                ["Investigations",        medHistData.investigations],
-                ["Treatment Advised",     medHistData.treatmentAdvised],
-                ["Previous Diagnosis",    medHistData.previousDiagnosis],
-                ["Past Surgeries",        medHistData.pastSurgeries],
-                ["Current Medications",   medHistData.currentMedications],
-                ["Known Allergies",       medHistData.knownAllergies],
-                ["Treating Doctor",       medHistData.treatingDoctor],
-                ["Qualification",         medHistData.doctorQual],
-                ["BP",                    medHistData.bp],
-                ["PR",                    medHistData.pr],
-                ["SPO2",                  medHistData.spo2],
-                ["Temp",                  medHistData.temp],
-                ["Notes",                 medHistData.notes],
-              ].filter(([, val]) => val).map(([lbl, val]) => (
-                <div key={lbl} style={{ background:"#F0F9FF", border:"1px solid #BFDBEE", borderRadius:10, padding:"11px 14px" }}>
-                  <div style={{ fontSize:10, fontWeight:700, color:"#88B4CC", textTransform:"uppercase", letterSpacing:".07em", marginBottom:4 }}>{lbl}</div>
-                  <div style={{ fontSize:13, fontWeight:500, color:"#0B2040", whiteSpace:"pre-wrap" }}>{val}</div>
-                </div>
-              ))}
-            </div>
-
-            <div style={{ padding:"14px 24px", borderTop:"1px solid #BFDBEE", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-              <div style={{ display:"flex", gap:8 }}>
-                <button
-                  onClick={() => downloadAdmissionNote(medHistData, null, null, locId)}
-                  style={{ padding:"8px 18px", borderRadius:8, border:"1.5px solid #4A7FA5", background:"#F0F9FF", color:"#4A7FA5", fontWeight:600, fontSize:13, cursor:"pointer" }}
-                >
-                  🖨 Download Admission Note
-                </button>
-                <button
-                  onClick={() => { onViewMedical(medHistModal.patientObj, medHistModal.admObj); setMedHistModal(null); }}
-                  style={{ padding:"8px 14px", borderRadius:8, border:"1px solid #C7D2FE", background:"#EEF2FF", color:"#4338CA", fontWeight:600, fontSize:13, cursor:"pointer" }}
-                >
-                  ✎ Edit History
-                </button>
-              </div>
-              <button className="btn btn-ghost" onClick={() => setMedHistModal(null)}>Close</button>
-            </div>
-          </div>
         </div>
       )}
     </div>
