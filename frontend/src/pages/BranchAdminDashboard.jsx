@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { apiService } from "../services/apiService";
+import { apiService, BASE_URL } from "../services/apiService";
 import ThemeModeDock from "../components/ui/ThemeModeDock";
 import {
   LayoutDashboard,
@@ -401,6 +401,8 @@ export default function BranchAdminDashboard({
   const [selPatient, setSelPatient] = useState(null);
   const [recTab,     setRecTab]     = useState("discharge_summary");
   const [records,    setRecords]    = useState([]);
+  const [editableRows, setEditableRows] = useState([]);
+  const [savingRecords, setSavingRecords] = useState(false);
 
   const [search,    setSearch]    = useState("");
   const [statusFil, setStatusFil] = useState("all");
@@ -447,6 +449,93 @@ export default function BranchAdminDashboard({
       setRecords(selPatient.records?.[recTab] || []);
     }
   }, [selPatient, recTab, nav]);
+
+  useEffect(() => {
+    if (nav !== "records" || !selPatient) {
+      setEditableRows([]);
+      return;
+    }
+    const admission = selPatient.admObj || {};
+    const discharge = admission.discharge || {};
+    const medical = admission.medicalHistory || {};
+    const reports = Array.isArray(admission.labReports) ? admission.labReports : [];
+    const medicines = Array.isArray(admission.pharmacyRecords) ? admission.pharmacyRecords : [];
+
+    const rowsByTab = {
+      discharge_summary: [{
+        doa: discharge.doa || admission.dateTime || "",
+        expectedDod: discharge.expectedDod || "",
+        dod: discharge.dod || "",
+        department: discharge.department || "",
+        wardName: discharge.wardName || "",
+        roomNo: discharge.roomNo || "",
+        bedNo: discharge.bedNo || "",
+        doctorName: discharge.doctorName || medical.treatingDoctor || "",
+        diagnosis: discharge.diagnosis || "",
+        dischargeStatus: discharge.dischargeStatus || "",
+        instructions: discharge.instructions || "",
+        notes: discharge.notes || "",
+      }],
+      admission_note: [{
+        treatingDoctor: medical.treatingDoctor || discharge.doctorName || "",
+        doctorQual: medical.doctorQual || "",
+        presentComplaints: medical.presentComplaints || "",
+        chiefComplaints: medical.chiefComplaints || "",
+        bp: medical.bp || "",
+        pulse: medical.pulse || "",
+        spo2: medical.spo2 || "",
+        temp: medical.temp || "",
+        chest: medical.chest || "",
+        cvs: medical.cvs || "",
+        cns: medical.cns || "",
+        pa: medical.pa || "",
+        investigations: medical.investigations || "",
+        provisionalDiagnosis: medical.provisionalDiagnosis || "",
+        treatmentAdvised: medical.treatmentAdvised || "",
+        notes: medical.notes || "",
+      }],
+      medical_history: [{
+        previousDiagnosis: medical.previousDiagnosis || "",
+        pastSurgeries: medical.pastSurgeries || "",
+        currentMedications: medical.currentMedications || "",
+        knownAllergies: medical.knownAllergies || "",
+        chronicConditions: medical.chronicConditions || "",
+        familyHistory: medical.familyHistory || "",
+        smokingStatus: medical.smokingStatus || "",
+        alcoholUse: medical.alcoholUse || "",
+        treatingDoctor: medical.treatingDoctor || discharge.doctorName || "",
+        notes: medical.notes || "",
+      }],
+      reports: reports.map((r, i) => {
+        const md = r.modalityDetails || r.modality_details || {};
+        return {
+          _localId: r.id || `r-${i}-${Date.now()}`,
+          reportName: r.reportName || r.report_name || "",
+          reportType: r.reportType || r.report_type || "Haematology",
+          reportCategory: r.reportCategory || r.report_category || "LAB",
+          date: r.date || r.report_date || "",
+          orderedBy: r.orderedBy || r.ordered_by || discharge.doctorName || medical.treatingDoctor || "",
+          amount: Number(r.amount || 0),
+          remarks: r.remarks || "",
+          findings: r.findings || md.findings || "",
+          impression: r.impression || md.impression || "",
+          tests: Array.isArray(r.tests) ? r.tests : (Array.isArray(r.table_data) ? r.table_data : []),
+        };
+      }),
+      medicines: medicines.map((m, i) => ({
+        _localId: m.id || `m-${i}-${Date.now()}`,
+        medicine_name: m.medicine_name || m.item || "",
+        date_given: m.date_given || m.date || "",
+        quantity: Number(m.quantity || 1),
+        rate: Number(m.rate || 0),
+        batch_no: m.batch_no || m.batchNo || "",
+        expiry_date: m.expiry_date || m.expiryDate || "",
+        amount: Number(m.amount ?? (Number(m.quantity || 1) * Number(m.rate || 0))),
+      })),
+    };
+
+    setEditableRows(rowsByTab[recTab] || []);
+  }, [nav, selPatient, recTab]);
 
   // ─── Filter helpers ───────────────────────────────────────────────────────
   const filterPatients = (list) => list.filter(p => {
@@ -800,48 +889,470 @@ export default function BranchAdminDashboard({
     const selectedAdmission = selPatient.admObj || {};
     const selectedDischarge = selectedAdmission.discharge || {};
     const selectedMedical = selectedAdmission.medicalHistory || {};
-    const selectedReports = Array.isArray(selectedAdmission.labReports) ? selectedAdmission.labReports : [];
-    const selectedMedicines = Array.isArray(selectedAdmission.pharmacyRecords) ? selectedAdmission.pharmacyRecords : [];
 
-    const recordRows = {
-      discharge_summary: [{
-        date: selectedDischarge.dod || selectedDischarge.doa || selectedAdmission.dateTime || "—",
-        summary: selectedDischarge.diagnosis || selectedMedical.provisionalDiagnosis || "—",
-        doctor: selectedDischarge.doctorName || selectedMedical.treatingDoctor || "—",
-        nextVisit: selectedDischarge.expectedDod || "—",
-        instructions: selectedDischarge.instructions || selectedMedical.treatmentAdvised || "—",
-      }],
-      reports: selectedReports.map((report) => ({
-        date: report.date || report.report_date || "—",
-        reportType: report.reportName || report.report_name || report.reportType || report.report_type || "Report",
-        result: report.remarks || report.impression || report.findings || "Saved in reports",
-        lab: report.reportCategory || report.report_category || "Lab",
-        doctor: report.orderedBy || report.ordered_by || selectedDischarge.doctorName || selectedMedical.treatingDoctor || "—",
-      })),
-      medicines: selectedMedicines.map((record) => ({
-        date: record.date || record.date_given || "—",
-        medicine: record.item || record.medicine_name || "Medicine",
-        dosage: String(record.quantity || 1),
-        frequency: "—",
-        duration: "—",
-        prescribedBy: selectedDischarge.doctorName || selectedMedical.treatingDoctor || "—",
-      })),
-      admission_note: [{
-        date: selectedAdmission.dateTime || selectedDischarge.doa || "—",
-        note: selectedMedical.notes || selectedMedical.presentComplaints || "—",
-        doctor: selectedMedical.treatingDoctor || selectedDischarge.doctorName || "—",
-        diagnosis: selectedMedical.provisionalDiagnosis || selectedDischarge.diagnosis || "—",
-        plan: selectedMedical.treatmentAdvised || "—",
-      }],
-      medical_history: [{
-        date: selectedAdmission.dateTime || selectedDischarge.doa || "—",
-        condition: selectedMedical.previousDiagnosis || "—",
-        treatment: selectedMedical.currentMedications || selectedMedical.treatmentAdvised || "—",
-        doctor: selectedMedical.treatingDoctor || selectedDischarge.doctorName || "—",
-        notes: selectedMedical.notes || "—",
-      }],
+    const canEditRecords = String(selPatient?.paymentMode || "").toLowerCase() === "cash";
+    const isCashless = !canEditRecords;
+
+    const updateEditableField = (rowIdx, field, value) => {
+      setEditableRows((prev) => prev.map((row, idx) => idx === rowIdx ? { ...row, [field]: value } : row));
     };
-    const activeRows = (recordRows[recTab] || []).filter((row) => Object.values(row).some((value) => value && value !== "—"));
+    const addEditableRow = (template) => setEditableRows((prev) => [...prev, template]);
+    const removeEditableRow = (rowIdx) => setEditableRows((prev) => prev.filter((_, idx) => idx !== rowIdx));
+
+    const fmtMoney = (n) => `₹${Number(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
+
+    const PRINT_KIND_MAP = {
+      discharge_summary: "dynamic-summary",
+      admission_note:    "admission-note",
+      medical_history:   "medical-history",
+      reports:           "lab-reports",
+      medicines:         "pharmacy-records",
+    };
+    const handlePrint = () => {
+      const admNo = selectedAdmission?.admNo;
+      const uhid  = selPatient?.uhid;
+      if (!uhid || !admNo) {
+        window.alert("Patient/Admission identifiers missing — cannot print.");
+        return;
+      }
+      const kind = PRINT_KIND_MAP[recTab];
+      window.open(`${BASE_URL}/patients/${uhid}/admissions/${admNo}/${kind}/print/`, "_blank");
+    };
+
+    const saveCurrentTab = async () => {
+      if (!canEditRecords || !selPatient?.uhid || !selectedAdmission?.admNo) return;
+      setSavingRecords(true);
+      try {
+        if (recTab === "discharge_summary") {
+          const f = editableRows[0] || {};
+          await apiService.dischargePatient(selPatient.uhid, selectedAdmission.admNo, {
+            ...selectedDischarge,
+            doa: f.doa || selectedDischarge.doa || "",
+            expectedDod: f.expectedDod || selectedDischarge.expectedDod || "",
+            dod: f.dod || selectedDischarge.dod || "",
+            department: f.department || selectedDischarge.department || "",
+            wardName: f.wardName || selectedDischarge.wardName || "",
+            roomNo: f.roomNo || selectedDischarge.roomNo || "",
+            bedNo: f.bedNo || selectedDischarge.bedNo || "",
+            doctorName: f.doctorName || selectedDischarge.doctorName || "",
+            diagnosis: f.diagnosis || selectedDischarge.diagnosis || "",
+            dischargeStatus: f.dischargeStatus || selectedDischarge.dischargeStatus || "",
+            instructions: f.instructions || selectedDischarge.instructions || "",
+            notes: f.notes || selectedDischarge.notes || "",
+          });
+        } else if (recTab === "reports") {
+          await apiService.saveLabReportsBulk(
+            selPatient.uhid,
+            selectedAdmission.admNo,
+            editableRows.map((row) => ({
+              reportName: row.reportName || "Report",
+              reportType: row.reportType || "Haematology",
+              reportCategory: row.reportCategory || "LAB",
+              date: row.date || new Date().toISOString().slice(0, 10),
+              orderedBy: row.orderedBy || selectedDischarge.doctorName || selectedMedical.treatingDoctor || "",
+              amount: Number(row.amount || 0),
+              remarks: row.remarks || "",
+              modalityDetails: { findings: row.findings || "", impression: row.impression || "" },
+              findings: row.findings || "",
+              impression: row.impression || "",
+              tests: Array.isArray(row.tests) ? row.tests : [],
+            }))
+          );
+        } else if (recTab === "medicines") {
+          await apiService.savePharmacyRecordsBulk(
+            selPatient.uhid,
+            selectedAdmission.admNo,
+            editableRows.map((row) => ({
+              medicine_name: row.medicine_name || "Medicine",
+              date_given: row.date_given || new Date().toISOString().slice(0, 10),
+              quantity: Number(row.quantity || 1) || 1,
+              rate: Number(row.rate || 0),
+              batch_no: row.batch_no || "",
+              expiry_date: row.expiry_date || "",
+            }))
+          );
+        } else if (recTab === "admission_note") {
+          const f = editableRows[0] || {};
+          await apiService.updateMedicalHistory(selPatient.uhid, selectedAdmission.admNo, {
+            ...selectedMedical,
+            treatingDoctor: f.treatingDoctor || selectedMedical.treatingDoctor || "",
+            doctorQual: f.doctorQual || selectedMedical.doctorQual || "",
+            presentComplaints: f.presentComplaints || selectedMedical.presentComplaints || "",
+            chiefComplaints: f.chiefComplaints || selectedMedical.chiefComplaints || "",
+            bp: f.bp || selectedMedical.bp || "",
+            pulse: f.pulse || selectedMedical.pulse || "",
+            spo2: f.spo2 || selectedMedical.spo2 || "",
+            temp: f.temp || selectedMedical.temp || "",
+            chest: f.chest || selectedMedical.chest || "",
+            cvs: f.cvs || selectedMedical.cvs || "",
+            cns: f.cns || selectedMedical.cns || "",
+            pa: f.pa || selectedMedical.pa || "",
+            investigations: f.investigations || selectedMedical.investigations || "",
+            provisionalDiagnosis: f.provisionalDiagnosis || selectedMedical.provisionalDiagnosis || "",
+            treatmentAdvised: f.treatmentAdvised || selectedMedical.treatmentAdvised || "",
+            notes: f.notes || selectedMedical.notes || "",
+          });
+        } else if (recTab === "medical_history") {
+          const f = editableRows[0] || {};
+          await apiService.updateMedicalHistory(selPatient.uhid, selectedAdmission.admNo, {
+            ...selectedMedical,
+            previousDiagnosis: f.previousDiagnosis || selectedMedical.previousDiagnosis || "",
+            pastSurgeries: f.pastSurgeries || selectedMedical.pastSurgeries || "",
+            currentMedications: f.currentMedications || selectedMedical.currentMedications || "",
+            knownAllergies: f.knownAllergies || selectedMedical.knownAllergies || "",
+            chronicConditions: f.chronicConditions || selectedMedical.chronicConditions || "",
+            familyHistory: f.familyHistory || selectedMedical.familyHistory || "",
+            smokingStatus: f.smokingStatus || selectedMedical.smokingStatus || "",
+            alcoholUse: f.alcoholUse || selectedMedical.alcoholUse || "",
+            treatingDoctor: f.treatingDoctor || selectedMedical.treatingDoctor || "",
+            notes: f.notes || selectedMedical.notes || "",
+          });
+        }
+        window.alert("Record updated successfully.");
+      } catch (_error) {
+        window.alert("Failed to update this section.");
+      } finally {
+        setSavingRecords(false);
+      }
+    };
+
+    // ── Field render helpers ─────────────────────────────────────────────
+    const lblStyle = { fontSize:"10px", letterSpacing:"1px", textTransform:"uppercase", color:T.textMuted, fontWeight:"700", marginBottom:"5px" };
+    const inpStyle = { width:"100%", background:T.card, border:`1px solid ${T.border}`, borderRadius:"8px", color:T.text, fontSize:"13px", padding:"9px 11px", fontFamily:"inherit", outline:"none", boxSizing:"border-box" };
+    const txaStyle = { ...inpStyle, resize:"vertical" };
+    const ROStyle  = { fontSize:"13px", color:T.text, fontWeight:"600", padding:"9px 0", lineHeight:1.5, whiteSpace:"pre-wrap" };
+
+    const Field = ({ label, value, onChange, type = "text", placeholder = "", colSpan = 1, multiline = false, rows = 3 }) => (
+      <div style={{ gridColumn: `span ${colSpan}`, display:"flex", flexDirection:"column" }}>
+        <label style={lblStyle}>{label}</label>
+        {canEditRecords ? (
+          multiline
+            ? <textarea rows={rows} placeholder={placeholder} value={value || ""} onChange={(e) => onChange(e.target.value)} style={txaStyle} />
+            : <input type={type} placeholder={placeholder} value={value || ""} onChange={(e) => onChange(e.target.value)} style={inpStyle} />
+        ) : (
+          <div style={ROStyle}>{value || "—"}</div>
+        )}
+      </div>
+    );
+
+    const SectionCard = ({ icon, title, subtitle, children }) => (
+      <div style={{ background:T.surface, border:`1px solid ${T.border}`, borderRadius:"12px", marginBottom:"16px", overflow:"hidden" }}>
+        <div style={{ display:"flex", alignItems:"center", gap:"12px", padding:"14px 18px", borderBottom:`1px solid ${T.border}`, background:T.card }}>
+          <div style={{ width:34, height:34, borderRadius:8, background:theme.primaryDim, border:`1px solid ${theme.primaryBorder}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:16 }}>{icon}</div>
+          <div>
+            <div style={{ fontSize:"13px", fontWeight:"700", color:T.text }}>{title}</div>
+            {subtitle && <div style={{ fontSize:"11px", color:T.textMuted, marginTop:"2px" }}>{subtitle}</div>}
+          </div>
+        </div>
+        <div style={{ padding:"18px" }}>{children}</div>
+      </div>
+    );
+
+    // ── Tab renderers ────────────────────────────────────────────────────
+    const renderDischarge = () => {
+      const r = editableRows[0] || {};
+      const u = (k) => (v) => updateEditableField(0, k, v);
+      return (
+        <>
+          <SectionCard icon="🛏" title="Admission & Discharge" subtitle="Dates, status and room details">
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:"14px 16px" }}>
+              <Field label="Status on Discharge" value={r.dischargeStatus} onChange={u("dischargeStatus")} placeholder="e.g. Recovered / DOR / LAMA" />
+              <Field label="Department"         value={r.department}      onChange={u("department")}      placeholder="e.g. General Medicine" />
+              <Field label="Date & Time of Admission (DOA)" type="datetime-local" value={String(r.doa || "").slice(0,16)} onChange={u("doa")} />
+              <Field label="Date & Time of Discharge (DOD)" type="datetime-local" value={String(r.dod || "").slice(0,16)} onChange={u("dod")} />
+              <Field label="Expected Discharge Date" type="date" value={String(r.expectedDod || "").slice(0,10)} onChange={u("expectedDod")} />
+              <Field label="Treating Doctor"    value={r.doctorName}      onChange={u("doctorName")}      placeholder="e.g. Dr. Sangi" />
+              <Field label="Ward Name"          value={r.wardName}        onChange={u("wardName")}        placeholder="e.g. General Ward" />
+              <Field label="Room Number"        value={r.roomNo}          onChange={u("roomNo")}          placeholder="e.g. 204" />
+              <Field label="Bed Number"         value={r.bedNo}           onChange={u("bedNo")}           placeholder="e.g. B-12" />
+            </div>
+          </SectionCard>
+          <SectionCard icon="🩺" title="Clinical Summary" subtitle="Diagnosis, instructions and notes">
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:"14px 16px" }}>
+              <Field label="Primary Diagnosis / Condition" colSpan={2} multiline rows={2} value={r.diagnosis}    onChange={u("diagnosis")}    placeholder="Primary diagnosis or condition…" />
+              <Field label="Discharge Instructions"         colSpan={2} multiline rows={3} value={r.instructions} onChange={u("instructions")} placeholder="Instructions for the patient on discharge…" />
+              <Field label="Additional Notes"               colSpan={2} multiline rows={3} value={r.notes}        onChange={u("notes")}        placeholder="Additional remarks…" />
+            </div>
+          </SectionCard>
+        </>
+      );
+    };
+
+    const renderAdmissionNote = () => {
+      const r = editableRows[0] || {};
+      const u = (k) => (v) => updateEditableField(0, k, v);
+      return (
+        <>
+          <SectionCard icon="🩺" title="Present Complaints" subtitle="Chief complaints and presenting symptoms">
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:"14px 16px" }}>
+              <Field label="Present Complaints" colSpan={1} multiline rows={4} value={r.presentComplaints} onChange={u("presentComplaints")} placeholder="Patient presented with…" />
+              <Field label="C/O (Chief Complaints)" colSpan={1} multiline rows={4} value={r.chiefComplaints} onChange={u("chiefComplaints")} placeholder="Severe pain, fever with chills…" />
+            </div>
+          </SectionCard>
+          <SectionCard icon="💓" title="Examinations" subtitle="Vitals and clinical examination findings">
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:"12px 14px", marginBottom:"4px" }}>
+              <Field label="BP (mmHg)" value={r.bp}    onChange={u("bp")}    placeholder="e.g. 120/80mmHg" />
+              <Field label="PR (/min)" value={r.pulse} onChange={u("pulse")} placeholder="e.g. 82/min" />
+              <Field label="SPO2"      value={r.spo2}  onChange={u("spo2")}  placeholder="e.g. 98% On RA" />
+              <Field label="TEMP"      value={r.temp}  onChange={u("temp")}  placeholder="e.g. 98.6°F" />
+              <Field label="Chest"     value={r.chest} onChange={u("chest")} placeholder="e.g. B/L Crepts+" />
+              <Field label="CVS"       value={r.cvs}   onChange={u("cvs")}   placeholder="e.g. S1 S2 +" />
+              <Field label="CNS"       value={r.cns}   onChange={u("cns")}   placeholder="e.g. Conscious" />
+              <Field label="P/A"       value={r.pa}    onChange={u("pa")}    placeholder="e.g. Distended" />
+            </div>
+          </SectionCard>
+          <SectionCard icon="🔬" title="Investigations & Diagnosis" subtitle="Tests ordered and provisional diagnosis">
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:"14px 16px" }}>
+              <Field label="Investigations / Reports" colSpan={1} multiline rows={4} value={r.investigations} onChange={u("investigations")} placeholder="Investigations ordered…" />
+              <Field label="Provisional Diagnosis"     colSpan={1} multiline rows={4} value={r.provisionalDiagnosis} onChange={u("provisionalDiagnosis")} placeholder="Acute Retention of Urine with ?UTI…" />
+            </div>
+          </SectionCard>
+          <SectionCard icon="💊" title="Treatment Advised" subtitle="Plan of management">
+            <Field label="Treatment Advised" colSpan={2} multiline rows={4} value={r.treatmentAdvised} onChange={u("treatmentAdvised")} placeholder="IV Fluids NS/RL @ 100ml/hr, Inj. Esomac 40mg IV BD…" />
+          </SectionCard>
+          <SectionCard icon="👨‍⚕️" title="Treating Doctor & Notes" subtitle="Doctor details and additional clinical notes">
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:"14px 16px" }}>
+              <Field label="Treating Doctor"          value={r.treatingDoctor} onChange={u("treatingDoctor")} placeholder="Select or type doctor name…" />
+              <Field label="Qualification & Reg. No." value={r.doctorQual}     onChange={u("doctorQual")}     placeholder="MBBS, MD…" />
+              <Field label="Additional Notes / Remarks" colSpan={2} multiline rows={2} value={r.notes} onChange={u("notes")} placeholder="Any other relevant clinical information…" />
+            </div>
+          </SectionCard>
+        </>
+      );
+    };
+
+    const renderMedicalHistory = () => {
+      const r = editableRows[0] || {};
+      const u = (k) => (v) => updateEditableField(0, k, v);
+      return (
+        <SectionCard icon="📜" title="Medical History" subtitle="Past illnesses, allergies and ongoing medications">
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:"14px 16px" }}>
+            <Field label="Past History / Previous Diagnosis" colSpan={1} multiline rows={3} value={r.previousDiagnosis}  onChange={u("previousDiagnosis")}  placeholder="Diabetes, Hypertension, previous surgeries…" />
+            <Field label="Past Surgeries"                    colSpan={1} multiline rows={3} value={r.pastSurgeries}      onChange={u("pastSurgeries")}      placeholder="e.g. Appendectomy 2018…" />
+            <Field label="Current Medications"               colSpan={2} multiline rows={3} value={r.currentMedications} onChange={u("currentMedications")} placeholder="Currently used medications…" />
+            <Field label="Known Allergies"                                       value={r.knownAllergies}    onChange={u("knownAllergies")}    placeholder="e.g. Penicillin, Sulfa drugs…" />
+            <Field label="Chronic Conditions"                                    value={r.chronicConditions} onChange={u("chronicConditions")} placeholder="e.g. Asthma, COPD…" />
+            <Field label="Family History"                    colSpan={2} multiline rows={2} value={r.familyHistory}      onChange={u("familyHistory")}     placeholder="Relevant family medical history…" />
+            <Field label="Smoking Status"                                        value={r.smokingStatus}     onChange={u("smokingStatus")}     placeholder="Yes / No / Former" />
+            <Field label="Alcohol Use"                                           value={r.alcoholUse}        onChange={u("alcoholUse")}        placeholder="Yes / No / Occasional" />
+            <Field label="Treating Doctor"                                       value={r.treatingDoctor}    onChange={u("treatingDoctor")}    placeholder="Treating doctor name" />
+            <Field label="Additional Notes"                  colSpan={2} multiline rows={3} value={r.notes}              onChange={u("notes")}             placeholder="Other notes…" />
+          </div>
+        </SectionCard>
+      );
+    };
+
+    const renderReports = () => {
+      const updTest = (ri, ti, key, value) => setEditableRows((prev) => prev.map((row, i) => {
+        if (i !== ri) return row;
+        const tests = Array.isArray(row.tests) ? [...row.tests] : [];
+        tests[ti] = { ...(tests[ti] || {}), [key]: value };
+        return { ...row, tests };
+      }));
+      const addTest = (ri) => setEditableRows((prev) => prev.map((row, i) => i === ri
+        ? { ...row, tests: [...(Array.isArray(row.tests) ? row.tests : []), { name: "", value: "", unit: "", normal: "" }] }
+        : row));
+      const delTest = (ri, ti) => setEditableRows((prev) => prev.map((row, i) => i === ri
+        ? { ...row, tests: (row.tests || []).filter((_, j) => j !== ti) }
+        : row));
+
+      const totalAmount = editableRows.reduce((sum, r) => sum + Number(r.amount || 0), 0);
+
+      return (
+        <>
+          {!editableRows.length && (
+            <div style={{ padding:"40px 20px", textAlign:"center", color:T.textMuted, fontSize:"11px", letterSpacing:"2px", border:`1px dashed ${T.border}`, borderRadius:"10px", marginBottom:"16px" }}>
+              NO LAB / RADIOLOGY REPORTS
+            </div>
+          )}
+          {editableRows.map((rep, ri) => {
+            const u = (k) => (v) => updateEditableField(ri, k, v);
+            return (
+              <div key={rep._localId || ri} style={{ background:T.surface, border:`1px solid ${T.border}`, borderRadius:"12px", marginBottom:"16px", overflow:"hidden" }}>
+                <div style={{ background:`linear-gradient(135deg, ${theme.primaryBorder} 0%, ${theme.primary} 100%)`, color:"#fff", padding:"14px 18px", display:"flex", alignItems:"center", justifyContent:"space-between", gap:"12px", flexWrap:"wrap" }}>
+                  <div style={{ flex:1, minWidth:200 }}>
+                    <div style={{ fontSize:"10px", letterSpacing:"1.6px", textTransform:"uppercase", opacity:.85, marginBottom:"4px" }}>🧪 {rep.reportCategory || "REPORT"}</div>
+                    {canEditRecords ? (
+                      <input value={rep.reportName || ""} placeholder="Report Name (e.g. Complete Blood Count)" onChange={(e) => u("reportName")(e.target.value)}
+                        style={{ background:"transparent", border:"none", borderBottom:"1.5px solid rgba(255,255,255,.4)", outline:"none", color:"#fff", fontFamily:"inherit", fontSize:16, fontWeight:700, width:"100%", paddingBottom:3 }} />
+                    ) : (
+                      <div style={{ fontSize:16, fontWeight:700 }}>{rep.reportName || "Untitled Report"}</div>
+                    )}
+                  </div>
+                  {canEditRecords && (
+                    <button style={{ ...mkBtn("danger", theme), padding:"5px 10px", fontSize:"10px" }} onClick={() => removeEditableRow(ri)}>✕ Remove</button>
+                  )}
+                </div>
+                <div style={{ padding:"16px" }}>
+                  <div style={{ display:"grid", gridTemplateColumns: isCashless ? "repeat(3,1fr)" : "repeat(4,1fr)", gap:"12px 14px", marginBottom:"14px" }}>
+                    <Field label="Date" type="date" value={String(rep.date || "").slice(0,10)} onChange={u("date")} />
+                    <Field label="Type" value={rep.reportType} onChange={u("reportType")} placeholder="Haematology / Radiology" />
+                    <Field label="Ordered By" value={rep.orderedBy} onChange={u("orderedBy")} placeholder="Treating doctor" />
+                    {!isCashless && (
+                      <Field label="Amount (₹)" type="number" value={rep.amount} onChange={(v) => u("amount")(Number(v) || 0)} />
+                    )}
+                  </div>
+
+                  {/* Test rows */}
+                  <div style={{ marginBottom:"12px" }}>
+                    <div style={{ fontSize:"11px", fontWeight:"700", color:T.textSub, marginBottom:"8px", letterSpacing:"1px", textTransform:"uppercase" }}>Tests</div>
+                    {(rep.tests || []).length === 0 && (
+                      <div style={{ fontSize:"12px", color:T.textMuted, fontStyle:"italic", padding:"8px 0" }}>No tests added.</div>
+                    )}
+                    {(rep.tests || []).map((t, ti) => (
+                      <div key={ti} style={{ display:"grid", gridTemplateColumns:"2fr 1fr 1fr 1.5fr 32px", gap:"8px", alignItems:"center", marginBottom:"6px" }}>
+                        {canEditRecords ? (
+                          <>
+                            <input value={t.name || ""} placeholder="Test name" onChange={(e) => updTest(ri, ti, "name", e.target.value)} style={inpStyle} />
+                            <input value={t.value || ""} placeholder="Value" onChange={(e) => updTest(ri, ti, "value", e.target.value)} style={inpStyle} />
+                            <input value={t.unit || ""} placeholder="Unit" onChange={(e) => updTest(ri, ti, "unit", e.target.value)} style={inpStyle} />
+                            <input value={t.normal || ""} placeholder="Normal range" onChange={(e) => updTest(ri, ti, "normal", e.target.value)} style={inpStyle} />
+                            <button style={{ ...mkBtn("danger", theme), padding:"6px 8px", fontSize:"11px" }} onClick={() => delTest(ri, ti)}>✕</button>
+                          </>
+                        ) : (
+                          <>
+                            <div style={ROStyle}>{t.name || "—"}</div>
+                            <div style={ROStyle}>{t.value || "—"}</div>
+                            <div style={ROStyle}>{t.unit || "—"}</div>
+                            <div style={ROStyle}>{t.normal || "—"}</div>
+                            <div />
+                          </>
+                        )}
+                      </div>
+                    ))}
+                    {canEditRecords && (
+                      <button style={{ ...mkBtn("dim", theme), padding:"6px 12px", fontSize:"11px", marginTop:"6px" }} onClick={() => addTest(ri)}>+ Add Test</button>
+                    )}
+                  </div>
+
+                  <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:"14px 16px" }}>
+                    <Field label="Findings" colSpan={1} multiline rows={3} value={rep.findings}  onChange={u("findings")}  placeholder="Findings…" />
+                    <Field label="Impression" colSpan={1} multiline rows={3} value={rep.impression} onChange={u("impression")} placeholder="Impression…" />
+                    <Field label="Remarks" colSpan={2} multiline rows={2} value={rep.remarks} onChange={u("remarks")} placeholder="Additional remarks…" />
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+          {canEditRecords && (
+            <button style={{ ...mkBtn("primary", theme), padding:"8px 14px", fontSize:"12px" }} onClick={() => addEditableRow({
+              _localId: `r-new-${Date.now()}`,
+              reportName: "", reportType: "Haematology", reportCategory: "LAB",
+              date: new Date().toISOString().slice(0, 10), orderedBy: "",
+              amount: 0, remarks: "", findings: "", impression: "", tests: [],
+            })}>+ Add Report</button>
+          )}
+          {!isCashless && editableRows.length > 0 && (
+            <div style={{ marginTop:"14px", display:"flex", justifyContent:"flex-end", gap:"10px", padding:"12px 16px", background:T.surface, border:`1px solid ${T.border}`, borderRadius:"10px" }}>
+              <div style={{ fontSize:"12px", color:T.textMuted, fontWeight:"600" }}>Reports Total</div>
+              <div style={{ fontSize:"14px", color:T.text, fontWeight:"800" }}>{fmtMoney(totalAmount)}</div>
+            </div>
+          )}
+        </>
+      );
+    };
+
+    const renderMedicines = () => {
+      const totalAmt = editableRows.reduce((sum, r) => sum + Number(r.amount ?? (Number(r.quantity || 1) * Number(r.rate || 0))), 0);
+      return (
+        <SectionCard icon="💊" title="Medicine / Pharmacy Bill" subtitle={`${editableRows.length} item${editableRows.length === 1 ? "" : "s"}`}>
+          <div style={{ overflowX:"auto" }}>
+            <table style={{ width:"100%", borderCollapse:"collapse", fontSize:"12px" }}>
+              <thead>
+                <tr>
+                  {["Item Description","Date","Qty","Batch No.","Expiry"].map(h => (
+                    <th key={h} style={{ padding:"10px", textAlign:"left", fontSize:"10px", letterSpacing:"1.2px", textTransform:"uppercase", color:T.textMuted, fontWeight:"700", borderBottom:`1px solid ${T.border}` }}>{h}</th>
+                  ))}
+                  {!isCashless && <th style={{ padding:"10px", textAlign:"left", fontSize:"10px", letterSpacing:"1.2px", textTransform:"uppercase", color:T.textMuted, fontWeight:"700", borderBottom:`1px solid ${T.border}` }}>Rate</th>}
+                  {!isCashless && <th style={{ padding:"10px", textAlign:"left", fontSize:"10px", letterSpacing:"1.2px", textTransform:"uppercase", color:T.textMuted, fontWeight:"700", borderBottom:`1px solid ${T.border}` }}>Amount</th>}
+                  {canEditRecords && <th style={{ width:"40px", borderBottom:`1px solid ${T.border}` }} />}
+                </tr>
+              </thead>
+              <tbody>
+                {editableRows.length === 0 && (
+                  <tr><td colSpan={isCashless ? 5 : 8} style={{ padding:"22px", textAlign:"center", color:T.textMuted, fontStyle:"italic" }}>No medicines added.</td></tr>
+                )}
+                {editableRows.map((m, mi) => {
+                  const u = (k) => (v) => {
+                    setEditableRows((prev) => prev.map((row, i) => {
+                      if (i !== mi) return row;
+                      const next = { ...row, [k]: v };
+                      if (k === "quantity" || k === "rate") {
+                        next.amount = Number(next.quantity || 0) * Number(next.rate || 0);
+                      }
+                      return next;
+                    }));
+                  };
+                  return (
+                    <tr key={m._localId || mi} style={{ borderBottom:`1px solid ${T.border}` }}>
+                      <td style={{ padding:"8px" }}>
+                        {canEditRecords
+                          ? <input value={m.medicine_name || ""} onChange={(e) => u("medicine_name")(e.target.value)} style={inpStyle} placeholder="Medicine / Item" />
+                          : <div style={ROStyle}>{m.medicine_name || "—"}</div>}
+                      </td>
+                      <td style={{ padding:"8px", width:"150px" }}>
+                        {canEditRecords
+                          ? <input type="date" value={String(m.date_given || "").slice(0,10)} onChange={(e) => u("date_given")(e.target.value)} style={inpStyle} />
+                          : <div style={ROStyle}>{m.date_given || "—"}</div>}
+                      </td>
+                      <td style={{ padding:"8px", width:"90px" }}>
+                        {canEditRecords
+                          ? <input type="number" min="1" value={m.quantity ?? 1} onChange={(e) => u("quantity")(Math.max(1, Number(e.target.value) || 1))} style={inpStyle} />
+                          : <div style={ROStyle}>{m.quantity ?? 1}</div>}
+                      </td>
+                      <td style={{ padding:"8px", width:"160px" }}>
+                        {canEditRecords
+                          ? <input value={m.batch_no || ""} onChange={(e) => u("batch_no")(e.target.value)} style={inpStyle} />
+                          : <div style={ROStyle}>{m.batch_no || "—"}</div>}
+                      </td>
+                      <td style={{ padding:"8px", width:"160px" }}>
+                        {canEditRecords
+                          ? <input type="date" value={String(m.expiry_date || "").slice(0,10)} onChange={(e) => u("expiry_date")(e.target.value)} style={inpStyle} />
+                          : <div style={ROStyle}>{m.expiry_date || "—"}</div>}
+                      </td>
+                      {!isCashless && (
+                        <td style={{ padding:"8px", width:"110px" }}>
+                          {canEditRecords
+                            ? <input type="number" min="0" step="0.01" value={m.rate ?? 0} onChange={(e) => u("rate")(Number(e.target.value) || 0)} style={inpStyle} />
+                            : <div style={ROStyle}>{fmtMoney(m.rate)}</div>}
+                        </td>
+                      )}
+                      {!isCashless && (
+                        <td style={{ padding:"8px", width:"130px" }}>
+                          {canEditRecords
+                            ? <input type="number" min="0" step="0.01" value={m.amount ?? 0} onChange={(e) => u("amount")(Number(e.target.value) || 0)} style={inpStyle} />
+                            : <div style={ROStyle}>{fmtMoney(m.amount)}</div>}
+                        </td>
+                      )}
+                      {canEditRecords && (
+                        <td style={{ padding:"8px" }}>
+                          <button style={{ ...mkBtn("danger", theme), padding:"5px 9px", fontSize:"11px" }} onClick={() => removeEditableRow(mi)}>✕</button>
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {canEditRecords && (
+            <button style={{ ...mkBtn("primary", theme), padding:"8px 14px", fontSize:"12px", marginTop:"12px" }} onClick={() => addEditableRow({
+              _localId: `m-new-${Date.now()}`,
+              medicine_name: "", date_given: new Date().toISOString().slice(0, 10),
+              quantity: 1, rate: 0, batch_no: "", expiry_date: "", amount: 0,
+            })}>+ Add Medicine</button>
+          )}
+
+          {!isCashless && editableRows.length > 0 && (
+            <div style={{ marginTop:"14px", display:"flex", justifyContent:"flex-end", gap:"10px", padding:"12px 16px", background:T.card, border:`1px solid ${T.border}`, borderRadius:"10px" }}>
+              <div style={{ fontSize:"12px", color:T.textMuted, fontWeight:"600" }}>Medicine Total</div>
+              <div style={{ fontSize:"14px", color:T.text, fontWeight:"800" }}>{fmtMoney(totalAmt)}</div>
+            </div>
+          )}
+        </SectionCard>
+      );
+    };
 
     return (
       <>
@@ -856,11 +1367,21 @@ export default function BranchAdminDashboard({
               <div style={{ fontSize:"12px", color:T.textSub }}>{v}</div>
             </div>
           ))}
-          <div style={{ marginLeft:"auto", display:"flex", gap:"8px" }}>
+          <div style={{ marginLeft:"auto", display:"flex", gap:"8px", alignItems:"center", flexWrap:"wrap" }}>
+            <button style={{ ...mkBtn("dim", theme), padding:"8px 14px", fontSize:"11px" }} onClick={handlePrint}>
+              ⎙ Print Section
+            </button>
             <button style={{ ...mkBtn("excel", theme), fontSize:"11px" }}
-              onClick={() => exportExcel(records.map(r=>({...r, patientId:selPatient.id, patientName:selPatient.name})), `${recTab}_${selPatient.id}`)}>
+              onClick={() => exportExcel((editableRows || []).map(r=>({...r, patientId:selPatient.id, patientName:selPatient.name})), `${recTab}_${selPatient.id}`)}>
               ↓ Excel
             </button>
+            {canEditRecords ? (
+              <button style={{ ...mkBtn("primary", theme), padding:"8px 12px", fontSize:"11px" }} onClick={saveCurrentTab} disabled={savingRecords}>
+                {savingRecords ? "Saving..." : "Save Section"}
+              </button>
+            ) : (
+              <div style={{ fontSize:"10px", color:T.textMuted, alignSelf:"center", padding:"4px 10px", border:`1px solid ${T.border}`, borderRadius:"20px" }}>Cashless: View only</div>
+            )}
             <button style={{ ...mkBtn("ghost", theme), padding:"8px 12px" }} onClick={() => setSelPatient(null)}>✕</button>
           </div>
         </div>
@@ -878,26 +1399,13 @@ export default function BranchAdminDashboard({
           ))}
         </div>
 
-        <TableShell title={RECORD_TYPES.find(r=>r.id===recTab)?.label} count={activeRows.length}>
-          {!activeRows.length ? (
-            <div style={{ padding:"52px 20px", textAlign:"center", color:T.textMuted, fontSize:"10px", letterSpacing:"3px" }}>
-              {`NO ${recTab.replace(/_/g," ").toUpperCase()} RECORDS`}
-            </div>
-          ) : (
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))", gap:"12px", padding:"14px" }}>
-              {activeRows.map((row, idx) => (
-                <div key={idx} style={{ background:T.surface, border:`1px solid ${T.border}`, borderRadius:"10px", padding:"12px 14px" }}>
-                  {Object.entries(row).map(([field, value]) => (
-                    <div key={field} style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:"10px", padding:"5px 0", borderBottom:`1px solid ${T.border}33` }}>
-                      <div style={{ fontSize:"10px", letterSpacing:"1px", textTransform:"uppercase", color:T.textMuted }}>{field.replace(/([A-Z])/g, " $1").trim()}</div>
-                      <div style={{ fontSize:"12px", color:T.text, fontWeight:"600", textAlign:"right", maxWidth:"65%" }}>{value || "—"}</div>
-                    </div>
-                  ))}
-                </div>
-              ))}
-            </div>
-          )}
-        </TableShell>
+        <div>
+          {recTab === "discharge_summary" && renderDischarge()}
+          {recTab === "admission_note"    && renderAdmissionNote()}
+          {recTab === "medical_history"   && renderMedicalHistory()}
+          {recTab === "reports"           && renderReports()}
+          {recTab === "medicines"         && renderMedicines()}
+        </div>
       </>
     );
   }

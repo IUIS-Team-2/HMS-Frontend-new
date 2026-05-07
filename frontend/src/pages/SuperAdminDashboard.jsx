@@ -1183,6 +1183,7 @@ function LabReportsTab({ all }) {
   const [search, setSearch] = useState("");
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [reports, setReports] = useState([]);
+  const [templateSuggestions, setTemplateSuggestions] = useState([]);
   const [loadingReports, setLoadingReports] = useState(false);
   const [expandedReport, setExpandedReport] = useState(null);
 
@@ -1195,11 +1196,65 @@ function LabReportsTab({ all }) {
   const fetchReports = async (p) => {
     setSelectedPatient(p);
     setReports([]);
+    setTemplateSuggestions([]);
     setLoadingReports(true);
     try {
-      const data = await apiService.getLabReports(p.uhid, p.admNo);
-      setReports(Array.isArray(data) ? data : []);
-    } catch { toast.error("Failed to load lab reports."); setReports([]); }
+      const [reportsData, templatesData] = await Promise.all([
+        apiService.getLabReports(p.uhid, p.admNo).catch(() => []),
+        apiService.getLabReportTemplates(p.uhid, p.admNo).catch(() => ({ suggested_reports: [] })),
+      ]);
+      const rawReports = Array.isArray(reportsData) ? reportsData : [];
+      const suggestions = Array.isArray(templatesData?.suggested_reports) ? templatesData.suggested_reports : [];
+      setTemplateSuggestions(suggestions);
+
+      const normalizeKey = (value) => String(value || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+      const templateMap = new Map();
+      suggestions.forEach((template) => {
+        [template?.reportName, template?.reportType, template?.reportCategory].forEach((keyValue) => {
+          const key = normalizeKey(keyValue);
+          if (key) templateMap.set(key, template);
+        });
+      });
+
+      const mergedReports = rawReports.map((report) => {
+        const template =
+          templateMap.get(normalizeKey(report?.reportName)) ||
+          templateMap.get(normalizeKey(report?.title)) ||
+          templateMap.get(normalizeKey(report?.reportType)) ||
+          templateMap.get(normalizeKey(report?.reportCategory));
+        if (!template) return report;
+        const hasDetails =
+          (Array.isArray(report?.tests) && report.tests.length > 0) ||
+          (Array.isArray(report?.fields) && report.fields.length > 0) ||
+          Boolean(report?.narrative || report?.findings || report?.impression);
+        if (hasDetails) return report;
+        return {
+          ...report,
+          tests: Array.isArray(template.tests) ? template.tests : [],
+          remarks: report?.remarks || template?.remarks || "",
+          reportType: report?.reportType || template?.reportType || report?.type,
+          reportCategory: report?.reportCategory || template?.reportCategory || report?.department,
+        };
+      });
+
+      if (mergedReports.length > 0) {
+        setReports(mergedReports);
+      } else {
+        setReports(
+          suggestions.map((template) => ({
+            ...template,
+            title: template.reportName,
+            type: template.reportType,
+            department: template.reportCategory,
+            isTemplateOnly: true,
+          }))
+        );
+      }
+    } catch {
+      toast.error("Failed to load lab reports.");
+      setReports([]);
+      setTemplateSuggestions([]);
+    }
     setLoadingReports(false);
   };
 
@@ -1209,7 +1264,17 @@ function LabReportsTab({ all }) {
     const dept = report.department || "PATHOLOGY";
     const deptStyle = LAB_TEST_COLORS[dept] || { color: "#333", bg: "#f9f9f9" };
 
-    const fieldsHtml = Array.isArray(report.fields) ? report.fields.map(f => `
+    const mappedTests = Array.isArray(report.tests)
+      ? report.tests.map((test) => ({
+          name: test.name || test.test_name || test.parameter || "Test",
+          value: test.value || test.result || "--",
+          unit: test.unit || "--",
+          normal: test.refRange || test.normal || test.normal_value || "--",
+          isAbnormal: String(test.status || "").toLowerCase() === "high" || String(test.status || "").toLowerCase() === "low",
+        }))
+      : [];
+    const detailFields = Array.isArray(report.fields) && report.fields.length > 0 ? report.fields : mappedTests;
+    const fieldsHtml = Array.isArray(detailFields) && detailFields.length > 0 ? detailFields.map(f => `
       <tr>
         <td style="padding:6px 10px;border:1px solid #ccc;font-size:12px">${f.name||f.label}</td>
         <td style="padding:6px 10px;border:1px solid #ccc;font-size:12px;font-weight:bold;color:${f.isAbnormal?"red":"#000"}">${f.value||"--"}</td>
@@ -1343,7 +1408,7 @@ function LabReportsTab({ all }) {
                             </div>
                           );
                         }
-                        return <div style={{ textAlign: "center", padding: "20px", color: T.dim, fontSize: 12 }}>No detailed fields available</div>;
+                        return <div style={{ textAlign: "center", padding: "20px", color: T.dim, fontSize: 12 }}>{templateSuggestions.length ? "No saved values yet. Showing backend template format." : "No detailed fields available"}</div>;
                       })()}
                       {report.remarks && (
                         <div style={{ marginTop: 10, background: T.amber+"10", border: `1px solid ${T.amber}40`, borderRadius: 8, padding: "10px 14px", fontSize: 12, color: T.amber }}>
