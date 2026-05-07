@@ -1537,6 +1537,11 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
     if (k === "qty" || k === "rate") n[i].amount = Number.parseFloat(n[i].qty || 0) * Number.parseFloat(n[i].rate || 0);
     return n;
   });
+  const updSvcAmount = (i, value) => setESvc(prev => {
+    const n = [...prev];
+    n[i] = { ...n[i], amount: value };
+    return n;
+  });
   const updRep  = (ri, k, v) => setELabRep(p => { const n = JSON.parse(JSON.stringify(p)); n[ri][k] = v; return n; });
   const updTest = (ri, ti, k, v) => setELabRep(p => { const n = JSON.parse(JSON.stringify(p)); n[ri].tests[ti][k] = v; return n; });
   const addTest = ri => setELabRep(p => { const n = JSON.parse(JSON.stringify(p)); n[ri].tests.push({ id: Date.now(), name:"", value:"", unit:"", refRange:"", status:"Normal" }); return n; });
@@ -1998,7 +2003,7 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
                                       <td><input className="tinp" value={r.category} onChange={e => updSvc(i, "category", e.target.value)}/></td>
                                       <td><input className="tinp" type="number" min="1" step="1" value={r.qty} onChange={e => updSvc(i, "qty", e.target.value)}/></td>
                                       <td><input className="tinp" type="number" min="0" step="0.01" value={r.rate} onChange={e => updSvc(i, "rate", e.target.value)}/></td>
-                                      <td style={{ fontWeight:700 }}>{fmt(r.amount)}</td>
+                                      <td><input className="tinp" type="number" min="0" step="0.01" value={r.amount ?? 0} onChange={e => updSvcAmount(i, e.target.value)}/></td>
                                       <td><button className="delbtn" onClick={() => setESvc(p => p.filter((_, j) => j !== i))}>X</button></td>
                                     </tr>
                                   ))}
