@@ -69,7 +69,9 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState(() => {
     try { const u = sessionStorage.getItem('hms_currentUser'); return u ? JSON.parse(u) : null; } catch { return null; }
   });
-  const [locId, setLocId] = useState("laxmi");
+  const [locId, setLocId] = useState(() => {
+    try { return sessionStorage.getItem("hms_locId") || "laxmi"; } catch { return "laxmi"; }
+  });
   const [page, setPage] = useState(() => {
     try { return sessionStorage.getItem('hms_page') || 'patient'; } catch { return 'patient'; }
   });
@@ -124,6 +126,20 @@ export default function App() {
     () => branchSettings[0] || { slug: "laxmi", code: "LNM", name: "Lakshmi Nagar", color: "#3b82f6" },
     [branchSettings]
   );
+
+  const resolveUserBranchSlug = useCallback((user) => {
+    const role = String(user?.role || "").toLowerCase();
+    if (!["admin", "branchadmin"].includes(role)) return null;
+
+    const byCode = getBranchByCode(user?.branch);
+    if (byCode?.slug) return byCode.slug;
+
+    const normalizedBranch = String(user?.branch || "").toLowerCase();
+    const bySlug = getBranchBySlug(normalizedBranch);
+    if (bySlug?.slug) return bySlug.slug;
+
+    return normalizedBranch || null;
+  }, [getBranchByCode, getBranchBySlug]);
 
   const normalizePatientList = (response) => {
     if (Array.isArray(response)) return response;
@@ -201,6 +217,7 @@ export default function App() {
       sessionStorage.removeItem('hms_currentUser');
       sessionStorage.removeItem('hms_page');
       sessionStorage.removeItem('hms_token');
+      sessionStorage.removeItem('hms_locId');
     } catch {}
   };
 
@@ -266,6 +283,18 @@ export default function App() {
   }, [loggedIn, currentUser, loadDashboardData]);
 
   useEffect(() => {
+    try { sessionStorage.setItem("hms_locId", locId); } catch {}
+  }, [locId]);
+
+  useEffect(() => {
+    if (!loggedIn || !currentUser) return;
+    const userBranchSlug = resolveUserBranchSlug(currentUser);
+    if (userBranchSlug && locId !== userBranchSlug) {
+      setLocId(userBranchSlug);
+    }
+  }, [loggedIn, currentUser, locId, resolveUserBranchSlug]);
+
+  useEffect(() => {
     if (!loggedIn || !currentUser) return;
     if (page === "history" || (page === "patient" && subPage === "search")) {
       loadDashboardData(currentUser.role);
@@ -319,7 +348,9 @@ export default function App() {
 
   const handleLogin = useCallback((user, loc) => {
     setCurrentUser(user);
-    setLocId(loc || user?.locations?.[0] || defaultBranch.slug);
+    const userBranchSlug = resolveUserBranchSlug(user);
+    const nextLocId = userBranchSlug || loc || user?.locations?.[0] || defaultBranch.slug;
+    setLocId(nextLocId);
     setLoggedIn(true);
 
     let startingPage = "patient";
@@ -342,11 +373,12 @@ export default function App() {
       sessionStorage.setItem('hms_loggedIn', 'true');
       sessionStorage.setItem('hms_currentUser', JSON.stringify(user));
       sessionStorage.setItem('hms_page', startingPage);
+      sessionStorage.setItem('hms_locId', nextLocId);
     } catch {}
 
     if (startingPage === "patient") { setPage("patient"); setSubPage("search"); }
     else setPage(startingPage);
-  }, [defaultBranch.slug]);
+  }, [defaultBranch.slug, resolveUserBranchSlug]);
 
   useEffect(() => { setLoginCallback(handleLogin); }, [handleLogin]);
 
@@ -615,9 +647,19 @@ export default function App() {
 
   const handleRequestPrint = async () => {
     try {
-      await apiService.requestPrint(uhid, admNo);
-      toast.success("Print request sent securely to Super Admin!");
-    } catch (error) { toast.error("Failed to send print request."); }
+      const safeUhid = uhid || patient?.uhid;
+      const safeAdmNo = admNo || activeAdmission?.admNo || activeAdmission?.id;
+      if (!safeUhid || !safeAdmNo) {
+        toast.error("Admission details missing. Please reopen the patient bill and try again.");
+        return;
+      }
+      await apiService.requestPrint(safeUhid, safeAdmNo);
+      setBilling(prev => ({ ...prev, printStatus: "PENDING" }));
+      toast.success("Print request sent to Branch Admin!");
+    } catch (error) {
+      const msg = error?.response?.data?.error || "Failed to send print request.";
+      toast.error(msg);
+    }
   };
 
   const handleApprovePrint = async (req, action) => {
@@ -1015,6 +1057,7 @@ export function useAuth() {
     sessionStorage.removeItem('hms_currentUser');
     sessionStorage.removeItem('hms_page');
     sessionStorage.removeItem('hms_token');
+    sessionStorage.removeItem('hms_locId');
     window.location.reload();
   };
 

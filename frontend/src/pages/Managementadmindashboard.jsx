@@ -1062,9 +1062,24 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
         setTasks(prev => prev.map(task => task.id === editTask.id ? mapTaskFromApi(updatedTask) : task));
         toast("Task updated");
       } else {
-        const createdTask = await apiService.createTask(payload);
-        setTasks(prev => [mapTaskFromApi(createdTask), ...prev]);
-        toast("Task assigned");
+        if (linkedPatientIds.length > 1) {
+          await apiService.bulkAssignTasks({
+            department: taskForm.department,
+            assign_to: Number(taskForm.assignedToId),
+            patient_ids: linkedPatientIds,
+            title: taskForm.title,
+            priority: taskForm.priority,
+            due_date: taskForm.dueDate ? `${taskForm.dueDate}T23:59:00Z` : null,
+            notes: taskForm.description || "",
+          });
+          const refreshedTasks = await apiService.getTasks();
+          setTasks((refreshedTasks || []).map(mapTaskFromApi));
+          toast(`Assigned ${linkedPatientIds.length} patients`);
+        } else {
+          const createdTask = await apiService.createTask(payload);
+          setTasks(prev => [mapTaskFromApi(createdTask), ...prev]);
+          toast("Task assigned");
+        }
       }
       setShowTaskModal(false);
       setEditTask(null);

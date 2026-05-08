@@ -996,10 +996,10 @@ function buildServicePayload(service, fallbackCategory) {
   return { svcName:service.name,svcCat:service.category||fallbackCategory,svcQty:qty,svcRate:rate,svcDate:service.date||new Date().toISOString().slice(0,10),pricing_type:service.pricing_type,rate,qty };
 }
 function buildLabReportPayload(report) {
-  return { reportName:report.reportName||"",reportType:report.reportType||"Haematology",reportCategory:report.reportCategory||"",date:report.date||new Date().toISOString().slice(0,10),orderedBy:report.orderedBy||"",amount:Number(report.amount||0),remarks:report.remarks||"",modalityDetails:report.modalityDetails||{},findings:report.findings||"",impression:report.impression||"",tests:Array.isArray(report.tests)?report.tests:[] };
+  return { reportName:report.reportName||report.report_type||report.reportType||"Report",reportType:report.reportType||report.report_type||"Haematology",reportCategory:report.reportCategory||report.report_category||"",date:report.date||new Date().toISOString().slice(0,10),orderedBy:report.orderedBy||report.ordered_by||"",amount:Number(report.amount||0),remarks:report.remarks||"",modalityDetails:report.modalityDetails||report.modality_details||{},findings:report.findings||"",impression:report.impression||"",tests:Array.isArray(report.tests)?report.tests:[] };
 }
 function buildPharmacyPayload(record) {
-  return { medicine_name:record.item||"",date_given:record.date||new Date().toISOString().slice(0,10),quantity:Number(record.quantity||1),rate:Number(record.rate||(record.amount||0)),batch_no:record.batchNo||"",expiry_date:record.expiryDate||"" };
+  return { medicine_name:record.medicine_name||record.item||record.name||"",date_given:record.date_given||record.date||new Date().toISOString().slice(0,10),quantity:Number(record.quantity||1),rate:Number(record.rate||(record.amount||0)),batch_no:record.batch_no||record.batchNo||"",expiry_date:record.expiry_date||record.expiryDate||"" };
 }
 
 const SECTION_KEYS   = ["discharge","admission","reports","medicines","billing"];
@@ -1495,9 +1495,19 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
         await apiService.saveServicesBulk(sel.uhid, sel.admNo, serviceRows.map(s => buildServicePayload({ ...s, pricing_type: eBilling?.insuranceType && eBilling.insuranceType !== "Self Pay" ? "CASHLESS" : "CASH" }, s.category || "GENERAL SERVICES")));
         await apiService.updateBilling(sel.uhid, sel.admNo, eBilling);
       } else if (activeTab === "reports") {
-        await apiService.saveLabReportsBulk(sel.uhid, sel.admNo, eLabRep.filter(r => r.reportName).map(buildLabReportPayload));
+        await apiService.saveLabReportsBulk(
+          sel.uhid,
+          sel.admNo,
+          eLabRep
+            .filter((r) => (r.reportName || r.reportType || r.findings || r.impression || "").trim() || (Array.isArray(r.tests) && r.tests.length))
+            .map(buildLabReportPayload)
+        );
       } else if (activeTab === "med_bill") {
-        await apiService.savePharmacyRecordsBulk(sel.uhid, sel.admNo, eMedBill.filter(i => i.item).map(buildPharmacyPayload));
+        await apiService.savePharmacyRecordsBulk(
+          sel.uhid,
+          sel.admNo,
+          eMedBill.filter((i) => (i.item || i.medicine_name || i.name || "").trim()).map(buildPharmacyPayload)
+        );
       }
       const nextSaved = { ...eSaved, [sectionKey]: true };
       setESaved(nextSaved);
@@ -1511,6 +1521,20 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
   const submitTask = async () => {
     if (!sel) return;
     try {
+      const reportRows = eLabRep
+        .filter((r) => (r.reportName || r.reportType || r.findings || r.impression || "").trim() || (Array.isArray(r.tests) && r.tests.length))
+        .map(buildLabReportPayload);
+      const medRows = eMedBill
+        .filter((i) => (i.item || i.medicine_name || i.name || "").trim())
+        .map(buildPharmacyPayload);
+
+      await apiService.saveLabReportsBulk(sel.uhid, sel.admNo, reportRows);
+      await apiService.savePharmacyRecordsBulk(sel.uhid, sel.admNo, medRows);
+
+      const nextSaved = { ...eSaved, reports: true, medicines: true };
+      setESaved(nextSaved);
+      syncSelectedPatient({ saved: nextSaved, labReports: eLabRep, medicalBill: eMedBill });
+
       if (sel.taskId) {
         await apiService.updateTask(sel.taskId, {
           status: "Completed",

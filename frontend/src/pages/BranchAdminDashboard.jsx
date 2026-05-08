@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { apiService, BASE_URL } from "../services/apiService";
 import ThemeModeDock from "../components/ui/ThemeModeDock";
 import {
@@ -85,18 +85,76 @@ function isPathologyCategory(category = "") {
 
 function isMedicineCategory(category = "") {
   const normalized = String(category).toLowerCase();
-  return ["med", "pharma", "drug"].some((key) => normalized.includes(key));
+  return ["med", "pharma", "drug", "pharmacy", "tablet", "injection", "iv fluid", "consumable"].some((key) =>
+    normalized.includes(key)
+  );
+}
+
+/** Normalizes pharmacy/API/legacy/service rows so Branch Admin medicines table always has item, date, qty, batch, expiry. */
+function buildMedicineRowsForBranchAdmin(medicinesRaw, legacyMedicines, services, admissionDateFallback, medicineNameSet = new Set()) {
+  const fallbackDate = String(admissionDateFallback || "").slice(0, 10);
+
+  const coerceRow = (m, i) => {
+    const id = m.id ?? m._localId;
+    const desc =
+      m.medicine_name ??
+      m.item ??
+      m.name ??
+      m.itemDescription ??
+      m.description ??
+      m.medicineDescription ??
+      (typeof m.medicine === "object" ? (m.medicine?.medicine_name || m.medicine?.name) : null) ??
+      (typeof m.medicine === "string" ? m.medicine : m.medicine?.name) ??
+      m.svcName ??
+      m.title ??
+      "";
+    const dateRaw = m.date_given ?? m.date ?? m.svcDate ?? fallbackDate;
+    const dateStr = dateRaw ? String(dateRaw).slice(0, 10) : "";
+    const qtyRaw = m.quantity ?? m.svcQty ?? m.dosage ?? 1;
+    const qty = Math.max(1, Number(qtyRaw) || 1);
+    const rate = Number(m.rate ?? m.svcRate ?? 0);
+    const batch = m.batch_no ?? m.batchNo ?? m.batch ?? "";
+    const expRaw = m.expiry_date ?? m.expiryDate ?? m.expiry ?? "";
+    const expStr = expRaw ? String(expRaw).slice(0, 10) : "";
+    const amount = Number(m.amount ?? qty * rate);
+    return {
+      _localId: id || m._localId || `m-${i}`,
+      medicine_name: String(desc || "").trim(),
+      date_given: dateStr,
+      quantity: qty,
+      rate,
+      batch_no: String(batch || "").trim(),
+      expiry_date: expStr,
+      amount,
+    };
+  };
+
+  const api = Array.isArray(medicinesRaw) ? medicinesRaw : [];
+  const legacy = Array.isArray(legacyMedicines) ? legacyMedicines : [];
+  const svc = Array.isArray(services) ? services : [];
+
+  let source = [];
+  if (api.length) source = api;
+  else if (legacy.length) source = legacy;
+  else source = svc.filter((s) => {
+    const title = String(s?.svcName || s?.title || "").trim().toUpperCase();
+    return isMedicineCategory(s.svcCat || s.type) || medicineNameSet.has(title);
+  });
+
+  return source.map(coerceRow);
 }
 
 function admissionGross(admission) {
   const services = admission?.services || [];
+  const reportRows = admission?.labReports || admission?.lab_reports || [];
+  const pharmacyRows = admission?.pharmacyRecords || admission?.pharmacy_records || [];
   const serviceTotal = services
     .filter((service) => !isPathologyCategory(service.svcCat || service.type) && !isMedicineCategory(service.svcCat || service.type))
     .reduce((sum, service) => (
     sum + Number(service.svcTot ?? service.total ?? ((service.svcRate ?? service.rate ?? 0) * (service.svcQty ?? service.qty ?? 1)))
   ), 0);
-  const labTotal = (admission?.labReports || []).reduce((sum, report) => sum + Number(report.amount || 0), 0);
-  const pharmacyTotal = (admission?.pharmacyRecords || []).reduce((sum, record) => (
+  const labTotal = reportRows.reduce((sum, report) => sum + Number(report.amount || 0), 0);
+  const pharmacyTotal = pharmacyRows.reduce((sum, record) => (
     sum + Number(record.amount ?? (Number(record.quantity || 1) * Number(record.rate || 0)))
   ), 0);
   const billing = admission?.billing || {};
@@ -114,8 +172,10 @@ function buildPatientRecords(patient, admission) {
   const discharge = admission?.discharge || {};
   const medical = admission?.medicalHistory || {};
   const services = admission?.services || [];
-  const reports = Array.isArray(admission?.labReports) ? admission.labReports : [];
-  const pharmacyRecords = Array.isArray(admission?.pharmacyRecords) ? admission.pharmacyRecords : [];
+  const reportsRaw = admission?.labReports ?? admission?.lab_reports ?? [];
+  const pharmacyRaw = admission?.pharmacyRecords ?? admission?.pharmacy_records ?? [];
+  const reports = Array.isArray(reportsRaw) ? reportsRaw : [];
+  const pharmacyRecords = Array.isArray(pharmacyRaw) ? pharmacyRaw : [];
   const treatingDoctor = discharge.doctorName || medical.treatingDoctor || "—";
   const admissionDate = (admission?.dateTime || discharge?.doa || "").slice(0, 10);
 
@@ -149,7 +209,7 @@ function buildPatientRecords(patient, admission) {
     medicines: pharmacyRecords.length
       ? pharmacyRecords.map((record) => ({
           date: record.date || record.date_given || admissionDate,
-          medicine: record.item || record.medicine_name || "Medicine",
+          medicine: record.item || record.medicine_name || record.name || "Medicine",
           dosage: String(record.quantity || 1),
           frequency: "—",
           duration: "—",
@@ -381,8 +441,20 @@ export default function BranchAdminDashboard({
   branchName = "",
   adminName  = "Admin",
 }) {
-  const resolvedBranchKey  = locId || String(currentUser?.branch || "").toLowerCase() || branchId;
-  const resolvedBranchCode = String(currentUser?.branchCode || "").toUpperCase() || (resolvedBranchKey === "raya" ? "RYM" : resolvedBranchKey === "laxmi" || resolvedBranchKey === "lakshmi" ? "LNM" : String(resolvedBranchKey || "").toUpperCase());
+  const contentScrollRef = useRef(null);
+  const resolvedBranchRaw  = locId || String(currentUser?.branch || "").toLowerCase() || branchId;
+  const resolvedBranchCode = String(currentUser?.branchCode || "").toUpperCase() || (
+    String(currentUser?.branch || "").toUpperCase() || (
+      resolvedBranchRaw === "raya" ? "RYM" :
+      resolvedBranchRaw === "laxmi" || resolvedBranchRaw === "lakshmi" ? "LNM" :
+      String(resolvedBranchRaw || "").toUpperCase()
+    )
+  );
+  const resolvedBranchKey = (
+    resolvedBranchRaw === "lnm" ? "laxmi" :
+    resolvedBranchRaw === "rym" ? "raya"  :
+    resolvedBranchRaw
+  );
   const theme              = BRANCH_THEMES[resolvedBranchKey] || BRANCH_THEMES.default;
   const resolvedBranchName = branchName || theme.label;
   const resolvedAdminName  = currentUser?.name || adminName;
@@ -403,6 +475,8 @@ export default function BranchAdminDashboard({
   const [records,    setRecords]    = useState([]);
   const [editableRows, setEditableRows] = useState([]);
   const [savingRecords, setSavingRecords] = useState(false);
+  const [isRecordDirty, setIsRecordDirty] = useState(false);
+  const isRecordDirtyRef = useRef(false);
 
   const [search,    setSearch]    = useState("");
   const [statusFil, setStatusFil] = useState("all");
@@ -419,8 +493,17 @@ export default function BranchAdminDashboard({
       setStatusFil("all");
       if (nav !== "records") setSelPatient(null);
 
-      const branchPatients = Array.isArray(db?.[resolvedBranchKey]) ? db[resolvedBranchKey] : [];
-      const mappedPatients = mapLiveBranchPatients(branchPatients);
+      const branchPatients = (
+        (Array.isArray(db?.[resolvedBranchKey]) && db[resolvedBranchKey]) ||
+        (Array.isArray(db?.[resolvedBranchRaw]) && db[resolvedBranchRaw]) ||
+        (resolvedBranchCode === "LNM" && (Array.isArray(db?.laxmi) ? db.laxmi : [])) ||
+        (resolvedBranchCode === "RYM" && (Array.isArray(db?.raya) ? db.raya : [])) ||
+        []
+      );
+      const safeBranchPatients = branchPatients.length
+        ? branchPatients
+        : Object.values(db || {}).find((rows) => Array.isArray(rows) && rows.length) || [];
+      const mappedPatients = mapLiveBranchPatients(safeBranchPatients);
       if (!active) return;
 
       setPatients(mappedPatients);
@@ -430,7 +513,7 @@ export default function BranchAdminDashboard({
       try {
         const users = await apiService.getUsers();
         if (!active) return;
-        const branchUsers = mapBranchUsers(users, resolvedBranchKey);
+        const branchUsers = mapBranchUsers(users, resolvedBranchCode);
         setEmployees(branchUsers);
         setOverview(buildOverviewData(mappedPatients, branchUsers));
       } catch (error) {
@@ -438,6 +521,7 @@ export default function BranchAdminDashboard({
         setEmployees([]);
         setOverview(buildOverviewData(mappedPatients, []));
       }
+
     };
 
     loadLiveData();
@@ -451,15 +535,19 @@ export default function BranchAdminDashboard({
   }, [selPatient, recTab, nav]);
 
   useEffect(() => {
+    setIsRecordDirty(false);
+    isRecordDirtyRef.current = false;
+  }, [nav, recTab, selPatient?.uhid, selPatient?.admObj?.admNo]);
+
+  useEffect(() => {
     if (nav !== "records" || !selPatient) {
       setEditableRows([]);
       return;
     }
+    if (isRecordDirty) return;
     const admission = selPatient.admObj || {};
     const discharge = admission.discharge || {};
     const medical = admission.medicalHistory || {};
-    const reports = Array.isArray(admission.labReports) ? admission.labReports : [];
-    const medicines = Array.isArray(admission.pharmacyRecords) ? admission.pharmacyRecords : [];
 
     const rowsByTab = {
       discharge_summary: [{
@@ -506,36 +594,54 @@ export default function BranchAdminDashboard({
         treatingDoctor: medical.treatingDoctor || discharge.doctorName || "",
         notes: medical.notes || "",
       }],
-      reports: reports.map((r, i) => {
-        const md = r.modalityDetails || r.modality_details || {};
-        return {
-          _localId: r.id || `r-${i}-${Date.now()}`,
-          reportName: r.reportName || r.report_name || "",
-          reportType: r.reportType || r.report_type || "Haematology",
-          reportCategory: r.reportCategory || r.report_category || "LAB",
-          date: r.date || r.report_date || "",
-          orderedBy: r.orderedBy || r.ordered_by || discharge.doctorName || medical.treatingDoctor || "",
-          amount: Number(r.amount || 0),
-          remarks: r.remarks || "",
-          findings: r.findings || md.findings || "",
-          impression: r.impression || md.impression || "",
-          tests: Array.isArray(r.tests) ? r.tests : (Array.isArray(r.table_data) ? r.table_data : []),
-        };
-      }),
-      medicines: medicines.map((m, i) => ({
-        _localId: m.id || `m-${i}-${Date.now()}`,
-        medicine_name: m.medicine_name || m.item || "",
-        date_given: m.date_given || m.date || "",
-        quantity: Number(m.quantity || 1),
-        rate: Number(m.rate || 0),
-        batch_no: m.batch_no || m.batchNo || "",
-        expiry_date: m.expiry_date || m.expiryDate || "",
-        amount: Number(m.amount ?? (Number(m.quantity || 1) * Number(m.rate || 0))),
-      })),
+      // Reports and medicines are populated from the canonical-records endpoint
+      // in the dedicated effect below; keep them empty here so the UI renders
+      // an empty state until the network call resolves.
+      reports: [],
+      medicines: [],
     };
 
     setEditableRows(rowsByTab[recTab] || []);
-  }, [nav, selPatient, recTab]);
+  }, [nav, selPatient, recTab, isRecordDirty]);
+
+  useEffect(() => {
+    if (nav !== "records" || !selPatient || isRecordDirty) return;
+    if (recTab !== "reports" && recTab !== "medicines") return;
+    const uhid = selPatient.uhid;
+    const admNo = selPatient.admObj?.admNo;
+    if (!uhid || !admNo) return;
+
+    let active = true;
+    const loadCanonical = async () => {
+      try {
+        const data = await apiService.getCanonicalRecords(uhid, admNo);
+        if (!active || isRecordDirtyRef.current) return;
+        const admissionDateFallback =
+          selPatient?.admObj?.dateTime || selPatient?.admObj?.discharge?.doa || "";
+
+        if (recTab === "reports") {
+          const items = Array.isArray(data?.reports) ? data.reports : [];
+          setEditableRows(
+            items.map((r, i) => ({
+              _localId: r.id || r._localId || `r-canon-${i}`,
+              reportName: r.name || r.reportName || r.report_name || "Report",
+              date: r.date || "",
+            }))
+          );
+        } else if (recTab === "medicines") {
+          const items = Array.isArray(data?.medicines) ? data.medicines : [];
+          setEditableRows(
+            buildMedicineRowsForBranchAdmin(items, [], [], admissionDateFallback)
+          );
+        }
+      } catch (_error) {
+        // Network/server failure — leave the empty list shown by the init effect.
+      }
+    };
+
+    loadCanonical();
+    return () => { active = false; };
+  }, [nav, recTab, selPatient, isRecordDirty]);
 
   // ─── Filter helpers ───────────────────────────────────────────────────────
   const filterPatients = (list) => list.filter(p => {
@@ -579,7 +685,7 @@ export default function BranchAdminDashboard({
         confirm_password: empForm.confirmPassword,
       });
       const users = await apiService.getUsers();
-      const branchUsers = mapBranchUsers(users, resolvedBranchKey);
+      const branchUsers = mapBranchUsers(users, resolvedBranchCode);
       setEmployees(branchUsers);
       setOverview(buildOverviewData(patients, branchUsers));
       setModal(null);
@@ -880,26 +986,38 @@ export default function BranchAdminDashboard({
         <div style={{ fontSize:"40px", marginBottom:"16px", color:T.textMuted }}>◈</div>
         <div style={{ fontSize:"11px", letterSpacing:"3px", color:T.textMuted, marginBottom:"12px" }}>NO PATIENT SELECTED</div>
         <p style={{ color:T.textSub, fontSize:"13px", maxWidth:"360px", margin:"0 auto 24px" }}>
-          Open All Patients or Cash Patients and click "View" on any row.
+          Open All Patients or Cash Patients and click View on any row.
         </p>
         <button style={mkBtn("dim", theme)} onClick={() => setNav("patients")}>→ Go to Patients</button>
       </div>
     );
 
-    const selectedAdmission = selPatient.admObj || {};
+    const livePatientRow = (patients || []).find(
+      (p) =>
+        p.uhid === selPatient.uhid &&
+        Number(p.admObj?.admNo) === Number(selPatient.admObj?.admNo)
+    );
+    const selectedAdmission = livePatientRow?.admObj || selPatient.admObj || {};
     const selectedDischarge = selectedAdmission.discharge || {};
     const selectedMedical = selectedAdmission.medicalHistory || {};
 
     const canEditRecords = String(selPatient?.paymentMode || "").toLowerCase() === "cash";
-    const isCashless = !canEditRecords;
 
     const updateEditableField = (rowIdx, field, value) => {
+      setIsRecordDirty(true);
+      isRecordDirtyRef.current = true;
       setEditableRows((prev) => prev.map((row, idx) => idx === rowIdx ? { ...row, [field]: value } : row));
     };
-    const addEditableRow = (template) => setEditableRows((prev) => [...prev, template]);
-    const removeEditableRow = (rowIdx) => setEditableRows((prev) => prev.filter((_, idx) => idx !== rowIdx));
-
-    const fmtMoney = (n) => `₹${Number(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
+    const addEditableRow = (template) => {
+      setIsRecordDirty(true);
+      isRecordDirtyRef.current = true;
+      setEditableRows((prev) => [...prev, template]);
+    };
+    const removeEditableRow = (rowIdx) => {
+      setIsRecordDirty(true);
+      isRecordDirtyRef.current = true;
+      setEditableRows((prev) => prev.filter((_, idx) => idx !== rowIdx));
+    };
 
     const PRINT_KIND_MAP = {
       discharge_summary: "dynamic-summary",
@@ -916,6 +1034,11 @@ export default function BranchAdminDashboard({
         return;
       }
       const kind = PRINT_KIND_MAP[recTab];
+      if (recTab === "discharge_summary") {
+        const summaryType = (selectedDischarge?.dischargeStatus || "LAMA").toString().toUpperCase();
+        window.open(`${BASE_URL}/patients/${uhid}/admissions/${admNo}/${kind}/print/?type=${encodeURIComponent(summaryType)}`, "_blank");
+        return;
+      }
       window.open(`${BASE_URL}/patients/${uhid}/admissions/${admNo}/${kind}/print/`, "_blank");
     };
 
@@ -946,16 +1069,7 @@ export default function BranchAdminDashboard({
             selectedAdmission.admNo,
             editableRows.map((row) => ({
               reportName: row.reportName || "Report",
-              reportType: row.reportType || "Haematology",
-              reportCategory: row.reportCategory || "LAB",
               date: row.date || new Date().toISOString().slice(0, 10),
-              orderedBy: row.orderedBy || selectedDischarge.doctorName || selectedMedical.treatingDoctor || "",
-              amount: Number(row.amount || 0),
-              remarks: row.remarks || "",
-              modalityDetails: { findings: row.findings || "", impression: row.impression || "" },
-              findings: row.findings || "",
-              impression: row.impression || "",
-              tests: Array.isArray(row.tests) ? row.tests : [],
             }))
           );
         } else if (recTab === "medicines") {
@@ -965,9 +1079,9 @@ export default function BranchAdminDashboard({
             editableRows.map((row) => ({
               medicine_name: row.medicine_name || "Medicine",
               date_given: row.date_given || new Date().toISOString().slice(0, 10),
+              batch_no: row.batch_no || "",
               quantity: Number(row.quantity || 1) || 1,
               rate: Number(row.rate || 0),
-              batch_no: row.batch_no || "",
               expiry_date: row.expiry_date || "",
             }))
           );
@@ -1008,6 +1122,8 @@ export default function BranchAdminDashboard({
             notes: f.notes || selectedMedical.notes || "",
           });
         }
+        setIsRecordDirty(false);
+        isRecordDirtyRef.current = false;
         window.alert("Record updated successfully.");
       } catch (_error) {
         window.alert("Failed to update this section.");
@@ -1142,217 +1258,79 @@ export default function BranchAdminDashboard({
       );
     };
 
-    const renderReports = () => {
-      const updTest = (ri, ti, key, value) => setEditableRows((prev) => prev.map((row, i) => {
-        if (i !== ri) return row;
-        const tests = Array.isArray(row.tests) ? [...row.tests] : [];
-        tests[ti] = { ...(tests[ti] || {}), [key]: value };
-        return { ...row, tests };
-      }));
-      const addTest = (ri) => setEditableRows((prev) => prev.map((row, i) => i === ri
-        ? { ...row, tests: [...(Array.isArray(row.tests) ? row.tests : []), { name: "", value: "", unit: "", normal: "" }] }
-        : row));
-      const delTest = (ri, ti) => setEditableRows((prev) => prev.map((row, i) => i === ri
-        ? { ...row, tests: (row.tests || []).filter((_, j) => j !== ti) }
-        : row));
-
-      const totalAmount = editableRows.reduce((sum, r) => sum + Number(r.amount || 0), 0);
-
-      return (
-        <>
-          {!editableRows.length && (
-            <div style={{ padding:"40px 20px", textAlign:"center", color:T.textMuted, fontSize:"11px", letterSpacing:"2px", border:`1px dashed ${T.border}`, borderRadius:"10px", marginBottom:"16px" }}>
-              NO LAB / RADIOLOGY REPORTS
-            </div>
-          )}
-          {editableRows.map((rep, ri) => {
-            const u = (k) => (v) => updateEditableField(ri, k, v);
-            return (
-              <div key={rep._localId || ri} style={{ background:T.surface, border:`1px solid ${T.border}`, borderRadius:"12px", marginBottom:"16px", overflow:"hidden" }}>
-                <div style={{ background:`linear-gradient(135deg, ${theme.primaryBorder} 0%, ${theme.primary} 100%)`, color:"#fff", padding:"14px 18px", display:"flex", alignItems:"center", justifyContent:"space-between", gap:"12px", flexWrap:"wrap" }}>
-                  <div style={{ flex:1, minWidth:200 }}>
-                    <div style={{ fontSize:"10px", letterSpacing:"1.6px", textTransform:"uppercase", opacity:.85, marginBottom:"4px" }}>🧪 {rep.reportCategory || "REPORT"}</div>
-                    {canEditRecords ? (
-                      <input value={rep.reportName || ""} placeholder="Report Name (e.g. Complete Blood Count)" onChange={(e) => u("reportName")(e.target.value)}
-                        style={{ background:"transparent", border:"none", borderBottom:"1.5px solid rgba(255,255,255,.4)", outline:"none", color:"#fff", fontFamily:"inherit", fontSize:16, fontWeight:700, width:"100%", paddingBottom:3 }} />
-                    ) : (
-                      <div style={{ fontSize:16, fontWeight:700 }}>{rep.reportName || "Untitled Report"}</div>
-                    )}
-                  </div>
-                  {canEditRecords && (
-                    <button style={{ ...mkBtn("danger", theme), padding:"5px 10px", fontSize:"10px" }} onClick={() => removeEditableRow(ri)}>✕ Remove</button>
-                  )}
-                </div>
-                <div style={{ padding:"16px" }}>
-                  <div style={{ display:"grid", gridTemplateColumns: isCashless ? "repeat(3,1fr)" : "repeat(4,1fr)", gap:"12px 14px", marginBottom:"14px" }}>
-                    <Field label="Date" type="date" value={String(rep.date || "").slice(0,10)} onChange={u("date")} />
-                    <Field label="Type" value={rep.reportType} onChange={u("reportType")} placeholder="Haematology / Radiology" />
-                    <Field label="Ordered By" value={rep.orderedBy} onChange={u("orderedBy")} placeholder="Treating doctor" />
-                    {!isCashless && (
-                      <Field label="Amount (₹)" type="number" value={rep.amount} onChange={(v) => u("amount")(Number(v) || 0)} />
-                    )}
-                  </div>
-
-                  {/* Test rows */}
-                  <div style={{ marginBottom:"12px" }}>
-                    <div style={{ fontSize:"11px", fontWeight:"700", color:T.textSub, marginBottom:"8px", letterSpacing:"1px", textTransform:"uppercase" }}>Tests</div>
-                    {(rep.tests || []).length === 0 && (
-                      <div style={{ fontSize:"12px", color:T.textMuted, fontStyle:"italic", padding:"8px 0" }}>No tests added.</div>
-                    )}
-                    {(rep.tests || []).map((t, ti) => (
-                      <div key={ti} style={{ display:"grid", gridTemplateColumns:"2fr 1fr 1fr 1.5fr 32px", gap:"8px", alignItems:"center", marginBottom:"6px" }}>
-                        {canEditRecords ? (
-                          <>
-                            <input value={t.name || ""} placeholder="Test name" onChange={(e) => updTest(ri, ti, "name", e.target.value)} style={inpStyle} />
-                            <input value={t.value || ""} placeholder="Value" onChange={(e) => updTest(ri, ti, "value", e.target.value)} style={inpStyle} />
-                            <input value={t.unit || ""} placeholder="Unit" onChange={(e) => updTest(ri, ti, "unit", e.target.value)} style={inpStyle} />
-                            <input value={t.normal || ""} placeholder="Normal range" onChange={(e) => updTest(ri, ti, "normal", e.target.value)} style={inpStyle} />
-                            <button style={{ ...mkBtn("danger", theme), padding:"6px 8px", fontSize:"11px" }} onClick={() => delTest(ri, ti)}>✕</button>
-                          </>
-                        ) : (
-                          <>
-                            <div style={ROStyle}>{t.name || "—"}</div>
-                            <div style={ROStyle}>{t.value || "—"}</div>
-                            <div style={ROStyle}>{t.unit || "—"}</div>
-                            <div style={ROStyle}>{t.normal || "—"}</div>
-                            <div />
-                          </>
-                        )}
-                      </div>
-                    ))}
-                    {canEditRecords && (
-                      <button style={{ ...mkBtn("dim", theme), padding:"6px 12px", fontSize:"11px", marginTop:"6px" }} onClick={() => addTest(ri)}>+ Add Test</button>
-                    )}
-                  </div>
-
-                  <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:"14px 16px" }}>
-                    <Field label="Findings" colSpan={1} multiline rows={3} value={rep.findings}  onChange={u("findings")}  placeholder="Findings…" />
-                    <Field label="Impression" colSpan={1} multiline rows={3} value={rep.impression} onChange={u("impression")} placeholder="Impression…" />
-                    <Field label="Remarks" colSpan={2} multiline rows={2} value={rep.remarks} onChange={u("remarks")} placeholder="Additional remarks…" />
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-          {canEditRecords && (
-            <button style={{ ...mkBtn("primary", theme), padding:"8px 14px", fontSize:"12px" }} onClick={() => addEditableRow({
-              _localId: `r-new-${Date.now()}`,
-              reportName: "", reportType: "Haematology", reportCategory: "LAB",
-              date: new Date().toISOString().slice(0, 10), orderedBy: "",
-              amount: 0, remarks: "", findings: "", impression: "", tests: [],
-            })}>+ Add Report</button>
-          )}
-          {!isCashless && editableRows.length > 0 && (
-            <div style={{ marginTop:"14px", display:"flex", justifyContent:"flex-end", gap:"10px", padding:"12px 16px", background:T.surface, border:`1px solid ${T.border}`, borderRadius:"10px" }}>
-              <div style={{ fontSize:"12px", color:T.textMuted, fontWeight:"600" }}>Reports Total</div>
-              <div style={{ fontSize:"14px", color:T.text, fontWeight:"800" }}>{fmtMoney(totalAmount)}</div>
-            </div>
-          )}
-        </>
-      );
-    };
-
-    const renderMedicines = () => {
-      const totalAmt = editableRows.reduce((sum, r) => sum + Number(r.amount ?? (Number(r.quantity || 1) * Number(r.rate || 0))), 0);
-      return (
-        <SectionCard icon="💊" title="Medicine / Pharmacy Bill" subtitle={`${editableRows.length} item${editableRows.length === 1 ? "" : "s"}`}>
-          <div style={{ overflowX:"auto" }}>
-            <table style={{ width:"100%", borderCollapse:"collapse", fontSize:"12px" }}>
-              <thead>
-                <tr>
-                  {["Item Description","Date","Qty","Batch No.","Expiry"].map(h => (
-                    <th key={h} style={{ padding:"10px", textAlign:"left", fontSize:"10px", letterSpacing:"1.2px", textTransform:"uppercase", color:T.textMuted, fontWeight:"700", borderBottom:`1px solid ${T.border}` }}>{h}</th>
-                  ))}
-                  {!isCashless && <th style={{ padding:"10px", textAlign:"left", fontSize:"10px", letterSpacing:"1.2px", textTransform:"uppercase", color:T.textMuted, fontWeight:"700", borderBottom:`1px solid ${T.border}` }}>Rate</th>}
-                  {!isCashless && <th style={{ padding:"10px", textAlign:"left", fontSize:"10px", letterSpacing:"1.2px", textTransform:"uppercase", color:T.textMuted, fontWeight:"700", borderBottom:`1px solid ${T.border}` }}>Amount</th>}
-                  {canEditRecords && <th style={{ width:"40px", borderBottom:`1px solid ${T.border}` }} />}
-                </tr>
-              </thead>
-              <tbody>
-                {editableRows.length === 0 && (
-                  <tr><td colSpan={isCashless ? 5 : 8} style={{ padding:"22px", textAlign:"center", color:T.textMuted, fontStyle:"italic" }}>No medicines added.</td></tr>
-                )}
-                {editableRows.map((m, mi) => {
-                  const u = (k) => (v) => {
-                    setEditableRows((prev) => prev.map((row, i) => {
-                      if (i !== mi) return row;
-                      const next = { ...row, [k]: v };
-                      if (k === "quantity" || k === "rate") {
-                        next.amount = Number(next.quantity || 0) * Number(next.rate || 0);
-                      }
-                      return next;
-                    }));
-                  };
-                  return (
-                    <tr key={m._localId || mi} style={{ borderBottom:`1px solid ${T.border}` }}>
-                      <td style={{ padding:"8px" }}>
-                        {canEditRecords
-                          ? <input value={m.medicine_name || ""} onChange={(e) => u("medicine_name")(e.target.value)} style={inpStyle} placeholder="Medicine / Item" />
-                          : <div style={ROStyle}>{m.medicine_name || "—"}</div>}
-                      </td>
-                      <td style={{ padding:"8px", width:"150px" }}>
-                        {canEditRecords
-                          ? <input type="date" value={String(m.date_given || "").slice(0,10)} onChange={(e) => u("date_given")(e.target.value)} style={inpStyle} />
-                          : <div style={ROStyle}>{m.date_given || "—"}</div>}
-                      </td>
-                      <td style={{ padding:"8px", width:"90px" }}>
-                        {canEditRecords
-                          ? <input type="number" min="1" value={m.quantity ?? 1} onChange={(e) => u("quantity")(Math.max(1, Number(e.target.value) || 1))} style={inpStyle} />
-                          : <div style={ROStyle}>{m.quantity ?? 1}</div>}
-                      </td>
-                      <td style={{ padding:"8px", width:"160px" }}>
-                        {canEditRecords
-                          ? <input value={m.batch_no || ""} onChange={(e) => u("batch_no")(e.target.value)} style={inpStyle} />
-                          : <div style={ROStyle}>{m.batch_no || "—"}</div>}
-                      </td>
-                      <td style={{ padding:"8px", width:"160px" }}>
-                        {canEditRecords
-                          ? <input type="date" value={String(m.expiry_date || "").slice(0,10)} onChange={(e) => u("expiry_date")(e.target.value)} style={inpStyle} />
-                          : <div style={ROStyle}>{m.expiry_date || "—"}</div>}
-                      </td>
-                      {!isCashless && (
-                        <td style={{ padding:"8px", width:"110px" }}>
-                          {canEditRecords
-                            ? <input type="number" min="0" step="0.01" value={m.rate ?? 0} onChange={(e) => u("rate")(Number(e.target.value) || 0)} style={inpStyle} />
-                            : <div style={ROStyle}>{fmtMoney(m.rate)}</div>}
-                        </td>
-                      )}
-                      {!isCashless && (
-                        <td style={{ padding:"8px", width:"130px" }}>
-                          {canEditRecords
-                            ? <input type="number" min="0" step="0.01" value={m.amount ?? 0} onChange={(e) => u("amount")(Number(e.target.value) || 0)} style={inpStyle} />
-                            : <div style={ROStyle}>{fmtMoney(m.amount)}</div>}
-                        </td>
-                      )}
-                      {canEditRecords && (
-                        <td style={{ padding:"8px" }}>
-                          <button style={{ ...mkBtn("danger", theme), padding:"5px 9px", fontSize:"11px" }} onClick={() => removeEditableRow(mi)}>✕</button>
-                        </td>
-                      )}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+    const renderReports = () => (
+      <SectionCard icon="🧪" title="Reports" subtitle="Only report names selected during registration">
+        {!editableRows.length && (
+          <div style={{ padding:"22px", textAlign:"center", color:T.textMuted, fontStyle:"italic", border:`1px dashed ${T.border}`, borderRadius:"10px" }}>
+            No reports added.
           </div>
-
-          {canEditRecords && (
-            <button style={{ ...mkBtn("primary", theme), padding:"8px 14px", fontSize:"12px", marginTop:"12px" }} onClick={() => addEditableRow({
-              _localId: `m-new-${Date.now()}`,
-              medicine_name: "", date_given: new Date().toISOString().slice(0, 10),
-              quantity: 1, rate: 0, batch_no: "", expiry_date: "", amount: 0,
-            })}>+ Add Medicine</button>
-          )}
-
-          {!isCashless && editableRows.length > 0 && (
-            <div style={{ marginTop:"14px", display:"flex", justifyContent:"flex-end", gap:"10px", padding:"12px 16px", background:T.card, border:`1px solid ${T.border}`, borderRadius:"10px" }}>
-              <div style={{ fontSize:"12px", color:T.textMuted, fontWeight:"600" }}>Medicine Total</div>
-              <div style={{ fontSize:"14px", color:T.text, fontWeight:"800" }}>{fmtMoney(totalAmt)}</div>
+        )}
+        <div style={{ display:"grid", gap:"10px" }}>
+          {editableRows.map((rep, ri) => (
+            <div key={rep._localId || ri} style={{ display:"grid", gridTemplateColumns:"1fr auto", gap:"10px", alignItems:"center", background:T.surfaceRaised, border:`1px solid ${T.border}`, borderRadius:"10px", padding:"10px 12px" }}>
+              {canEditRecords ? (
+                <input
+                  value={rep.reportName || ""}
+                  placeholder="Report name"
+                  onChange={(e) => updateEditableField(ri, "reportName", e.target.value)}
+                  style={inpStyle}
+                />
+              ) : (
+                <div style={ROStyle}>{rep.reportName || "—"}</div>
+              )}
+              {canEditRecords && (
+                <button style={{ ...mkBtn("danger", theme), padding:"5px 9px", fontSize:"11px" }} onClick={() => removeEditableRow(ri)}>✕</button>
+              )}
             </div>
-          )}
-        </SectionCard>
-      );
-    };
+          ))}
+        </div>
+        {canEditRecords && (
+          <button
+            style={{ ...mkBtn("primary", theme), padding:"8px 14px", fontSize:"12px", marginTop:"12px" }}
+            onClick={() => addEditableRow({ _localId: `r-new-${Date.now()}`, reportName: "", date: new Date().toISOString().slice(0, 10) })}
+          >
+            + Add Report Name
+          </button>
+        )}
+      </SectionCard>
+    );
+
+    const renderMedicines = () => (
+      <SectionCard icon="💊" title="Medicines" subtitle="Only medicine names selected during registration">
+        {!editableRows.length && (
+          <div style={{ padding:"22px", textAlign:"center", color:T.textMuted, fontStyle:"italic", border:`1px dashed ${T.border}`, borderRadius:"10px" }}>
+            No medicines added.
+          </div>
+        )}
+        <div style={{ display:"grid", gap:"10px" }}>
+          {editableRows.map((m, mi) => (
+            <div key={m._localId || mi} style={{ display:"grid", gridTemplateColumns:"1fr auto", gap:"10px", alignItems:"center", background:T.surfaceRaised, border:`1px solid ${T.border}`, borderRadius:"10px", padding:"10px 12px" }}>
+              {canEditRecords ? (
+                <input
+                  value={m.medicine_name || ""}
+                  placeholder="Medicine name"
+                  onChange={(e) => updateEditableField(mi, "medicine_name", e.target.value)}
+                  style={inpStyle}
+                />
+              ) : (
+                <div style={ROStyle}>{m.medicine_name || "—"}</div>
+              )}
+              {canEditRecords && (
+                <button style={{ ...mkBtn("danger", theme), padding:"5px 9px", fontSize:"11px" }} onClick={() => removeEditableRow(mi)}>✕</button>
+              )}
+            </div>
+          ))}
+        </div>
+        {canEditRecords && (
+          <button
+            style={{ ...mkBtn("primary", theme), padding:"8px 14px", fontSize:"12px", marginTop:"12px" }}
+            onClick={() => addEditableRow({ _localId: `m-new-${Date.now()}`, medicine_name: "", date_given: new Date().toISOString().slice(0, 10) })}
+          >
+            + Add Medicine Name
+          </button>
+        )}
+      </SectionCard>
+    );
 
     return (
       <>
@@ -1543,11 +1521,11 @@ export default function BranchAdminDashboard({
         </div>
 
         {/* Page content */}
-        <div style={{ flex:1, minWidth:0, minHeight:0, overflowY:"auto", overscrollBehavior:"contain", padding:"26px 28px" }}>
+        <div ref={contentScrollRef} style={{ flex:1, minWidth:0, minHeight:0, overflowY:"auto", overscrollBehavior:"contain", padding:"26px 28px" }}>
           {nav==="overview"   && <OverviewView />}
           {nav==="patients"   && <PatientListView data={patients}  exportFile={`all_patients_${resolvedBranchKey}_${range}`}  title="All Patients" />}
           {nav==="cash"       && <PatientListView data={cashPats}  exportFile={`cash_patients_${resolvedBranchKey}_${range}`} title="Cash Patients" />}
-          {nav==="records"    && <RecordsView />}
+          {nav==="records"    && RecordsView()}
           {nav==="financials" && <FinancialsView />}
           {nav==="employees"  && <EmployeesView />}
         </div>

@@ -220,6 +220,11 @@ export const apiService = {
         return response.data;
     },
 
+    bulkAssignTasks: async (payload) => {
+        const response = await axios.post(`${BASE_URL}/tasks/bulk-assign/`, payload);
+        return response.data;
+    },
+
     updateTask: async (taskId, updateData) => {
         const response = await axios.patch(`${BASE_URL}/tasks/${taskId}/`, updateData);
         return response.data;
@@ -272,6 +277,11 @@ export const apiService = {
 
     savePharmacyRecord: async (uhid, admNo, recordData) => {
         const response = await axios.post(`${BASE_URL}/patients/${uhid}/admissions/${admNo}/pharmacy-records/`, recordData);
+        return response.data;
+    },
+
+    getCanonicalRecords: async (uhid, admNo) => {
+        const response = await axios.get(`${BASE_URL}/patients/${uhid}/admissions/${admNo}/canonical-records/`);
         return response.data;
     },
 
