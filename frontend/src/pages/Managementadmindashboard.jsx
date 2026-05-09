@@ -840,11 +840,47 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
   const updatePatient = (branchKey, uhid, updater) => setAllPatients(prev => ({...prev,[branchKey]:prev[branchKey].map(p=>p.uhid===uhid?updater(p):p)}));
 
   // ── PATIENT HELPERS ───────────────────────────────────────────────────────
-  const openMedEditor = (p) => { setEditMedPt(JSON.parse(JSON.stringify(p))); setShowMedModal(true); };
+  const openMedEditor = async (p) => {
+    const next = JSON.parse(JSON.stringify(p));
+    try {
+      const cleanAdm = String(p.admissions?.[0]?.admNo || 1).replace(/\D/g, "");
+      const backendMeds = await apiService.getPharmacyRecords(p.uhid, cleanAdm);
+      if (backendMeds && backendMeds.length > 0) {
+        next.medicines = backendMeds.map(m => ({
+          id: m.id || Date.now(),
+          name: m.medicineName || m.name || m.medicine_name || "",
+          qty: m.quantity || m.qty || 1,
+          rate: parseFloat(m.rate || m.unitRate || 0),
+        }));
+      }
+    } catch (e) {
+      console.warn("Could not fetch pharmacy records, using local data", e);
+    }
+    setEditMedPt(next);
+    setShowMedModal(true);
+  };
   const updateMed = (idx, field, val) => setEditMedPt(prev => { const m=[...prev.medicines]; m[idx]={...m[idx],[field]:field==="name"?val:(+val||0)}; return {...prev,medicines:m}; });
   const addMedRow = () => setEditMedPt(prev => ({...prev,medicines:[...(prev.medicines||[]),{id:Date.now(),name:"",qty:1,rate:0}]}));
   const delMedRow = (idx) => setEditMedPt(prev => ({...prev,medicines:prev.medicines.filter((_,i)=>i!==idx)}));
-  const saveMeds  = () => { updatePatient(viewBranch, editMedPt.uhid, p=>({...p,medicines:editMedPt.medicines})); toast("Medicines saved"); setShowMedModal(false); setEditMedPt(null); };
+  const saveMeds = async () => {
+    try {
+      const cleanAdm = String(editMedPt.admissions?.[0]?.admNo || 1).replace(/\D/g, "");
+      const records = editMedPt.medicines.map(m => ({
+        medicineName: m.name,
+        quantity: m.qty,
+        rate: m.rate,
+        totalAmount: m.qty * m.rate,
+      }));
+      await apiService.savePharmacyRecordsBulk(editMedPt.uhid, cleanAdm, records);
+      updatePatient(viewBranch, editMedPt.uhid, p => ({ ...p, medicines: editMedPt.medicines }));
+      toast("Medicines saved to backend!");
+    } catch (e) {
+      updatePatient(viewBranch, editMedPt.uhid, p => ({ ...p, medicines: editMedPt.medicines }));
+      toast("Saved locally (backend sync failed)", "err");
+    }
+    setShowMedModal(false);
+    setEditMedPt(null);
+  };
 
   const resolveAdmNo = (p) => {
     const raw = p?.admissions?.[0]?.admNo ?? p?.admNo ?? 1;
@@ -958,32 +994,63 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
     setDeletePt(null);
   };
 
-  const openReportEditor = (p) => {
+  const openReportEditor = async (p) => {
     const next = JSON.parse(JSON.stringify(p));
     next.reports = getPreferredReports(p);
+    try {
+      const cleanAdm = String(p.admissions?.[0]?.admNo || 1).replace(/\D/g, "");
+      const backendReports = await apiService.getLabReports(p.uhid, cleanAdm);
+      if (backendReports && backendReports.length > 0) {
+        next.reports = backendReports.map(r => ({
+          id: r.id || Date.now(),
+          reportName: r.reportName || r.report_name || r.name || "Report",
+          reportType: r.reportType || r.report_type || "Pathology",
+          date: r.date || r.created_at?.slice(0,10) || new Date().toISOString().slice(0,10),
+          remarks: r.remarks || r.result || "",
+          tests: (r.tests || []).map(t => ({
+            name: t.name || t.testName || "",
+            result: t.result || t.value || "",
+            unit: t.unit || "",
+            refRange: t.refRange || t.ref_range || "",
+            status: t.status || "Normal",
+          })),
+        }));
+        toast(`Loaded ${backendReports.length} report(s) from backend`);
+      }
+    } catch (e) {
+      console.warn("Could not fetch lab reports from backend", e);
+    }
     setEditRepPt(next);
-    setNewReport({name:"",date:"",result:""});
+    setNewReport({name:"",date:"",result:"",type:"",tests:[]});
     setShowReportModal(true);
   };
 
   const delReport    = (idx) => setEditRepPt(prev=>({...prev,reports:prev.reports.filter((_,i)=>i!==idx)}));
-  const saveReports  = async () => {
+  const saveReports = async () => {
     try {
       const cleanAdm = String(editRepPt.admissions?.[0]?.admNo || 1).replace(/\D/g, "");
-      for (const rep of editRepPt.reports) {
-        await apiService.saveLabReport(editRepPt.uhid, cleanAdm, {
-           reportName: rep.reportName || rep.name,
-           reportType: rep.reportType || "Pathology",
-           date: rep.date,
-           remarks: rep.remarks || "",
-           tests: rep.tests || []
-        });
-      }
-      updatePatient(viewBranch, editRepPt.uhid, p=>({...p,reports:editRepPt.reports}));
-      toast("Reports synced to Backend!");
+      const reports = editRepPt.reports.map(rep => ({
+        reportName: rep.reportName || rep.name || "Report",
+        reportType: rep.reportType || "Pathology",
+        date: rep.date || new Date().toISOString().slice(0,10),
+        remarks: rep.remarks || "",
+        tests: (rep.tests || []).map(t => ({
+          name: t.name || "",
+          result: t.result || t.value || "",
+          unit: t.unit || "",
+          refRange: t.refRange || t.ref_range || "",
+          status: t.status || "Normal",
+        })),
+      }));
+      await apiService.saveLabReportsBulk(editRepPt.uhid, cleanAdm, reports);
+      updatePatient(viewBranch, editRepPt.uhid, p => ({ ...p, reports: editRepPt.reports }));
+      toast("Reports saved to backend!");
       setShowReportModal(false);
       setEditRepPt(null);
-    } catch(e) { toast("Failed to sync reports.", "err"); }
+    } catch (e) {
+      console.error("Save reports error:", e);
+      toast("Failed to sync reports to backend.", "err");
+    }
   };
 
   // ── TASK HELPERS ──────────────────────────────────────────────────────────

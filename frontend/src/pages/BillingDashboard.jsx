@@ -3,6 +3,81 @@ import { apiService } from "../services/apiService";
 import ThemeModeDock from "../components/ui/ThemeModeDock";
 import { DOCTOR_LIST, QUALIFICATION_LIST, getDoctorQualification } from "../data/doctors";
 
+// ─── Discharge Type Configs ────────────────────────────────────────────────
+const DISCHARGE_TYPES = {
+  NORMAL:    { key:"NORMAL",    label:"Normal Discharge",  color:"#059669", bg:"#d1fae5", border:"#6ee7b7",  icon:"✅" },
+  RECOVERED: { key:"RECOVERED", label:"Recovered",         color:"#2563eb", bg:"#dbeafe", border:"#93c5fd",  icon:"💚" },
+  LAMA:      { key:"LAMA",      label:"LAMA",              color:"#d97706", bg:"#fef3c7", border:"#fcd34d",  icon:"⚠️" },
+  DISCHARGE: { key:"DISCHARGE", label:"Discharge",         color:"#7c3aed", bg:"#ede9fe", border:"#c4b5fd",  icon:"🏥" },
+  DOPR:      { key:"DOPR",      label:"DAMA / DOPR",       color:"#dc2626", bg:"#fee2e2", border:"#fca5a5",  icon:"🚨" },
+};
+
+// Sections per discharge type — maps to PDF sections[]
+const DISCHARGE_SECTIONS = {
+  NORMAL: [
+    { key:"chiefComplaints",      label:"Chief Complaints",              rows:3 },
+    { key:"historyOfIllness",     label:"History of Present Illness",    rows:3 },
+    { key:"onExamination",        label:"On Examination",                rows:2, type:"vitals_grid" },
+    { key:"investigations",       label:"Investigations",                rows:3 },
+    { key:"diagnosis",            label:"Diagnosis",                     rows:2 },
+    { key:"treatmentGiven",       label:"Treatment Given",               rows:4 },
+    { key:"adviceOnDischarge",    label:"Advice on Discharge",           rows:3 },
+    { key:"followUp",             label:"Follow Up",                     rows:2 },
+  ],
+  RECOVERED: [
+    { key:"chiefComplaints",      label:"Chief Complaints",              rows:3 },
+    { key:"historyOfIllness",     label:"History of Present Illness",    rows:3 },
+    { key:"onExamination",        label:"On Examination",                rows:2, type:"vitals_grid" },
+    { key:"investigations",       label:"Investigations",                rows:3 },
+    { key:"diagnosis",            label:"Diagnosis",                     rows:2 },
+    { key:"treatmentGiven",       label:"Treatment Given",               rows:4 },
+    { key:"conditionAtDischarge", label:"Condition at Discharge",        rows:2 },
+    { key:"adviceOnDischarge",    label:"Advice on Discharge",           rows:3 },
+    { key:"followUp",             label:"Follow Up",                     rows:2 },
+  ],
+  LAMA: [
+    { key:"chiefComplaints",      label:"Chief Complaints",              rows:3 },
+    { key:"diagnosis",            label:"Provisional Diagnosis",         rows:2 },
+    { key:"onExamination",        label:"On Examination",                rows:2, type:"vitals_grid" },
+    { key:"treatmentGiven",       label:"Treatment Given During Stay",   rows:3 },
+    { key:"reasonForLama",        label:"Reason for LAMA",               rows:2 },
+    { key:"adviceOnDischarge",    label:"Advice Given Before Leaving",   rows:2 },
+    { key:"lamaDeclaration",      label:"Declaration / Remarks",         rows:2 },
+  ],
+  DISCHARGE: [
+    { key:"chiefComplaints",      label:"Chief Complaints",              rows:3 },
+    { key:"historyOfIllness",     label:"History of Present Illness",    rows:3 },
+    { key:"onExamination",        label:"On Examination",                rows:2, type:"vitals_grid" },
+    { key:"investigations",       label:"Investigations",                rows:3 },
+    { key:"diagnosis",            label:"Diagnosis",                     rows:2 },
+    { key:"treatmentGiven",       label:"Treatment Given",               rows:4 },
+    { key:"conditionAtDischarge", label:"Condition at Discharge",        rows:2 },
+    { key:"adviceOnDischarge",    label:"Advice on Discharge",           rows:3 },
+    { key:"followUp",             label:"Follow Up",                     rows:2 },
+    { key:"notes",                label:"Additional Notes",              rows:2 },
+  ],
+  DOPR: [
+    { key:"chiefComplaints",      label:"Chief Complaints",              rows:3 },
+    { key:"diagnosis",            label:"Diagnosis / Provisional",       rows:2 },
+    { key:"onExamination",        label:"On Examination",                rows:2, type:"vitals_grid" },
+    { key:"treatmentGiven",       label:"Treatment Given",               rows:3 },
+    { key:"reasonForDopr",        label:"Reason for DAMA / DOPR",        rows:2 },
+    { key:"referredTo",           label:"Referred To (if any)",          rows:1 },
+    { key:"adviceOnDischarge",    label:"Advice Given",                  rows:2 },
+  ],
+};
+
+function buildDischargeSections(dischargeType, eDis) {
+  const secs = DISCHARGE_SECTIONS[dischargeType] || DISCHARGE_SECTIONS.NORMAL;
+  return secs.map(sec => ({
+    label: sec.label,
+    type:  sec.type || "text",
+    value: sec.type === "vitals_grid"
+      ? { bp:eDis.bp||"", pulse:eDis.pr||"", spo2:eDis.spo2||"", temp:eDis.temp||"", chest:eDis.chest||"", cvs:eDis.cvs||"", cns:eDis.cns||"", abd:eDis.pa||"" }
+      : (eDis[sec.key] || ""),
+  }));
+}
+
 // ─── Report Templates ─────────────────────────────────────────────────────────
 const REPORT_TEMPLATES = {
   "CBC": { key:"CBC", label:"Complete Blood Count", dept:"HAEMATOLOGY" },
@@ -105,11 +180,7 @@ function statusColor(status) {
 }
 
 function normalizeMedicineKey(value = "") {
-  return String(value)
-    .toLowerCase()
-    .replace(/[^\w\s]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+  return String(value).toLowerCase().replace(/[^\w\s]/g, " ").replace(/\s+/g, " ").trim();
 }
 
 // ─── SearchMultiDropdown ──────────────────────────────────────────────────────
@@ -304,12 +375,8 @@ function MedicineHistoryPicker({ eMed, onAdd }) {
             <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="2"/>
             <path d="m21 21-4.35-4.35" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
           </svg>
-          <input
-            placeholder="Search medicines..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            style={{ width:"100%", fontFamily:"inherit", fontSize:12, border:"1.5px solid #86efac", borderRadius:8, padding:"7px 10px 7px 32px", outline:"none", boxSizing:"border-box", color:"var(--navy)", background:"#fff" }}
-          />
+          <input placeholder="Search medicines..." value={search} onChange={e => setSearch(e.target.value)}
+            style={{ width:"100%", fontFamily:"inherit", fontSize:12, border:"1.5px solid #86efac", borderRadius:8, padding:"7px 10px 7px 32px", outline:"none", boxSizing:"border-box", color:"var(--navy)", background:"#fff" }}/>
         </div>
       </div>
 
@@ -332,13 +399,11 @@ function MedicineHistoryPicker({ eMed, onAdd }) {
             </div>
           </div>
         )}
-
         {historyMeds.length === 0 && !search && (
           <div style={{ fontSize:11, color:"#86efac", fontStyle:"italic", marginBottom:4 }}>
             No medications found in Admission Note. Fill in the Admission Note to see them here.
           </div>
         )}
-
         {MEDICATION_GROUPS.map(grp => {
           const items = search.trim()
             ? grp.items.filter(m => m.toLowerCase().includes(search.toLowerCase()))
@@ -680,13 +745,13 @@ function RadiologyReportCard({ rep, ri, patientName, updRep, onRemove }) {
 // ─── Billing utility functions ────────────────────────────────────────────────
 const INSURANCE_TYPES = ["Self Pay","TPA","ECHS","ECI","FCI","Ayushman Bharat","Northern Railways"];
 const TPA_DOCS = [
-  { key:"final_bill",       label:"Final Bill" },
-  { key:"pharmacy_bill",    label:"Pharmacy Bill" },
-  { key:"pathology_bill",   label:"Pathology Bill" },
-  { key:"radiology_bill",   label:"Radiology Bill" },
-  { key:"discharge_summary",label:"Discharge Summary" },
-  { key:"reports",          label:"Reports" },
-  { key:"admission_note",   label:"Admission Note" },
+  { key:"final_bill",        label:"Final Bill" },
+  { key:"pharmacy_bill",     label:"Pharmacy Bill" },
+  { key:"pathology_bill",    label:"Pathology Bill" },
+  { key:"radiology_bill",    label:"Radiology Bill" },
+  { key:"discharge_summary", label:"Discharge Summary" },
+  { key:"reports",           label:"Reports" },
+  { key:"admission_note",    label:"Admission Note" },
 ];
 
 const fmt        = n => "Rs." + Number(n||0).toLocaleString("en-IN");
@@ -755,14 +820,12 @@ function mergeSuggestedReports(existing = [], suggested = []) {
   const normalizedExisting = normalizeLabReports(existing, []);
   const normalizedSuggested = normalizeLabReports(suggested, []);
   const existingKeys = new Set(
-    normalizedExisting.map((report) => `${String(report.reportName || "").trim().toLowerCase()}::${String(report.reportType || "").trim().toLowerCase()}`)
+    normalizedExisting.map((report) => `${String(report.reportName||"").trim().toLowerCase()}::${String(report.reportType||"").trim().toLowerCase()}`)
   );
-
   const missingSuggestions = normalizedSuggested.filter((report) => {
-    const key = `${String(report.reportName || "").trim().toLowerCase()}::${String(report.reportType || "").trim().toLowerCase()}`;
+    const key = `${String(report.reportName||"").trim().toLowerCase()}::${String(report.reportType||"").trim().toLowerCase()}`;
     return !existingKeys.has(key);
   });
-
   return [...normalizedExisting, ...missingSuggestions];
 }
 
@@ -814,74 +877,40 @@ function admissionSortScore(row) {
 
 function pickPreferredPatientRecord(records = [], task = {}) {
   if (!Array.isArray(records) || records.length === 0) return null;
-
-  const desiredAdmNo = Number(
-    task?.admNo ||
-    task?.admission_no ||
-    task?.current_admission_no ||
-    task?.admissionNo ||
-    task?.patient_detail?.current_admission_no ||
-    0
-  ) || null;
-
+  const desiredAdmNo = Number(task?.admNo||task?.admission_no||task?.current_admission_no||task?.admissionNo||task?.patient_detail?.current_admission_no||0) || null;
   if (desiredAdmNo) {
     const exact = records.find((row) => Number(row?.admNo || 0) === desiredAdmNo);
     if (exact) return exact;
   }
-
   const activeRows = records.filter((row) => !row?.dod);
   const source = activeRows.length ? activeRows : records;
-
   return [...source].sort((a, b) => admissionSortScore(b) - admissionSortScore(a))[0] || null;
 }
 
 function mapTaskPatientDetail(task, fallbackBranchKey) {
   if (!task?.patient_detail) return null;
   const branchKey = branchKeyFromLocation(task.patient_detail.branch_location, fallbackBranchKey);
-  const preferredAdmission =
-    task?.admission_detail ||
-    task?.current_admission_detail ||
-    task?.patient_detail?.current_admission_detail ||
-    null;
-
+  const preferredAdmission = task?.admission_detail||task?.current_admission_detail||task?.patient_detail?.current_admission_detail||null;
   const taskPatientRecord = preferredAdmission
     ? [{ ...task.patient_detail, admissions: [preferredAdmission] }]
     : [task.patient_detail];
-
   const mappedRows = mapLivePatients(taskPatientRecord, branchKey);
   return pickPreferredPatientRecord(mappedRows, task);
 }
 
-// ─── FIX: Robust dual-format patient normalizer ────────────────────────────────
-// Handles THREE possible data shapes from the API:
-//   Shape A (nested):  [{ uhid, patientName, admissions: [{ admNo, services, ... }] }]
-//   Shape B (flat):    [{ uhid, patientName, admNo, services, ... }]  ← each record IS one admission
-//   Shape C (mixed):   any combination of the above
 function mapLivePatients(records=[], branchKey="laxmi") {
   const branchName = branchKey==="raya"?"Raya Branch":"Laxmi Nagar Branch";
-
-  // Ensure records is always an array
   if (!Array.isArray(records) || records.length === 0) return [];
-
   const result = [];
 
   for (const record of records) {
     if (!record) continue;
-
-    // Determine if this record uses nested admissions (Shape A) or is flat (Shape B)
     const hasNestedAdmissions = Array.isArray(record.admissions) && record.admissions.length > 0;
-
-    // Build the list of admissions to iterate over
-    const admissions = hasNestedAdmissions
-      ? record.admissions
-      : [record]; // treat the record itself as a single admission
+    const admissions = hasNestedAdmissions ? record.admissions : [record];
 
     for (const adm of admissions) {
       if (!adm) continue;
-
-      // Patient-level fields: prefer parent record, fall back to adm itself
       const patient = hasNestedAdmissions ? record : adm;
-
       const allServices    = normalizeServices(adm.services || []);
       const labReports     = normalizeLabReports(adm.labReports || [], allServices);
       const medicalBill    = normalizePharmacyRecords(adm.pharmacyRecords || [], allServices);
@@ -897,7 +926,7 @@ function mapLivePatients(records=[], branchKey="laxmi") {
         paymentMode:      adm.billing?.paymentMode      || "",
         remarks:          adm.billing?.remarks          || "",
         insuranceType:    deriveInsuranceType(patient, adm.billing),
-        tpaInfo:          adm.billing?.tpaInfo          || { tpaName: patient?.tpa||"", policyNo: patient?.tpaCard||"", claimNo: patient?.tpaPanelCardNo||"", authNo:"" },
+        tpaInfo:          adm.billing?.tpaInfo          || { tpaName:patient?.tpa||"", policyNo:patient?.tpaCard||"", claimNo:patient?.tpaPanelCardNo||"", authNo:"" },
         tpaDocStatus:     adm.billing?.tpaDocStatus     || {},
         printStatus:      adm.billing?.printStatus      || "DRAFT",
         guardianName:     adm.billing?.guardianName     || patient?.guardianName || "",
@@ -908,22 +937,44 @@ function mapLivePatients(records=[], branchKey="laxmi") {
         billNo:           adm.billing?.billNo           || adm.admNo             || "",
       };
 
+      // ── FIX: Pull all discharge-type-specific fields from backend ──
       const dischargeObj = {
-        doa:          discharge.doa          || adm.dateTime || adm.doa || "",
-        dod:          discharge.dod          || adm.dod      || "",
-        expectedDod:  discharge.expectedDod  || adm.expectedDod || "",
-        ward:         discharge.wardName     || adm.wardName || adm.ward || "",
-        bed:          discharge.bedNo        || discharge.roomNo || adm.bedNo || adm.bed || "",
-        doctor:       discharge.doctorName   || adm.doctorName || "",
-        diagnosis:    discharge.diagnosis    || "",
-        condition:    discharge.dischargeStatus || "",
-        instructions: discharge.instructions || "",
-        notes:        discharge.notes        || "",
+        doa:                  discharge.doa              || adm.dateTime || adm.doa || "",
+        dod:                  discharge.dod              || adm.dod      || "",
+        expectedDod:          discharge.expectedDod      || adm.expectedDod || "",
+        ward:                 discharge.wardName         || adm.wardName || adm.ward || "",
+        bed:                  discharge.bedNo            || discharge.roomNo || adm.bedNo || adm.bed || "",
+        doctor:               discharge.doctorName       || adm.doctorName || "",
+        diagnosis:            discharge.diagnosis        || "",
+        condition:            discharge.dischargeStatus  || "",
+        instructions:         discharge.instructions     || "",
+        notes:                discharge.notes            || "",
+        // Discharge type — set by hospital reception, read-only for billing
+        dischargeType:        discharge.dischargeType    || "NORMAL",
+        // Section fields — pre-filled by hospital, editable by billing
+        chiefComplaints:      discharge.chiefComplaints  || medicalHistory.chiefComplaints  || "",
+        historyOfIllness:     discharge.historyOfIllness || "",
+        investigations:       discharge.investigations   || medicalHistory.investigations   || "",
+        treatmentGiven:       discharge.treatmentGiven   || medicalHistory.treatmentAdvised || "",
+        conditionAtDischarge: discharge.conditionAtDischarge || discharge.dischargeStatus   || "",
+        adviceOnDischarge:    discharge.adviceOnDischarge|| discharge.instructions          || "",
+        followUp:             discharge.followUp         || "",
+        reasonForLama:        discharge.reasonForLama    || "",
+        lamaDeclaration:      discharge.lamaDeclaration  || "",
+        reasonForDopr:        discharge.reasonForDopr    || "",
+        referredTo:           discharge.referredTo       || "",
+        // Vitals
+        bp:    discharge.bp    || medicalHistory.bp    || "",
+        pr:    discharge.pr    || medicalHistory.pr    || "",
+        spo2:  discharge.spo2  || medicalHistory.spo2  || "",
+        temp:  discharge.temp  || medicalHistory.temp  || "",
+        chest: discharge.chest || medicalHistory.chest || "",
+        cvs:   discharge.cvs   || medicalHistory.cvs   || "",
+        cns:   discharge.cns   || medicalHistory.cns   || "",
+        pa:    discharge.pa    || medicalHistory.pa    || "",
       };
 
-      const savedState = deriveSavedState(
-        dischargeObj, medicalHistory, labReports, medicalBill, billingInfo, directServices
-      );
+      const savedState = deriveSavedState(dischargeObj, medicalHistory, labReports, medicalBill, billingInfo, directServices);
 
       result.push({
         uhid:           patient.uhid        || adm.uhid        || "",
@@ -945,37 +996,35 @@ function mapLivePatients(records=[], branchKey="laxmi") {
         doctor:         dischargeObj.doctor || medicalHistory.treatingDoctor || "",
         diagnosis:      dischargeObj.diagnosis || medicalHistory.previousDiagnosis || "",
         status:         dischargeObj.dod ? "discharged" : "admitted",
-        taskStatus:     billingInfo.printStatus === "APPROVED" ? "completed"
-                      : billingInfo.printStatus === "PENDING"  ? "submitted"
-                      : "pending",
+        taskStatus:     billingInfo.printStatus === "APPROVED" ? "completed" : billingInfo.printStatus === "PENDING" ? "submitted" : "pending",
         saved:          savedState,
         discharge:      dischargeObj,
         medicalHistory: {
-          previousDiagnosis:   medicalHistory.previousDiagnosis   || "",
-          pastSurgeries:       medicalHistory.pastSurgeries        || "",
-          currentMedications:  medicalHistory.currentMedications   || "",
-          treatingDoctor:      medicalHistory.treatingDoctor        || "",
-          knownAllergies:      medicalHistory.knownAllergies        || "",
-          chronicConditions:   medicalHistory.chronicConditions     || "",
-          familyHistory:       medicalHistory.familyHistory         || "",
-          smokingStatus:       medicalHistory.smokingStatus         || "",
-          alcoholUse:          medicalHistory.alcoholUse            || "",
-          notes:               medicalHistory.notes                 || "",
-          presentComplaints:   medicalHistory.presentComplaints     || "",
-          chiefComplaints:     medicalHistory.chiefComplaints       || "",
-          bp:                  medicalHistory.bp                    || "",
-          pr:                  medicalHistory.pr                    || "",
-          spo2:                medicalHistory.spo2                  || "",
-          temp:                medicalHistory.temp                  || "",
-          chest:               medicalHistory.chest                 || "",
-          cvs:                 medicalHistory.cvs                   || "",
-          cns:                 medicalHistory.cns                   || "",
-          pa:                  medicalHistory.pa                    || "",
-          investigations:      medicalHistory.investigations        || "",
-          investigationsCustom:medicalHistory.investigationsCustom  || "",
-          provisionalDiagnosis:medicalHistory.provisionalDiagnosis  || "",
-          treatmentAdvised:    medicalHistory.treatmentAdvised       || "",
-          doctorQual:          medicalHistory.doctorQual             || "",
+          previousDiagnosis:    medicalHistory.previousDiagnosis   || "",
+          pastSurgeries:        medicalHistory.pastSurgeries        || "",
+          currentMedications:   medicalHistory.currentMedications   || "",
+          treatingDoctor:       medicalHistory.treatingDoctor        || "",
+          knownAllergies:       medicalHistory.knownAllergies        || "",
+          chronicConditions:    medicalHistory.chronicConditions     || "",
+          familyHistory:        medicalHistory.familyHistory         || "",
+          smokingStatus:        medicalHistory.smokingStatus         || "",
+          alcoholUse:           medicalHistory.alcoholUse            || "",
+          notes:                medicalHistory.notes                 || "",
+          presentComplaints:    medicalHistory.presentComplaints     || "",
+          chiefComplaints:      medicalHistory.chiefComplaints       || "",
+          bp:                   medicalHistory.bp                    || "",
+          pr:                   medicalHistory.pr                    || "",
+          spo2:                 medicalHistory.spo2                  || "",
+          temp:                 medicalHistory.temp                  || "",
+          chest:                medicalHistory.chest                 || "",
+          cvs:                  medicalHistory.cvs                   || "",
+          cns:                  medicalHistory.cns                   || "",
+          pa:                   medicalHistory.pa                    || "",
+          investigations:       medicalHistory.investigations        || "",
+          investigationsCustom: medicalHistory.investigationsCustom  || "",
+          provisionalDiagnosis: medicalHistory.provisionalDiagnosis  || "",
+          treatmentAdvised:     medicalHistory.treatmentAdvised       || "",
+          doctorQual:           medicalHistory.doctorQual             || "",
         },
         services:    directServices,
         labReports,
@@ -984,28 +1033,65 @@ function mapLivePatients(records=[], branchKey="laxmi") {
       });
     }
   }
-
   return result;
 }
 
 function buildDischargePayload(form) {
-  return { doa:form.doa||"",dod:form.dod||"",expectedDod:form.expectedDod?String(form.expectedDod).slice(0,10):"",wardName:form.ward||"",bedNo:form.bed||"",roomNo:form.bed||"",doctorName:form.doctor||"",diagnosis:form.diagnosis||"",dischargeStatus:form.condition||"",instructions:form.instructions||"",notes:form.notes||"" };
+  return {
+    doa:                  form.doa                  || "",
+    dod:                  form.dod                  || "",
+    expectedDod:          form.expectedDod           ? String(form.expectedDod).slice(0,10) : "",
+    wardName:             form.ward                  || "",
+    bedNo:                form.bed                   || "",
+    roomNo:               form.bed                   || "",
+    doctorName:           form.doctor                || "",
+    diagnosis:            form.diagnosis             || "",
+    dischargeStatus:      form.conditionAtDischarge  || form.condition || "",
+    instructions:         form.adviceOnDischarge     || form.instructions || "",
+    notes:                form.notes                 || "",
+    // Discharge type (set by hospital, passed through)
+    dischargeType:        form.dischargeType         || "NORMAL",
+    // All section fields
+    chiefComplaints:      form.chiefComplaints       || "",
+    historyOfIllness:     form.historyOfIllness      || "",
+    investigations:       form.investigations        || "",
+    treatmentGiven:       form.treatmentGiven        || "",
+    conditionAtDischarge: form.conditionAtDischarge  || "",
+    adviceOnDischarge:    form.adviceOnDischarge      || "",
+    followUp:             form.followUp              || "",
+    reasonForLama:        form.reasonForLama         || "",
+    lamaDeclaration:      form.lamaDeclaration       || "",
+    reasonForDopr:        form.reasonForDopr         || "",
+    referredTo:           form.referredTo            || "",
+    // Vitals
+    bp:    form.bp    || "",
+    pr:    form.pr    || "",
+    spo2:  form.spo2  || "",
+    temp:  form.temp  || "",
+    chest: form.chest || "",
+    cvs:   form.cvs   || "",
+    cns:   form.cns   || "",
+    pa:    form.pa    || "",
+    // Pre-built sections array ready for PDF renderer
+    sections: buildDischargeSections(form.dischargeType || "NORMAL", form),
+  };
 }
+
 function buildServicePayload(service, fallbackCategory) {
   const qty=Number(service.qty||1), rate=Number(service.rate||service.amount||0);
-  return { svcName:service.name,svcCat:service.category||fallbackCategory,svcQty:qty,svcRate:rate,svcDate:service.date||new Date().toISOString().slice(0,10),pricing_type:service.pricing_type,rate,qty };
+  return { svcName:service.name, svcCat:service.category||fallbackCategory, svcQty:qty, svcRate:rate, svcDate:service.date||new Date().toISOString().slice(0,10), pricing_type:service.pricing_type, rate, qty };
 }
 function buildLabReportPayload(report) {
-  return { reportName:report.reportName||report.report_type||report.reportType||"Report",reportType:report.reportType||report.report_type||"Haematology",reportCategory:report.reportCategory||report.report_category||"",date:report.date||new Date().toISOString().slice(0,10),orderedBy:report.orderedBy||report.ordered_by||"",amount:Number(report.amount||0),remarks:report.remarks||"",modalityDetails:report.modalityDetails||report.modality_details||{},findings:report.findings||"",impression:report.impression||"",tests:Array.isArray(report.tests)?report.tests:[] };
+  return { reportName:report.reportName||report.report_type||report.reportType||"Report", reportType:report.reportType||report.report_type||"Haematology", reportCategory:report.reportCategory||report.report_category||"", date:report.date||new Date().toISOString().slice(0,10), orderedBy:report.orderedBy||report.ordered_by||"", amount:Number(report.amount||0), remarks:report.remarks||"", modalityDetails:report.modalityDetails||report.modality_details||{}, findings:report.findings||"", impression:report.impression||"", tests:Array.isArray(report.tests)?report.tests:[] };
 }
 function buildPharmacyPayload(record) {
-  return { medicine_name:record.medicine_name||record.item||record.name||"",date_given:record.date_given||record.date||new Date().toISOString().slice(0,10),quantity:Number(record.quantity||1),rate:Number(record.rate||(record.amount||0)),batch_no:record.batch_no||record.batchNo||"",expiry_date:record.expiry_date||record.expiryDate||"" };
+  return { medicine_name:record.medicine_name||record.item||record.name||"", date_given:record.date_given||record.date||new Date().toISOString().slice(0,10), quantity:Number(record.quantity||1), rate:Number(record.rate||(record.amount||0)), batch_no:record.batch_no||record.batchNo||"", expiry_date:record.expiry_date||record.expiryDate||"" };
 }
 
 const SECTION_KEYS   = ["discharge","admission","reports","medicines","billing"];
-const SECTION_LABELS = { discharge:"Discharge Summary",admission:"Admission Note",reports:"Reports",medicines:"Medicine Bill",billing:"Final Bill" };
-const SECTION_ICONS  = { discharge:"P",admission:"A",reports:"R",medicines:"M",billing:"B" };
-const TAB_MAP        = { discharge:"discharge",admission:"medical",reports:"reports",medicines:"med_bill",billing:"finalbill" };
+const SECTION_LABELS = { discharge:"Discharge Summary", admission:"Admission Note", reports:"Reports", medicines:"Medicine Bill", billing:"Final Bill" };
+const SECTION_ICONS  = { discharge:"P", admission:"A", reports:"R", medicines:"M", billing:"B" };
+const TAB_MAP        = { discharge:"discharge", admission:"medical", reports:"reports", medicines:"med_bill", billing:"finalbill" };
 let _tid = 0;
 
 // ─── CSS ──────────────────────────────────────────────────────────────────────
@@ -1172,6 +1258,19 @@ body{background:var(--bg);color:var(--text);font-family:var(--ui-font-sans);font
 .qtag{display:inline-flex;align-items:center;gap:5px;padding:4px 11px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1.5px solid var(--border);background:var(--bg);color:var(--text2);font-family:inherit;transition:all .13s;white-space:nowrap}
 .qtag:hover{border-color:var(--teal);background:var(--tealBg);color:var(--teal)}
 .qtag.filled{border-color:#86efac;background:#f0fdf4;color:#15803d}
+/* Discharge type banner */
+.dtype-banner{border-radius:12px;padding:14px 18px;display:flex;align-items:center;gap:14px;margin-bottom:18px;border:2px solid}
+.dtype-icon{font-size:28px;line-height:1;flex-shrink:0}
+.dtype-title{font-size:16px;font-weight:800;letter-spacing:-.01em}
+.dtype-sub{font-size:12px;opacity:.75;margin-top:2px}
+.dtype-badge{padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700;border:1.5px solid;background:rgba(255,255,255,.5);margin-left:auto;white-space:nowrap;flex-shrink:0}
+/* Discharge section card */
+.ds-card{background:var(--white);border:1px solid var(--border);border-radius:12px;margin-bottom:12px;overflow:hidden}
+.ds-card-hdr{display:flex;align-items:center;gap:10px;padding:11px 18px;border-bottom:1px solid var(--border);background:var(--bg)}
+.ds-card-num{width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;flex-shrink:0;border:1.5px solid}
+.ds-card-lbl{font-size:13px;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:.04em}
+.ds-card-type{font-size:10px;font-weight:600;color:var(--text3);background:var(--bg2);border:1px solid var(--border);border-radius:20px;padding:1px 8px;margin-left:4px}
+.ds-card-body{padding:14px 18px}
 @media(max-width:860px){
   .sidebar{display:none}.main{padding:16px}
   .srow{grid-template-columns:repeat(2,1fr)}
@@ -1183,26 +1282,23 @@ body{background:var(--bg);color:var(--text);font-family:var(--ui-font-sans);font
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
   const resolvedBranchKey = locId||(String(currentUser?.branch||"").toUpperCase()==="RYM"?"raya":"laxmi");
-  const [patients, setPatients]     = useState([]);
+  const [patients, setPatients]         = useState([]);
   const [assignedTasks, setAssignedTasks] = useState([]);
   const [medicineMaster, setMedicineMaster] = useState([]);
-  const [view, setView]             = useState("tasks");
-  const [sel, setSel]               = useState(null);
-  const [activeTab, setActiveTab]   = useState("discharge");
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [toasts, setToasts]         = useState([]);
-  const [repFilter, setRepFilter]   = useState("All");
+  const [view, setView]                 = useState("tasks");
+  const [sel, setSel]                   = useState(null);
+  const [activeTab, setActiveTab]       = useState("discharge");
+  const [showConfirm, setShowConfirm]   = useState(false);
+  const [toasts, setToasts]             = useState([]);
+  const [repFilter, setRepFilter]       = useState("All");
 
-  const [eDis, setEDis]       = useState({});
-  const [eMed, setEMed]       = useState({});
-  const [eSvc, setESvc]       = useState([]);
-  const [eLabRep, setELabRep] = useState([]);
+  const [eDis, setEDis]         = useState({});
+  const [eMed, setEMed]         = useState({});
+  const [eSvc, setESvc]         = useState([]);
+  const [eLabRep, setELabRep]   = useState([]);
   const [eMedBill, setEMedBill] = useState([]);
   const [eBilling, setEBilling] = useState({});
   const [eSaved, setESaved]   = useState({});
-  const [dischargeSummary, setDischargeSummary] = useState(null);
-  const [dischargeSummaryType, setDischargeSummaryType] = useState("NORMAL");
-  const [dischargeSummaryLoading, setDischargeSummaryLoading] = useState(false);
 
   useEffect(() => {
     const loadAssignedTasks = async () => {
@@ -1214,7 +1310,6 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
         setAssignedTasks([]);
       }
     };
-
     loadAssignedTasks();
   }, []);
 
@@ -1228,16 +1323,9 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
         setMedicineMaster([]);
       }
     };
-
     loadMedicineMaster();
   }, []);
 
-  // ── FIX: Robust db → patients normalization ─────────────────────────────────
-  // db can be:
-  //   { laxmi: [...], raya: [...] }   — branch-keyed object (expected)
-  //   [...]                           — flat array passed directly
-  //   { patients: [...] }             — wrapped in a patients key
-  //   a single patient object         — accidentally unwrapped
   useEffect(() => {
     let rawRecords = [];
     let mapped = [];
@@ -1245,30 +1333,21 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
     if (!db) {
       rawRecords = [];
     } else if (Array.isArray(db)) {
-      // db is already a flat array — use it directly
       rawRecords = db;
     } else if (typeof db === "object") {
-      // Try branch key first
       const branchData = db[resolvedBranchKey];
       if (Array.isArray(branchData)) {
         rawRecords = branchData;
       } else if (Array.isArray(db.patients)) {
-        // Fallback: db.patients
         rawRecords = db.patients;
       } else if (Array.isArray(db.data)) {
-        // Fallback: db.data
         rawRecords = db.data;
       } else {
-        // Last resort: if db itself looks like a single patient record, wrap it
         if (db.uhid || db.patientName || db.admNo) {
           rawRecords = [db];
         } else {
-          // Try all values that are arrays
           const arrayValues = Object.values(db).filter(v => Array.isArray(v));
-          if (arrayValues.length > 0) {
-            // Merge all branch arrays together
-            rawRecords = arrayValues.flat();
-          }
+          if (arrayValues.length > 0) rawRecords = arrayValues.flat();
         }
       }
     }
@@ -1299,88 +1378,78 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
         const taskCandidates = mappedByUhid.get(taskUhid) || [];
         const taskPatient = pickPreferredPatientRecord(taskCandidates, task) || mapTaskPatientDetail(task, resolvedBranchKey);
         const taskStatusRaw = String(task.status || "").toLowerCase();
-        const normalizedTaskStatus = taskStatusRaw.includes("complete")
-          ? "completed"
-          : taskStatusRaw.includes("progress")
-            ? "submitted"
-            : "pending";
+        const normalizedTaskStatus = taskStatusRaw.includes("complete") ? "completed" : taskStatusRaw.includes("progress") ? "submitted" : "pending";
 
         if (taskPatient) {
-          nextPatients.push({
-            ...taskPatient,
-            taskId: task.id,
-            assignedTo: task.assigned_to || taskPatient.assignedTo || null,
-            assignedToName: task.assigned_to_name || taskPatient.assignedToName || "",
-            department: task.department || taskPatient.department || "Billing",
-            taskStatus: normalizedTaskStatus,
-          });
+          nextPatients.push({ ...taskPatient, taskId:task.id, assignedTo:task.assigned_to||taskPatient.assignedTo||null, assignedToName:task.assigned_to_name||taskPatient.assignedToName||"", department:task.department||taskPatient.department||"Billing", taskStatus:normalizedTaskStatus });
           continue;
         }
 
         const taskPatientDetail = task.patient_detail || {};
-        const taskAdmissionDetail =
-          task.admission_detail ||
-          task.current_admission_detail ||
-          taskPatientDetail.current_admission_detail ||
-          {};
+        const taskAdmissionDetail = task.admission_detail||task.current_admission_detail||taskPatientDetail.current_admission_detail||{};
         const fallbackBranchKey = branchKeyFromLocation(taskPatientDetail.branch_location, resolvedBranchKey);
         const fallbackBranchName = fallbackBranchKey === "raya" ? "Raya Branch" : "Laxmi Nagar Branch";
 
         const taskServices = normalizeServices(taskAdmissionDetail.services || []);
-        const taskDirectServices = taskServices.filter(
-          (service) => !isPathologyCategory(service.category) && !isMedicineCategory(service.category)
-        );
-        const taskLabReports = Array.isArray(taskAdmissionDetail.labReports)
-          ? normalizeLabReports(taskAdmissionDetail.labReports, taskServices)
-          : [];
-        const taskMedicalBill = Array.isArray(taskAdmissionDetail.pharmacyRecords)
-          ? normalizePharmacyRecords(taskAdmissionDetail.pharmacyRecords, taskServices)
-          : [];
+        const taskDirectServices = taskServices.filter(s => !isPathologyCategory(s.category) && !isMedicineCategory(s.category));
+        const taskLabReports = Array.isArray(taskAdmissionDetail.labReports) ? normalizeLabReports(taskAdmissionDetail.labReports, taskServices) : [];
+        const taskMedicalBill = Array.isArray(taskAdmissionDetail.pharmacyRecords) ? normalizePharmacyRecords(taskAdmissionDetail.pharmacyRecords, taskServices) : [];
+        const taskDischarge = taskAdmissionDetail.discharge || {};
+        const taskMedHistory = taskAdmissionDetail.medicalHistory || {};
 
         nextPatients.push({
           taskId: task.id,
           uhid: taskUhid || `task-${task.id}`,
-          admNo: task.admNo || task.admission_no || task.current_admission_no || taskAdmissionDetail.admNo || "—",
+          admNo: task.admNo||task.admission_no||task.current_admission_no||taskAdmissionDetail.admNo||"—",
           assignedTo: task.assigned_to || null,
           assignedToName: task.assigned_to_name || "",
           department: task.department || "Billing",
           branch: fallbackBranchName,
-          patientName: task.patient_name || taskPatientDetail.patientName || "Assigned Patient",
-          age: taskPatientDetail.ageYY || taskPatientDetail.age || "—",
+          patientName: task.patient_name||taskPatientDetail.patientName||"Assigned Patient",
+          age: taskPatientDetail.ageYY||taskPatientDetail.age||"—",
           gender: taskPatientDetail.gender || "",
           phone: taskPatientDetail.phone || "",
           address: taskPatientDetail.address || "",
-          doa: taskAdmissionDetail.discharge?.doa || taskAdmissionDetail.dateTime || "",
-          dod: taskAdmissionDetail.discharge?.dod || "",
-          expectedDod: taskAdmissionDetail.discharge?.expectedDod || "",
-          ward: taskAdmissionDetail.discharge?.wardName || "",
-          bed: taskAdmissionDetail.discharge?.bedNo || taskAdmissionDetail.discharge?.roomNo || "",
-          doctor: taskAdmissionDetail.discharge?.doctorName || taskAdmissionDetail.medicalHistory?.treatingDoctor || "",
-          diagnosis: taskAdmissionDetail.discharge?.diagnosis || taskAdmissionDetail.medicalHistory?.previousDiagnosis || task.title || "",
-          status: taskAdmissionDetail.discharge?.dod ? "discharged" : "admitted",
+          doa: taskDischarge.doa||taskAdmissionDetail.dateTime||"",
+          dod: taskDischarge.dod || "",
+          expectedDod: taskDischarge.expectedDod || "",
+          ward: taskDischarge.wardName || "",
+          bed: taskDischarge.bedNo||taskDischarge.roomNo||"",
+          doctor: taskDischarge.doctorName||taskMedHistory.treatingDoctor||"",
+          diagnosis: taskDischarge.diagnosis||taskMedHistory.previousDiagnosis||task.title||"",
+          status: taskDischarge.dod ? "discharged" : "admitted",
           taskStatus: normalizedTaskStatus,
-          saved: deriveSavedState(
-            taskAdmissionDetail.discharge || {},
-            taskAdmissionDetail.medicalHistory || {},
-            taskLabReports,
-            taskMedicalBill,
-            taskAdmissionDetail.billing || {},
-            taskDirectServices,
-          ),
-          discharge: taskAdmissionDetail.discharge || {},
-          medicalHistory: taskAdmissionDetail.medicalHistory || {},
+          saved: deriveSavedState(taskDischarge, taskMedHistory, taskLabReports, taskMedicalBill, taskAdmissionDetail.billing||{}, taskDirectServices),
+          discharge: {
+            ...taskDischarge,
+            dischargeType: taskDischarge.dischargeType || "NORMAL",
+            chiefComplaints: taskDischarge.chiefComplaints||taskMedHistory.chiefComplaints||"",
+            historyOfIllness: taskDischarge.historyOfIllness||"",
+            investigations: taskDischarge.investigations||taskMedHistory.investigations||"",
+            treatmentGiven: taskDischarge.treatmentGiven||taskMedHistory.treatmentAdvised||"",
+            conditionAtDischarge: taskDischarge.conditionAtDischarge||taskDischarge.dischargeStatus||"",
+            adviceOnDischarge: taskDischarge.adviceOnDischarge||taskDischarge.instructions||"",
+            followUp: taskDischarge.followUp||"",
+            reasonForLama: taskDischarge.reasonForLama||"",
+            lamaDeclaration: taskDischarge.lamaDeclaration||"",
+            reasonForDopr: taskDischarge.reasonForDopr||"",
+            referredTo: taskDischarge.referredTo||"",
+            bp:    taskDischarge.bp   ||taskMedHistory.bp   ||"",
+            pr:    taskDischarge.pr   ||taskMedHistory.pr   ||"",
+            spo2:  taskDischarge.spo2 ||taskMedHistory.spo2 ||"",
+            temp:  taskDischarge.temp ||taskMedHistory.temp ||"",
+            chest: taskDischarge.chest||taskMedHistory.chest||"",
+            cvs:   taskDischarge.cvs  ||taskMedHistory.cvs  ||"",
+            cns:   taskDischarge.cns  ||taskMedHistory.cns  ||"",
+            pa:    taskDischarge.pa   ||taskMedHistory.pa   ||"",
+          },
+          medicalHistory: taskMedHistory,
           services: taskDirectServices,
           labReports: taskLabReports,
           medicalBill: taskMedicalBill,
-          billing: {
-            ...(taskAdmissionDetail.billing || {}),
-            printStatus: taskAdmissionDetail.billing?.printStatus || "DRAFT",
-            tpaInfo: taskAdmissionDetail.billing?.tpaInfo || {},
-            tpaDocStatus: taskAdmissionDetail.billing?.tpaDocStatus || {},
-          },
+          billing: { ...(taskAdmissionDetail.billing||{}), printStatus:taskAdmissionDetail.billing?.printStatus||"DRAFT", tpaInfo:taskAdmissionDetail.billing?.tpaInfo||{}, tpaDocStatus:taskAdmissionDetail.billing?.tpaDocStatus||{} },
         });
       }
-
       setPatients(nextPatients);
     } else {
       setPatients(mapped);
@@ -1397,27 +1466,22 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
     const labReports = Array.isArray(patient?.labReports) ? patient.labReports : [];
     const medicines = Array.isArray(patient?.medicalBill) ? patient.medicalBill : [];
     const billing = patient?.billing || {};
-
     const reportLines = labReports.map((report) => {
-      const testNames = Array.isArray(report.tests)
-        ? report.tests.map((test) => test.name || test.testName).filter(Boolean)
-        : [];
-      const label = report.reportName || report.name || report.reportType || "Report";
-      const detail = report.result || report.remarks || testNames.join(", ") || "Completed";
+      const testNames = Array.isArray(report.tests) ? report.tests.map((t) => t.name||t.testName).filter(Boolean) : [];
+      const label = report.reportName||report.name||report.reportType||"Report";
+      const detail = report.result||report.remarks||testNames.join(", ")||"Completed";
       return `- ${label}${report.date ? ` (${report.date})` : ""}: ${detail}`;
     });
-
     return [
       `UHID: ${patient?.uhid || ""}`,
       `Admission No: ${patient?.admNo || ""}`,
       `Patient: ${patient?.patientName || ""}`,
-      `Diagnosis: ${discharge.diagnosis || medicalHistory.previousDiagnosis || ""}`,
-      `Treatment: ${discharge.treatment || ""}`,
-      `Follow-up: ${discharge.followUp || ""}`,
-      `Services: ${services.map((service) => service.name || service.serviceName || service.title).filter(Boolean).join(" | ") || "None"}`,
+      `Discharge Type: ${discharge.dischargeType || "NORMAL"}`,
+      `Diagnosis: ${discharge.diagnosis||medicalHistory.previousDiagnosis||""}`,
+      `Services: ${services.map(s=>s.name||s.serviceName||s.title).filter(Boolean).join(" | ")||"None"}`,
       `Lab Reports:\n${reportLines.length ? reportLines.join("\n") : "- None"}`,
       `Medicine Bill: ${medicines.length}`,
-      `Billing: discount=${billing.discount || 0}, advance=${billing.advance || 0}, paidNow=${billing.paidNow || 0}`,
+      `Billing: discount=${billing.discount||0}, advance=${billing.advance||0}, paidNow=${billing.paidNow||0}`,
     ].join("\n");
   };
 
@@ -1441,7 +1505,7 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
     setActiveTab("discharge");
     setView("patient");
 
-    // Load formatted discharge summary template based on patient's discharge status
+    // Auto-fetch saved reports and suggested backend templates for this admission.
     if (p.uhid && p.admNo) {
       const rawStatus = p.discharge?.dischargeStatus || "NORMAL";
       const summType = String(rawStatus).toUpperCase();
@@ -1483,19 +1547,15 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
           apiService.getLabReports(p.uhid, p.admNo).catch(() => []),
           apiService.getLabReportTemplates(p.uhid, p.admNo).catch(() => ({ suggested_reports: [] })),
         ]);
-
         const mergedReports = mergeSuggestedReports(
           Array.isArray(reports) ? reports : [],
           Array.isArray(templatePayload?.suggested_reports) ? templatePayload.suggested_reports : []
         );
-
         if (mergedReports.length) {
           setELabRep(mergedReports);
-          // Update the selected patient's lab reports in the list
           setPatients(prev => prev.map(patient =>
             patient.uhid === p.uhid && Number(patient.admNo) === Number(p.admNo)
-              ? { ...patient, labReports: mergedReports }
-              : patient
+              ? { ...patient, labReports: mergedReports } : patient
           ));
           setSel(prev => prev ? { ...prev, labReports: mergedReports } : prev);
         }
@@ -1506,14 +1566,14 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
   };
 
   const syncSelectedPatient = (overrides = {}) => {
-    const nS  = overrides.saved        || eSaved;
-    const nD  = overrides.discharge    || eDis;
+    const nS  = overrides.saved          || eSaved;
+    const nD  = overrides.discharge      || eDis;
     const nM  = overrides.medicalHistory || eMed;
-    const nSv = overrides.services     || eSvc;
-    const nR  = overrides.labReports   || eLabRep;
-    const nMb = overrides.medicalBill  || eMedBill;
-    const nB  = overrides.billing      || eBilling;
-    const nTs = overrides.taskStatus   || sel?.taskStatus;
+    const nSv = overrides.services       || eSvc;
+    const nR  = overrides.labReports     || eLabRep;
+    const nMb = overrides.medicalBill    || eMedBill;
+    const nB  = overrides.billing        || eBilling;
+    const nTs = overrides.taskStatus     || sel?.taskStatus;
     setPatients(prev => prev.map(p =>
       p.uhid === sel.uhid && p.admNo === sel.admNo
         ? { ...p, taskStatus:nTs, saved:{...nS}, discharge:{...nD}, medicalHistory:{...nM}, services:[...nSv], labReports:JSON.parse(JSON.stringify(nR)), medicalBill:[...nMb], billing:{...nB} }
@@ -1531,21 +1591,15 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
         await apiService.updateMedicalHistory(sel.uhid, sel.admNo, eMed);
       else if (activeTab === "finalbill") {
         const serviceRows = eSvc.filter(r => r.name);
-        await apiService.saveServicesBulk(sel.uhid, sel.admNo, serviceRows.map(s => buildServicePayload({ ...s, pricing_type: eBilling?.insuranceType && eBilling.insuranceType !== "Self Pay" ? "CASHLESS" : "CASH" }, s.category || "GENERAL SERVICES")));
+        await apiService.saveServicesBulk(sel.uhid, sel.admNo, serviceRows.map(s => buildServicePayload({ ...s, pricing_type:eBilling?.insuranceType&&eBilling.insuranceType!=="Self Pay"?"CASHLESS":"CASH" }, s.category||"GENERAL SERVICES")));
         await apiService.updateBilling(sel.uhid, sel.admNo, eBilling);
       } else if (activeTab === "reports") {
-        await apiService.saveLabReportsBulk(
-          sel.uhid,
-          sel.admNo,
-          eLabRep
-            .filter((r) => (r.reportName || r.reportType || r.findings || r.impression || "").trim() || (Array.isArray(r.tests) && r.tests.length))
-            .map(buildLabReportPayload)
+        await apiService.saveLabReportsBulk(sel.uhid, sel.admNo,
+          eLabRep.filter(r=>(r.reportName||r.reportType||r.findings||r.impression||"").trim()||(Array.isArray(r.tests)&&r.tests.length)).map(buildLabReportPayload)
         );
       } else if (activeTab === "med_bill") {
-        await apiService.savePharmacyRecordsBulk(
-          sel.uhid,
-          sel.admNo,
-          eMedBill.filter((i) => (i.item || i.medicine_name || i.name || "").trim()).map(buildPharmacyPayload)
+        await apiService.savePharmacyRecordsBulk(sel.uhid, sel.admNo,
+          eMedBill.filter(i=>(i.item||i.medicine_name||i.name||"").trim()).map(buildPharmacyPayload)
         );
       }
       const nextSaved = { ...eSaved, [sectionKey]: true };
@@ -1560,33 +1614,20 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
   const submitTask = async () => {
     if (!sel) return;
     try {
-      const reportRows = eLabRep
-        .filter((r) => (r.reportName || r.reportType || r.findings || r.impression || "").trim() || (Array.isArray(r.tests) && r.tests.length))
-        .map(buildLabReportPayload);
-      const medRows = eMedBill
-        .filter((i) => (i.item || i.medicine_name || i.name || "").trim())
-        .map(buildPharmacyPayload);
-
+      const reportRows = eLabRep.filter(r=>(r.reportName||r.reportType||r.findings||r.impression||"").trim()||(Array.isArray(r.tests)&&r.tests.length)).map(buildLabReportPayload);
+      const medRows = eMedBill.filter(i=>(i.item||i.medicine_name||i.name||"").trim()).map(buildPharmacyPayload);
       await apiService.saveLabReportsBulk(sel.uhid, sel.admNo, reportRows);
       await apiService.savePharmacyRecordsBulk(sel.uhid, sel.admNo, medRows);
-
-      const nextSaved = { ...eSaved, reports: true, medicines: true };
+      const nextSaved = { ...eSaved, reports:true, medicines:true };
       setESaved(nextSaved);
-      syncSelectedPatient({ saved: nextSaved, labReports: eLabRep, medicalBill: eMedBill });
-
-      if (sel.taskId) {
-        await apiService.updateTask(sel.taskId, {
-          status: "Completed",
-          description: buildSubmissionNotes(sel),
-        });
-      }
+      syncSelectedPatient({ saved:nextSaved, labReports:eLabRep, medicalBill:eMedBill });
+      if (sel.taskId) await apiService.updateTask(sel.taskId, { status:"Completed", description:buildSubmissionNotes(sel) });
       await apiService.requestPrint(sel.uhid, sel.admNo);
       setPatients(prev => prev.map(p =>
         p.uhid === sel.uhid && p.admNo === sel.admNo
-          ? { ...p, taskStatus:"completed", billing:{...p.billing, printStatus:"PENDING"} }
-          : p
+          ? { ...p, taskStatus:"completed", billing:{...p.billing,printStatus:"PENDING"} } : p
       ));
-      setSel(prev => prev ? ({ ...prev, taskStatus:"completed", billing:{...prev.billing, printStatus:"PENDING"} }) : prev);
+      setSel(prev => prev ? ({ ...prev, taskStatus:"completed", billing:{...prev.billing,printStatus:"PENDING"} }) : prev);
       setShowConfirm(false);
       toast("Submitted to HOD and Admin ✓");
     } catch (error) {
@@ -1595,20 +1636,15 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
   };
 
   const updSvc  = (i, k, v) => setESvc(prev => {
-    const n = [...prev];
-    n[i] = { ...n[i], [k]: v };
-    if (k === "qty" || k === "rate") n[i].amount = Number.parseFloat(n[i].qty || 0) * Number.parseFloat(n[i].rate || 0);
+    const n = [...prev]; n[i] = { ...n[i], [k]: v };
+    if (k === "qty" || k === "rate") n[i].amount = Number.parseFloat(n[i].qty||0) * Number.parseFloat(n[i].rate||0);
     return n;
   });
-  const updSvcAmount = (i, value) => setESvc(prev => {
-    const n = [...prev];
-    n[i] = { ...n[i], amount: value };
-    return n;
-  });
-  const updRep  = (ri, k, v) => setELabRep(p => { const n = JSON.parse(JSON.stringify(p)); n[ri][k] = v; return n; });
-  const updTest = (ri, ti, k, v) => setELabRep(p => { const n = JSON.parse(JSON.stringify(p)); n[ri].tests[ti][k] = v; return n; });
-  const addTest = ri => setELabRep(p => { const n = JSON.parse(JSON.stringify(p)); n[ri].tests.push({ id: Date.now(), name:"", value:"", unit:"", refRange:"", status:"Normal" }); return n; });
-  const delTest = (ri, ti) => setELabRep(p => { const n = JSON.parse(JSON.stringify(p)); n[ri].tests.splice(ti, 1); return n; });
+  const updSvcAmount = (i, value) => setESvc(prev => { const n=[...prev]; n[i]={...n[i],amount:value}; return n; });
+  const updRep  = (ri, k, v) => setELabRep(p => { const n=JSON.parse(JSON.stringify(p)); n[ri][k]=v; return n; });
+  const updTest = (ri, ti, k, v) => setELabRep(p => { const n=JSON.parse(JSON.stringify(p)); n[ri].tests[ti][k]=v; return n; });
+  const addTest = ri => setELabRep(p => { const n=JSON.parse(JSON.stringify(p)); n[ri].tests.push({id:Date.now(),name:"",value:"",unit:"",refRange:"",status:"Normal"}); return n; });
+  const delTest = (ri, ti) => setELabRep(p => { const n=JSON.parse(JSON.stringify(p)); n[ri].tests.splice(ti,1); return n; });
 
   const findMedicineMasterMatch = (medName) => {
     const needle = normalizeMedicineKey(medName);
@@ -1621,32 +1657,27 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
     const quantity = 1;
     const rate = Number(master?.rate || 0);
     setEMedBill(p => [...p, {
-      id: Date.now(),
-      item: medName,
-      date: new Date().toISOString().slice(0,10),
-      quantity,
-      rate,
-      amount: quantity * rate,
-      batchNo: master?.batch_no || "",
-      expiryDate: master?.expiry_date || "",
+      id: Date.now(), item: medName, date: new Date().toISOString().slice(0,10),
+      quantity, rate, amount: quantity * rate,
+      batchNo: master?.batch_no || "", expiryDate: master?.expiry_date || "",
       availableQty: Number(master?.quantity || 0),
     }]);
-    toast(`Added: ${medName.slice(0,40)}${medName.length > 40 ? "…" : ""}${master ? " with master pricing" : ""}`);
+    toast(`Added: ${medName.slice(0,40)}${medName.length>40?"…":""}${master?" with master pricing":""}`);
   };
 
   const patientName = sel?.patientName || "";
   const pathReps    = eLabRep.filter(r => !isRadiologyType(r.reportType));
   const radReps     = eLabRep.filter(r =>  isRadiologyType(r.reportType));
-  const pathTotal   = pathReps.reduce((a, r) => a + Number(r.amount || 0), 0);
-  const radTotal    = radReps.reduce((a, r) => a + Number(r.amount || 0), 0);
-  const isCashlessPatient = String(sel?.payMode || "").toLowerCase() === "cashless" || (eBilling?.insuranceType && eBilling.insuranceType !== "Self Pay");
+  const pathTotal   = pathReps.reduce((a,r) => a+Number(r.amount||0), 0);
+  const radTotal    = radReps.reduce((a,r) => a+Number(r.amount||0), 0);
+  const isCashlessPatient = String(sel?.payMode||"").toLowerCase()==="cashless"||(eBilling?.insuranceType&&eBilling.insuranceType!=="Self Pay");
 
-  const repFilterOptions = ["All", "🧪 Pathology", "🩻 Radiology", ...Array.from(new Set(eLabRep.map(r => r.reportType)))];
+  const repFilterOptions = ["All","🧪 Pathology","🩻 Radiology",...Array.from(new Set(eLabRep.map(r=>r.reportType)))];
   const visibleReps = eLabRep.filter(r => {
-    if (repFilter === "All") return true;
-    if (repFilter === "🧪 Pathology") return !isRadiologyType(r.reportType);
-    if (repFilter === "🩻 Radiology") return  isRadiologyType(r.reportType);
-    return r.reportType === repFilter;
+    if (repFilter==="All") return true;
+    if (repFilter==="🧪 Pathology") return !isRadiologyType(r.reportType);
+    if (repFilter==="🩻 Radiology") return  isRadiologyType(r.reportType);
+    return r.reportType===repFilter;
   });
 
   const totals     = sel ? calcTotals(eSvc, eLabRep, eMedBill, eBilling) : null;
@@ -1656,24 +1687,24 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
   const savedCount = eSaved ? SECTION_KEYS.filter(k => eSaved[k]).length : 0;
 
   const quickFillTags = sel ? [
-    { label:"UHID",         field:"uhid",            value: sel.uhid,                                        icon:"🔑" },
-    { label:"Patient Name", field:"patientName",      value: sel.patientName,                                 icon:"👤" },
-    { label:"IPD / Adm No", field:"billNo",           value: sel.admNo,                                       icon:"🏥" },
-    { label:"Contact No",   field:"contactNo",        value: sel.phone,                                       icon:"📞" },
-    { label:"Doctor",       field:"consultantName",   value: sel.doctor || eMed?.treatingDoctor || "",        icon:"👨‍⚕️" },
-    { label:"Ward / Room",  field:"wardRoom",         value: `${sel.ward || ""}${sel.bed ? ` / ${sel.bed}` : ""}`, icon:"🛏" },
-    { label:"DOA",          field:"doaDisplay",       value: fmtDt(sel.doa),                                  icon:"📅" },
-    { label:"DOD",          field:"dodDisplay",       value: sel.dod ? fmtDt(sel.dod) : "",                   icon:"📅" },
-    { label:"Diagnosis",    field:"diagnosisDisplay", value: sel.diagnosis || eDis?.diagnosis || "",           icon:"🩺" },
-    { label:"Panel",        field:"panel",            value: eBilling?.insuranceType || "CASH",               icon:"💳" },
-    { label:"Age/Sex",      field:"ageSex",           value: `${sel.age} Yrs / ${sel.gender || ""}`,          icon:"🧬" },
-    { label:"Address",      field:"addressDisplay",   value: sel.address || "",                               icon:"📍" },
+    { label:"UHID",         field:"uhid",            value:sel.uhid,                                          icon:"🔑" },
+    { label:"Patient Name", field:"patientName",      value:sel.patientName,                                   icon:"👤" },
+    { label:"IPD / Adm No", field:"billNo",           value:sel.admNo,                                         icon:"🏥" },
+    { label:"Contact No",   field:"contactNo",        value:sel.phone,                                         icon:"📞" },
+    { label:"Doctor",       field:"consultantName",   value:sel.doctor||eMed?.treatingDoctor||"",              icon:"👨‍⚕️" },
+    { label:"Ward / Room",  field:"wardRoom",         value:`${sel.ward||""}${sel.bed?` / ${sel.bed}`:""}`,    icon:"🛏" },
+    { label:"DOA",          field:"doaDisplay",       value:fmtDt(sel.doa),                                    icon:"📅" },
+    { label:"DOD",          field:"dodDisplay",       value:sel.dod?fmtDt(sel.dod):"",                         icon:"📅" },
+    { label:"Diagnosis",    field:"diagnosisDisplay", value:sel.diagnosis||eDis?.diagnosis||"",                 icon:"🩺" },
+    { label:"Panel",        field:"panel",            value:eBilling?.insuranceType||"CASH",                   icon:"💳" },
+    { label:"Age/Sex",      field:"ageSex",           value:`${sel.age} Yrs / ${sel.gender||""}`,              icon:"🧬" },
+    { label:"Address",      field:"addressDisplay",   value:sel.address||"",                                   icon:"📍" },
   ] : [];
 
   const applyQuickFill = (field, value) => {
     if (!value) return;
     setEBilling(p => ({ ...p, [field]: value }));
-    toast(`Filled: ${field.replace(/([A-Z])/g, " $1").trim()}`);
+    toast(`Filled: ${field.replace(/([A-Z])/g," $1").trim()}`);
   };
 
   const TABS = [
@@ -1683,6 +1714,125 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
     { id:"med_bill",  sKey:"medicines", lbl:"Medicine Bill",     ico:"💊" },
     { id:"finalbill", sKey:"billing",   lbl:"Final Bill",        ico:"🧾" },
   ];
+
+  // ── Discharge Summary render helper ────────────────────────────────────────
+  const renderDischargeSummary = () => {
+    const dischargeType = eDis?.dischargeType || "NORMAL";
+    const dtConfig = DISCHARGE_TYPES[dischargeType] || DISCHARGE_TYPES.NORMAL;
+    const sections = DISCHARGE_SECTIONS[dischargeType] || DISCHARGE_SECTIONS.NORMAL;
+    const setDis = (k, v) => setEDis(p => ({ ...p, [k]: v }));
+
+    return (
+      <>
+        {/* ── Discharge type banner — read-only, set by hospital ── */}
+        <div className="dtype-banner" style={{ background:dtConfig.bg, borderColor:dtConfig.border }}>
+          <div className="dtype-icon">{dtConfig.icon}</div>
+          <div style={{ flex:1 }}>
+            <div className="dtype-title" style={{ color:dtConfig.color }}>{dtConfig.label} Summary</div>
+            <div className="dtype-sub" style={{ color:dtConfig.color }}>
+              Discharge type set by hospital reception · All fields below are editable by billing
+            </div>
+          </div>
+          <div className="dtype-badge" style={{ color:dtConfig.color, borderColor:dtConfig.border }}>
+            🏥 {dischargeType}
+          </div>
+        </div>
+
+        {/* ── Dates & basic info ── */}
+        <div className="ds-card">
+          <div className="ds-card-hdr">
+            <div className="ds-card-num" style={{ background:dtConfig.bg, borderColor:dtConfig.border, color:dtConfig.color }}>📅</div>
+            <span className="ds-card-lbl">Dates & Basic Information</span>
+          </div>
+          <div className="ds-card-body">
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(210px,1fr))", gap:14 }}>
+              <div className="fg">
+                <label className="flbl">Date of Admission</label>
+                <input className="finp" type="datetime-local" value={eDis?.doa||""} onChange={e=>setDis("doa",e.target.value)}/>
+              </div>
+              <div className="fg">
+                <label className="flbl">Expected Discharge Date</label>
+                <input className="finp" type="date" value={eDis?.expectedDod?String(eDis.expectedDod).slice(0,10):""} onChange={e=>setDis("expectedDod",e.target.value)}/>
+              </div>
+              <div className="fg">
+                <label className="flbl">Actual Discharge Date</label>
+                <input className="finp" type="datetime-local" value={eDis?.dod||""} onChange={e=>setDis("dod",e.target.value)}/>
+              </div>
+              <div className="fg">
+                <label className="flbl">Ward</label>
+                <input className="finp" value={eDis?.ward||""} onChange={e=>setDis("ward",e.target.value)} placeholder="e.g. General Ward"/>
+              </div>
+              <div className="fg">
+                <label className="flbl">Bed No.</label>
+                <input className="finp" value={eDis?.bed||""} onChange={e=>setDis("bed",e.target.value)} placeholder="e.g. B-12"/>
+              </div>
+              <div className="fg">
+                <label className="flbl">Treating Doctor</label>
+                <input className="finp" value={eDis?.doctor||""} onChange={e=>setDis("doctor",e.target.value)} placeholder="Dr. Name"/>
+              </div>
+              <div className="fg">
+                <label className="flbl">Primary Diagnosis</label>
+                <input className="finp" value={eDis?.diagnosis||""} onChange={e=>setDis("diagnosis",e.target.value)} placeholder="e.g. Acute Appendicitis"/>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Dynamic clinical sections from hospital ── */}
+        {sections.map((sec, idx) => (
+          <div key={sec.key} className="ds-card">
+            <div className="ds-card-hdr">
+              <div className="ds-card-num" style={{ background:dtConfig.bg, borderColor:dtConfig.border, color:dtConfig.color }}>
+                {idx + 1}
+              </div>
+              <span className="ds-card-lbl">{sec.label}</span>
+              {sec.type === "vitals_grid" && <span className="ds-card-type">Vitals Grid</span>}
+            </div>
+            <div className="ds-card-body">
+              {sec.type === "vitals_grid" ? (
+                <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))", gap:12 }}>
+                  {[
+                    { k:"bp",    lbl:"BP (mmHg)",     ph:"120/80 mmHg" },
+                    { k:"pr",    lbl:"Pulse (/min)",   ph:"82/min" },
+                    { k:"spo2",  lbl:"SPO2",           ph:"98% On RA" },
+                    { k:"temp",  lbl:"Temperature",    ph:"98.6°F" },
+                    { k:"chest", lbl:"Chest",          ph:"B/L Clear" },
+                    { k:"cvs",   lbl:"CVS",            ph:"S1 S2 +" },
+                    { k:"cns",   lbl:"CNS",            ph:"Conscious, Oriented" },
+                    { k:"pa",    lbl:"P/A (Abdomen)",  ph:"Soft, Non-tender" },
+                  ].map(v => (
+                    <div key={v.k} className="fg">
+                      <label className="flbl">{v.lbl}</label>
+                      <input className="finp" value={eDis?.[v.k]||""} placeholder={v.ph} onChange={e=>setDis(v.k,e.target.value)}/>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <textarea
+                  value={eDis?.[sec.key]||""}
+                  placeholder={`Enter ${sec.label.toLowerCase()}...`}
+                  rows={sec.rows||3}
+                  onChange={e=>setDis(sec.key,e.target.value)}
+                  style={{ width:"100%", background:"var(--bg)", border:"1.5px solid var(--border)", borderRadius:8, padding:"10px 12px", color:"var(--navy)", fontSize:13, fontFamily:"inherit", outline:"none", resize:"vertical", boxSizing:"border-box", lineHeight:1.55 }}
+                />
+              )}
+            </div>
+          </div>
+        ))}
+
+        {/* ── Save button ── */}
+        <div style={{ display:"flex", alignItems:"center", gap:14, marginTop:8 }}>
+          <button className="savebtn" onClick={() => saveSection("discharge", "Discharge Summary")}>
+            Save Discharge Summary
+          </button>
+          <span style={{ fontSize:12, color:"var(--text3)" }}>
+            Type: <strong style={{ color:dtConfig.color }}>{dtConfig.label}</strong>
+            &nbsp;·&nbsp;{sections.length} clinical sections
+          </span>
+        </div>
+      </>
+    );
+  };
 
   return (
     <>
@@ -1736,7 +1886,7 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
                     <div className="pgt">My Tasks</div>
                     <div className="pgs">Patients assigned to you across all branches</div>
                   </div>
-                  <div className="dchip">{new Date().toLocaleDateString("en-IN", { weekday:"short", day:"numeric", month:"long", year:"numeric" })}</div>
+                  <div className="dchip">{new Date().toLocaleDateString("en-IN",{weekday:"short",day:"numeric",month:"long",year:"numeric"})}</div>
                 </div>
                 <div className="srow">
                   <div className="sc c1"><div className="scv">{patients.length}</div><div className="scl">Total Assigned</div></div>
@@ -1745,50 +1895,62 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
                 </div>
                 {patients.length === 0
                   ? <div className="empty"><div className="empty-ico">🎉</div><div>All tasks done!</div></div>
-                  : <div className="tgrid">
-                    {patients.map(p => {
-                      const done = SECTION_KEYS.filter(k => p.saved?.[k]).length;
-                      return (
-                        <div key={`${p.uhid}-${p.admNo}`} className="tc">
-                          <div className="tctp">
-                            <div style={{ flex:1, minWidth:0 }}>
-                              <div className="tcnm">{p.patientName}</div>
-                              <div className="tcid">{p.uhid} · {p.admNo}</div>
+                  : (
+                    <div className="tgrid">
+                      {patients
+  .filter(p => p.taskStatus !== "completed")
+  .map(p => {
+    
+                        const done = SECTION_KEYS.filter(k => p.saved?.[k]).length;
+                        const dtCfg = DISCHARGE_TYPES[p.discharge?.dischargeType||"NORMAL"] || DISCHARGE_TYPES.NORMAL;
+                        return (
+                          <div key={`${p.uhid}-${p.admNo}`} className="tc">
+                            <div className="tctp">
+                              <div style={{ flex:1, minWidth:0 }}>
+                                <div className="tcnm">{p.patientName}</div>
+                                <div className="tcid">{p.uhid} · {p.admNo}</div>
+                              </div>
+                              <span className={"badge "+(p.taskStatus==="completed"?"bt":"ba")}>
+                                {p.taskStatus==="completed"?"Done":"Pending"}
+                              </span>
                             </div>
-                            <span className={"badge " + (p.taskStatus === "completed" ? "bt" : "ba")}>
-                              {p.taskStatus === "completed" ? "Done" : "Pending"}
-                            </span>
-                          </div>
-                          <div className="tcrs">
-                            <div className="tcrw"><span className="tcri">🏥</span><strong style={{ color:"var(--navy)", fontSize:11 }}>{p.branch}</strong></div>
-                            <div className="tcrw"><span className="tcri">👨‍⚕️</span>{p.doctor || "—"}</div>
-                            <div className="tcrw"><span className="tcri">🩺</span>{p.diagnosis || "—"}</div>
-                            <div className="tcrw"><span className="tcri">📞</span>{p.phone || "—"}</div>
-                          </div>
-                          <div className="tc-dod">
-                            <div className="tc-dod-item"><div className="tc-dod-lbl">Admitted</div><div className="tc-dod-val">{fmtDtShort(p.doa)}</div></div>
-                            <div className="tc-dod-item"><div className="tc-dod-lbl">Exp. Discharge</div><div className="tc-dod-val exp">{p.expectedDod ? fmtDtShort(p.expectedDod) : "--"}</div></div>
-                            <div className="tc-dod-item"><div className="tc-dod-lbl">Discharged</div><div className="tc-dod-val dis">{p.dod ? fmtDtShort(p.dod) : "Active"}</div></div>
-                          </div>
-                          <div className="tcch">
-                            <span className={"badge " + (p.status === "admitted" ? "bg" : "bb")}>{p.status === "admitted" ? "Admitted" : "Discharged"}</span>
-                            <span className="chip">{p.ward} · {p.bed}</span>
-                            <span className="chip">{p.age}y {p.gender?.[0]}</span>
-                          </div>
-                          {p.taskStatus !== "completed" && (
-                            <div className="tcpb">
-                              <div className="tcplbl">Sections saved: {done}/5</div>
-                              <div className="tcpbar"><div className="tcpfil" style={{ width: ((done / 5) * 100) + "%" }}/></div>
+                            <div className="tcrs">
+                              <div className="tcrw"><span className="tcri">🏥</span><strong style={{ color:"var(--navy)", fontSize:11 }}>{p.branch}</strong></div>
+                              <div className="tcrw"><span className="tcri">👨‍⚕️</span>{p.doctor||"—"}</div>
+                              <div className="tcrw"><span className="tcri">🩺</span>{p.diagnosis||"—"}</div>
+                              <div className="tcrw"><span className="tcri">📞</span>{p.phone||"—"}</div>
                             </div>
-                          )}
-                          <div className="tcft">
-                            <div className="tcdoa">DOA: {fmtDt(p.doa)}</div>
-                            <button className="hod-btn" onClick={() => openPatient(p)}>Open</button>
+                            {/* Discharge type chip on card */}
+                            <div style={{ marginBottom:10 }}>
+                              <span style={{ display:"inline-flex", alignItems:"center", gap:5, padding:"4px 10px", borderRadius:20, fontSize:11, fontWeight:700, background:dtCfg.bg, border:`1.5px solid ${dtCfg.border}`, color:dtCfg.color }}>
+                                {dtCfg.icon} {dtCfg.label}
+                              </span>
+                            </div>
+                            <div className="tc-dod">
+                              <div className="tc-dod-item"><div className="tc-dod-lbl">Admitted</div><div className="tc-dod-val">{fmtDtShort(p.doa)}</div></div>
+                              <div className="tc-dod-item"><div className="tc-dod-lbl">Exp. Discharge</div><div className="tc-dod-val exp">{p.expectedDod?fmtDtShort(p.expectedDod):"--"}</div></div>
+                              <div className="tc-dod-item"><div className="tc-dod-lbl">Discharged</div><div className="tc-dod-val dis">{p.dod?fmtDtShort(p.dod):"Active"}</div></div>
+                            </div>
+                            <div className="tcch">
+                              <span className={"badge "+(p.status==="admitted"?"bg":"bb")}>{p.status==="admitted"?"Admitted":"Discharged"}</span>
+                              <span className="chip">{p.ward} · {p.bed}</span>
+                              <span className="chip">{p.age}y {p.gender?.[0]}</span>
+                            </div>
+                            {p.taskStatus !== "completed" && (
+                              <div className="tcpb">
+                                <div className="tcplbl">Sections saved: {done}/5</div>
+                                <div className="tcpbar"><div className="tcpfil" style={{ width:((done/5)*100)+"%" }}/></div>
+                              </div>
+                            )}
+                            <div className="tcft">
+                              <div className="tcdoa">DOA: {fmtDt(p.doa)}</div>
+                              <button className="hod-btn" onClick={() => openPatient(p)}>Open</button>
+                            </div>
                           </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                        );
+                      })}
+                    </div>
+                  )
                 }
               </>
             )}
@@ -1808,15 +1970,24 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
                   </div>
                   <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:10 }}>
                     <span className="badge bb">🏥 {sel.branch}</span>
-                    <span className={"badge " + (sel.status === "admitted" ? "bg" : "bt")}>{sel.status === "admitted" ? "Admitted" : "Discharged"}</span>
+                    <span className={"badge "+(sel.status==="admitted"?"bg":"bt")}>{sel.status==="admitted"?"Admitted":"Discharged"}</span>
                     <span className="badge bb">🛏 {sel.ward} · {sel.bed}</span>
                     <span className="badge bb">👨‍⚕️ {sel.doctor}</span>
-                    <span className={"badge " + (sel.taskStatus === "completed" ? "bt" : "ba")}>{sel.taskStatus === "completed" ? "Submitted to HOD" : "Task Pending"}</span>
+                    <span className={"badge "+(sel.taskStatus==="completed"?"bt":"ba")}>{sel.taskStatus==="completed"?"Submitted to HOD":"Task Pending"}</span>
+                    {/* Discharge type badge in patient header */}
+                    {(() => {
+                      const dtCfg = DISCHARGE_TYPES[eDis?.dischargeType||"NORMAL"] || DISCHARGE_TYPES.NORMAL;
+                      return (
+                        <span style={{ display:"inline-flex", alignItems:"center", gap:5, padding:"4px 10px", borderRadius:20, fontSize:11, fontWeight:700, background:dtCfg.bg, border:`1.5px solid ${dtCfg.border}`, color:dtCfg.color }}>
+                          {dtCfg.icon} {dtCfg.label}
+                        </span>
+                      );
+                    })()}
                   </div>
                   <div className="dod-strip">
                     <div className="dod-strip-item"><div className="dod-strip-lbl">Date of Admission</div><div className="dod-strip-val">{fmtDt(sel.doa)}</div></div>
-                    <div className="dod-strip-item"><div className="dod-strip-lbl">Expected Discharge</div><div className="dod-strip-val exp">{eDis.expectedDod ? fmtDt(eDis.expectedDod) : "Not set"}</div></div>
-                    <div className="dod-strip-item"><div className="dod-strip-lbl">Actual Discharge</div><div className="dod-strip-val dis">{sel.dod ? fmtDt(sel.dod) : "Not yet discharged"}</div></div>
+                    <div className="dod-strip-item"><div className="dod-strip-lbl">Expected Discharge</div><div className="dod-strip-val exp">{eDis.expectedDod?fmtDt(eDis.expectedDod):"Not set"}</div></div>
+                    <div className="dod-strip-item"><div className="dod-strip-lbl">Actual Discharge</div><div className="dod-strip-val dis">{sel.dod?fmtDt(sel.dod):"Not yet discharged"}</div></div>
                     <div className="dod-strip-item"><div className="dod-strip-lbl">Primary Diagnosis</div><div className="dod-strip-val dia">{sel.diagnosis}</div></div>
                   </div>
                 </div>
@@ -1827,20 +1998,20 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
                   <div className="clsteps">
                     {SECTION_KEYS.map((k, idx) => (
                       <div key={k} style={{ display:"flex", alignItems:"center", flex:1, minWidth:0 }}>
-                        <div className={"clstep" + (eSaved[k] ? " done" : activeTab === TAB_MAP[k] ? " cur" : "")} style={{ flex:1, minWidth:0 }} onClick={() => setActiveTab(TAB_MAP[k])}>
-                          <div className="clchk">{eSaved[k] ? "✓" : SECTION_ICONS[k]}</div>
+                        <div className={"clstep"+(eSaved[k]?" done":activeTab===TAB_MAP[k]?" cur":"")} style={{ flex:1, minWidth:0 }} onClick={() => setActiveTab(TAB_MAP[k])}>
+                          <div className="clchk">{eSaved[k]?"✓":SECTION_ICONS[k]}</div>
                           <div className="cllbl">{SECTION_LABELS[k]}</div>
                         </div>
-                        {idx < SECTION_KEYS.length - 1 && <div className={"clcon" + (eSaved[k] ? " done" : "")}/>}
+                        {idx < SECTION_KEYS.length-1 && <div className={"clcon"+(eSaved[k]?" done":"")}/>}
                       </div>
                     ))}
                   </div>
                   <div className="clfoot">
-                    {sel.taskStatus === "completed"
+                    {sel.taskStatus==="completed"
                       ? <div className="clmsg-ok">✔ Submitted to HOD & Admin Management</div>
                       : allSaved
                         ? <div className="clmsg-ok">✔ All sections saved — ready to submit!</div>
-                        : <div className="clmsg-pend"><span className="clmsg-cnt">{5 - savedCount} section{5 - savedCount !== 1 ? "s" : ""} remaining</span>{" "}— save all to unlock Submit</div>
+                        : <div className="clmsg-pend"><span className="clmsg-cnt">{5-savedCount} section{5-savedCount!==1?"s":""} remaining</span>{" "}— save all to unlock Submit</div>
                     }
                     {sel.taskStatus !== "completed"
                       ? <button className="hod-btn" disabled={!allSaved} onClick={() => setShowConfirm(true)}>Submit to HOD →</button>
@@ -1853,7 +2024,7 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
                 <div className="twrap">
                   <div className="tabs">
                     {TABS.map(t => (
-                      <button key={t.id} className={"tabbtn" + (activeTab === t.id ? " act" : "")} onClick={() => setActiveTab(t.id)}>
+                      <button key={t.id} className={"tabbtn"+(activeTab===t.id?" act":"")} onClick={() => setActiveTab(t.id)}>
                         {t.ico} {t.lbl} {eSaved[t.sKey] && <span className="tdot"/>}
                       </button>
                     ))}
@@ -1864,7 +2035,7 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
                 {activeTab === "discharge" && (
                   <>
                     <div className="secc">
-                      <div className="sech"><div className="sect">📋 Discharge Details</div></div>
+                      <div className="sech"><div className="sect">📋 Discharge Summary</div></div>
                       <div className="secb">
                         <div className="fgrid">
                           <div className="fg"><label className="flbl">Date of Admission</label><input className="finp" type="datetime-local" value={eDis?.doa || ""} onChange={e => setEDis(p => ({ ...p, doa: e.target.value }))}/></div>
@@ -1878,88 +2049,7 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
                         </div>
                       </div>
                     </div>
-                    <button className="savebtn" onClick={() => saveSection("discharge", "Discharge Summary")}>Save Discharge Details</button>
-
-                    {/* ── Formatted Discharge Summary Template ── */}
-                    <div className="secc" style={{ marginTop:18 }}>
-                      <div className="sech">
-                        <div className="sect">📝 Discharge Summary Template</div>
-                        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                          <label className="flbl" style={{ margin:0 }}>Type:</label>
-                          <select className="finp" style={{ width:"auto", padding:"6px 28px 6px 10px", height:"auto" }}
-                            value={dischargeSummaryType}
-                            onChange={e => {
-                              const newType = e.target.value;
-                              setDischargeSummaryType(newType);
-                              if (!sel?.uhid || !sel?.admNo) return;
-                              setDischargeSummaryLoading(true);
-                              apiService.getDynamicSummary(sel.uhid, sel.admNo, newType)
-                                .then(res => {
-                                  const c = res?.content || { sections: [] };
-                                  if (c.sections && !Array.isArray(c.sections)) c.sections = Object.entries(c.sections).map(([k,v]) => ({ key:k,...v }));
-                                  setDischargeSummary(c);
-                                }).catch(() => setDischargeSummary({ sections:[] })).finally(() => setDischargeSummaryLoading(false));
-                            }}>
-                            {["NORMAL","LAMA","REFER","DOPR","DEATH"].map(t => <option key={t} value={t}>{t}</option>)}
-                          </select>
-                        </div>
-                      </div>
-                      <div className="secb">
-                        {dischargeSummaryLoading ? (
-                          <div style={{ textAlign:"center", padding:"30px", color:"var(--text3)", fontSize:13 }}>Loading summary template...</div>
-                        ) : dischargeSummary && Array.isArray(dischargeSummary.sections) ? (
-                          <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
-                            {dischargeSummary.sections.map((sec, idx) => (
-                              <div key={sec.key || idx} className="fg full">
-                                <label className="flbl">{sec.label}</label>
-                                {sec.type === "vitals_grid" ? (
-                                  <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(130px,1fr))", gap:10 }}>
-                                    {Object.entries(typeof sec.value === "object" && sec.value !== null ? sec.value : {}).map(([vk, vv]) => (
-                                      <div key={vk}>
-                                        <label className="flbl" style={{ fontSize:9, textTransform:"uppercase" }}>{vk}</label>
-                                        <input className="finp" value={vv||""} onChange={e => {
-                                          setDischargeSummary(prev => {
-                                            const secs = [...(prev?.sections||[])];
-                                            secs[idx] = { ...secs[idx], value: { ...(typeof secs[idx].value==="object"?secs[idx].value:{}), [vk]: e.target.value } };
-                                            return { ...prev, sections: secs };
-                                          });
-                                        }}/>
-                                      </div>
-                                    ))}
-                                  </div>
-                                ) : sec.type === "textarea" ? (
-                                  <textarea className="ftxt" rows={3} value={typeof sec.value==="string"?sec.value:""} onChange={e => {
-                                    setDischargeSummary(prev => {
-                                      const secs = [...(prev?.sections||[])];
-                                      secs[idx] = { ...secs[idx], value: e.target.value };
-                                      return { ...prev, sections: secs };
-                                    });
-                                  }}/>
-                                ) : (
-                                  <input className="finp" value={typeof sec.value==="string"?sec.value:""} onChange={e => {
-                                    setDischargeSummary(prev => {
-                                      const secs = [...(prev?.sections||[])];
-                                      secs[idx] = { ...secs[idx], value: e.target.value };
-                                      return { ...prev, sections: secs };
-                                    });
-                                  }}/>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <div style={{ textAlign:"center", padding:"20px", color:"var(--text3)", fontSize:13, fontStyle:"italic" }}>No template loaded yet.</div>
-                        )}
-                      </div>
-                    </div>
-                    {dischargeSummary && Array.isArray(dischargeSummary.sections) && dischargeSummary.sections.length > 0 && (
-                      <button className="savebtn" style={{ marginTop:8 }} onClick={async () => {
-                        try {
-                          await apiService.saveDynamicSummary(sel.uhid, sel.admNo, { summary_type: dischargeSummaryType, content: dischargeSummary });
-                          toast("Discharge summary template saved ✓");
-                        } catch (_) { toast("Failed to save discharge summary", "e"); }
-                      }}>Save Discharge Summary Template</button>
-                    )}
+                    <button className="savebtn" onClick={() => saveSection("discharge", "Discharge Summary")}>Save Discharge Summary</button>
                   </>
                 )}
 
@@ -1967,7 +2057,7 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
                 {activeTab === "medical" && (
                   <>
                     <AdmissionNoteForm eMed={eMed} setEMed={setEMed}/>
-                    <button className="savebtn" onClick={() => saveSection("admission", "Admission Note")}>Save Admission Note</button>
+                    <button className="savebtn" onClick={() => saveSection("admission","Admission Note")}>Save Admission Note</button>
                   </>
                 )}
 
@@ -1985,47 +2075,39 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
                           )}
                         </div>
                         <div style={{ display:"flex", gap:8, flexWrap:"wrap", alignItems:"center" }}>
-                          <span style={{ background:"#eff6ff", border:"1px solid #bfdbfe", color:"#1d4ed8", borderRadius:20, padding:"3px 11px", fontSize:11, fontWeight:700 }}>
-                            🧪 Path: {fmt(pathTotal)} ({pathReps.length})
-                          </span>
-                          <span style={{ background:"#f0fdf4", border:"1px solid #bbf7d0", color:"#15803d", borderRadius:20, padding:"3px 11px", fontSize:11, fontWeight:700 }}>
-                            🩻 Rad: {fmt(radTotal)} ({radReps.length})
-                          </span>
-                          <span style={{ background:"var(--tealBg,#e6faf8)", border:"1px solid rgba(13,124,114,.2)", color:"var(--teal)", borderRadius:20, padding:"3px 11px", fontSize:11, fontWeight:700 }}>
-                            Grand: {fmt(pathTotal + radTotal)}
-                          </span>
+                          <span style={{ background:"#eff6ff", border:"1px solid #bfdbfe", color:"#1d4ed8", borderRadius:20, padding:"3px 11px", fontSize:11, fontWeight:700 }}>🧪 Path: {fmt(pathTotal)} ({pathReps.length})</span>
+                          <span style={{ background:"#f0fdf4", border:"1px solid #bbf7d0", color:"#15803d", borderRadius:20, padding:"3px 11px", fontSize:11, fontWeight:700 }}>🩻 Rad: {fmt(radTotal)} ({radReps.length})</span>
+                          <span style={{ background:"var(--tealBg,#e6faf8)", border:"1px solid rgba(13,124,114,.2)", color:"var(--teal)", borderRadius:20, padding:"3px 11px", fontSize:11, fontWeight:700 }}>Grand: {fmt(pathTotal+radTotal)}</span>
                         </div>
                       </div>
                       <div style={{ display:"flex", gap:8, flexWrap:"wrap", padding:"12px 20px", borderBottom:"1px solid var(--border)" }}>
                         {repFilterOptions.map(t => (
                           <button key={t} onClick={() => setRepFilter(t)}
-                            style={{ padding:"5px 13px", borderRadius:20, fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:"inherit", transition:".13s", border:repFilter === t ? "1.5px solid var(--navy,#0f172a)" : "1.5px solid var(--border,#e2e8f0)", background:repFilter === t ? "var(--navy,#0f172a)" : "var(--white,#fff)", color:repFilter === t ? "#fff" : "var(--text2,#475569)" }}>
+                            style={{ padding:"5px 13px", borderRadius:20, fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:"inherit", transition:".13s", border:repFilter===t?"1.5px solid var(--navy,#0f172a)":"1.5px solid var(--border,#e2e8f0)", background:repFilter===t?"var(--navy,#0f172a)":"var(--white,#fff)", color:repFilter===t?"#fff":"var(--text2,#475569)" }}>
                             {t}
                           </button>
                         ))}
                       </div>
                     </div>
-                    {visibleReps.length === 0 && (
-                      <div className="empty" style={{ padding:"30px 20px" }}><div>No reports yet. Use the buttons below to add.</div></div>
-                    )}
+                    {visibleReps.length===0 && <div className="empty" style={{ padding:"30px 20px" }}><div>No reports yet. Use the buttons below to add.</div></div>}
                     {visibleReps.map(rep => {
-                      const ri = eLabRep.findIndex(r => r.id === rep.id);
+                      const ri = eLabRep.findIndex(r => r.id===rep.id);
                       if (isRadiologyType(rep.reportType)) {
-                        return (<RadiologyReportCard key={rep.id} rep={rep} ri={ri} patientName={patientName} updRep={updRep} onRemove={() => setELabRep(p => p.filter(r => r.id !== rep.id))}/>);
+                        return (<RadiologyReportCard key={rep.id} rep={rep} ri={ri} patientName={patientName} updRep={updRep} onRemove={() => setELabRep(p=>p.filter(r=>r.id!==rep.id))}/>);
                       }
-                      return (<PathologyReportCard key={rep.id} rep={rep} ri={ri} patientName={patientName} updRep={updRep} updTest={updTest} addTest={addTest} delTest={delTest} onRemove={() => setELabRep(p => p.filter(r => r.id !== rep.id))}/>);
+                      return (<PathologyReportCard key={rep.id} rep={rep} ri={ri} patientName={patientName} updRep={updRep} updTest={updTest} addTest={addTest} delTest={delTest} onRemove={() => setELabRep(p=>p.filter(r=>r.id!==rep.id))}/>);
                     })}
                     <div style={{ display:"flex", gap:12, alignItems:"center", flexWrap:"wrap", marginBottom:16, marginTop:4 }}>
-                      <button onClick={() => setELabRep(p => [...p, emptyPathReport()])}
+                      <button onClick={() => setELabRep(p=>[...p,emptyPathReport()])}
                         style={{ display:"inline-flex", alignItems:"center", gap:8, padding:"10px 20px", background:"linear-gradient(135deg,#1e3a5f,#0f172a)", color:"#fff", border:"none", borderRadius:9, cursor:"pointer", fontSize:13, fontWeight:600, fontFamily:"inherit", boxShadow:"0 3px 10px rgba(15,23,42,.2)" }}>
                         🧪 + Add Pathology Report
                       </button>
-                      <button onClick={() => setELabRep(p => [...p, emptyRadReport()])}
+                      <button onClick={() => setELabRep(p=>[...p,emptyRadReport()])}
                         style={{ display:"inline-flex", alignItems:"center", gap:8, padding:"10px 20px", background:"linear-gradient(135deg,#065f46,#064e3b)", color:"#fff", border:"none", borderRadius:9, cursor:"pointer", fontSize:13, fontWeight:600, fontFamily:"inherit", boxShadow:"0 3px 10px rgba(6,79,70,.2)" }}>
                         🩻 + Add Radiology Report
                       </button>
                     </div>
-                    <button className="savebtn" onClick={() => saveSection("reports", "Reports")}>Save Reports</button>
+                    <button className="savebtn" onClick={() => saveSection("reports","Reports")}>Save Reports</button>
                   </>
                 )}
 
@@ -2038,7 +2120,7 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
                         <div className="sect">💊 Medicine / Pharmacy Bill</div>
                         {eMedBill.length > 0 && (
                           <span style={{ fontSize:12, fontWeight:700, color:"var(--teal)", background:"var(--tealBg)", border:"1px solid rgba(13,124,114,.2)", borderRadius:20, padding:"3px 11px" }}>
-                            {eMedBill.length} items · {fmt(eMedBill.reduce((a, r) => a + Number(r.amount || 0), 0))}
+                            {eMedBill.length} items · {fmt(eMedBill.reduce((a,r)=>a+Number(r.amount||0),0))}
                           </span>
                         )}
                       </div>
@@ -2047,29 +2129,29 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
                           <table className="tbl">
                             <thead><tr><th>Item Description</th><th>Date</th><th style={{ width:90 }}>Qty</th><th style={{ width:110 }}>Rate</th><th style={{ width:150 }}>Batch No.</th><th style={{ width:150 }}>Expiry</th><th style={{ width:130 }}>Amount</th><th style={{ width:44 }}></th></tr></thead>
                             <tbody>
-                              {eMedBill.map((r, i) => (
+                              {eMedBill.map((r,i) => (
                                 <tr key={r.id}>
-                                  <td><input className="tinp" value={r.item} onChange={e => { const n = [...eMedBill]; n[i] = { ...n[i], item: e.target.value }; setEMedBill(n); }}/></td>
-                                  <td><input className="tinp" type="date" value={r.date} onChange={e => { const n = [...eMedBill]; n[i] = { ...n[i], date: e.target.value }; setEMedBill(n); }}/></td>
-                                  <td><input className="tinp" type="number" min="1" value={r.quantity ?? 1} onChange={e => { const n = [...eMedBill]; const quantity = Math.max(1, Number(e.target.value) || 1); const rate = Number(n[i].rate || 0); n[i] = { ...n[i], quantity, amount: quantity * rate }; setEMedBill(n); }}/></td>
-                                  <td><input className="tinp" type="number" min="0" step="0.01" value={r.rate ?? 0} onChange={e => { const n = [...eMedBill]; const rate = Number(e.target.value) || 0; const quantity = Number(n[i].quantity || 1); n[i] = { ...n[i], rate, amount: quantity * rate }; setEMedBill(n); }}/></td>
-                                  <td><input className="tinp" value={r.batchNo || ""} onChange={e => { const n = [...eMedBill]; n[i] = { ...n[i], batchNo: e.target.value }; setEMedBill(n); }}/></td>
-                                  <td><input className="tinp" type="date" value={r.expiryDate || ""} onChange={e => { const n = [...eMedBill]; n[i] = { ...n[i], expiryDate: e.target.value }; setEMedBill(n); }}/></td>
-                                  <td><input className="tinp" type="number" min="0" step="0.01" value={r.amount} onChange={e => { const n = [...eMedBill]; n[i] = { ...n[i], amount: Number(e.target.value) || 0 }; setEMedBill(n); }}/></td>
-                                  <td><button className="delbtn" onClick={() => setEMedBill(p => p.filter((_, j) => j !== i))}>X</button></td>
+                                  <td><input className="tinp" value={r.item} onChange={e=>{ const n=[...eMedBill]; n[i]={...n[i],item:e.target.value}; setEMedBill(n); }}/></td>
+                                  <td><input className="tinp" type="date" value={r.date} onChange={e=>{ const n=[...eMedBill]; n[i]={...n[i],date:e.target.value}; setEMedBill(n); }}/></td>
+                                  <td><input className="tinp" type="number" min="1" value={r.quantity??1} onChange={e=>{ const n=[...eMedBill]; const qty=Math.max(1,Number(e.target.value)||1); n[i]={...n[i],quantity:qty,amount:qty*Number(n[i].rate||0)}; setEMedBill(n); }}/></td>
+                                  <td><input className="tinp" type="number" min="0" step="0.01" value={r.rate??0} onChange={e=>{ const n=[...eMedBill]; const rate=Number(e.target.value)||0; n[i]={...n[i],rate,amount:Number(n[i].quantity||1)*rate}; setEMedBill(n); }}/></td>
+                                  <td><input className="tinp" value={r.batchNo||""} onChange={e=>{ const n=[...eMedBill]; n[i]={...n[i],batchNo:e.target.value}; setEMedBill(n); }}/></td>
+                                  <td><input className="tinp" type="date" value={r.expiryDate||""} onChange={e=>{ const n=[...eMedBill]; n[i]={...n[i],expiryDate:e.target.value}; setEMedBill(n); }}/></td>
+                                  <td><input className="tinp" type="number" min="0" step="0.01" value={r.amount} onChange={e=>{ const n=[...eMedBill]; n[i]={...n[i],amount:Number(e.target.value)||0}; setEMedBill(n); }}/></td>
+                                  <td><button className="delbtn" onClick={() => setEMedBill(p=>p.filter((_,j)=>j!==i))}>X</button></td>
                                 </tr>
                               ))}
-                              {eMedBill.length === 0 && (
+                              {eMedBill.length===0&&(
                                 <tr><td colSpan={8} style={{ textAlign:"center", color:"var(--text3)", fontStyle:"italic", padding:"18px" }}>No medicines added yet. Use the picker above or click + Add.</td></tr>
                               )}
                             </tbody>
                           </table>
                         </div>
-                        <button className="addbtn" onClick={() => setEMedBill(p => [...p, { id: Date.now(), item:"", date: new Date().toISOString().slice(0,10), quantity: 1, rate: 0, batchNo: "", expiryDate: "", amount: 0 }])}>+ Add Medicine Manually</button>
-                        <div className="totbox"><div className="tr2 fin"><span>Medicine Total</span><span>{fmt(eMedBill.reduce((a, r) => a + Number(r.amount || 0), 0))}</span></div></div>
+                        <button className="addbtn" onClick={() => setEMedBill(p=>[...p,{id:Date.now(),item:"",date:new Date().toISOString().slice(0,10),quantity:1,rate:0,batchNo:"",expiryDate:"",amount:0}])}>+ Add Medicine Manually</button>
+                        <div className="totbox"><div className="tr2 fin"><span>Medicine Total</span><span>{fmt(eMedBill.reduce((a,r)=>a+Number(r.amount||0),0))}</span></div></div>
                       </div>
                     </div>
-                    <button className="savebtn" onClick={() => saveSection("medicines", "Medicine Bill")}>Save Medicine Bill</button>
+                    <button className="savebtn" onClick={() => saveSection("medicines","Medicine Bill")}>Save Medicine Bill</button>
                   </>
                 )}
 
@@ -2088,16 +2170,16 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
                       <div style={{ padding:"12px 16px", display:"flex", flexWrap:"wrap", gap:7, background:"var(--bg)" }}>
                         {quickFillTags.map(tag => (
                           <button key={tag.field}
-                            className={"qtag" + (eBilling?.[tag.field] ? " filled" : "")}
+                            className={"qtag"+(eBilling?.[tag.field]?" filled":"")}
                             onClick={() => applyQuickFill(tag.field, tag.value)}
-                            title={tag.value || "(not available)"}
+                            title={tag.value||"(not available)"}
                           >
                             <span>{tag.icon}</span>
                             <span style={{ fontWeight:700 }}>{tag.label}:</span>
                             <span style={{ maxWidth:140, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", opacity:.85 }}>
-                              {tag.value || <span style={{ fontStyle:"italic", opacity:.5 }}>—</span>}
+                              {tag.value||<span style={{ fontStyle:"italic", opacity:.5 }}>—</span>}
                             </span>
-                            {eBilling?.[tag.field] && <span style={{ fontSize:10, color:"#15803d" }}>✓</span>}
+                            {eBilling?.[tag.field]&&<span style={{ fontSize:10, color:"#15803d" }}>✓</span>}
                           </button>
                         ))}
                       </div>
@@ -2111,22 +2193,19 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
                       </div>
                       <div className="secb">
                         <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))", gap:14 }}>
-                          <div className="fg">
-                            <label className="flbl" style={{ color:"var(--teal)" }}>🔑 UHID <span style={{ color:"var(--red)" }}>*</span></label>
-                            <input className="finp" value={eBilling?.uhid || ""} onChange={e => setEBilling(p => ({ ...p, uhid: e.target.value }))} placeholder={sel.uhid} style={{ borderColor:"var(--teal)", fontWeight:700, fontFamily:"monospace" }}/>
-                          </div>
-                          <div className="fg"><label className="flbl">IPD / Bill No.</label><input className="finp" value={eBilling?.billNo || ""} onChange={e => setEBilling(p => ({ ...p, billNo: e.target.value }))} placeholder={sel.admNo}/></div>
-                          <div className="fg"><label className="flbl">Patient Name</label><input className="finp" value={eBilling?.patientName || ""} onChange={e => setEBilling(p => ({ ...p, patientName: e.target.value }))} placeholder={sel.patientName}/></div>
-                          <div className="fg"><label className="flbl">Guardian / Attendant Name</label><input className="finp" value={eBilling?.guardianName || ""} onChange={e => setEBilling(p => ({ ...p, guardianName: e.target.value }))} placeholder="e.g. Ramesh Kumar"/></div>
-                          <div className="fg"><label className="flbl">Age / Sex</label><input className="finp" value={eBilling?.ageSex || ""} onChange={e => setEBilling(p => ({ ...p, ageSex: e.target.value }))} placeholder={`${sel.age} Yrs / ${sel.gender || ""}`}/></div>
-                          <div className="fg"><label className="flbl">Contact No.</label><input className="finp" value={eBilling?.contactNo || ""} onChange={e => setEBilling(p => ({ ...p, contactNo: e.target.value }))} placeholder={sel.phone}/></div>
-                          <div className="fg"><label className="flbl">Card No.</label><input className="finp" value={eBilling?.cardNo || ""} onChange={e => setEBilling(p => ({ ...p, cardNo: e.target.value }))} placeholder="e.g. 1234"/></div>
-                          <div className="fg"><label className="flbl">Claim ID</label><input className="finp" value={eBilling?.claimId || ""} onChange={e => setEBilling(p => ({ ...p, claimId: e.target.value }))} placeholder="e.g. 42092669"/></div>
-                          <div className="fg"><label className="flbl">Panel</label><input className="finp" value={eBilling?.panel || ""} onChange={e => setEBilling(p => ({ ...p, panel: e.target.value }))} placeholder="CASH / TPA / ECHS"/></div>
-                          <div className="fg"><label className="flbl">Consultant / Doctor</label><input className="finp" value={eBilling?.consultantName || ""} onChange={e => setEBilling(p => ({ ...p, consultantName: e.target.value }))} placeholder={sel.doctor || eMed?.treatingDoctor || ""}/></div>
-                          <div className="fg"><label className="flbl">Ward / Room</label><input className="finp" value={eBilling?.wardRoom || ""} onChange={e => setEBilling(p => ({ ...p, wardRoom: e.target.value }))} placeholder={`${sel.ward || ""}${sel.bed ? ` / ${sel.bed}` : ""}`}/></div>
-                          <div className="fg"><label className="flbl">Status on Discharge</label><input className="finp" value={eBilling?.statusOnDischarge || ""} onChange={e => setEBilling(p => ({ ...p, statusOnDischarge: e.target.value }))} placeholder="e.g. LAMA, Stable, Referred"/></div>
-                          <div className="fg" style={{ gridColumn:"1/-1" }}><label className="flbl">Address</label><input className="finp" value={eBilling?.addressDisplay || ""} onChange={e => setEBilling(p => ({ ...p, addressDisplay: e.target.value }))} placeholder={sel.address || "Patient address"}/></div>
+                          <div className="fg"><label className="flbl" style={{ color:"var(--teal)" }}>🔑 UHID <span style={{ color:"var(--red)" }}>*</span></label><input className="finp" value={eBilling?.uhid||""} onChange={e=>setEBilling(p=>({...p,uhid:e.target.value}))} placeholder={sel.uhid} style={{ borderColor:"var(--teal)", fontWeight:700, fontFamily:"monospace" }}/></div>
+                          <div className="fg"><label className="flbl">IPD / Bill No.</label><input className="finp" value={eBilling?.billNo||""} onChange={e=>setEBilling(p=>({...p,billNo:e.target.value}))} placeholder={sel.admNo}/></div>
+                          <div className="fg"><label className="flbl">Patient Name</label><input className="finp" value={eBilling?.patientName||""} onChange={e=>setEBilling(p=>({...p,patientName:e.target.value}))} placeholder={sel.patientName}/></div>
+                          <div className="fg"><label className="flbl">Guardian / Attendant Name</label><input className="finp" value={eBilling?.guardianName||""} onChange={e=>setEBilling(p=>({...p,guardianName:e.target.value}))} placeholder="e.g. Ramesh Kumar"/></div>
+                          <div className="fg"><label className="flbl">Age / Sex</label><input className="finp" value={eBilling?.ageSex||""} onChange={e=>setEBilling(p=>({...p,ageSex:e.target.value}))} placeholder={`${sel.age} Yrs / ${sel.gender||""}`}/></div>
+                          <div className="fg"><label className="flbl">Contact No.</label><input className="finp" value={eBilling?.contactNo||""} onChange={e=>setEBilling(p=>({...p,contactNo:e.target.value}))} placeholder={sel.phone}/></div>
+                          <div className="fg"><label className="flbl">Card No.</label><input className="finp" value={eBilling?.cardNo||""} onChange={e=>setEBilling(p=>({...p,cardNo:e.target.value}))} placeholder="e.g. 1234"/></div>
+                          <div className="fg"><label className="flbl">Claim ID</label><input className="finp" value={eBilling?.claimId||""} onChange={e=>setEBilling(p=>({...p,claimId:e.target.value}))} placeholder="e.g. 42092669"/></div>
+                          <div className="fg"><label className="flbl">Panel</label><input className="finp" value={eBilling?.panel||""} onChange={e=>setEBilling(p=>({...p,panel:e.target.value}))} placeholder="CASH / TPA / ECHS"/></div>
+                          <div className="fg"><label className="flbl">Consultant / Doctor</label><input className="finp" value={eBilling?.consultantName||""} onChange={e=>setEBilling(p=>({...p,consultantName:e.target.value}))} placeholder={sel.doctor||eMed?.treatingDoctor||""}/></div>
+                          <div className="fg"><label className="flbl">Ward / Room</label><input className="finp" value={eBilling?.wardRoom||""} onChange={e=>setEBilling(p=>({...p,wardRoom:e.target.value}))} placeholder={`${sel.ward||""}${sel.bed?` / ${sel.bed}`:""}`}/></div>
+                          <div className="fg"><label className="flbl">Status on Discharge</label><input className="finp" value={eBilling?.statusOnDischarge||""} onChange={e=>setEBilling(p=>({...p,statusOnDischarge:e.target.value}))} placeholder="e.g. LAMA, Stable, Referred"/></div>
+                          <div className="fg" style={{ gridColumn:"1/-1" }}><label className="flbl">Address</label><input className="finp" value={eBilling?.addressDisplay||""} onChange={e=>setEBilling(p=>({...p,addressDisplay:e.target.value}))} placeholder={sel.address||"Patient address"}/></div>
                         </div>
                       </div>
                     </div>
@@ -2141,20 +2220,20 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
                               <table className="tbl">
                                 <thead><tr><th>Service</th><th>Category</th><th style={{ width:60 }}>Qty</th><th style={{ width:90 }}>Rate</th><th style={{ width:100 }}>Amount</th><th style={{ width:44 }}></th></tr></thead>
                                 <tbody>
-                                  {eSvc.map((r, i) => (
+                                  {eSvc.map((r,i) => (
                                     <tr key={r.id}>
-                                      <td><input className="tinp" value={r.name} onChange={e => updSvc(i, "name", e.target.value)}/></td>
-                                      <td><input className="tinp" value={r.category} onChange={e => updSvc(i, "category", e.target.value)}/></td>
-                                      <td><input className="tinp" type="number" min="1" step="1" value={r.qty} onChange={e => updSvc(i, "qty", e.target.value)}/></td>
-                                      <td><input className="tinp" type="number" min="0" step="0.01" value={r.rate} onChange={e => updSvc(i, "rate", e.target.value)}/></td>
-                                      <td><input className="tinp" type="number" min="0" step="0.01" value={r.amount ?? 0} onChange={e => updSvcAmount(i, e.target.value)}/></td>
-                                      <td><button className="delbtn" onClick={() => setESvc(p => p.filter((_, j) => j !== i))}>X</button></td>
+                                      <td><input className="tinp" value={r.name} onChange={e=>updSvc(i,"name",e.target.value)}/></td>
+                                      <td><input className="tinp" value={r.category} onChange={e=>updSvc(i,"category",e.target.value)}/></td>
+                                      <td><input className="tinp" type="number" min="1" step="1" value={r.qty} onChange={e=>updSvc(i,"qty",e.target.value)}/></td>
+                                      <td><input className="tinp" type="number" min="0" step="0.01" value={r.rate} onChange={e=>updSvc(i,"rate",e.target.value)}/></td>
+                                      <td><input className="tinp" type="number" min="0" step="0.01" value={r.amount??0} onChange={e=>updSvcAmount(i,e.target.value)}/></td>
+                                      <td><button className="delbtn" onClick={() => setESvc(p=>p.filter((_,j)=>j!==i))}>X</button></td>
                                     </tr>
                                   ))}
                                 </tbody>
                               </table>
                             </div>
-                            <button className="addbtn" onClick={() => setESvc(p => [...p, { id: Date.now(), name:"", category:"", qty:1, rate:0, amount:0 }])}>+ Add Service</button>
+                            <button className="addbtn" onClick={() => setESvc(p=>[...p,{id:Date.now(),name:"",category:"",qty:1,rate:0,amount:0}])}>+ Add Service</button>
                           </div>
                         </div>
                       </div>
@@ -2164,32 +2243,32 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
                           <div className="sech"><div className="sect">💳 Payment Details</div></div>
                           <div className="secb">
                             <div style={{ display:"flex", flexDirection:"column", gap:13 }}>
-                              {[{ k:"discount", lbl:"Discount (Rs.)" }, { k:"advance", lbl:"Advance Paid (Rs.)" }, { k:"paidNow", lbl:"Paid Now (Rs.)" }].map(f => (
-                                <div key={f.k} className="fg"><label className="flbl">{f.lbl}</label><input className="finp" type="number" value={eBilling?.[f.k] || 0} onChange={e => setEBilling(p => ({ ...p, [f.k]: e.target.value }))}/></div>
+                              {[{k:"discount",lbl:"Discount (Rs.)"},{k:"advance",lbl:"Advance Paid (Rs.)"},{k:"paidNow",lbl:"Paid Now (Rs.)"}].map(f => (
+                                <div key={f.k} className="fg"><label className="flbl">{f.lbl}</label><input className="finp" type="number" value={eBilling?.[f.k]||0} onChange={e=>setEBilling(p=>({...p,[f.k]:e.target.value}))}/></div>
                               ))}
                               {!isCashlessPatient && (
                                 <div className="fg"><label className="flbl">Payment Mode</label>
-                                  <select className="fsel" value={eBilling?.paymentMode || "Cash"} onChange={e => setEBilling(p => ({ ...p, paymentMode: e.target.value }))}>
-                                    {["Cash", "UPI", "Card", "Insurance", "NEFT", "Cheque"].map(m => <option key={m}>{m}</option>)}
+                                  <select className="fsel" value={eBilling?.paymentMode||"Cash"} onChange={e=>setEBilling(p=>({...p,paymentMode:e.target.value}))}>
+                                    {["Cash","UPI","Card","Insurance","NEFT","Cheque"].map(m=><option key={m}>{m}</option>)}
                                   </select>
                                 </div>
                               )}
                               <div className="fg"><label className="flbl">Insurance Type</label>
-                                <select className="fsel" value={eBilling?.insuranceType || "Self Pay"} onChange={e => setEBilling(p => ({ ...p, insuranceType: e.target.value }))}>
-                                  {INSURANCE_TYPES.map(t => <option key={t}>{t}</option>)}
+                                <select className="fsel" value={eBilling?.insuranceType||"Self Pay"} onChange={e=>setEBilling(p=>({...p,insuranceType:e.target.value}))}>
+                                  {INSURANCE_TYPES.map(t=><option key={t}>{t}</option>)}
                                 </select>
                               </div>
-                              {eBilling?.insuranceType && eBilling.insuranceType !== "Self Pay" && (
+                              {eBilling?.insuranceType&&eBilling.insuranceType!=="Self Pay"&&(
                                 <>
-                                  {[{ k:"tpaName", lbl:"TPA / Panel Name" }, { k:"policyNo", lbl:"Policy / Card Number" }, { k:"claimNo", lbl:"Claim Number" }, { k:"authNo", lbl:"Authorization Number" }].map(f => (
-                                    <div key={f.k} className="fg"><label className="flbl">{f.lbl}</label><input className="finp" value={eBilling?.tpaInfo?.[f.k] || ""} onChange={e => setEBilling(p => ({ ...p, tpaInfo: { ...(p.tpaInfo || {}), [f.k]: e.target.value } }))}/></div>
+                                  {[{k:"tpaName",lbl:"TPA / Panel Name"},{k:"policyNo",lbl:"Policy / Card Number"},{k:"claimNo",lbl:"Claim Number"},{k:"authNo",lbl:"Authorization Number"}].map(f=>(
+                                    <div key={f.k} className="fg"><label className="flbl">{f.lbl}</label><input className="finp" value={eBilling?.tpaInfo?.[f.k]||""} onChange={e=>setEBilling(p=>({...p,tpaInfo:{...(p.tpaInfo||{}),[f.k]:e.target.value}}))}/></div>
                                   ))}
                                   <div className="fg">
                                     <label className="flbl">TPA Documents</label>
                                     <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))", gap:8 }}>
-                                      {TPA_DOCS.map(doc => (
+                                      {TPA_DOCS.map(doc=>(
                                         <label key={doc.key} style={{ display:"flex", alignItems:"center", gap:8, fontSize:12, color:"var(--text2)", background:"var(--bg)", border:"1px solid var(--border)", borderRadius:8, padding:"8px 10px" }}>
-                                          <input type="checkbox" checked={Boolean(eBilling?.tpaDocStatus?.[doc.key])} onChange={ev => setEBilling(p => ({ ...p, tpaDocStatus: { ...(p.tpaDocStatus || {}), [doc.key]: ev.target.checked } }))}/>
+                                          <input type="checkbox" checked={Boolean(eBilling?.tpaDocStatus?.[doc.key])} onChange={ev=>setEBilling(p=>({...p,tpaDocStatus:{...(p.tpaDocStatus||{}),[doc.key]:ev.target.checked}}))}/>
                                           <span>{doc.label}</span>
                                         </label>
                                       ))}
@@ -2197,7 +2276,7 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
                                   </div>
                                 </>
                               )}
-                              <div className="fg"><label className="flbl">Remarks</label><input className="finp" value={eBilling?.remarks || ""} onChange={e => setEBilling(p => ({ ...p, remarks: e.target.value }))}/></div>
+                              <div className="fg"><label className="flbl">Remarks</label><input className="finp" value={eBilling?.remarks||""} onChange={e=>setEBilling(p=>({...p,remarks:e.target.value}))}/></div>
                             </div>
                             {totals && (
                               <div className="totbox">
@@ -2217,7 +2296,7 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
                         </div>
                       </div>
                     </div>
-                    <button className="savebtn" onClick={() => saveSection("billing", "Final Bill")}>Save Final Bill</button>
+                    <button className="savebtn" onClick={() => saveSection("billing","Final Bill")}>Save Final Bill</button>
                   </>
                 )}
               </>
@@ -2228,16 +2307,16 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
         {/* CONFIRM MODAL */}
         {showConfirm && (
           <div className="overlay" onClick={() => setShowConfirm(false)}>
-            <div className="modal" onClick={e => e.stopPropagation()}>
+            <div className="modal" onClick={e=>e.stopPropagation()}>
               <button className="mclose" onClick={() => setShowConfirm(false)}>X</button>
               <div className="mico">📤</div>
               <div className="mtitle">Submit to HOD and Admin?</div>
               <div className="msub">Submitting complete billing file for <strong>{sel?.patientName}</strong> ({sel?.uhid}) to the Head of Department.</div>
               <div className="mcl">
-                {SECTION_KEYS.map(k => (
+                {SECTION_KEYS.map(k=>(
                   <div key={k} className="mclr">
-                    <span>{eSaved[k] ? "✅" : "⚠️"}</span>
-                    <span style={{ color: eSaved[k] ? "var(--teal)" : "var(--amber)", fontWeight:600 }}>{SECTION_ICONS[k]} {SECTION_LABELS[k]} — {eSaved[k] ? "Saved" : "Not saved"}</span>
+                    <span>{eSaved[k]?"✅":"⚠️"}</span>
+                    <span style={{ color:eSaved[k]?"var(--teal)":"var(--amber)", fontWeight:600 }}>{SECTION_ICONS[k]} {SECTION_LABELS[k]} — {eSaved[k]?"Saved":"Not saved"}</span>
                   </div>
                 ))}
               </div>
@@ -2252,7 +2331,7 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
         {/* TOASTS */}
         <div className="twrp">
           {toasts.map(t => (
-            <div key={t.id} className={"tst " + t.type}>{t.type === "s" ? "✓" : "✗"} {t.msg}</div>
+            <div key={t.id} className={"tst "+t.type}>{t.type==="s"?"✓":"✗"} {t.msg}</div>
           ))}
         </div>
       </div>
