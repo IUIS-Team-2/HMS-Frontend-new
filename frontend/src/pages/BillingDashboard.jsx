@@ -1298,7 +1298,7 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
   const [eLabRep, setELabRep]   = useState([]);
   const [eMedBill, setEMedBill] = useState([]);
   const [eBilling, setEBilling] = useState({});
-  const [eSaved, setESaved]   = useState({});
+  const [eSaved, setESaved]     = useState({});
 
   useEffect(() => {
     const loadAssignedTasks = async () => {
@@ -1501,47 +1501,10 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
     setEBilling({ tpaInfo:{}, tpaDocStatus:{}, ...p.billing });
     setESaved({ ...p.saved });
     setRepFilter("All");
-    setDischargeSummary(null);
     setActiveTab("discharge");
     setView("patient");
 
-    // Auto-fetch saved reports and suggested backend templates for this admission.
     if (p.uhid && p.admNo) {
-      const rawStatus = p.discharge?.dischargeStatus || "NORMAL";
-      const summType = String(rawStatus).toUpperCase();
-      setDischargeSummaryType(summType);
-      setDischargeSummaryLoading(true);
-      apiService.getDynamicSummary(p.uhid, p.admNo, summType).then(res => {
-        const content = res?.content || { sections: [] };
-        if (content.sections && !Array.isArray(content.sections)) {
-          content.sections = Object.entries(content.sections).map(([k, v]) => ({ key: k, ...v }));
-        }
-        setDischargeSummary(content);
-        setDischargeSummaryType(res?.summary_type || summType);
-      }).catch(() => setDischargeSummary({ sections: [] })).finally(() => setDischargeSummaryLoading(false));
-    }
-
-    // Auto-fetch saved reports, pharmacy records, and suggested backend templates for this admission.
-    if (p.uhid && p.admNo) {
-      // Fetch fresh pharmacy records (medicine bill)
-      apiService.getPharmacyRecords(p.uhid, p.admNo).then(records => {
-        const arr = Array.isArray(records) ? records : [];
-        if (arr.length) {
-          const mapped = arr.map(r => ({
-            id: r.id || Date.now() + Math.random(),
-            item: r.medicine_name || r.name || "",
-            date: r.date_given || r.date || new Date().toISOString().slice(0,10),
-            quantity: Number(r.quantity || 1),
-            rate: Number(r.rate || 0),
-            batchNo: r.batch_no || "",
-            expiryDate: r.expiry_date || "",
-            amount: Number(r.rate || 0) * Number(r.quantity || 1),
-          }));
-          setEMedBill(mapped);
-          setSel(prev => prev ? { ...prev, medicalBill: mapped } : prev);
-        }
-      }).catch(() => {});
-
       try {
         const [reports, templatePayload] = await Promise.all([
           apiService.getLabReports(p.uhid, p.admNo).catch(() => []),
@@ -1900,7 +1863,6 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
                       {patients
   .filter(p => p.taskStatus !== "completed")
   .map(p => {
-    
                         const done = SECTION_KEYS.filter(k => p.saved?.[k]).length;
                         const dtCfg = DISCHARGE_TYPES[p.discharge?.dischargeType||"NORMAL"] || DISCHARGE_TYPES.NORMAL;
                         return (
@@ -2032,26 +1994,7 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
                 </div>
 
                 {/* ── DISCHARGE SUMMARY ── */}
-                {activeTab === "discharge" && (
-                  <>
-                    <div className="secc">
-                      <div className="sech"><div className="sect">📋 Discharge Summary</div></div>
-                      <div className="secb">
-                        <div className="fgrid">
-                          <div className="fg"><label className="flbl">Date of Admission</label><input className="finp" type="datetime-local" value={eDis?.doa || ""} onChange={e => setEDis(p => ({ ...p, doa: e.target.value }))}/></div>
-                          <div className="fg"><label className="flbl">Expected Discharge Date</label><input className="finp" type="date" value={eDis?.expectedDod ? String(eDis.expectedDod).slice(0,10) : ""} onChange={e => setEDis(p => ({ ...p, expectedDod: e.target.value }))}/></div>
-                          <div className="fg"><label className="flbl">Actual Discharge Date</label><input className="finp" type="datetime-local" value={eDis?.dod || ""} onChange={e => setEDis(p => ({ ...p, dod: e.target.value }))}/></div>
-                          {[{ k:"ward", lbl:"Ward" }, { k:"bed", lbl:"Bed No." }, { k:"doctor", lbl:"Treating Doctor" }, { k:"diagnosis", lbl:"Primary Diagnosis" }, { k:"condition", lbl:"Condition at Discharge" }].map(f => (
-                            <div key={f.k} className="fg"><label className="flbl">{f.lbl}</label><input className="finp" value={eDis?.[f.k] || ""} onChange={e => setEDis(p => ({ ...p, [f.k]: e.target.value }))}/></div>
-                          ))}
-                          <div className="fg full"><label className="flbl">Discharge Instructions</label><textarea className="ftxt" value={eDis?.instructions || ""} onChange={e => setEDis(p => ({ ...p, instructions: e.target.value }))}/></div>
-                          <div className="fg full"><label className="flbl">Additional Notes</label><textarea className="ftxt" value={eDis?.notes || ""} onChange={e => setEDis(p => ({ ...p, notes: e.target.value }))}/></div>
-                        </div>
-                      </div>
-                    </div>
-                    <button className="savebtn" onClick={() => saveSection("discharge", "Discharge Summary")}>Save Discharge Summary</button>
-                  </>
-                )}
+                {activeTab === "discharge" && renderDischargeSummary()}
 
                 {/* ── ADMISSION NOTE ── */}
                 {activeTab === "medical" && (
