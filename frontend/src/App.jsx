@@ -668,12 +668,16 @@ export default function App() {
       await apiService.resolvePrint(req.uhid, req.admNo, backendAction);
       setPrintRequests(prev => prev.filter(r => !(r.uhid === req.uhid && r.admNo === req.admNo && r.locId === req.locId)));
       if (action === "approve") {
+        // The req.adm.billing snapshot was captured when the queue loaded (still
+        // PENDING). Override printStatus so SummaryPage's printApproved check
+        // sees APPROVED and unlocks the Print button immediately.
+        const approvedBilling = { ...(req.adm?.billing || billing), printStatus: "APPROVED" };
         setShowPrint(true);
         setUhid(req.uhid);
         setPatient(req.patient || patient);
         setDischarge(req.adm?.discharge || discharge);
         setSvcs(req.svcs || svcs);
-        setBilling(req.adm?.billing || billing);
+        setBilling(approvedBilling);
         setLocId(req.locId);
         setAdmNo(req.admNo);
       }

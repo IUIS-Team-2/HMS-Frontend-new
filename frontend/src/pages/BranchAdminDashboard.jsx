@@ -428,6 +428,46 @@ const mkBtn = (v, theme) => {
   };
 };
 
+// ─── Records Form Styles (module-scope so they don't change between renders) ─
+const lblStyle = { fontSize:"10px", letterSpacing:"1px", textTransform:"uppercase", color:T.textMuted, fontWeight:"700", marginBottom:"5px" };
+const inpStyle = { width:"100%", background:T.card, border:`1px solid ${T.border}`, borderRadius:"8px", color:T.text, fontSize:"13px", padding:"9px 11px", fontFamily:"inherit", outline:"none", boxSizing:"border-box" };
+const txaStyle = { ...inpStyle, resize:"vertical" };
+const ROStyle  = { fontSize:"13px", color:T.text, fontWeight:"600", padding:"9px 0", lineHeight:1.5, whiteSpace:"pre-wrap" };
+
+// Field/SectionCard MUST be declared at module scope. If they were declared
+// inside RecordsView() they would receive a fresh function identity on every
+// keystroke, causing React to unmount/remount the underlying <input>/<textarea>
+// and lose focus after each character.
+function Field({ label, value, onChange, type = "text", placeholder = "", colSpan = 1, multiline = false, rows = 3, editable }) {
+  return (
+    <div style={{ gridColumn: `span ${colSpan}`, display:"flex", flexDirection:"column" }}>
+      <label style={lblStyle}>{label}</label>
+      {editable ? (
+        multiline
+          ? <textarea rows={rows} placeholder={placeholder} value={value || ""} onChange={(e) => onChange(e.target.value)} style={txaStyle} />
+          : <input type={type} placeholder={placeholder} value={value || ""} onChange={(e) => onChange(e.target.value)} style={inpStyle} />
+      ) : (
+        <div style={ROStyle}>{value || "—"}</div>
+      )}
+    </div>
+  );
+}
+
+function SectionCard({ icon, title, subtitle, children, theme }) {
+  return (
+    <div style={{ background:T.surface, border:`1px solid ${T.border}`, borderRadius:"12px", marginBottom:"16px", overflow:"hidden" }}>
+      <div style={{ display:"flex", alignItems:"center", gap:"12px", padding:"14px 18px", borderBottom:`1px solid ${T.border}`, background:T.card }}>
+        <div style={{ width:34, height:34, borderRadius:8, background:theme?.primaryDim, border:`1px solid ${theme?.primaryBorder}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:16 }}>{icon}</div>
+        <div>
+          <div style={{ fontSize:"13px", fontWeight:"700", color:T.text }}>{title}</div>
+          {subtitle && <div style={{ fontSize:"11px", color:T.textMuted, marginTop:"2px" }}>{subtitle}</div>}
+        </div>
+      </div>
+      <div style={{ padding:"18px" }}>{children}</div>
+    </div>
+  );
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function BranchAdminDashboard({
   currentUser,
@@ -1132,62 +1172,30 @@ export default function BranchAdminDashboard({
       }
     };
 
-    // ── Field render helpers ─────────────────────────────────────────────
-    const lblStyle = { fontSize:"10px", letterSpacing:"1px", textTransform:"uppercase", color:T.textMuted, fontWeight:"700", marginBottom:"5px" };
-    const inpStyle = { width:"100%", background:T.card, border:`1px solid ${T.border}`, borderRadius:"8px", color:T.text, fontSize:"13px", padding:"9px 11px", fontFamily:"inherit", outline:"none", boxSizing:"border-box" };
-    const txaStyle = { ...inpStyle, resize:"vertical" };
-    const ROStyle  = { fontSize:"13px", color:T.text, fontWeight:"600", padding:"9px 0", lineHeight:1.5, whiteSpace:"pre-wrap" };
-
-    const Field = ({ label, value, onChange, type = "text", placeholder = "", colSpan = 1, multiline = false, rows = 3 }) => (
-      <div style={{ gridColumn: `span ${colSpan}`, display:"flex", flexDirection:"column" }}>
-        <label style={lblStyle}>{label}</label>
-        {canEditRecords ? (
-          multiline
-            ? <textarea rows={rows} placeholder={placeholder} value={value || ""} onChange={(e) => onChange(e.target.value)} style={txaStyle} />
-            : <input type={type} placeholder={placeholder} value={value || ""} onChange={(e) => onChange(e.target.value)} style={inpStyle} />
-        ) : (
-          <div style={ROStyle}>{value || "—"}</div>
-        )}
-      </div>
-    );
-
-    const SectionCard = ({ icon, title, subtitle, children }) => (
-      <div style={{ background:T.surface, border:`1px solid ${T.border}`, borderRadius:"12px", marginBottom:"16px", overflow:"hidden" }}>
-        <div style={{ display:"flex", alignItems:"center", gap:"12px", padding:"14px 18px", borderBottom:`1px solid ${T.border}`, background:T.card }}>
-          <div style={{ width:34, height:34, borderRadius:8, background:theme.primaryDim, border:`1px solid ${theme.primaryBorder}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:16 }}>{icon}</div>
-          <div>
-            <div style={{ fontSize:"13px", fontWeight:"700", color:T.text }}>{title}</div>
-            {subtitle && <div style={{ fontSize:"11px", color:T.textMuted, marginTop:"2px" }}>{subtitle}</div>}
-          </div>
-        </div>
-        <div style={{ padding:"18px" }}>{children}</div>
-      </div>
-    );
-
     // ── Tab renderers ────────────────────────────────────────────────────
     const renderDischarge = () => {
       const r = editableRows[0] || {};
       const u = (k) => (v) => updateEditableField(0, k, v);
       return (
         <>
-          <SectionCard icon="🛏" title="Admission & Discharge" subtitle="Dates, status and room details">
+          <SectionCard theme={theme} icon="🛏" title="Admission & Discharge" subtitle="Dates, status and room details">
             <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:"14px 16px" }}>
-              <Field label="Status on Discharge" value={r.dischargeStatus} onChange={u("dischargeStatus")} placeholder="e.g. Recovered / DOR / LAMA" />
-              <Field label="Department"         value={r.department}      onChange={u("department")}      placeholder="e.g. General Medicine" />
-              <Field label="Date & Time of Admission (DOA)" type="datetime-local" value={String(r.doa || "").slice(0,16)} onChange={u("doa")} />
-              <Field label="Date & Time of Discharge (DOD)" type="datetime-local" value={String(r.dod || "").slice(0,16)} onChange={u("dod")} />
-              <Field label="Expected Discharge Date" type="date" value={String(r.expectedDod || "").slice(0,10)} onChange={u("expectedDod")} />
-              <Field label="Treating Doctor"    value={r.doctorName}      onChange={u("doctorName")}      placeholder="e.g. Dr. Sangi" />
-              <Field label="Ward Name"          value={r.wardName}        onChange={u("wardName")}        placeholder="e.g. General Ward" />
-              <Field label="Room Number"        value={r.roomNo}          onChange={u("roomNo")}          placeholder="e.g. 204" />
-              <Field label="Bed Number"         value={r.bedNo}           onChange={u("bedNo")}           placeholder="e.g. B-12" />
+              <Field editable={canEditRecords} label="Status on Discharge" value={r.dischargeStatus} onChange={u("dischargeStatus")} placeholder="e.g. Recovered / DOR / LAMA" />
+              <Field editable={canEditRecords} label="Department"         value={r.department}      onChange={u("department")}      placeholder="e.g. General Medicine" />
+              <Field editable={canEditRecords} label="Date & Time of Admission (DOA)" type="datetime-local" value={String(r.doa || "").slice(0,16)} onChange={u("doa")} />
+              <Field editable={canEditRecords} label="Date & Time of Discharge (DOD)" type="datetime-local" value={String(r.dod || "").slice(0,16)} onChange={u("dod")} />
+              <Field editable={canEditRecords} label="Expected Discharge Date" type="date" value={String(r.expectedDod || "").slice(0,10)} onChange={u("expectedDod")} />
+              <Field editable={canEditRecords} label="Treating Doctor"    value={r.doctorName}      onChange={u("doctorName")}      placeholder="e.g. Dr. Sangi" />
+              <Field editable={canEditRecords} label="Ward Name"          value={r.wardName}        onChange={u("wardName")}        placeholder="e.g. General Ward" />
+              <Field editable={canEditRecords} label="Room Number"        value={r.roomNo}          onChange={u("roomNo")}          placeholder="e.g. 204" />
+              <Field editable={canEditRecords} label="Bed Number"         value={r.bedNo}           onChange={u("bedNo")}           placeholder="e.g. B-12" />
             </div>
           </SectionCard>
-          <SectionCard icon="🩺" title="Clinical Summary" subtitle="Diagnosis, instructions and notes">
+          <SectionCard theme={theme} icon="🩺" title="Clinical Summary" subtitle="Diagnosis, instructions and notes">
             <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:"14px 16px" }}>
-              <Field label="Primary Diagnosis / Condition" colSpan={2} multiline rows={2} value={r.diagnosis}    onChange={u("diagnosis")}    placeholder="Primary diagnosis or condition…" />
-              <Field label="Discharge Instructions"         colSpan={2} multiline rows={3} value={r.instructions} onChange={u("instructions")} placeholder="Instructions for the patient on discharge…" />
-              <Field label="Additional Notes"               colSpan={2} multiline rows={3} value={r.notes}        onChange={u("notes")}        placeholder="Additional remarks…" />
+              <Field editable={canEditRecords} label="Primary Diagnosis / Condition" colSpan={2} multiline rows={2} value={r.diagnosis}    onChange={u("diagnosis")}    placeholder="Primary diagnosis or condition…" />
+              <Field editable={canEditRecords} label="Discharge Instructions"         colSpan={2} multiline rows={3} value={r.instructions} onChange={u("instructions")} placeholder="Instructions for the patient on discharge…" />
+              <Field editable={canEditRecords} label="Additional Notes"               colSpan={2} multiline rows={3} value={r.notes}        onChange={u("notes")}        placeholder="Additional remarks…" />
             </div>
           </SectionCard>
         </>
@@ -1199,38 +1207,38 @@ export default function BranchAdminDashboard({
       const u = (k) => (v) => updateEditableField(0, k, v);
       return (
         <>
-          <SectionCard icon="🩺" title="Present Complaints" subtitle="Chief complaints and presenting symptoms">
+          <SectionCard theme={theme} icon="🩺" title="Present Complaints" subtitle="Chief complaints and presenting symptoms">
             <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:"14px 16px" }}>
-              <Field label="Present Complaints" colSpan={1} multiline rows={4} value={r.presentComplaints} onChange={u("presentComplaints")} placeholder="Patient presented with…" />
-              <Field label="C/O (Chief Complaints)" colSpan={1} multiline rows={4} value={r.chiefComplaints} onChange={u("chiefComplaints")} placeholder="Severe pain, fever with chills…" />
+              <Field editable={canEditRecords} label="Present Complaints" colSpan={1} multiline rows={4} value={r.presentComplaints} onChange={u("presentComplaints")} placeholder="Patient presented with…" />
+              <Field editable={canEditRecords} label="C/O (Chief Complaints)" colSpan={1} multiline rows={4} value={r.chiefComplaints} onChange={u("chiefComplaints")} placeholder="Severe pain, fever with chills…" />
             </div>
           </SectionCard>
-          <SectionCard icon="💓" title="Examinations" subtitle="Vitals and clinical examination findings">
+          <SectionCard theme={theme} icon="💓" title="Examinations" subtitle="Vitals and clinical examination findings">
             <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:"12px 14px", marginBottom:"4px" }}>
-              <Field label="BP (mmHg)" value={r.bp}    onChange={u("bp")}    placeholder="e.g. 120/80mmHg" />
-              <Field label="PR (/min)" value={r.pulse} onChange={u("pulse")} placeholder="e.g. 82/min" />
-              <Field label="SPO2"      value={r.spo2}  onChange={u("spo2")}  placeholder="e.g. 98% On RA" />
-              <Field label="TEMP"      value={r.temp}  onChange={u("temp")}  placeholder="e.g. 98.6°F" />
-              <Field label="Chest"     value={r.chest} onChange={u("chest")} placeholder="e.g. B/L Crepts+" />
-              <Field label="CVS"       value={r.cvs}   onChange={u("cvs")}   placeholder="e.g. S1 S2 +" />
-              <Field label="CNS"       value={r.cns}   onChange={u("cns")}   placeholder="e.g. Conscious" />
-              <Field label="P/A"       value={r.pa}    onChange={u("pa")}    placeholder="e.g. Distended" />
+              <Field editable={canEditRecords} label="BP (mmHg)" value={r.bp}    onChange={u("bp")}    placeholder="e.g. 120/80mmHg" />
+              <Field editable={canEditRecords} label="PR (/min)" value={r.pulse} onChange={u("pulse")} placeholder="e.g. 82/min" />
+              <Field editable={canEditRecords} label="SPO2"      value={r.spo2}  onChange={u("spo2")}  placeholder="e.g. 98% On RA" />
+              <Field editable={canEditRecords} label="TEMP"      value={r.temp}  onChange={u("temp")}  placeholder="e.g. 98.6°F" />
+              <Field editable={canEditRecords} label="Chest"     value={r.chest} onChange={u("chest")} placeholder="e.g. B/L Crepts+" />
+              <Field editable={canEditRecords} label="CVS"       value={r.cvs}   onChange={u("cvs")}   placeholder="e.g. S1 S2 +" />
+              <Field editable={canEditRecords} label="CNS"       value={r.cns}   onChange={u("cns")}   placeholder="e.g. Conscious" />
+              <Field editable={canEditRecords} label="P/A"       value={r.pa}    onChange={u("pa")}    placeholder="e.g. Distended" />
             </div>
           </SectionCard>
-          <SectionCard icon="🔬" title="Investigations & Diagnosis" subtitle="Tests ordered and provisional diagnosis">
+          <SectionCard theme={theme} icon="🔬" title="Investigations & Diagnosis" subtitle="Tests ordered and provisional diagnosis">
             <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:"14px 16px" }}>
-              <Field label="Investigations / Reports" colSpan={1} multiline rows={4} value={r.investigations} onChange={u("investigations")} placeholder="Investigations ordered…" />
-              <Field label="Provisional Diagnosis"     colSpan={1} multiline rows={4} value={r.provisionalDiagnosis} onChange={u("provisionalDiagnosis")} placeholder="Acute Retention of Urine with ?UTI…" />
+              <Field editable={canEditRecords} label="Investigations / Reports" colSpan={1} multiline rows={4} value={r.investigations} onChange={u("investigations")} placeholder="Investigations ordered…" />
+              <Field editable={canEditRecords} label="Provisional Diagnosis"     colSpan={1} multiline rows={4} value={r.provisionalDiagnosis} onChange={u("provisionalDiagnosis")} placeholder="Acute Retention of Urine with ?UTI…" />
             </div>
           </SectionCard>
-          <SectionCard icon="💊" title="Treatment Advised" subtitle="Plan of management">
-            <Field label="Treatment Advised" colSpan={2} multiline rows={4} value={r.treatmentAdvised} onChange={u("treatmentAdvised")} placeholder="IV Fluids NS/RL @ 100ml/hr, Inj. Esomac 40mg IV BD…" />
+          <SectionCard theme={theme} icon="💊" title="Treatment Advised" subtitle="Plan of management">
+            <Field editable={canEditRecords} label="Treatment Advised" colSpan={2} multiline rows={4} value={r.treatmentAdvised} onChange={u("treatmentAdvised")} placeholder="IV Fluids NS/RL @ 100ml/hr, Inj. Esomac 40mg IV BD…" />
           </SectionCard>
-          <SectionCard icon="👨‍⚕️" title="Treating Doctor & Notes" subtitle="Doctor details and additional clinical notes">
+          <SectionCard theme={theme} icon="👨‍⚕️" title="Treating Doctor & Notes" subtitle="Doctor details and additional clinical notes">
             <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:"14px 16px" }}>
-              <Field label="Treating Doctor"          value={r.treatingDoctor} onChange={u("treatingDoctor")} placeholder="Select or type doctor name…" />
-              <Field label="Qualification & Reg. No." value={r.doctorQual}     onChange={u("doctorQual")}     placeholder="MBBS, MD…" />
-              <Field label="Additional Notes / Remarks" colSpan={2} multiline rows={2} value={r.notes} onChange={u("notes")} placeholder="Any other relevant clinical information…" />
+              <Field editable={canEditRecords} label="Treating Doctor"          value={r.treatingDoctor} onChange={u("treatingDoctor")} placeholder="Select or type doctor name…" />
+              <Field editable={canEditRecords} label="Qualification & Reg. No." value={r.doctorQual}     onChange={u("doctorQual")}     placeholder="MBBS, MD…" />
+              <Field editable={canEditRecords} label="Additional Notes / Remarks" colSpan={2} multiline rows={2} value={r.notes} onChange={u("notes")} placeholder="Any other relevant clinical information…" />
             </div>
           </SectionCard>
         </>
@@ -1241,25 +1249,25 @@ export default function BranchAdminDashboard({
       const r = editableRows[0] || {};
       const u = (k) => (v) => updateEditableField(0, k, v);
       return (
-        <SectionCard icon="📜" title="Medical History" subtitle="Past illnesses, allergies and ongoing medications">
+        <SectionCard theme={theme} icon="📜" title="Medical History" subtitle="Past illnesses, allergies and ongoing medications">
           <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:"14px 16px" }}>
-            <Field label="Past History / Previous Diagnosis" colSpan={1} multiline rows={3} value={r.previousDiagnosis}  onChange={u("previousDiagnosis")}  placeholder="Diabetes, Hypertension, previous surgeries…" />
-            <Field label="Past Surgeries"                    colSpan={1} multiline rows={3} value={r.pastSurgeries}      onChange={u("pastSurgeries")}      placeholder="e.g. Appendectomy 2018…" />
-            <Field label="Current Medications"               colSpan={2} multiline rows={3} value={r.currentMedications} onChange={u("currentMedications")} placeholder="Currently used medications…" />
-            <Field label="Known Allergies"                                       value={r.knownAllergies}    onChange={u("knownAllergies")}    placeholder="e.g. Penicillin, Sulfa drugs…" />
-            <Field label="Chronic Conditions"                                    value={r.chronicConditions} onChange={u("chronicConditions")} placeholder="e.g. Asthma, COPD…" />
-            <Field label="Family History"                    colSpan={2} multiline rows={2} value={r.familyHistory}      onChange={u("familyHistory")}     placeholder="Relevant family medical history…" />
-            <Field label="Smoking Status"                                        value={r.smokingStatus}     onChange={u("smokingStatus")}     placeholder="Yes / No / Former" />
-            <Field label="Alcohol Use"                                           value={r.alcoholUse}        onChange={u("alcoholUse")}        placeholder="Yes / No / Occasional" />
-            <Field label="Treating Doctor"                                       value={r.treatingDoctor}    onChange={u("treatingDoctor")}    placeholder="Treating doctor name" />
-            <Field label="Additional Notes"                  colSpan={2} multiline rows={3} value={r.notes}              onChange={u("notes")}             placeholder="Other notes…" />
+            <Field editable={canEditRecords} label="Past History / Previous Diagnosis" colSpan={1} multiline rows={3} value={r.previousDiagnosis}  onChange={u("previousDiagnosis")}  placeholder="Diabetes, Hypertension, previous surgeries…" />
+            <Field editable={canEditRecords} label="Past Surgeries"                    colSpan={1} multiline rows={3} value={r.pastSurgeries}      onChange={u("pastSurgeries")}      placeholder="e.g. Appendectomy 2018…" />
+            <Field editable={canEditRecords} label="Current Medications"               colSpan={2} multiline rows={3} value={r.currentMedications} onChange={u("currentMedications")} placeholder="Currently used medications…" />
+            <Field editable={canEditRecords} label="Known Allergies"                                       value={r.knownAllergies}    onChange={u("knownAllergies")}    placeholder="e.g. Penicillin, Sulfa drugs…" />
+            <Field editable={canEditRecords} label="Chronic Conditions"                                    value={r.chronicConditions} onChange={u("chronicConditions")} placeholder="e.g. Asthma, COPD…" />
+            <Field editable={canEditRecords} label="Family History"                    colSpan={2} multiline rows={2} value={r.familyHistory}      onChange={u("familyHistory")}     placeholder="Relevant family medical history…" />
+            <Field editable={canEditRecords} label="Smoking Status"                                        value={r.smokingStatus}     onChange={u("smokingStatus")}     placeholder="Yes / No / Former" />
+            <Field editable={canEditRecords} label="Alcohol Use"                                           value={r.alcoholUse}        onChange={u("alcoholUse")}        placeholder="Yes / No / Occasional" />
+            <Field editable={canEditRecords} label="Treating Doctor"                                       value={r.treatingDoctor}    onChange={u("treatingDoctor")}    placeholder="Treating doctor name" />
+            <Field editable={canEditRecords} label="Additional Notes"                  colSpan={2} multiline rows={3} value={r.notes}              onChange={u("notes")}             placeholder="Other notes…" />
           </div>
         </SectionCard>
       );
     };
 
     const renderReports = () => (
-      <SectionCard icon="🧪" title="Reports" subtitle="Only report names selected during registration">
+      <SectionCard theme={theme} icon="🧪" title="Reports" subtitle="Only report names selected during registration">
         {!editableRows.length && (
           <div style={{ padding:"22px", textAlign:"center", color:T.textMuted, fontStyle:"italic", border:`1px dashed ${T.border}`, borderRadius:"10px" }}>
             No reports added.
@@ -1296,7 +1304,7 @@ export default function BranchAdminDashboard({
     );
 
     const renderMedicines = () => (
-      <SectionCard icon="💊" title="Medicines" subtitle="Only medicine names selected during registration">
+      <SectionCard theme={theme} icon="💊" title="Medicines" subtitle="Only medicine names selected during registration">
         {!editableRows.length && (
           <div style={{ padding:"22px", textAlign:"center", color:T.textMuted, fontStyle:"italic", border:`1px dashed ${T.border}`, borderRadius:"10px" }}>
             No medicines added.
