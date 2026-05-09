@@ -699,7 +699,13 @@ function PatientModal({ p, onClose }) {
                   <button onClick={() => setShowBillPrint(true)} style={{ padding: "5px 12px", borderRadius: 7, background: T.laxmi+"20", color: T.laxmi, border: `1px solid ${T.laxmi}44`, fontSize: 12, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
                     <Printer size={12} /> Print Bill
                   </button>
-                  <button onClick={() => alert("Save connected to your backend")} style={{ padding: "5px 12px", borderRadius: 7, background: T.green, color: "#000", border: "none", fontSize: 12, fontWeight: 800, cursor: "pointer" }}>Save Changes</button>
+                  <button onClick={async () => {
+                    if (!editSvcs) return;
+                    try {
+                      await apiService.saveServicesBulk(p.uhid, p.admNo, editSvcs);
+                      toast.success("Services saved!");
+                    } catch { toast.error("Failed to save services."); }
+                  }} style={{ padding: "5px 12px", borderRadius: 7, background: T.green, color: "#000", border: "none", fontSize: 12, fontWeight: 800, cursor: "pointer" }}>Save Changes</button>
                 </div>
               }>Services and Bill (Editable Rates and Qty)</STitle>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
@@ -1023,20 +1029,15 @@ function MedicalTab({ all }) {
     return true;
   });
 
-  const handleOpenPatient = async (p) => {
+  const handleOpenPatient = (p) => {
     setSelectedPatient(p);
-    setLoading(true);
-    try {
-      const data = await apiService.getMedicalHistory(p.uhid, p.admNo);
-      setMedData(data || {});
-    } catch { setMedData(p.medHistory || {}); }
-    setLoading(false);
+    setMedData(p.medHistory || {});
   };
 
   const handleSaveMedData = async () => {
     if (!selectedPatient) return;
     try {
-      await apiService.saveMedicalHistory(selectedPatient.uhid, selectedPatient.admNo, medData);
+      await apiService.updateMedicalHistory(selectedPatient.uhid, selectedPatient.admNo, medData);
       toast.success("Medical history saved!");
       setSelectedPatient(null);
     } catch { toast.error("Failed to save medical history."); }

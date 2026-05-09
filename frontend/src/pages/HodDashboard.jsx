@@ -611,12 +611,13 @@ export default function HodDashboard({ currentUser, onLogout }) {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   // Data
-  const [allPatients,  setAllPatients]  = useState([]);
-  const [employees,    setEmployees]    = useState([]);
-  const [tasks,        setTasks]        = useState([]);
-  const [hodOwnTasks,  setHodOwnTasks]  = useState([]);
-  const [reviews,      setReviews]      = useState([]);
-  const [analytics,    setAnalytics]    = useState(null);
+  const [allPatients,    setAllPatients]    = useState([]);
+  const [employees,      setEmployees]      = useState([]);
+  const [tasks,          setTasks]          = useState([]);
+  const [hodOwnTasks,    setHodOwnTasks]    = useState([]);
+  const [reviews,        setReviews]        = useState([]);
+  const [analytics,      setAnalytics]      = useState(null);
+  const [medicineMaster, setMedicineMaster] = useState([]);
 
   // HOD Own Work state
   const [myWorkView,    setMyWorkView]   = useState("list");
@@ -631,6 +632,9 @@ export default function HodDashboard({ currentUser, onLogout }) {
   const [myEBilling,setMyEBilling]= useState({});
   const [myESaved,  setMyESaved] = useState({});
   const [myRepFilter,setMyRepFilter]= useState("All");
+  const [myDischargeSummary, setMyDischargeSummary] = useState(null);
+  const [myDischargeSummaryType, setMyDischargeSummaryType] = useState("NORMAL");
+  const [myDischargeSummaryLoading, setMyDischargeSummaryLoading] = useState(false);
 
   // Assignment modal
   const [showAssignModal,  setShowAssignModal]  = useState(false);
@@ -750,6 +754,9 @@ export default function HodDashboard({ currentUser, onLogout }) {
     loadEmployees();
     loadTasks();
     loadHodOwnTasks();
+    apiService.getMedicineMaster().then(data => {
+      setMedicineMaster(Array.isArray(data) ? data : []);
+    }).catch(() => {});
   }, []); // eslint-disable-line
 
   useEffect(() => {
@@ -853,10 +860,20 @@ export default function HodDashboard({ currentUser, onLogout }) {
     }
   };
 
+  // ── Helpers for medicine master lookup (same as BillingDashboard) ──────────
+  const normalizeMedKey = (v = "") =>
+    String(v).toLowerCase().replace(/[^\w\s]/g, " ").replace(/\s+/g, " ").trim();
+
+  const findMedMaster = (name) => {
+    const needle = normalizeMedKey(name);
+    if (!needle) return null;
+    return medicineMaster.find(e => normalizeMedKey(e?.name) === needle) || null;
+  };
+
   // ── HOD own work — open patient ────────────────────────────────────────────
-  const openMyWork = (p) => {
+  const openMyWork = async (p) => {
     setMyWorkSel(p);
-    setMyEDis({ doa: p.doa||p.dateTime||"", dod: p.dod||"", ward: p.ward||p.wardName||"", bed: p.bed||p.bedNo||"", doctor: p.doctor||p.doctorName||"", diagnosis: p.diagnosis||"", ...( p.discharge||{}) });
+    setMyEDis({ doa: p.doa||p.dateTime||"", dod: p.dod||"", ward: p.ward||p.wardName||"", bed: p.bed||p.bedNo||"", doctor: p.doctor||p.doctorName||"", diagnosis: p.diagnosis||"", ...(p.discharge||{}) });
     setMyEMed({ ...(p.medicalHistory||{}) });
     setMyESvc([]);
     setMyELabRep([]);
@@ -864,8 +881,84 @@ export default function HodDashboard({ currentUser, onLogout }) {
     setMyEBilling({ insuranceType:"Self Pay", discount:0, advance:0, paidNow:0, paymentMode:"Cash", ...(p.billing||{}) });
     setMyESaved({ discharge:false, admission:false, reports:false, medicines:false, billing:false });
     setMyRepFilter("All");
+    setMyDischargeSummary(null);
     setMyActiveTab("discharge");
     setMyWorkView("patient");
+
+    // Load discharge summary template
+    if (p.uhid && p.admNo) {
+      const rawStatus = p.discharge?.dischargeStatus || p.dischargeStatus || "NORMAL";
+      const summType = String(rawStatus).toUpperCase();
+      setMyDischargeSummaryType(summType);
+      setMyDischargeSummaryLoading(true);
+      apiService.getDynamicSummary(p.uhid, p.admNo, summType).then(res => {
+        const content = res?.content || { sections: [] };
+        if (content.sections && !Array.isArray(content.sections)) {
+          content.sections = Object.entries(content.sections).map(([k, v]) => ({ key: k, ...v }));
+        }
+        setMyDischargeSummary(content);
+        setMyDischargeSummaryType(res?.summary_type || summType);
+      }).catch(() => setMyDischargeSummary({ sections: [] })).finally(() => setMyDischargeSummaryLoading(false));
+
+      // Load saved lab reports + suggested templates
+      Promise.all([
+        apiService.getLabReports(p.uhid, p.admNo).catch(() => []),
+        apiService.getLabReportTemplates(p.uhid, p.admNo).catch(() => ({ suggested_reports: [] })),
+      ]).then(([savedReports, templatePayload]) => {
+        const existing = Array.isArray(savedReports) ? savedReports : [];
+        const suggested = Array.isArray(templatePayload?.suggested_reports) ? templatePayload.suggested_reports : [];
+        const allKeys = new Set(existing.map(r => r.reportName || r.report_name || ""));
+        const merged = [...existing.map(r => ({
+          id: r.id || Date.now() + Math.random(),
+          reportName: r.reportName || r.report_name || "",
+          reportType: r.reportType || r.report_type || "Haematology",
+          billCategory: r.billCategory || "PATHOLOGY",
+          date: r.date || r.report_date || new Date().toISOString().slice(0,10),
+          orderedBy: r.orderedBy || r.ordered_by || "",
+          amount: Number(r.amount || 0),
+          remarks: r.remarks || "",
+          tests: Array.isArray(r.tests || r.table_data) ? (r.tests || r.table_data).map(t => ({ id: t.id || Date.now()+Math.random(), name: t.name||"", value: t.value||"", unit: t.unit||"", refRange: t.refRange||t.normal||"", status: t.status||"Normal" })) : [],
+          findings: r.findings || "",
+          impression: r.impression || "",
+        }))];
+        suggested.forEach(s => {
+          const name = s.reportName || s.report_name || "";
+          if (!allKeys.has(name)) {
+            merged.push({
+              id: Date.now() + Math.random(),
+              reportName: name,
+              reportType: s.reportType || s.report_type || "Haematology",
+              billCategory: s.billCategory || "PATHOLOGY",
+              date: new Date().toISOString().slice(0,10),
+              orderedBy: s.orderedBy || s.ordered_by || "",
+              amount: Number(s.amount || 0),
+              remarks: s.remarks || "",
+              tests: Array.isArray(s.tests || s.table_data) ? (s.tests || s.table_data).map(t => ({ id: Date.now()+Math.random(), name: t.name||"", value: t.value||"", unit: t.unit||"", refRange: t.refRange||t.normal||"", status: t.status||"Normal" })) : [],
+              findings: s.findings || "",
+              impression: s.impression || "",
+            });
+          }
+        });
+        if (merged.length) setMyELabRep(merged);
+      }).catch(() => {});
+
+      // Load saved pharmacy records
+      apiService.getPharmacyRecords(p.uhid, p.admNo).then(records => {
+        const arr = Array.isArray(records) ? records : [];
+        if (arr.length) {
+          setMyEMedBill(arr.map(r => ({
+            id: r.id || Date.now() + Math.random(),
+            item: r.name || r.medicine_name || "",
+            date: r.date || r.date_given || new Date().toISOString().slice(0,10),
+            quantity: Number(r.quantity || 1),
+            rate: Number(r.rate || 0),
+            amount: Number(r.rate || 0) * Number(r.quantity || 1),
+            batchNo: r.batch || r.batch_no || "",
+            expiryDate: r.expiry || r.expiry_date || "",
+          })));
+        }
+      }).catch(() => {});
+    }
   };
 
   // ── Save a section ─────────────────────────────────────────────────────────
@@ -878,9 +971,23 @@ export default function HodDashboard({ currentUser, onLogout }) {
       } else if (myActiveTab === "medical") {
         await apiService.updateMedicalHistory(myWorkSel.uhid, admNo, myEMed);
       } else if (myActiveTab === "reports") {
-        await apiService.saveLabReportsBulk(myWorkSel.uhid, admNo, myELabRep);
+        const labPayloads = myELabRep.filter(r =>
+          (r.reportName || r.reportType || r.findings || r.impression || "").trim() ||
+          (Array.isArray(r.tests) && r.tests.length)
+        );
+        await apiService.saveLabReportsBulk(myWorkSel.uhid, admNo, labPayloads);
       } else if (myActiveTab === "med_bill") {
-        await apiService.savePharmacyRecordsBulk(myWorkSel.uhid, admNo, myEMedBill);
+        const medPayloads = myEMedBill
+          .filter(r => String(r.item || "").trim())
+          .map(r => ({
+            medicine_name: r.item || "",
+            date_given: r.date || new Date().toISOString().slice(0,10),
+            quantity: Number(r.quantity || 1),
+            rate: Number(r.rate || 0),
+            batch_no: r.batchNo || "",
+            expiry_date: r.expiryDate || "",
+          }));
+        await apiService.savePharmacyRecordsBulk(myWorkSel.uhid, admNo, medPayloads);
       } else if (myActiveTab === "finalbill") {
         await apiService.saveServicesBulk(myWorkSel.uhid, admNo, myESvc);
         await apiService.updateBilling(myWorkSel.uhid, admNo, myEBilling);
@@ -935,8 +1042,21 @@ export default function HodDashboard({ currentUser, onLogout }) {
   const updMySvc  = (i, k, v) => setMyESvc(prev => { const n=[...prev]; n[i]={...n[i],[k]:v}; if(k==="qty"||k==="rate") n[i].amount=Number(n[i].qty||0)*Number(n[i].rate||0); return n; });
 
   const addMedFromPicker = (medName) => {
-    setMyEMedBill(p => [...p, { id:Date.now(), item:medName, date:new Date().toISOString().slice(0,10), amount:0 }]);
-    toast(`Added: ${medName.slice(0,40)}${medName.length>40?"…":""}`);
+    const master = findMedMaster(medName);
+    const quantity = 1;
+    const rate = Number(master?.rate || 0);
+    setMyEMedBill(p => [...p, {
+      id: Date.now(),
+      item: medName,
+      date: new Date().toISOString().slice(0,10),
+      quantity,
+      rate,
+      amount: quantity * rate,
+      batchNo: master?.batch_no || "",
+      expiryDate: master?.expiry_date || "",
+      availableQty: Number(master?.quantity || 0),
+    }]);
+    toast(`Added: ${medName.slice(0,40)}${medName.length>40?"…":""}${master ? " with master pricing" : ""}`);
   };
 
   // ── Review ─────────────────────────────────────────────────────────────────
@@ -1546,6 +1666,82 @@ export default function HodDashboard({ currentUser, onLogout }) {
                   <textarea className="hod-ftxt" value={myEDis?.notes||""} onChange={e => setMyEDis(p=>({...p,notes:e.target.value}))}/>
                 </div>
               </div>
+
+              {/* ── Formatted Discharge Summary Template ── */}
+              <div style={{ marginTop:24, borderTop:"1px solid var(--border)", paddingTop:20 }}>
+                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14, flexWrap:"wrap", gap:10 }}>
+                  <div style={{ fontSize:14, fontWeight:700, color:"var(--text)" }}>📝 Discharge Summary Template</div>
+                  <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                    <label className="hod-lbl" style={{ margin:0 }}>Type:</label>
+                    <select className="hod-finp" style={{ width:"auto", paddingRight:28 }}
+                      value={myDischargeSummaryType}
+                      onChange={e => {
+                        const newType = e.target.value;
+                        setMyDischargeSummaryType(newType);
+                        setMyDischargeSummaryLoading(true);
+                        apiService.getDynamicSummary(myWorkSel.uhid, myWorkSel.admNo, newType)
+                          .then(res => {
+                            const c = res?.content || { sections: [] };
+                            if (c.sections && !Array.isArray(c.sections)) c.sections = Object.entries(c.sections).map(([k,v]) => ({ key:k,...v }));
+                            setMyDischargeSummary(c);
+                          }).catch(() => setMyDischargeSummary({ sections: [] })).finally(() => setMyDischargeSummaryLoading(false));
+                      }}>
+                      {["NORMAL","LAMA","REFER","DOPR","DEATH"].map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
+                </div>
+                {myDischargeSummaryLoading ? (
+                  <div style={{ textAlign:"center", padding:"30px", color:"var(--text-muted)", fontSize:13 }}>Loading summary template...</div>
+                ) : myDischargeSummary && Array.isArray(myDischargeSummary.sections) ? (
+                  <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+                    {myDischargeSummary.sections.map((sec, idx) => (
+                      <div key={sec.key || idx}>
+                        <label className="hod-lbl" style={{ marginBottom:6 }}>{sec.label}</label>
+                        {sec.type === "vitals_grid" ? (
+                          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))", gap:10 }}>
+                            {Object.entries(typeof sec.value === "object" && sec.value !== null ? sec.value : {}).map(([vk, vv]) => (
+                              <div key={vk}>
+                                <label className="hod-lbl" style={{ textTransform:"uppercase", fontSize:9 }}>{vk}</label>
+                                <input className="hod-finp" value={vv||""} onChange={e => {
+                                  setMyDischargeSummary(prev => {
+                                    const secs = [...(prev?.sections||[])];
+                                    secs[idx] = { ...secs[idx], value: { ...(typeof secs[idx].value==="object"?secs[idx].value:{}), [vk]: e.target.value } };
+                                    return { ...prev, sections: secs };
+                                  });
+                                }}/>
+                              </div>
+                            ))}
+                          </div>
+                        ) : sec.type === "textarea" ? (
+                          <textarea className="hod-ftxt" rows={3} value={typeof sec.value==="string"?sec.value:""} onChange={e => {
+                            setMyDischargeSummary(prev => {
+                              const secs = [...(prev?.sections||[])];
+                              secs[idx] = { ...secs[idx], value: e.target.value };
+                              return { ...prev, sections: secs };
+                            });
+                          }}/>
+                        ) : (
+                          <input className="hod-finp" value={typeof sec.value==="string"?sec.value:""} onChange={e => {
+                            setMyDischargeSummary(prev => {
+                              const secs = [...(prev?.sections||[])];
+                              secs[idx] = { ...secs[idx], value: e.target.value };
+                              return { ...prev, sections: secs };
+                            });
+                          }}/>
+                        )}
+                      </div>
+                    ))}
+                    <button className="hod-btn hod-btn-primary" style={{ alignSelf:"flex-start", marginTop:6 }} onClick={async () => {
+                      try {
+                        await apiService.saveDynamicSummary(myWorkSel.uhid, myWorkSel.admNo, { summary_type: myDischargeSummaryType, content: myDischargeSummary });
+                        toast("Discharge summary saved ✓");
+                      } catch (_) { toast("Failed to save discharge summary", "e"); }
+                    }}>Save Discharge Summary Template</button>
+                  </div>
+                ) : (
+                  <div style={{ textAlign:"center", padding:"20px", color:"var(--text-muted)", fontSize:13, fontStyle:"italic" }}>No summary template loaded.</div>
+                )}
+              </div>
             </div>
           )}
 
@@ -1580,21 +1776,31 @@ export default function HodDashboard({ currentUser, onLogout }) {
               <MedicineHistoryPicker eMed={myEMed} onAdd={addMedFromPicker}/>
               <div style={{ overflowX:"auto", border:"1px solid var(--border)", borderRadius:10, marginBottom:10 }}>
                 <table style={{ width:"100%", borderCollapse:"collapse", fontSize:13 }}>
-                  <thead><tr style={{ background:"var(--surface-2)" }}>{["Item Description","Date","Amount (₹)",""].map((h,i) => <th key={i} style={{ textAlign:"left", padding:"10px 14px", fontSize:11, fontWeight:700, color:"var(--text-muted)", textTransform:"uppercase", letterSpacing:".06em", borderBottom:"1px solid var(--border)" }}>{h}</th>)}</tr></thead>
+                  <thead>
+                    <tr style={{ background:"var(--surface-2)" }}>
+                      {["Medicine Name","Date","Qty","Rate (₹)","Batch No.","Expiry","Amount (₹)",""].map((h,i) => (
+                        <th key={i} style={{ textAlign:"left", padding:"10px 14px", fontSize:11, fontWeight:700, color:"var(--text-muted)", textTransform:"uppercase", letterSpacing:".06em", borderBottom:"1px solid var(--border)", whiteSpace:"nowrap" }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
                   <tbody>
                     {myEMedBill.map((r,i) => (
                       <tr key={r.id} style={{ borderBottom:"1px solid var(--border)" }}>
-                        <td style={{ padding:"8px 14px" }}><input className="hod-tinp" value={r.item} onChange={e => { const n=[...myEMedBill]; n[i]={...n[i],item:e.target.value}; setMyEMedBill(n); }}/></td>
-                        <td style={{ padding:"8px 14px" }}><input className="hod-tinp" type="date" value={r.date} onChange={e => { const n=[...myEMedBill]; n[i]={...n[i],date:e.target.value}; setMyEMedBill(n); }}/></td>
-                        <td style={{ padding:"8px 14px" }}><input className="hod-tinp" type="number" value={r.amount} onChange={e => { const n=[...myEMedBill]; n[i]={...n[i],amount:Number(e.target.value)}; setMyEMedBill(n); }}/></td>
-                        <td style={{ padding:"8px 14px" }}><button onClick={() => setMyEMedBill(p => p.filter((_,j) => j!==i))} style={{ background:"rgba(239,68,68,0.1)", border:"1px solid rgba(239,68,68,0.2)", color:"#ef4444", borderRadius:5, padding:"4px 8px", cursor:"pointer", fontSize:12, fontFamily:"inherit" }}>×</button></td>
+                        <td style={{ padding:"8px 14px" }}><input className="hod-tinp" value={r.item||""} onChange={e => { const n=[...myEMedBill]; n[i]={...n[i],item:e.target.value}; setMyEMedBill(n); }} style={{ minWidth:160 }}/></td>
+                        <td style={{ padding:"8px 8px" }}><input className="hod-tinp" type="date" value={r.date||""} onChange={e => { const n=[...myEMedBill]; n[i]={...n[i],date:e.target.value}; setMyEMedBill(n); }}/></td>
+                        <td style={{ padding:"8px 8px" }}><input className="hod-tinp" type="number" min="1" value={r.quantity??1} onChange={e => { const n=[...myEMedBill]; const qty=Math.max(1,Number(e.target.value)||1); const rt=Number(n[i].rate||0); n[i]={...n[i],quantity:qty,amount:qty*rt}; setMyEMedBill(n); }} style={{ width:60 }}/></td>
+                        <td style={{ padding:"8px 8px" }}><input className="hod-tinp" type="number" min="0" step="0.01" value={r.rate??0} onChange={e => { const n=[...myEMedBill]; const rt=Number(e.target.value)||0; const qty=Number(n[i].quantity||1); n[i]={...n[i],rate:rt,amount:qty*rt}; setMyEMedBill(n); }} style={{ width:90 }}/></td>
+                        <td style={{ padding:"8px 8px" }}><input className="hod-tinp" value={r.batchNo||""} onChange={e => { const n=[...myEMedBill]; n[i]={...n[i],batchNo:e.target.value}; setMyEMedBill(n); }} style={{ width:100 }}/></td>
+                        <td style={{ padding:"8px 8px" }}><input className="hod-tinp" type="date" value={r.expiryDate||""} onChange={e => { const n=[...myEMedBill]; n[i]={...n[i],expiryDate:e.target.value}; setMyEMedBill(n); }}/></td>
+                        <td style={{ padding:"8px 8px", fontWeight:700, color:"var(--teal)", whiteSpace:"nowrap" }}>{fmtRs(r.amount||0)}</td>
+                        <td style={{ padding:"8px 8px" }}><button onClick={() => setMyEMedBill(p => p.filter((_,j) => j!==i))} style={{ background:"rgba(239,68,68,0.1)", border:"1px solid rgba(239,68,68,0.2)", color:"#ef4444", borderRadius:5, padding:"4px 8px", cursor:"pointer", fontSize:12, fontFamily:"inherit" }}>×</button></td>
                       </tr>
                     ))}
-                    {myEMedBill.length === 0 && <tr><td colSpan={4} style={{ textAlign:"center", color:"var(--text-muted)", fontStyle:"italic", padding:"18px" }}>No medicines added. Use the picker above or click + Add.</td></tr>}
+                    {myEMedBill.length === 0 && <tr><td colSpan={8} style={{ textAlign:"center", color:"var(--text-muted)", fontStyle:"italic", padding:"18px" }}>No medicines added. Use the picker above or click + Add.</td></tr>}
                   </tbody>
                 </table>
               </div>
-              <button className="hod-addbtn" onClick={() => setMyEMedBill(p => [...p, { id:Date.now(), item:"", date:new Date().toISOString().slice(0,10), amount:0 }])}>+ Add Medicine Manually</button>
+              <button className="hod-addbtn" onClick={() => setMyEMedBill(p => [...p, { id:Date.now(), item:"", date:new Date().toISOString().slice(0,10), quantity:1, rate:0, amount:0, batchNo:"", expiryDate:"" }])}>+ Add Medicine Manually</button>
               <div className="hod-tot-box"><div className="hod-tot-row hod-tot-fin"><span>Medicine Total</span><span>{fmtRs(myEMedBill.reduce((a,r)=>a+Number(r.amount||0),0))}</span></div></div>
             </>
           )}

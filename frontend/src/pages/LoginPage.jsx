@@ -142,7 +142,12 @@ export default function LoginPage({ onLogin }) {
       if (backendDetail) {
         setError(backendDetail);
       } else {
-        setError("Login request failed before reaching server. Refresh and retry.");
+        const msg = err.message || err.code || "";
+        setError(
+          msg
+            ? `Cannot reach API (${msg}). Check backend is running and CORS allows this origin.`
+            : "Login request failed before reaching server. Refresh and retry."
+        );
       }
     }
     setLoading(false);

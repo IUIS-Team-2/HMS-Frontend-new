@@ -1881,7 +1881,19 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
                     toast("Bill downloaded");
                   }}
                 >↓ Download Bill</button>
-                <button className="hms-save-btn" onClick={() => { toast("Billing details saved"); }}>💾 Save Changes</button>
+                <button className="hms-save-btn" onClick={async () => {
+                  try {
+                    await apiService.updateBilling(activePatient.uhid, adm.admNo, {
+                      paymentMode: ed.paymentMode || ed.panel || "",
+                      advance: Number(ed.advance) || 0,
+                      paidNow: Number(ed.paidNow) || 0,
+                      discount: Number(ed.discount) || 0,
+                      claimId: ed.claimId || "",
+                      notes: ed.notes || "",
+                    });
+                    toast("Billing details saved ✓");
+                  } catch { toast("Failed to save billing", "e"); }
+                }}>💾 Save Changes</button>
               </div>
             </div>
           );

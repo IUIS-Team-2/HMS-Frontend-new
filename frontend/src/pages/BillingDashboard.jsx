@@ -1200,6 +1200,9 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
   const [eMedBill, setEMedBill] = useState([]);
   const [eBilling, setEBilling] = useState({});
   const [eSaved, setESaved]   = useState({});
+  const [dischargeSummary, setDischargeSummary] = useState(null);
+  const [dischargeSummaryType, setDischargeSummaryType] = useState("NORMAL");
+  const [dischargeSummaryLoading, setDischargeSummaryLoading] = useState(false);
 
   useEffect(() => {
     const loadAssignedTasks = async () => {
@@ -1434,11 +1437,47 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
     setEBilling({ tpaInfo:{}, tpaDocStatus:{}, ...p.billing });
     setESaved({ ...p.saved });
     setRepFilter("All");
+    setDischargeSummary(null);
     setActiveTab("discharge");
     setView("patient");
 
-    // Auto-fetch saved reports and suggested backend templates for this admission.
+    // Load formatted discharge summary template based on patient's discharge status
     if (p.uhid && p.admNo) {
+      const rawStatus = p.discharge?.dischargeStatus || "NORMAL";
+      const summType = String(rawStatus).toUpperCase();
+      setDischargeSummaryType(summType);
+      setDischargeSummaryLoading(true);
+      apiService.getDynamicSummary(p.uhid, p.admNo, summType).then(res => {
+        const content = res?.content || { sections: [] };
+        if (content.sections && !Array.isArray(content.sections)) {
+          content.sections = Object.entries(content.sections).map(([k, v]) => ({ key: k, ...v }));
+        }
+        setDischargeSummary(content);
+        setDischargeSummaryType(res?.summary_type || summType);
+      }).catch(() => setDischargeSummary({ sections: [] })).finally(() => setDischargeSummaryLoading(false));
+    }
+
+    // Auto-fetch saved reports, pharmacy records, and suggested backend templates for this admission.
+    if (p.uhid && p.admNo) {
+      // Fetch fresh pharmacy records (medicine bill)
+      apiService.getPharmacyRecords(p.uhid, p.admNo).then(records => {
+        const arr = Array.isArray(records) ? records : [];
+        if (arr.length) {
+          const mapped = arr.map(r => ({
+            id: r.id || Date.now() + Math.random(),
+            item: r.medicine_name || r.name || "",
+            date: r.date_given || r.date || new Date().toISOString().slice(0,10),
+            quantity: Number(r.quantity || 1),
+            rate: Number(r.rate || 0),
+            batchNo: r.batch_no || "",
+            expiryDate: r.expiry_date || "",
+            amount: Number(r.rate || 0) * Number(r.quantity || 1),
+          }));
+          setEMedBill(mapped);
+          setSel(prev => prev ? { ...prev, medicalBill: mapped } : prev);
+        }
+      }).catch(() => {});
+
       try {
         const [reports, templatePayload] = await Promise.all([
           apiService.getLabReports(p.uhid, p.admNo).catch(() => []),
@@ -1825,7 +1864,7 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
                 {activeTab === "discharge" && (
                   <>
                     <div className="secc">
-                      <div className="sech"><div className="sect">📋 Discharge Summary</div></div>
+                      <div className="sech"><div className="sect">📋 Discharge Details</div></div>
                       <div className="secb">
                         <div className="fgrid">
                           <div className="fg"><label className="flbl">Date of Admission</label><input className="finp" type="datetime-local" value={eDis?.doa || ""} onChange={e => setEDis(p => ({ ...p, doa: e.target.value }))}/></div>
@@ -1839,7 +1878,88 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
                         </div>
                       </div>
                     </div>
-                    <button className="savebtn" onClick={() => saveSection("discharge", "Discharge Summary")}>Save Discharge Summary</button>
+                    <button className="savebtn" onClick={() => saveSection("discharge", "Discharge Summary")}>Save Discharge Details</button>
+
+                    {/* ── Formatted Discharge Summary Template ── */}
+                    <div className="secc" style={{ marginTop:18 }}>
+                      <div className="sech">
+                        <div className="sect">📝 Discharge Summary Template</div>
+                        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                          <label className="flbl" style={{ margin:0 }}>Type:</label>
+                          <select className="finp" style={{ width:"auto", padding:"6px 28px 6px 10px", height:"auto" }}
+                            value={dischargeSummaryType}
+                            onChange={e => {
+                              const newType = e.target.value;
+                              setDischargeSummaryType(newType);
+                              if (!sel?.uhid || !sel?.admNo) return;
+                              setDischargeSummaryLoading(true);
+                              apiService.getDynamicSummary(sel.uhid, sel.admNo, newType)
+                                .then(res => {
+                                  const c = res?.content || { sections: [] };
+                                  if (c.sections && !Array.isArray(c.sections)) c.sections = Object.entries(c.sections).map(([k,v]) => ({ key:k,...v }));
+                                  setDischargeSummary(c);
+                                }).catch(() => setDischargeSummary({ sections:[] })).finally(() => setDischargeSummaryLoading(false));
+                            }}>
+                            {["NORMAL","LAMA","REFER","DOPR","DEATH"].map(t => <option key={t} value={t}>{t}</option>)}
+                          </select>
+                        </div>
+                      </div>
+                      <div className="secb">
+                        {dischargeSummaryLoading ? (
+                          <div style={{ textAlign:"center", padding:"30px", color:"var(--text3)", fontSize:13 }}>Loading summary template...</div>
+                        ) : dischargeSummary && Array.isArray(dischargeSummary.sections) ? (
+                          <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+                            {dischargeSummary.sections.map((sec, idx) => (
+                              <div key={sec.key || idx} className="fg full">
+                                <label className="flbl">{sec.label}</label>
+                                {sec.type === "vitals_grid" ? (
+                                  <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(130px,1fr))", gap:10 }}>
+                                    {Object.entries(typeof sec.value === "object" && sec.value !== null ? sec.value : {}).map(([vk, vv]) => (
+                                      <div key={vk}>
+                                        <label className="flbl" style={{ fontSize:9, textTransform:"uppercase" }}>{vk}</label>
+                                        <input className="finp" value={vv||""} onChange={e => {
+                                          setDischargeSummary(prev => {
+                                            const secs = [...(prev?.sections||[])];
+                                            secs[idx] = { ...secs[idx], value: { ...(typeof secs[idx].value==="object"?secs[idx].value:{}), [vk]: e.target.value } };
+                                            return { ...prev, sections: secs };
+                                          });
+                                        }}/>
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : sec.type === "textarea" ? (
+                                  <textarea className="ftxt" rows={3} value={typeof sec.value==="string"?sec.value:""} onChange={e => {
+                                    setDischargeSummary(prev => {
+                                      const secs = [...(prev?.sections||[])];
+                                      secs[idx] = { ...secs[idx], value: e.target.value };
+                                      return { ...prev, sections: secs };
+                                    });
+                                  }}/>
+                                ) : (
+                                  <input className="finp" value={typeof sec.value==="string"?sec.value:""} onChange={e => {
+                                    setDischargeSummary(prev => {
+                                      const secs = [...(prev?.sections||[])];
+                                      secs[idx] = { ...secs[idx], value: e.target.value };
+                                      return { ...prev, sections: secs };
+                                    });
+                                  }}/>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div style={{ textAlign:"center", padding:"20px", color:"var(--text3)", fontSize:13, fontStyle:"italic" }}>No template loaded yet.</div>
+                        )}
+                      </div>
+                    </div>
+                    {dischargeSummary && Array.isArray(dischargeSummary.sections) && dischargeSummary.sections.length > 0 && (
+                      <button className="savebtn" style={{ marginTop:8 }} onClick={async () => {
+                        try {
+                          await apiService.saveDynamicSummary(sel.uhid, sel.admNo, { summary_type: dischargeSummaryType, content: dischargeSummary });
+                          toast("Discharge summary template saved ✓");
+                        } catch (_) { toast("Failed to save discharge summary", "e"); }
+                      }}>Save Discharge Summary Template</button>
+                    )}
                   </>
                 )}
 
