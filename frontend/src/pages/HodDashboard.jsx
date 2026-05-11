@@ -837,6 +837,53 @@ export default function HodDashboard({ currentUser, onLogout }) {
   const submittedCount = tasks.filter(t => isTaskRowCompleted(t)).length;
   const deptColor = DEPT_META[activeDept]?.color || "#10b981";
 
+  /** List/retrieve payloads often omit top-level `admNo`; align with receptionist `current_admission_*` + nested `admissions`. */
+  const resolveAdmissionNoFromPatient = (p) => {
+    if (!p || typeof p !== "object") return null;
+    const direct = p.admNo ?? p.adm_no ?? p.current_admission_no;
+    if (direct != null && direct !== "") {
+      const n = Number(direct);
+      return Number.isFinite(n) && n > 0 ? n : null;
+    }
+    const detail = p.current_admission_detail;
+    const fromDetail = detail?.admNo ?? detail?.adm_no;
+    if (fromDetail != null && fromDetail !== "") {
+      const n = Number(fromDetail);
+      return Number.isFinite(n) && n > 0 ? n : null;
+    }
+    const admissions = Array.isArray(p.admissions) ? p.admissions : [];
+    if (!admissions.length) return null;
+    const sorted = [...admissions].sort((a, b) => Number(b?.admNo ?? b?.adm_no ?? 0) - Number(a?.admNo ?? a?.adm_no ?? 0));
+    const n = Number(sorted[0]?.admNo ?? sorted[0]?.adm_no);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  };
+
+  const pickAdmissionRecord = (patient, admNoHint) => {
+    if (!patient || typeof patient !== "object") return null;
+    const n = Number(admNoHint);
+    const admissions = Array.isArray(patient.admissions) ? patient.admissions : [];
+    if (Number.isFinite(n) && n > 0) {
+      const found = admissions.find(a => Number(a?.admNo ?? a?.adm_no) === n);
+      if (found) return found;
+    }
+    const detail = patient.current_admission_detail;
+    if (detail) return detail;
+    if (!admissions.length) return null;
+    return [...admissions].sort((a, b) => Number(b?.admNo ?? 0) - Number(a?.admNo ?? 0))[0];
+  };
+
+  const mapAdmissionServicesToUi = (services) => {
+    if (!Array.isArray(services)) return [];
+    return services.map(s => ({
+      id: s.id || Date.now() + Math.random(),
+      name: s.svcName || s.name || "",
+      category: s.svcCat || s.category || "",
+      qty: s.svcQty ?? s.qty ?? 1,
+      rate: Number(s.svcRate ?? s.rate ?? 0),
+      amount: Number(s.svcTot ?? s.amount ?? (Number(s.svcQty ?? 1) * Number(s.svcRate ?? 0))),
+    }));
+  };
+
   // ── Open Review Work Modal (load all patient data) ─────────────────────────
   const openReviewWork = async (task) => {
     setReviewWorkTask(task);
@@ -849,30 +896,44 @@ export default function HodDashboard({ currentUser, onLogout }) {
     setReviewSectionOpen({ discharge:true, admission:false, reports:false, medicines:false, billing:false });
 
     const uhid   = task.patient_uhid  || task.patientId || "";
-    const admNo  = task.adm_no        || task.admNo     || "";
+    let admNo    = Number(task.adm_no || task.admNo) || null;
     const patName= task.patient_name  || task.patientName || "";
 
-    setReviewWorkPat({ uhid, admNo, patientName: patName, ...task });
+    let fullPatient = {};
+    try {
+      fullPatient = await apiFetch(`/patients/${encodeURIComponent(uhid)}/`);
+    } catch { fullPatient = {}; }
+
+    if (admNo == null || !Number.isFinite(admNo) || admNo <= 0) {
+      admNo = resolveAdmissionNoFromPatient(fullPatient);
+    }
+    const admission = pickAdmissionRecord(fullPatient, admNo);
+    const nestedMed = admission?.medicalHistory || {};
+    const nestedDis = admission?.discharge || {};
+    const nestedBill = admission?.billing || {};
+    const nestedSvc = mapAdmissionServicesToUi(admission?.services);
+
+    setReviewWorkPat({ uhid, admNo: admNo ?? "", patientName: patName, ...task });
 
     try {
-      const [disRes, medRes, labRes, pharRes, billRes, summRes] = await Promise.allSettled([
-        apiService.dischargePatient   ? apiFetch(`/patients/${uhid}/discharge/?admNo=${admNo}`, { method:"GET" }).catch(() => ({})) : Promise.resolve({}),
-        apiFetch(`/patients/${uhid}/update_medical/?admNo=${admNo}`, { method:"GET" }).catch(() => ({})),
-        apiService.getLabReports(uhid, admNo).catch(() => []),
-        apiService.getPharmacyRecords(uhid, admNo).catch(() => []),
-        apiFetch(`/patients/${uhid}/update_billing/?admNo=${admNo}`, { method:"GET" }).catch(() => ({})),
-        apiService.getDynamicSummary(uhid, admNo, "NORMAL").catch(() => ({ content:{ sections:[] } })),
+      const admForApi = admNo != null && admNo > 0 ? admNo : null;
+      const summType = String(nestedDis?.dischargeStatus || "NORMAL").toUpperCase();
+      const [labRes, pharRes, summRes] = await Promise.allSettled([
+        admForApi ? apiService.getLabReports(uhid, admForApi).catch(() => []) : Promise.resolve([]),
+        admForApi ? apiService.getPharmacyRecords(uhid, admForApi).catch(() => []) : Promise.resolve([]),
+        admForApi ? apiService.getDynamicSummary(uhid, admForApi, summType).catch(() => ({ content:{ sections:[] } })) : Promise.resolve({ content:{ sections:[] } }),
       ]);
 
-      // Also try canonical records for discharge + billing
       let canonicalData = {};
-      try { canonicalData = await apiService.getCanonicalRecords(uhid, admNo); } catch {}
+      if (admForApi) {
+        try { canonicalData = await apiService.getCanonicalRecords(uhid, admForApi); } catch { canonicalData = {}; }
+      }
 
-      const dis  = disRes.value  || canonicalData?.discharge  || {};
-      const med  = medRes.value  || canonicalData?.medical    || {};
+      const dis  = { ...nestedDis, ...(canonicalData?.discharge || {}) };
+      const med  = { ...nestedMed, ...(canonicalData?.medical || {}) };
       const labs = Array.isArray(labRes.value)  ? labRes.value  : [];
       const phar = Array.isArray(pharRes.value) ? pharRes.value : [];
-      const bill = billRes.value || canonicalData?.billing    || {};
+      const bill = { ...nestedBill, ...(canonicalData?.billing || {}) };
       const summ = summRes.value;
 
       const labNorm = labs.map(r => ({
@@ -903,12 +964,12 @@ export default function HodDashboard({ currentUser, onLogout }) {
       const medData = med?.medicalData   || med || {};
       const billData= bill?.billingData  || bill|| {};
 
-      setReviewWorkData({ discharge:disData, admission:medData, labReports:labNorm, medBill:pharNorm, services:[], billing:billData, dischargeSummary:summ?.content||null });
+      setReviewWorkData({ discharge:disData, admission:medData, labReports:labNorm, medBill:pharNorm, services:nestedSvc, billing:billData, dischargeSummary:summ?.content||null });
       setRvEDis({ ...disData });
       setRvEMed({ ...medData });
       setRvELabRep(JSON.parse(JSON.stringify(labNorm)));
       setRvEMedBill(JSON.parse(JSON.stringify(pharNorm)));
-      setRvESvc([]);
+      setRvESvc(JSON.parse(JSON.stringify(nestedSvc)));
       setRvEBilling({ ...billData });
     } catch (err) {
       toast("Failed to load patient data", "e");
@@ -1069,19 +1130,59 @@ export default function HodDashboard({ currentUser, onLogout }) {
 
   // ── HOD own work ───────────────────────────────────────────────────────────
   const openMyWork = async (p) => {
-    setMyWorkSel(p);
-    setMyEDis({ doa:p.doa||p.dateTime||"", dod:p.dod||"", ward:p.ward||p.wardName||"", bed:p.bed||p.bedNo||"", doctor:p.doctor||p.doctorName||"", diagnosis:p.diagnosis||"", ...(p.discharge||{}) });
-    setMyEMed({ ...(p.medicalHistory||{}) });
-    setMyESvc([]); setMyELabRep([]); setMyEMedBill([]);
-    setMyEBilling({ insuranceType:"Self Pay", discount:0, advance:0, paidNow:0, paymentMode:"Cash", ...(p.billing||{}) });
+    const uhid = p?.uhid;
+    if (!uhid) { toast("Missing patient UHID", "w"); return; }
+
+    let merged = { ...p };
+    try {
+      const full = await apiFetch(`/patients/${encodeURIComponent(uhid)}/`);
+      merged = { ...full, ...p, patientName: p.patientName || p.name || full.patientName || full.name };
+    } catch { /* list row only */ }
+
+    const admNo = resolveAdmissionNoFromPatient(merged);
+    const admission = pickAdmissionRecord(merged, admNo);
+    const dischargeFromAdm = admission?.discharge || {};
+    const medicalFromAdm = admission?.medicalHistory || {};
+    const billingFromAdm = admission?.billing || {};
+    const servicesUi = mapAdmissionServicesToUi(admission?.services);
+
+    const rowDischarge = p.discharge || {};
+    const rowMedical = p.medicalHistory || {};
+    const rowBilling = p.billing || {};
+
+    const sel = {
+      ...merged,
+      ...(admNo != null ? { admNo } : {}),
+      discharge: { ...dischargeFromAdm, ...rowDischarge },
+      medicalHistory: { ...medicalFromAdm, ...rowMedical },
+      billing: { ...billingFromAdm, ...rowBilling },
+    };
+    setMyWorkSel(sel);
+
+    setMyEDis({
+      doa: admission?.dateTime || p.doa || p.dateTime || "",
+      dod: dischargeFromAdm.dod || p.dod || "",
+      ward: p.ward || p.wardName || "",
+      bed: p.bed || p.bedNo || "",
+      doctor: p.doctor || p.doctorName || "",
+      diagnosis: p.diagnosis || "",
+      ...dischargeFromAdm,
+      ...rowDischarge,
+    });
+    setMyEMed({ ...medicalFromAdm, ...rowMedical });
+    setMyESvc(servicesUi);
+    setMyELabRep([]);
+    setMyEMedBill([]);
+    setMyEBilling({ insuranceType:"Self Pay", discount:0, advance:0, paidNow:0, paymentMode:"Cash", ...billingFromAdm, ...rowBilling });
     setMyESaved({ discharge:false, admission:false, reports:false, medicines:false, billing:false });
     setMyRepFilter("All"); setMyDischargeSummary(null); setMyActiveTab("discharge"); setMyWorkView("patient");
-    if (p.uhid && p.admNo) {
-      const rawStatus = p.discharge?.dischargeStatus||p.dischargeStatus||"NORMAL";
+
+    if (uhid && admNo != null) {
+      const rawStatus = sel.discharge?.dischargeStatus || p.dischargeStatus || "NORMAL";
       const summType = String(rawStatus).toUpperCase();
       setMyDischargeSummaryType(summType);
       setMyDischargeSummaryLoading(true);
-      apiService.getDynamicSummary(p.uhid, p.admNo, summType).then(res => {
+      apiService.getDynamicSummary(uhid, admNo, summType).then(res => {
         const content = res?.content||{ sections:[] };
         if (content.sections && !Array.isArray(content.sections)) content.sections = Object.entries(content.sections).map(([k,v]) => ({ key:k,...v }));
         setMyDischargeSummary(content);
@@ -1089,13 +1190,13 @@ export default function HodDashboard({ currentUser, onLogout }) {
       }).catch(() => setMyDischargeSummary({ sections:[] })).finally(() => setMyDischargeSummaryLoading(false));
 
       Promise.all([
-        apiService.getLabReports(p.uhid, p.admNo).catch(() => []),
-        apiService.getLabReportTemplates(p.uhid, p.admNo).catch(() => ({ suggested_reports:[] })),
+        apiService.getLabReports(uhid, admNo).catch(() => []),
+        apiService.getLabReportTemplates(uhid, admNo).catch(() => ({ suggested_reports:[] })),
       ]).then(([savedReports, templatePayload]) => {
         const existing = Array.isArray(savedReports) ? savedReports : [];
         const suggested = Array.isArray(templatePayload?.suggested_reports) ? templatePayload.suggested_reports : [];
         const allKeys = new Set(existing.map(r => r.reportName||r.report_name||""));
-        const merged = [...existing.map(r => ({
+        const mergedRep = [...existing.map(r => ({
           id:r.id||Date.now()+Math.random(), reportName:r.reportName||r.report_name||"", reportType:r.reportType||r.report_type||"Haematology",
           billCategory:r.billCategory||"PATHOLOGY", date:r.date||r.report_date||new Date().toISOString().slice(0,10),
           orderedBy:r.orderedBy||r.ordered_by||"", amount:Number(r.amount||0), remarks:r.remarks||"", findings:r.findings||"", impression:r.impression||"",
@@ -1103,12 +1204,12 @@ export default function HodDashboard({ currentUser, onLogout }) {
         }))];
         suggested.forEach(s => {
           const name = s.reportName||s.report_name||"";
-          if (!allKeys.has(name)) merged.push({ id:Date.now()+Math.random(), reportName:name, reportType:s.reportType||s.report_type||"Haematology", billCategory:s.billCategory||"PATHOLOGY", date:new Date().toISOString().slice(0,10), orderedBy:s.orderedBy||s.ordered_by||"", amount:Number(s.amount||0), remarks:s.remarks||"", tests:Array.isArray(s.tests||s.table_data)?(s.tests||s.table_data).map(t=>({ id:Date.now()+Math.random(), name:t.name||"", value:t.value||"", unit:t.unit||"", refRange:t.refRange||t.normal||"", status:t.status||"Normal" })):[], findings:s.findings||"", impression:s.impression||"" });
+          if (!allKeys.has(name)) mergedRep.push({ id:Date.now()+Math.random(), reportName:name, reportType:s.reportType||s.report_type||"Haematology", billCategory:s.billCategory||"PATHOLOGY", date:new Date().toISOString().slice(0,10), orderedBy:s.orderedBy||s.ordered_by||"", amount:Number(s.amount||0), remarks:s.remarks||"", tests:Array.isArray(s.tests||s.table_data)?(s.tests||s.table_data).map(t=>({ id:Date.now()+Math.random(), name:t.name||"", value:t.value||"", unit:t.unit||"", refRange:t.refRange||t.normal||"", status:t.status||"Normal" })):[], findings:s.findings||"", impression:s.impression||"" });
         });
-        if (merged.length) setMyELabRep(merged);
+        if (mergedRep.length) setMyELabRep(mergedRep);
       }).catch(() => {});
 
-      apiService.getPharmacyRecords(p.uhid, p.admNo).then(records => {
+      apiService.getPharmacyRecords(uhid, admNo).then(records => {
         const arr = Array.isArray(records) ? records : [];
         if (arr.length) setMyEMedBill(arr.map(r => ({ id:r.id||Date.now()+Math.random(), item:r.name||r.medicine_name||"", date:r.date||r.date_given||new Date().toISOString().slice(0,10), quantity:Number(r.quantity||1), rate:Number(r.rate||0), amount:Number(r.rate||0)*Number(r.quantity||1), batchNo:r.batch||r.batch_no||"", expiryDate:r.expiry||r.expiry_date||"" })));
       }).catch(() => {});
