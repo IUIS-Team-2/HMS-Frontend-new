@@ -516,7 +516,15 @@ export default function App() {
       const doaValue = localNow.toISOString().slice(0, 16);
 
       if (isReturning && uhid) {
-        await apiService.updatePatient(uhid, sanitizedPayload);
+        // ⚠️ CRITICAL: Strip payMode and all cashless fields from the update payload.
+        // For a new admission the receptionist picks admission type only — the original
+        // patient's payMode must NEVER be overwritten by whatever the form currently shows.
+        const {
+          payMode, cashlessType, tpa, tpaCard, tpaValidity,
+          tpaCardType, tpaPanelCardNo, tpaPanelValidity,
+          ...safeUpdatePayload
+        } = sanitizedPayload;
+        await apiService.updatePatient(uhid, safeUpdatePayload);
         const admResponse = await apiService.newAdmission(uhid, selectedAdmissionType);
         if (admResponse?.uhid) {
           setDb((prev) => {

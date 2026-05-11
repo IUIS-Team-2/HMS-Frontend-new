@@ -1312,6 +1312,21 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
   const [eBilling, setEBilling] = useState({});
   const [eSaved, setESaved]     = useState({});
 
+
+ // Fetch assigned tasks from backend on mount
+useEffect(() => {
+  const loadTasks = async () => {
+    try {
+      const tasks = await apiService.getMyTasks();
+      setAssignedTasks(Array.isArray(tasks) ? tasks : []);
+    } catch (err) {
+      console.error("Failed to load assigned tasks", err);
+      setAssignedTasks([]);
+    }
+  };
+  loadTasks();
+}, []);
+ 
   // ── ✅ FIXED: fetch medicine master using apiService (correct token + endpoint) ──
   useEffect(() => {
     apiService.getMedicineMaster()

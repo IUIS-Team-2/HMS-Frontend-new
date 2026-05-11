@@ -687,6 +687,31 @@ const [selectedMedPatient, setSelectedMedPatient] = useState({});
 
   useEffect(()=>{ if(db) setAllPatients(db); }, [db]);
 
+
+  // Load employees on mount so taskAssignableEmployees is populated before task modal opens
+  useEffect(() => {
+    const loadEmployees = async () => {
+      try {
+        const users = await apiService.getUsers();
+        setEmployees(users.map(u => ({
+          id:       u.id,
+          empId:    u.emp_id || "—",
+          username: u.username,
+          fullName: `${u.first_name} ${u.last_name}`.trim(),
+          name:     `${u.first_name} ${u.last_name}`.trim() || u.username,
+          email:    u.email,
+          phone:    u.phone_number,
+          role:     u.role,
+          dept:     u.role.replaceAll("_", " ").replace(/\b\w/g, ch => ch.toUpperCase()),
+          status:   u.is_active ? "Active" : "Inactive",
+        })));
+      } catch (err) {
+        console.error("Failed to load employees", err);
+      }
+    };
+    loadEmployees();
+  }, []);
+
   useEffect(() => {
 
   const loadMedicineMaster = async () => {
