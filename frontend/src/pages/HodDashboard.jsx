@@ -8,7 +8,7 @@ import {
   RefreshCw,
   Stethoscope, BookOpen, Search, Filter, LogOut,
   Eye, Edit3, MessageSquare, ThumbsUp, ThumbsDown,
-  Printer, Download, ChevronDown, ChevronUp, CheckCircle, XCircle,
+  Printer, ChevronDown, ChevronUp, CheckCircle, XCircle,
   AlertTriangle, ArrowLeft,
 } from "lucide-react";
 
@@ -413,39 +413,74 @@ function SectionComment({ sectionKey, comments, onChange }) {
 // ─── PDF Download Button ──────────────────────────────────────────────────────
 function PdfDownloadBtn({ uhid, admNo, docType, label, icon, onToast }) {
   const [loading, setLoading] = useState(false);
-  const download = async () => {
+
+  const printPdf = async () => {
     setLoading(true);
+
     try {
       const blob = await apiFetchBlob(
         `/hod/reports/download/?uhid=${encodeURIComponent(uhid)}&adm_no=${encodeURIComponent(admNo)}&doc_type=${encodeURIComponent(docType)}`
       );
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${docType}_${uhid}_${admNo}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-      onToast(`${label} downloaded ✓`);
+
+      const url = window.URL.createObjectURL(blob);
+
+      // OPEN PDF IN NEW TAB
+      const printWindow = window.open(url, "_blank");
+
+      if (!printWindow) {
+        onToast("Popup blocked", "e");
+        return;
+      }
+
+      // AUTO PRINT
+      printWindow.onload = () => {
+        printWindow.focus();
+        printWindow.print();
+      };
+
+      onToast(`${label} opened for print ✓`);
+
     } catch (err) {
-      onToast(`Failed to download ${label}`, "e");
+      console.error(err);
+      onToast(`Failed to print ${label}`, "e");
     } finally {
       setLoading(false);
     }
   };
+
   return (
     <button
-      onClick={download}
+      onClick={printPdf}
       disabled={loading}
-      style={{ display:"inline-flex", alignItems:"center", gap:7, padding:"8px 16px", background:"rgba(99,102,241,0.1)", border:"1.5px solid rgba(99,102,241,0.35)", color:"#6366f1", borderRadius:9, cursor:loading?"not-allowed":"pointer", fontSize:12, fontFamily:"inherit", fontWeight:600, opacity:loading?0.6:1, transition:".14s" }}
+      style={{
+        display:"inline-flex",
+        alignItems:"center",
+        gap:7,
+        padding:"8px 16px",
+        background:"rgba(16,185,129,0.1)",
+        border:"1.5px solid rgba(16,185,129,0.35)",
+        color:"#10b981",
+        borderRadius:9,
+        cursor:loading ? "not-allowed" : "pointer",
+        fontSize:12,
+        fontFamily:"inherit",
+        fontWeight:600,
+        opacity:loading ? 0.6 : 1,
+        transition:".14s"
+      }}
     >
-      {loading ? <RefreshCw size={13} style={{ animation:"spin 1s linear infinite" }}/> : <Download size={13}/>}
-      {loading ? "Downloading…" : `${icon} ${label}`}
+      {loading
+        ? <RefreshCw size={13} style={{ animation:"spin 1s linear infinite" }}/>
+        : <Printer size={13}/>
+      }
+
+      {loading
+        ? "Opening..."
+        : `${icon} Print ${label}`
+      }
     </button>
   );
 }
-
 // ─── CSS ──────────────────────────────────────────────────────────────────────
 const CSS = `
   *,*::before,*::after { box-sizing:border-box; }
@@ -667,7 +702,7 @@ export default function HodDashboard({ currentUser, onLogout }) {
   const [hodOwnTasks,    setHodOwnTasks]    = useState([]);
   const [reviews,        setReviews]        = useState([]);
   const [analytics,      setAnalytics]      = useState(null);
-  const [medicineMaster, setMedicineMaster] = useState([]);
+  
 
   // HOD Own Work
   const [myWorkView,    setMyWorkView]   = useState("list");
@@ -682,6 +717,11 @@ export default function HodDashboard({ currentUser, onLogout }) {
   const [myEBilling,setMyEBilling]= useState({});
   const [myESaved,  setMyESaved] = useState({});
   const [myRepFilter,setMyRepFilter]= useState("All");
+  const [reportSearch, setReportSearch] = useState("");
+const [medSearch, setMedSearch] = useState("");
+
+const [reportMaster, setReportMaster] = useState([]);
+const [medicineMaster, setMedicineMaster] = useState([]);
   const [myDischargeSummary, setMyDischargeSummary] = useState(null);
   const [myDischargeSummaryType, setMyDischargeSummaryType] = useState("NORMAL");
   const [myDischargeSummaryLoading, setMyDischargeSummaryLoading] = useState(false);
@@ -2036,22 +2076,214 @@ export default function HodDashboard({ currentUser, onLogout }) {
           {myActiveTab==="medical"&&<AdmissionNoteForm eMed={myEMed} setEMed={setMyEMed} readOnly={false}/>}
 
           {myActiveTab==="reports"&&(
-            <>
-              <div style={{ display:"flex", gap:8, flexWrap:"wrap", alignItems:"center", marginBottom:14 }}>
-                <span style={{ background:"rgba(59,130,246,0.1)", border:"1px solid rgba(59,130,246,0.3)", color:"#3b82f6", borderRadius:20, padding:"3px 11px", fontSize:11, fontWeight:700 }}>🧪 Path: {fmtRs(pathTotal)} ({pathReps.length})</span>
-                <span style={{ background:"rgba(16,185,129,0.1)", border:"1px solid rgba(16,185,129,0.3)", color:"#10b981", borderRadius:20, padding:"3px 11px", fontSize:11, fontWeight:700 }}>🩻 Rad: {fmtRs(radTotal)} ({radReps.length})</span>
-                <span style={{ background:"rgba(99,102,241,0.1)", border:"1px solid rgba(99,102,241,0.3)", color:"#6366f1", borderRadius:20, padding:"3px 11px", fontSize:11, fontWeight:700 }}>Grand: {fmtRs(pathTotal+radTotal)}</span>
-              </div>
-              <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:14 }}>
-                {repFilterOptions.map(t=>(<button key={t} onClick={()=>setMyRepFilter(t)} style={{ padding:"5px 13px", borderRadius:20, fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:"inherit", border:myRepFilter===t?"1.5px solid var(--text)":"1.5px solid var(--border)", background:myRepFilter===t?"var(--text)":"var(--surface)", color:myRepFilter===t?"var(--surface)":"var(--text-mid)" }}>{t}</button>))}
-              </div>
-              {visibleReps.map(rep=>{ const ri=myELabRep.findIndex(r=>r.id===rep.id); if(isRadiologyType(rep.reportType)) return <RadiologyReportCard key={rep.id} rep={rep} ri={ri} patientName={patientName} updRep={updMyRep} onRemove={()=>setMyELabRep(p=>p.filter(r=>r.id!==rep.id))} readOnly={false}/>; return <PathologyReportCard key={rep.id} rep={rep} ri={ri} patientName={patientName} updRep={updMyRep} updTest={updMyTest} addTest={addMyTest} delTest={delMyTest} onRemove={()=>setMyELabRep(p=>p.filter(r=>r.id!==rep.id))} readOnly={false}/>; })}
-              <div style={{ display:"flex", gap:12, flexWrap:"wrap", marginTop:4 }}>
-                <button onClick={()=>setMyELabRep(p=>[...p,emptyPathReport()])} style={{ display:"inline-flex", alignItems:"center", gap:8, padding:"10px 20px", background:"linear-gradient(135deg,#1e3a5f,#0f172a)", color:"#fff", border:"none", borderRadius:9, cursor:"pointer", fontSize:13, fontWeight:600, fontFamily:"inherit" }}>🧪 + Add Pathology Report</button>
-                <button onClick={()=>setMyELabRep(p=>[...p,emptyRadReport()])} style={{ display:"inline-flex", alignItems:"center", gap:8, padding:"10px 20px", background:"linear-gradient(135deg,#065f46,#064e3b)", color:"#fff", border:"none", borderRadius:9, cursor:"pointer", fontSize:13, fontWeight:600, fontFamily:"inherit" }}>🩻 + Add Radiology Report</button>
-              </div>
-            </>
-          )}
+  <>
+    <div style={{ display:"flex", gap:8, flexWrap:"wrap", alignItems:"center", marginBottom:14 }}>
+      <span style={{ background:"rgba(59,130,246,0.1)", border:"1px solid rgba(59,130,246,0.3)", color:"#3b82f6", borderRadius:20, padding:"3px 11px", fontSize:11, fontWeight:700 }}>
+        🧪 Path: {fmtRs(pathTotal)} ({pathReps.length})
+      </span>
+
+      <span style={{ background:"rgba(16,185,129,0.1)", border:"1px solid rgba(16,185,129,0.3)", color:"#10b981", borderRadius:20, padding:"3px 11px", fontSize:11, fontWeight:700 }}>
+        🩻 Rad: {fmtRs(radTotal)} ({radReps.length})
+      </span>
+
+      <span style={{ background:"rgba(99,102,241,0.1)", border:"1px solid rgba(99,102,241,0.3)", color:"#6366f1", borderRadius:20, padding:"3px 11px", fontSize:11, fontWeight:700 }}>
+        Grand: {fmtRs(pathTotal+radTotal)}
+      </span>
+    </div>
+
+    <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:14 }}>
+      {repFilterOptions.map(t=>(
+        <button
+          key={t}
+          onClick={()=>setMyRepFilter(t)}
+          style={{
+            padding:"5px 13px",
+            borderRadius:20,
+            fontSize:12,
+            fontWeight:600,
+            cursor:"pointer",
+            fontFamily:"inherit",
+            border:myRepFilter===t
+              ? "1.5px solid var(--text)"
+              : "1.5px solid var(--border)",
+            background:myRepFilter===t
+              ? "var(--text)"
+              : "var(--surface)",
+            color:myRepFilter===t
+              ? "var(--surface)"
+              : "var(--text-mid)"
+          }}
+        >
+          {t}
+        </button>
+      ))}
+    </div>
+
+    {/* SEARCH REPORT TEMPLATE */}
+    <div style={{ marginBottom:18, position:"relative" }}>
+      <input
+        type="text"
+        value={reportSearch}
+        onChange={(e)=>setReportSearch(e.target.value)}
+        placeholder="Search pathology / radiology templates..."
+        style={{
+          width:"100%",
+          padding:"12px 14px",
+          border:"1px solid var(--border)",
+          borderRadius:10,
+          fontSize:13,
+          outline:"none",
+          background:"var(--surface)",
+          color:"var(--text)",
+        }}
+      />
+
+      {reportSearch && (
+        <div
+          style={{
+            position:"absolute",
+            top:"105%",
+            left:0,
+            right:0,
+            background:"#fff",
+            border:"1px solid var(--border)",
+            borderRadius:10,
+            maxHeight:260,
+            overflowY:"auto",
+            zIndex:50,
+            boxShadow:"0 10px 24px rgba(0,0,0,0.08)",
+          }}
+        >
+          {reportMaster
+            .filter(r =>
+              (r.name || "")
+                .toLowerCase()
+                .includes(reportSearch.toLowerCase())
+            )
+            .slice(0,20)
+            .map(r => (
+              <button
+                key={r.id}
+                type="button"
+                onClick={() => {
+
+                  const isRadiology =
+                    RADIOLOGY_REPORT_TYPES.includes(
+                      r.category
+                    );
+
+                  setMyELabRep(prev => [
+                    ...prev,
+                    isRadiology
+                      ? {
+                          ...emptyRadReport(),
+                          reportName:r.name,
+                          reportType:r.category || "X-Ray",
+                        }
+                      : {
+                          ...emptyPathReport(),
+                          reportName:r.name,
+                          reportType:r.category || "Haematology",
+                        }
+                  ]);
+
+                  setReportSearch("");
+                }}
+                style={{
+                  width:"100%",
+                  textAlign:"left",
+                  padding:"10px 12px",
+                  border:"none",
+                  background:"#fff",
+                  cursor:"pointer",
+                  borderBottom:"1px solid #f3f4f6",
+                  fontSize:13,
+                }}
+              >
+                🧪 {r.name}
+              </button>
+          ))}
+        </div>
+      )}
+    </div>
+
+    {/* REPORT CARDS */}
+    {visibleReps.map(rep=>{
+      const ri=myELabRep.findIndex(r=>r.id===rep.id);
+
+      if(isRadiologyType(rep.reportType))
+        return (
+          <RadiologyReportCard
+            key={rep.id}
+            rep={rep}
+            ri={ri}
+            patientName={patientName}
+            updRep={updMyRep}
+            onRemove={()=>setMyELabRep(p=>p.filter(r=>r.id!==rep.id))}
+            readOnly={false}
+          />
+        );
+
+      return (
+        <PathologyReportCard
+          key={rep.id}
+          rep={rep}
+          ri={ri}
+          patientName={patientName}
+          updRep={updMyRep}
+          updTest={updMyTest}
+          addTest={addMyTest}
+          delTest={delMyTest}
+          onRemove={()=>setMyELabRep(p=>p.filter(r=>r.id!==rep.id))}
+          readOnly={false}
+        />
+      );
+    })}
+
+    {/* MANUAL ADD */}
+    <div style={{ display:"flex", gap:12, flexWrap:"wrap", marginTop:4 }}>
+      <button
+        onClick={()=>setMyELabRep(p=>[...p,emptyPathReport()])}
+        style={{
+          display:"inline-flex",
+          alignItems:"center",
+          gap:8,
+          padding:"10px 20px",
+          background:"linear-gradient(135deg,#1e3a5f,#0f172a)",
+          color:"#fff",
+          border:"none",
+          borderRadius:9,
+          cursor:"pointer",
+          fontSize:13,
+          fontWeight:600,
+          fontFamily:"inherit"
+        }}
+      >
+        🧪 + Add Pathology Report
+      </button>
+
+      <button
+        onClick={()=>setMyELabRep(p=>[...p,emptyRadReport()])}
+        style={{
+          display:"inline-flex",
+          alignItems:"center",
+          gap:8,
+          padding:"10px 20px",
+          background:"linear-gradient(135deg,#065f46,#064e3b)",
+          color:"#fff",
+          border:"none",
+          borderRadius:9,
+          cursor:"pointer",
+          fontSize:13,
+          fontWeight:600,
+          fontFamily:"inherit"
+        }}
+      >
+        🩻 + Add Radiology Report
+      </button>
+    </div>
+  </>
+)}
 
           {myActiveTab==="med_bill"&&(
             <>

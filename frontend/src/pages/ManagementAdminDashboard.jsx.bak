@@ -27,13 +27,9 @@ const SUMMARY_TYPES = ["NORMAL","LAMA","REFER","DEATH","DOPR"];
 const SUMMARY_LABELS = { NORMAL:"Normal", LAMA:"LAMA", REFER:"Refer", DEATH:"Death", DOPR:"DOPR" };
 
 const normalizeSummaryType = (t) => {
-  if (!t) return "NORMAL";
-  const u = String(t).toUpperCase().trim();
+  const u = String(t||"NORMAL").toUpperCase();
   if (u.startsWith("REFER")) return "REFER";
-  if (u === "DAMA" || u === "DOPR") return "DOPR";
-  if (u === "LAMA") return "LAMA";
-  if (u === "DEATH") return "DEATH";
-  if (u === "NORMAL") return "NORMAL";
+  if (u==="DAMA") return "DOPR";
   return SUMMARY_TYPES.includes(u) ? u : "NORMAL";
 };
 
@@ -744,50 +740,7 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
 
   const toast = (msg,type="ok") => { setNotif({msg,type}); setTimeout(()=>setNotif(null),3200); };
 
-
-  // Load employees on mount so taskAssignableEmployees is populated before task modal opens
-  useEffect(() => {
-    const loadEmployees = async () => {
-      try {
-        const users = await apiService.getUsers();
-        setEmployees(users.map(u => ({
-          id:       u.id,
-          empId:    u.emp_id || "—",
-          username: u.username,
-          fullName: `${u.first_name} ${u.last_name}`.trim(),
-          name:     `${u.first_name} ${u.last_name}`.trim() || u.username,
-          email:    u.email,
-          phone:    u.phone_number,
-          role:     u.role,
-          dept:     u.role.replaceAll("_", " ").replace(/\b\w/g, ch => ch.toUpperCase()),
-          status:   u.is_active ? "Active" : "Inactive",
-        })));
-      } catch (err) {
-        console.error("Failed to load employees", err);
-      }
-    };
-    loadEmployees();
-  }, []);
-
-  useEffect(() => {
-  if (db) {
-    setAllPatients(prev => {
-      const merged = { ...db };
-      for (const bk of ["laxmi", "raya"]) {
-        if (!Array.isArray(db[bk])) continue;
-        merged[bk] = db[bk].map(dbPt => {
-          const localPt = (prev[bk] || []).find(p => p.uhid === dbPt.uhid);
-          if (!localPt) return dbPt;
-          return {
-            ...dbPt,
-            medicines: localPt.medicines ?? dbPt.medicines,
-          };
-        });
-      }
-      return merged;
-    });
-  }
-}, [db]);
+  useEffect(()=>{ if(db) setAllPatients(db); }, [db]);
 
   // ── FETCH MEDICINE MASTER ─────────────────────────────────────────────────
   useEffect(() => {
@@ -925,45 +878,18 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
   const resolveAdmNo=(p)=>{ const raw=p?.admissions?.[0]?.admNo??p?.admNo??1; const clean=String(raw).replace(/\D/g,""); return clean||"1"; };
   const normalizeSummarySections=(content)=>{ if(!content) return content; const next={...content}; if(next.sections&&!Array.isArray(next.sections)) next.sections=Object.entries(next.sections).map(([k,v])=>({key:k,...v})); return next; };
 
-  const fetchSummaryTemplate = async (uhid, admNo, requestedType) => {
+  const fetchSummaryTemplate=async(uhid,admNo,requestedType)=>{
     setSummaryLoading(true);
     setSummaryContent(null);
     try {
-      const res = await apiService.getDynamicSummary(uhid, admNo, requestedType);
-      const content = normalizeSummarySections(res?.content || { sections: [] });
-      const resolvedType = normalizeSummaryType(res?.summary_type || requestedType);
-      const patient = [...(allPatients.laxmi || []), ...(allPatients.raya || [])].find(p => p.uhid === uhid);
-      if (patient && Array.isArray(content.sections)) {
-        const ds  = patient.dischargeSummary || {};
-        const adm = patient.admissions?.[0]  || {};
-        const d   = adm.discharge            || {};
-        const prefill = {
-          diagnosis:   ds.diagnosis  || "",
-          treatment:   ds.treatment  || "",
-          follow_up:   ds.followUp   || ds.follow_up  || "",
-          followup:    ds.followUp   || ds.follow_up  || "",
-          notes:       ds.notes      || "",
-          doctor_name: ds.doctorName || d.doctorName  || "",
-          doctorname:  ds.doctorName || d.doctorName  || "",
-          ward:        d.wardName    || "",
-          bed:         d.bedNo       || "",
-          doa:         d.doa         || adm.dateTime?.slice(0, 10) || "",
-          dod:         d.dod         || "",
-          complaints:  adm.complaints || "",
-          history:     adm.medicalHistory?.pastHistory || "",
-        };
-        content.sections = content.sections.map(sec => {
-          const v = sec.value;
-          if (v !== undefined && v !== "" && v !== null) return sec;
-          const key = (sec.key || "").toLowerCase().replace(/[^a-z_]/g, "");
-          return prefill[key] !== undefined ? { ...sec, value: prefill[key] } : sec;
-        });
-      }
+      const res=await apiService.getDynamicSummary(uhid,admNo,requestedType);
+      const content=normalizeSummarySections(res?.content||{sections:[]});
+      const resolvedType=normalizeSummaryType(res?.summary_type||requestedType);
       setSummaryContent(content);
       setSummaryType(resolvedType);
     } catch {
-      setSummaryContent({ sections: [] });
-      toast("Failed to load discharge summary template", "err");
+      setSummaryContent({sections:[]});
+      toast("Failed to load discharge summary template","err");
     } finally {
       setSummaryLoading(false);
     }
@@ -2420,18 +2346,22 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
       {showEmpModal&&(<div className="hms-modal-overlay" onClick={e=>e.target===e.currentTarget&&(setShowEmpModal(false),setEmpPassErr(""),setEditEmpId(null))}><div className="hms-modal-box" style={{width:520}}><div className="hms-modal-title">{editEmpId?"Edit Employee Details":"Create New Employee"}</div><div className="hms-g2">{[["Full Name","fullName","text","Jane Doe"],["Username","username","text","jane.doe"],["Employee ID","empId","text","EMP-001"],["Email","email","email","jane@hospital.com"],["Phone","phone","tel","+91 98765 43210"]].map(([lbl,k,type,ph])=>(<div key={k}><label className="hms-lbl">{lbl}</label><input type={type} placeholder={ph} value={empForm[k]} className="hms-inp" onChange={e=>{setEmpForm(f=>({...f,[k]:e.target.value}));setEmpPassErr("");}} disabled={k==="username"&&!!editEmpId}/></div>))}</div><label className="hms-lbl">Access Role</label><select className="hms-sel" value={empForm.role} onChange={e=>{ const nr=e.target.value; const nd=EMPLOYEE_ROLE_OPTIONS.find(o=>o.value===nr)?.label||empForm.dept; setEmpForm(f=>({...f,role:nr,dept:nd})); }}>{EMPLOYEE_ROLE_OPTIONS.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}</select><label className="hms-lbl">Department</label><select className="hms-sel" value={empForm.dept} onChange={e=>setEmpForm(f=>({...f,dept:e.target.value}))}>{allDeptOptions.map(d=><option key={d}>{d}</option>)}</select><div className="hms-g2">{[["Password","password",empShowPass,setEmpShowPass],["Confirm Password","confirmPassword",empShowConfirm,setEmpShowConfirm]].map(([lbl,k,show,setShow])=>(<div key={k}><label className="hms-lbl">{lbl}{editEmpId&&<span style={{fontSize:9}}> (Leave blank to keep current)</span>}</label><div className="hms-pass-wrap"><input type={show?"text":"password"} placeholder={editEmpId?"Leave blank to keep current":"••••••••"} value={empForm[k]} className="hms-inp" style={{paddingRight:50}} onChange={e=>{setEmpForm(f=>({...f,[k]:e.target.value}));setEmpPassErr("");}}/><button type="button" className="hms-pass-toggle" onClick={()=>setShow(p=>!p)}>{show?"HIDE":"SHOW"}</button></div></div>))}</div>{empPassErr&&<div className="hms-err-text">{empPassErr}</div>}<div className="hms-modal-foot"><button className="hms-cancel-btn" onClick={()=>{setShowEmpModal(false);setEmpPassErr("");setEditEmpId(null);}}>Cancel</button><button className="hms-save-btn" onClick={saveEmployee}>{editEmpId?"Save Changes":"Create Employee"}</button></div></div></div>)}
 
       {/* ══ MED DRAWER — passes medicineMaster + dropdown adder ══ */}
-      {showMedModal && editMedPt && (
+      {showMedModal&&editMedPt&&(
         <MedDrawer
           editMedPt={editMedPt}
-          onClose={() => { setShowMedModal(false); setEditMedPt(null); }}
+          onClose={()=>{setShowMedModal(false);setEditMedPt(null);}}
           updateMed={updateMed}
           addMedRow={addMedRow}
           delMedRow={delMedRow}
           saveMeds={saveMeds}
           fmt={fmt}
           canEditRate={true}
+          // Pass these so MedDrawer can render the searchable dropdown
           medicineMaster={medicineMaster}
           onAddFromMaster={addMedFromDropdownToDrawer}
+          MedSearchDropdown={MedSearchDropdown}
+          isDark={isDark}
+          accent={accent}
         />
       )}
 
