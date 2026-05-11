@@ -12,7 +12,6 @@ const DISCHARGE_TYPES = {
   DOPR:      { key:"DOPR",      label:"DAMA / DOPR",       color:"#dc2626", bg:"#fee2e2", border:"#fca5a5",  icon:"🚨" },
 };
 
-// Sections per discharge type — maps to PDF sections[]
 const DISCHARGE_SECTIONS = {
   NORMAL: [
     { key:"chiefComplaints",      label:"Chief Complaints",              rows:3 },
@@ -432,7 +431,11 @@ function MedicineHistoryPicker({ eMed, onAdd }) {
 }
 
 // ─── AdmissionNoteForm ────────────────────────────────────────────────────────
-function AdmissionNoteForm({ eMed, setEMed }) {
+function AdmissionNoteForm({
+  eMed,
+  setEMed,
+  medicineMaster
+}) {
   const setE = k => e => setEMed(p=>({...p,[k]:e.target.value}));
   const set  = k => v => setEMed(p=>({...p,[k]:v}));
   const setDoctor = (doctorValue) => setEMed(prev => ({
@@ -441,8 +444,16 @@ function AdmissionNoteForm({ eMed, setEMed }) {
     doctorQual: getDoctorQualification(doctorValue) || prev.doctorQual || "",
   }));
   const doctorGroups = [{ group:"👨‍⚕️ Doctors", color:"#0369a1", items:DOCTOR_LIST }];
-  const qualGroups   = [{ group:"🎓 Qualifications", color:"#7c3aed", items:QUALIFICATION_LIST }];
-  const medGroups    = MEDICATION_GROUPS.map(g=>({group:g.group, color:"#059669", items:g.items}));
+  const qualGroups   = [{ group:"🎓 Qualifications", color:"#7c3aed", items:QUALIFICATION_LIST }]
+  const medGroups = [
+  {
+    group: "💊 Medicine Master",
+    color: "#059669",
+    items: medicineMaster
+      .map(m => m.name || m.medicine_name || "")
+      .filter(Boolean)
+  }
+];
 
   useEffect(() => {
     if (!eMed?.treatingDoctor || eMed?.doctorQual) return;
@@ -937,7 +948,6 @@ function mapLivePatients(records=[], branchKey="laxmi") {
         billNo:           adm.billing?.billNo           || adm.admNo             || "",
       };
 
-      // ── FIX: Pull all discharge-type-specific fields from backend ──
       const dischargeObj = {
         doa:                  discharge.doa              || adm.dateTime || adm.doa || "",
         dod:                  discharge.dod              || adm.dod      || "",
@@ -949,9 +959,7 @@ function mapLivePatients(records=[], branchKey="laxmi") {
         condition:            discharge.dischargeStatus  || "",
         instructions:         discharge.instructions     || "",
         notes:                discharge.notes            || "",
-        // Discharge type — set by hospital reception, read-only for billing
         dischargeType:        discharge.dischargeType    || "NORMAL",
-        // Section fields — pre-filled by hospital, editable by billing
         chiefComplaints:      discharge.chiefComplaints  || medicalHistory.chiefComplaints  || "",
         historyOfIllness:     discharge.historyOfIllness || "",
         investigations:       discharge.investigations   || medicalHistory.investigations   || "",
@@ -963,7 +971,6 @@ function mapLivePatients(records=[], branchKey="laxmi") {
         lamaDeclaration:      discharge.lamaDeclaration  || "",
         reasonForDopr:        discharge.reasonForDopr    || "",
         referredTo:           discharge.referredTo       || "",
-        // Vitals
         bp:    discharge.bp    || medicalHistory.bp    || "",
         pr:    discharge.pr    || medicalHistory.pr    || "",
         spo2:  discharge.spo2  || medicalHistory.spo2  || "",
@@ -1049,9 +1056,7 @@ function buildDischargePayload(form) {
     dischargeStatus:      form.conditionAtDischarge  || form.condition || "",
     instructions:         form.adviceOnDischarge     || form.instructions || "",
     notes:                form.notes                 || "",
-    // Discharge type (set by hospital, passed through)
     dischargeType:        form.dischargeType         || "NORMAL",
-    // All section fields
     chiefComplaints:      form.chiefComplaints       || "",
     historyOfIllness:     form.historyOfIllness      || "",
     investigations:       form.investigations        || "",
@@ -1063,7 +1068,6 @@ function buildDischargePayload(form) {
     lamaDeclaration:      form.lamaDeclaration       || "",
     reasonForDopr:        form.reasonForDopr         || "",
     referredTo:           form.referredTo            || "",
-    // Vitals
     bp:    form.bp    || "",
     pr:    form.pr    || "",
     spo2:  form.spo2  || "",
@@ -1072,7 +1076,6 @@ function buildDischargePayload(form) {
     cvs:   form.cvs   || "",
     cns:   form.cns   || "",
     pa:    form.pa    || "",
-    // Pre-built sections array ready for PDF renderer
     sections: buildDischargeSections(form.dischargeType || "NORMAL", form),
   };
 }
@@ -1258,13 +1261,11 @@ body{background:var(--bg);color:var(--text);font-family:var(--ui-font-sans);font
 .qtag{display:inline-flex;align-items:center;gap:5px;padding:4px 11px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1.5px solid var(--border);background:var(--bg);color:var(--text2);font-family:inherit;transition:all .13s;white-space:nowrap}
 .qtag:hover{border-color:var(--teal);background:var(--tealBg);color:var(--teal)}
 .qtag.filled{border-color:#86efac;background:#f0fdf4;color:#15803d}
-/* Discharge type banner */
 .dtype-banner{border-radius:12px;padding:14px 18px;display:flex;align-items:center;gap:14px;margin-bottom:18px;border:2px solid}
 .dtype-icon{font-size:28px;line-height:1;flex-shrink:0}
 .dtype-title{font-size:16px;font-weight:800;letter-spacing:-.01em}
 .dtype-sub{font-size:12px;opacity:.75;margin-top:2px}
 .dtype-badge{padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700;border:1.5px solid;background:rgba(255,255,255,.5);margin-left:auto;white-space:nowrap;flex-shrink:0}
-/* Discharge section card */
 .ds-card{background:var(--white);border:1px solid var(--border);border-radius:12px;margin-bottom:12px;overflow:hidden}
 .ds-card-hdr{display:flex;align-items:center;gap:10px;padding:11px 18px;border-bottom:1px solid var(--border);background:var(--bg)}
 .ds-card-num{width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;flex-shrink:0;border:1.5px solid}
@@ -1281,16 +1282,27 @@ body{background:var(--bg);color:var(--text);font-family:var(--ui-font-sans);font
 
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
-  const resolvedBranchKey = locId||(String(currentUser?.branch||"").toUpperCase()==="RYM"?"raya":"laxmi");
-  const [patients, setPatients]         = useState([]);
-  const [assignedTasks, setAssignedTasks] = useState([]);
+  const resolveAdmNo = (p) => {
+    const raw = p?.admissions?.[0]?.admNo || p?.admNo || 1;
+    const clean = String(raw).replace(/\D/g, "");
+    return clean || "1";
+  };
+
+  const resolvedBranchKey =
+    locId ||
+    (String(currentUser?.branch || "").toUpperCase() === "RYM" ? "raya" : "laxmi");
+
+  const [patients, setPatients]             = useState([]);
+  const [assignedTasks, setAssignedTasks]   = useState([]);
   const [medicineMaster, setMedicineMaster] = useState([]);
-  const [view, setView]                 = useState("tasks");
-  const [sel, setSel]                   = useState(null);
-  const [activeTab, setActiveTab]       = useState("discharge");
-  const [showConfirm, setShowConfirm]   = useState(false);
-  const [toasts, setToasts]             = useState([]);
-  const [repFilter, setRepFilter]       = useState("All");
+  const [medSearch, setMedSearch]           = useState("");
+  const [view, setView]                     = useState("tasks");
+  const [sel, setSel]                       = useState(null);
+  const [activeTab, setActiveTab]           = useState("discharge");
+  const [showConfirm, setShowConfirm]       = useState(false);
+  const [toasts, setToasts]                 = useState([]);
+  const [repFilter, setRepFilter]           = useState("All");
+  const [reportSearch, setReportSearch]     = useState({});
 
   const [eDis, setEDis]         = useState({});
   const [eMed, setEMed]         = useState({});
@@ -1300,30 +1312,17 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
   const [eBilling, setEBilling] = useState({});
   const [eSaved, setESaved]     = useState({});
 
+  // ── ✅ FIXED: fetch medicine master using apiService (correct token + endpoint) ──
   useEffect(() => {
-    const loadAssignedTasks = async () => {
-      try {
-        const data = await apiService.getMyTasks();
-        setAssignedTasks(Array.isArray(data) ? data : []);
-      } catch (error) {
-        console.error("Failed to fetch billing assignments", error);
-        setAssignedTasks([]);
-      }
-    };
-    loadAssignedTasks();
-  }, []);
-
-  useEffect(() => {
-    const loadMedicineMaster = async () => {
-      try {
-        const data = await apiService.getMedicineMaster();
-        setMedicineMaster(Array.isArray(data) ? data : []);
-      } catch (error) {
-        console.error("Failed to fetch medicine master", error);
+    apiService.getMedicineMaster()
+      .then(list => {
+        console.log("[MedMaster] loaded:", list?.length, "items | sample:", list?.[0]);
+        setMedicineMaster(Array.isArray(list) ? list : []);
+      })
+      .catch(err => {
+        console.error("[MedMaster] failed:", err?.response?.status, err?.message);
         setMedicineMaster([]);
-      }
-    };
-    loadMedicineMaster();
+      });
   }, []);
 
   useEffect(() => {
@@ -1496,7 +1495,14 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
     setEDis({ ...p.discharge });
     setEMed({ ...p.medicalHistory });
     setESvc(JSON.parse(JSON.stringify(p.services)));
-    setELabRep(JSON.parse(JSON.stringify(p.labReports)));
+    try {
+      const admNo = resolveAdmNo(p);
+      const backendReports = await apiService.getLabReports(p.uhid, admNo);
+      setELabRep(backendReports || []);
+    } catch(err) {
+      console.error(err);
+      setELabRep(JSON.parse(JSON.stringify(p.labReports || [])));
+    }
     setEMedBill(JSON.parse(JSON.stringify(p.medicalBill)));
     setEBilling({ tpaInfo:{}, tpaDocStatus:{}, ...p.billing });
     setESaved({ ...p.saved });
@@ -1612,20 +1618,45 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
   const findMedicineMasterMatch = (medName) => {
     const needle = normalizeMedicineKey(medName);
     if (!needle) return null;
-    return medicineMaster.find((entry) => normalizeMedicineKey(entry?.name) === needle) || null;
+    return medicineMaster.find((entry) => normalizeMedicineKey(entry?.name || entry?.medicine_name) === needle) || null;
   };
 
+  // ── Add from MedicineHistoryPicker (admission note chips or MEDICATION_GROUPS) ──
   const addMedFromPicker = (medName) => {
     const master = findMedicineMasterMatch(medName);
     const quantity = 1;
-    const rate = Number(master?.rate || 0);
+    const rate = Number(master?.rate ?? master?.price ?? 0);
     setEMedBill(p => [...p, {
-      id: Date.now(), item: medName, date: new Date().toISOString().slice(0,10),
-      quantity, rate, amount: quantity * rate,
-      batchNo: master?.batch_no || "", expiryDate: master?.expiry_date || "",
-      availableQty: Number(master?.quantity || 0),
+      id: Date.now(),
+      item: medName,
+      date: new Date().toISOString().slice(0,10),
+      quantity,
+      rate,
+      amount: quantity * rate,
+      batchNo: master?.batch_no || "",
+      expiryDate: master?.expiry_date || "",
     }]);
-    toast(`Added: ${medName.slice(0,40)}${medName.length>40?"…":""}${master?" with master pricing":""}`);
+    toast(`Added: ${medName.slice(0,40)}${medName.length > 40 ? "…" : ""}${master ? " (master pricing)" : ""}`);
+  };
+
+  // ── Add from the backend master dropdown ──
+  const addMedicineFromMasterDropdown = (selectedName) => {
+    if (!selectedName) return;
+    const med = medicineMaster.find(m =>
+      (m.name || m.medicine_name || "") === selectedName
+    );
+    const rate = Number(med?.rate ?? med?.price ?? 0);
+    setEMedBill(prev => ([...prev, {
+      id: Date.now(),
+      item: med?.name || med?.medicine_name || selectedName,
+      date: new Date().toISOString().slice(0,10),
+      quantity: 1,
+      rate,
+      batchNo: med?.batch_no || "",
+      expiryDate: med?.expiry_date || "",
+      amount: rate,
+    }]));
+    toast(`Added: ${selectedName}`);
   };
 
   const patientName = sel?.patientName || "";
@@ -1678,7 +1709,7 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
     { id:"finalbill", sKey:"billing",   lbl:"Final Bill",        ico:"🧾" },
   ];
 
-  // ── Discharge Summary render helper ────────────────────────────────────────
+  // ── Discharge Summary ───────────────────────────────────────────────────────
   const renderDischargeSummary = () => {
     const dischargeType = eDis?.dischargeType || "NORMAL";
     const dtConfig = DISCHARGE_TYPES[dischargeType] || DISCHARGE_TYPES.NORMAL;
@@ -1687,7 +1718,6 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
 
     return (
       <>
-        {/* ── Discharge type banner — read-only, set by hospital ── */}
         <div className="dtype-banner" style={{ background:dtConfig.bg, borderColor:dtConfig.border }}>
           <div className="dtype-icon">{dtConfig.icon}</div>
           <div style={{ flex:1 }}>
@@ -1701,7 +1731,6 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
           </div>
         </div>
 
-        {/* ── Dates & basic info ── */}
         <div className="ds-card">
           <div className="ds-card-hdr">
             <div className="ds-card-num" style={{ background:dtConfig.bg, borderColor:dtConfig.border, color:dtConfig.color }}>📅</div>
@@ -1709,45 +1738,21 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
           </div>
           <div className="ds-card-body">
             <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(210px,1fr))", gap:14 }}>
-              <div className="fg">
-                <label className="flbl">Date of Admission</label>
-                <input className="finp" type="datetime-local" value={eDis?.doa||""} onChange={e=>setDis("doa",e.target.value)}/>
-              </div>
-              <div className="fg">
-                <label className="flbl">Expected Discharge Date</label>
-                <input className="finp" type="date" value={eDis?.expectedDod?String(eDis.expectedDod).slice(0,10):""} onChange={e=>setDis("expectedDod",e.target.value)}/>
-              </div>
-              <div className="fg">
-                <label className="flbl">Actual Discharge Date</label>
-                <input className="finp" type="datetime-local" value={eDis?.dod||""} onChange={e=>setDis("dod",e.target.value)}/>
-              </div>
-              <div className="fg">
-                <label className="flbl">Ward</label>
-                <input className="finp" value={eDis?.ward||""} onChange={e=>setDis("ward",e.target.value)} placeholder="e.g. General Ward"/>
-              </div>
-              <div className="fg">
-                <label className="flbl">Bed No.</label>
-                <input className="finp" value={eDis?.bed||""} onChange={e=>setDis("bed",e.target.value)} placeholder="e.g. B-12"/>
-              </div>
-              <div className="fg">
-                <label className="flbl">Treating Doctor</label>
-                <input className="finp" value={eDis?.doctor||""} onChange={e=>setDis("doctor",e.target.value)} placeholder="Dr. Name"/>
-              </div>
-              <div className="fg">
-                <label className="flbl">Primary Diagnosis</label>
-                <input className="finp" value={eDis?.diagnosis||""} onChange={e=>setDis("diagnosis",e.target.value)} placeholder="e.g. Acute Appendicitis"/>
-              </div>
+              <div className="fg"><label className="flbl">Date of Admission</label><input className="finp" type="datetime-local" value={eDis?.doa||""} onChange={e=>setDis("doa",e.target.value)}/></div>
+              <div className="fg"><label className="flbl">Expected Discharge Date</label><input className="finp" type="date" value={eDis?.expectedDod?String(eDis.expectedDod).slice(0,10):""} onChange={e=>setDis("expectedDod",e.target.value)}/></div>
+              <div className="fg"><label className="flbl">Actual Discharge Date</label><input className="finp" type="datetime-local" value={eDis?.dod||""} onChange={e=>setDis("dod",e.target.value)}/></div>
+              <div className="fg"><label className="flbl">Ward</label><input className="finp" value={eDis?.ward||""} onChange={e=>setDis("ward",e.target.value)} placeholder="e.g. General Ward"/></div>
+              <div className="fg"><label className="flbl">Bed No.</label><input className="finp" value={eDis?.bed||""} onChange={e=>setDis("bed",e.target.value)} placeholder="e.g. B-12"/></div>
+              <div className="fg"><label className="flbl">Treating Doctor</label><input className="finp" value={eDis?.doctor||""} onChange={e=>setDis("doctor",e.target.value)} placeholder="Dr. Name"/></div>
+              <div className="fg"><label className="flbl">Primary Diagnosis</label><input className="finp" value={eDis?.diagnosis||""} onChange={e=>setDis("diagnosis",e.target.value)} placeholder="e.g. Acute Appendicitis"/></div>
             </div>
           </div>
         </div>
 
-        {/* ── Dynamic clinical sections from hospital ── */}
         {sections.map((sec, idx) => (
           <div key={sec.key} className="ds-card">
             <div className="ds-card-hdr">
-              <div className="ds-card-num" style={{ background:dtConfig.bg, borderColor:dtConfig.border, color:dtConfig.color }}>
-                {idx + 1}
-              </div>
+              <div className="ds-card-num" style={{ background:dtConfig.bg, borderColor:dtConfig.border, color:dtConfig.color }}>{idx + 1}</div>
               <span className="ds-card-lbl">{sec.label}</span>
               {sec.type === "vitals_grid" && <span className="ds-card-type">Vitals Grid</span>}
             </div>
@@ -1771,28 +1776,180 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
                   ))}
                 </div>
               ) : (
-                <textarea
-                  value={eDis?.[sec.key]||""}
-                  placeholder={`Enter ${sec.label.toLowerCase()}...`}
-                  rows={sec.rows||3}
+                <textarea value={eDis?.[sec.key]||""} placeholder={`Enter ${sec.label.toLowerCase()}...`} rows={sec.rows||3}
                   onChange={e=>setDis(sec.key,e.target.value)}
-                  style={{ width:"100%", background:"var(--bg)", border:"1.5px solid var(--border)", borderRadius:8, padding:"10px 12px", color:"var(--navy)", fontSize:13, fontFamily:"inherit", outline:"none", resize:"vertical", boxSizing:"border-box", lineHeight:1.55 }}
-                />
+                  style={{ width:"100%", background:"var(--bg)", border:"1.5px solid var(--border)", borderRadius:8, padding:"10px 12px", color:"var(--navy)", fontSize:13, fontFamily:"inherit", outline:"none", resize:"vertical", boxSizing:"border-box", lineHeight:1.55 }}/>
               )}
             </div>
           </div>
         ))}
 
-        {/* ── Save button ── */}
         <div style={{ display:"flex", alignItems:"center", gap:14, marginTop:8 }}>
-          <button className="savebtn" onClick={() => saveSection("discharge", "Discharge Summary")}>
-            Save Discharge Summary
-          </button>
-          <span style={{ fontSize:12, color:"var(--text3)" }}>
-            Type: <strong style={{ color:dtConfig.color }}>{dtConfig.label}</strong>
-            &nbsp;·&nbsp;{sections.length} clinical sections
-          </span>
+          <button className="savebtn" onClick={() => saveSection("discharge", "Discharge Summary")}>Save Discharge Summary</button>
+          <span style={{ fontSize:12, color:"var(--text3)" }}>Type: <strong style={{ color:dtConfig.color }}>{dtConfig.label}</strong> · {sections.length} clinical sections</span>
         </div>
+      </>
+    );
+  };
+
+  // ── ✅ FIXED: Medicine Bill — single dropdown, no duplicate select ──────────
+  const renderMedicineBill = () => {
+    const medBillTotal = eMedBill.reduce((a, r) => a + Number(r.amount || 0), 0);
+
+    return (
+      <>
+        {/* Admission note medicines + MEDICATION_GROUPS quick-add */}
+        <MedicineHistoryPicker eMed={eMed} onAdd={addMedFromPicker} />
+
+        {/* Search filter + master dropdown — ONE row only */}
+        <div style={{ display:"flex", gap:10, marginBottom:16, flexWrap:"wrap", alignItems:"center" }}>
+          <input
+            type="text"
+            placeholder="Filter medicine master…"
+            value={medSearch}
+            onChange={e => setMedSearch(e.target.value)}
+            style={{
+              flex:1, minWidth:180, padding:"9px 13px", borderRadius:9,
+              border:"1.5px solid var(--border)", background:"var(--bg)",
+              color:"var(--navy)", fontSize:13, outline:"none", fontFamily:"inherit",
+            }}
+          />
+          <select
+            defaultValue=""
+            onChange={e => {
+              if (!e.target.value) return;
+              addMedicineFromMasterDropdown(e.target.value);
+              e.target.value = "";
+            }}
+            style={{
+              flex:2, minWidth:260, padding:"9px 13px", borderRadius:9,
+              border:"1.5px solid var(--border)", background:"var(--white,#fff)",
+              color:"var(--navy)", fontSize:13, outline:"none", fontFamily:"inherit", cursor:"pointer",
+            }}
+          >
+            <option value="" disabled>
+              {medicineMaster.length === 0
+                ? "⏳ Loading medicines…"
+                : `+ Add from master (${medicineMaster.length} available)`}
+            </option>
+            {medicineMaster
+              .filter(m =>
+                (m.name || m.medicine_name || "")
+                  .toLowerCase()
+                  .includes(medSearch.toLowerCase())
+              )
+              .map((m, idx) => (
+                <option key={m.id ?? idx} value={m.name || m.medicine_name}>
+                  {m.name || m.medicine_name}
+                  {(m.rate || m.price) ? ` | ₹${m.rate ?? m.price}` : ""}
+                  {m.batch_no ? ` | Batch: ${m.batch_no}` : ""}
+                </option>
+              ))}
+          </select>
+        </div>
+
+        {/* Medicine table */}
+        <div className="tw">
+          <table className="tbl">
+            <thead>
+              <tr>
+                <th>Item Description</th>
+                <th>Date</th>
+                <th style={{ width:70 }}>Qty</th>
+                <th style={{ width:110 }}>Rate (₹)</th>
+                <th style={{ width:150 }}>Batch No.</th>
+                <th style={{ width:140 }}>Expiry</th>
+                <th style={{ width:110 }}>Amount (₹)</th>
+                <th style={{ width:40 }}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {eMedBill.map((r, i) => (
+                <tr key={r.id}>
+                  <td>
+                    <input className="tinp" value={r.item}
+                      onChange={e => {
+                        const val = e.target.value;
+                        const master = medicineMaster.find(
+                          m => (m.name || m.medicine_name || "").toLowerCase() === val.toLowerCase()
+                        );
+                        const n = [...eMedBill];
+                        n[i] = {
+                          ...n[i], item: val,
+                          rate:       master ? Number(master.rate ?? master.price ?? n[i].rate) : n[i].rate,
+                          batchNo:    master?.batch_no    ?? n[i].batchNo    ?? "",
+                          expiryDate: master?.expiry_date ?? n[i].expiryDate ?? "",
+                        };
+                        n[i].amount = Number(n[i].quantity || 1) * Number(n[i].rate || 0);
+                        setEMedBill(n);
+                      }}
+                    />
+                  </td>
+                  <td>
+                    <input className="tinp" type="date" value={r.date}
+                      onChange={e => { const n=[...eMedBill]; n[i]={...n[i],date:e.target.value}; setEMedBill(n); }}/>
+                  </td>
+                  <td>
+                    <input className="tinp" type="number" min="1" value={r.quantity ?? 1}
+                      onChange={e => {
+                        const n=[...eMedBill];
+                        const qty = Math.max(1, Number(e.target.value) || 1);
+                        n[i] = { ...n[i], quantity:qty, amount:qty * Number(n[i].rate||0) };
+                        setEMedBill(n);
+                      }}/>
+                  </td>
+                  <td>
+                    <input className="tinp" type="number" min="0" step="0.01" value={r.rate ?? 0}
+                      onChange={e => {
+                        const n=[...eMedBill];
+                        const rate = Number(e.target.value) || 0;
+                        n[i] = { ...n[i], rate, amount:Number(n[i].quantity||1)*rate };
+                        setEMedBill(n);
+                      }}/>
+                  </td>
+                  <td>
+                    <input className="tinp" value={r.batchNo || ""}
+                      onChange={e => { const n=[...eMedBill]; n[i]={...n[i],batchNo:e.target.value}; setEMedBill(n); }}/>
+                  </td>
+                  <td>
+                    <input className="tinp" type="date" value={r.expiryDate || ""}
+                      onChange={e => { const n=[...eMedBill]; n[i]={...n[i],expiryDate:e.target.value}; setEMedBill(n); }}/>
+                  </td>
+                  <td>
+                    <input className="tinp" type="number" min="0" step="0.01" value={r.amount}
+                      onChange={e => { const n=[...eMedBill]; n[i]={...n[i],amount:Number(e.target.value)||0}; setEMedBill(n); }}/>
+                  </td>
+                  <td>
+                    <button className="delbtn" onClick={() => setEMedBill(p => p.filter((_,j)=>j!==i))}>×</button>
+                  </td>
+                </tr>
+              ))}
+              {eMedBill.length === 0 && (
+                <tr>
+                  <td colSpan={8} style={{ textAlign:"center", color:"var(--text3)", fontStyle:"italic", padding:"20px" }}>
+                    No medicines added yet — use the dropdown above or Add Row.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        <button className="addbtn" onClick={() =>
+          setEMedBill(p => [...p, {
+            id:Date.now(), item:"", date:new Date().toISOString().slice(0,10),
+            quantity:1, rate:0, batchNo:"", expiryDate:"", amount:0,
+          }])
+        }>+ Add Row Manually</button>
+
+        <div className="totbox">
+          <div className="tr2 fin"><span>Medicine Total</span><span>{fmt(medBillTotal)}</span></div>
+        </div>
+
+        <button className="savebtn" style={{ marginTop:16 }}
+          onClick={() => saveSection("medicines", "Medicine Bill")}>
+          Save Medicine Bill
+        </button>
       </>
     );
   };
@@ -1861,56 +2018,55 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
                   : (
                     <div className="tgrid">
                       {patients
-  .filter(p => p.taskStatus !== "completed")
-  .map(p => {
-                        const done = SECTION_KEYS.filter(k => p.saved?.[k]).length;
-                        const dtCfg = DISCHARGE_TYPES[p.discharge?.dischargeType||"NORMAL"] || DISCHARGE_TYPES.NORMAL;
-                        return (
-                          <div key={`${p.uhid}-${p.admNo}`} className="tc">
-                            <div className="tctp">
-                              <div style={{ flex:1, minWidth:0 }}>
-                                <div className="tcnm">{p.patientName}</div>
-                                <div className="tcid">{p.uhid} · {p.admNo}</div>
+                        .filter(p => p.taskStatus !== "completed")
+                        .map(p => {
+                          const done = SECTION_KEYS.filter(k => p.saved?.[k]).length;
+                          const dtCfg = DISCHARGE_TYPES[p.discharge?.dischargeType||"NORMAL"] || DISCHARGE_TYPES.NORMAL;
+                          return (
+                            <div key={`${p.uhid}-${p.admNo}`} className="tc">
+                              <div className="tctp">
+                                <div style={{ flex:1, minWidth:0 }}>
+                                  <div className="tcnm">{p.patientName}</div>
+                                  <div className="tcid">{p.uhid} · {p.admNo}</div>
+                                </div>
+                                <span className={"badge "+(p.taskStatus==="completed"?"bt":"ba")}>
+                                  {p.taskStatus==="completed"?"Done":"Pending"}
+                                </span>
                               </div>
-                              <span className={"badge "+(p.taskStatus==="completed"?"bt":"ba")}>
-                                {p.taskStatus==="completed"?"Done":"Pending"}
-                              </span>
-                            </div>
-                            <div className="tcrs">
-                              <div className="tcrw"><span className="tcri">🏥</span><strong style={{ color:"var(--navy)", fontSize:11 }}>{p.branch}</strong></div>
-                              <div className="tcrw"><span className="tcri">👨‍⚕️</span>{p.doctor||"—"}</div>
-                              <div className="tcrw"><span className="tcri">🩺</span>{p.diagnosis||"—"}</div>
-                              <div className="tcrw"><span className="tcri">📞</span>{p.phone||"—"}</div>
-                            </div>
-                            {/* Discharge type chip on card */}
-                            <div style={{ marginBottom:10 }}>
-                              <span style={{ display:"inline-flex", alignItems:"center", gap:5, padding:"4px 10px", borderRadius:20, fontSize:11, fontWeight:700, background:dtCfg.bg, border:`1.5px solid ${dtCfg.border}`, color:dtCfg.color }}>
-                                {dtCfg.icon} {dtCfg.label}
-                              </span>
-                            </div>
-                            <div className="tc-dod">
-                              <div className="tc-dod-item"><div className="tc-dod-lbl">Admitted</div><div className="tc-dod-val">{fmtDtShort(p.doa)}</div></div>
-                              <div className="tc-dod-item"><div className="tc-dod-lbl">Exp. Discharge</div><div className="tc-dod-val exp">{p.expectedDod?fmtDtShort(p.expectedDod):"--"}</div></div>
-                              <div className="tc-dod-item"><div className="tc-dod-lbl">Discharged</div><div className="tc-dod-val dis">{p.dod?fmtDtShort(p.dod):"Active"}</div></div>
-                            </div>
-                            <div className="tcch">
-                              <span className={"badge "+(p.status==="admitted"?"bg":"bb")}>{p.status==="admitted"?"Admitted":"Discharged"}</span>
-                              <span className="chip">{p.ward} · {p.bed}</span>
-                              <span className="chip">{p.age}y {p.gender?.[0]}</span>
-                            </div>
-                            {p.taskStatus !== "completed" && (
-                              <div className="tcpb">
-                                <div className="tcplbl">Sections saved: {done}/5</div>
-                                <div className="tcpbar"><div className="tcpfil" style={{ width:((done/5)*100)+"%" }}/></div>
+                              <div className="tcrs">
+                                <div className="tcrw"><span className="tcri">🏥</span><strong style={{ color:"var(--navy)", fontSize:11 }}>{p.branch}</strong></div>
+                                <div className="tcrw"><span className="tcri">👨‍⚕️</span>{p.doctor||"—"}</div>
+                                <div className="tcrw"><span className="tcri">🩺</span>{p.diagnosis||"—"}</div>
+                                <div className="tcrw"><span className="tcri">📞</span>{p.phone||"—"}</div>
                               </div>
-                            )}
-                            <div className="tcft">
-                              <div className="tcdoa">DOA: {fmtDt(p.doa)}</div>
-                              <button className="hod-btn" onClick={() => openPatient(p)}>Open</button>
+                              <div style={{ marginBottom:10 }}>
+                                <span style={{ display:"inline-flex", alignItems:"center", gap:5, padding:"4px 10px", borderRadius:20, fontSize:11, fontWeight:700, background:dtCfg.bg, border:`1.5px solid ${dtCfg.border}`, color:dtCfg.color }}>
+                                  {dtCfg.icon} {dtCfg.label}
+                                </span>
+                              </div>
+                              <div className="tc-dod">
+                                <div className="tc-dod-item"><div className="tc-dod-lbl">Admitted</div><div className="tc-dod-val">{fmtDtShort(p.doa)}</div></div>
+                                <div className="tc-dod-item"><div className="tc-dod-lbl">Exp. Discharge</div><div className="tc-dod-val exp">{p.expectedDod?fmtDtShort(p.expectedDod):"--"}</div></div>
+                                <div className="tc-dod-item"><div className="tc-dod-lbl">Discharged</div><div className="tc-dod-val dis">{p.dod?fmtDtShort(p.dod):"Active"}</div></div>
+                              </div>
+                              <div className="tcch">
+                                <span className={"badge "+(p.status==="admitted"?"bg":"bb")}>{p.status==="admitted"?"Admitted":"Discharged"}</span>
+                                <span className="chip">{p.ward} · {p.bed}</span>
+                                <span className="chip">{p.age}y {p.gender?.[0]}</span>
+                              </div>
+                              {p.taskStatus !== "completed" && (
+                                <div className="tcpb">
+                                  <div className="tcplbl">Sections saved: {done}/5</div>
+                                  <div className="tcpbar"><div className="tcpfil" style={{ width:((done/5)*100)+"%" }}/></div>
+                                </div>
+                              )}
+                              <div className="tcft">
+                                <div className="tcdoa">DOA: {fmtDt(p.doa)}</div>
+                                <button className="hod-btn" onClick={() => openPatient(p)}>Open</button>
+                              </div>
                             </div>
-                          </div>
-                        );
-                      })}
+                          );
+                        })}
                     </div>
                   )
                 }
@@ -1936,7 +2092,6 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
                     <span className="badge bb">🛏 {sel.ward} · {sel.bed}</span>
                     <span className="badge bb">👨‍⚕️ {sel.doctor}</span>
                     <span className={"badge "+(sel.taskStatus==="completed"?"bt":"ba")}>{sel.taskStatus==="completed"?"Submitted to HOD":"Task Pending"}</span>
-                    {/* Discharge type badge in patient header */}
                     {(() => {
                       const dtCfg = DISCHARGE_TYPES[eDis?.dischargeType||"NORMAL"] || DISCHARGE_TYPES.NORMAL;
                       return (
@@ -1999,7 +2154,11 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
                 {/* ── ADMISSION NOTE ── */}
                 {activeTab === "medical" && (
                   <>
-                    <AdmissionNoteForm eMed={eMed} setEMed={setEMed}/>
+                    <AdmissionNoteForm
+  eMed={eMed}
+  setEMed={setEMed}
+  medicineMaster={medicineMaster}
+/>
                     <button className="savebtn" onClick={() => saveSection("admission","Admission Note")}>Save Admission Note</button>
                   </>
                 )}
@@ -2032,7 +2191,42 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
                         ))}
                       </div>
                     </div>
-                    {visibleReps.length===0 && <div className="empty" style={{ padding:"30px 20px" }}><div>No reports yet. Use the buttons below to add.</div></div>}
+                    <div style={{ display:"flex", gap:12, alignItems:"center", flexWrap:"wrap", marginBottom:18, marginTop:10 }}>
+                      <input
+                        placeholder="Search reports..."
+                        value={reportSearch[sel?.uhid] || ""}
+                        onChange={e => setReportSearch(prev => ({ ...prev, [sel?.uhid]: e.target.value }))}
+                        style={{ flex:"1", minWidth:240, padding:"10px 14px", borderRadius:10, border:"1px solid var(--border)", background:"var(--white)", fontSize:13, fontFamily:"inherit" }}
+                      />
+                      <select
+                        style={{ padding:"10px 14px", borderRadius:10, border:"1px solid var(--border)", background:"var(--white)", minWidth:260, fontSize:13, fontFamily:"inherit" }}
+                        onChange={e => {
+                          if (!e.target.value) return;
+                          const template = REPORT_TEMPLATES[e.target.value];
+                          if (!template) return;
+                          const report = isRadiologyType(template.reportType) ? emptyRadReport() : emptyPathReport();
+                          report.reportName = template.label;
+                          report.reportType = template.reportType;
+                          report.tests = template.tests || [];
+                          setELabRep(prev => [...prev, report]);
+                          e.target.value = "";
+                        }}
+                      >
+                        <option value="">Add Report Template</option>
+                        {Object.entries(REPORT_TEMPLATES)
+                          .filter(([k, v]) => v.label.toLowerCase().includes((reportSearch[sel?.uhid] || "").toLowerCase()))
+                          .map(([k, v]) => (
+                            <option key={k} value={k}>{v.label}</option>
+                          ))}
+                      </select>
+                    </div>
+
+                    {visibleReps.length === 0 && (
+                      <div className="empty" style={{ padding:"30px 20px" }}>
+                        <div>No reports yet. Use the dropdown above to add.</div>
+                      </div>
+                    )}
+
                     {visibleReps.map(rep => {
                       const ri = eLabRep.findIndex(r => r.id===rep.id);
                       if (isRadiologyType(rep.reportType)) {
@@ -2040,6 +2234,7 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
                       }
                       return (<PathologyReportCard key={rep.id} rep={rep} ri={ri} patientName={patientName} updRep={updRep} updTest={updTest} addTest={addTest} delTest={delTest} onRemove={() => setELabRep(p=>p.filter(r=>r.id!==rep.id))}/>);
                     })}
+
                     <div style={{ display:"flex", gap:12, alignItems:"center", flexWrap:"wrap", marginBottom:16, marginTop:4 }}>
                       <button onClick={() => setELabRep(p=>[...p,emptyPathReport()])}
                         style={{ display:"inline-flex", alignItems:"center", gap:8, padding:"10px 20px", background:"linear-gradient(135deg,#1e3a5f,#0f172a)", color:"#fff", border:"none", borderRadius:9, cursor:"pointer", fontSize:13, fontWeight:600, fontFamily:"inherit", boxShadow:"0 3px 10px rgba(15,23,42,.2)" }}>
@@ -2056,46 +2251,9 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
 
                 {/* ── MEDICINE BILL ── */}
                 {activeTab === "med_bill" && (
-                  <>
-                    <MedicineHistoryPicker eMed={eMed} onAdd={addMedFromPicker}/>
-                    <div className="secc">
-                      <div className="sech">
-                        <div className="sect">💊 Medicine / Pharmacy Bill</div>
-                        {eMedBill.length > 0 && (
-                          <span style={{ fontSize:12, fontWeight:700, color:"var(--teal)", background:"var(--tealBg)", border:"1px solid rgba(13,124,114,.2)", borderRadius:20, padding:"3px 11px" }}>
-                            {eMedBill.length} items · {fmt(eMedBill.reduce((a,r)=>a+Number(r.amount||0),0))}
-                          </span>
-                        )}
-                      </div>
-                      <div className="secb">
-                        <div className="tw">
-                          <table className="tbl">
-                            <thead><tr><th>Item Description</th><th>Date</th><th style={{ width:90 }}>Qty</th><th style={{ width:110 }}>Rate</th><th style={{ width:150 }}>Batch No.</th><th style={{ width:150 }}>Expiry</th><th style={{ width:130 }}>Amount</th><th style={{ width:44 }}></th></tr></thead>
-                            <tbody>
-                              {eMedBill.map((r,i) => (
-                                <tr key={r.id}>
-                                  <td><input className="tinp" value={r.item} onChange={e=>{ const n=[...eMedBill]; n[i]={...n[i],item:e.target.value}; setEMedBill(n); }}/></td>
-                                  <td><input className="tinp" type="date" value={r.date} onChange={e=>{ const n=[...eMedBill]; n[i]={...n[i],date:e.target.value}; setEMedBill(n); }}/></td>
-                                  <td><input className="tinp" type="number" min="1" value={r.quantity??1} onChange={e=>{ const n=[...eMedBill]; const qty=Math.max(1,Number(e.target.value)||1); n[i]={...n[i],quantity:qty,amount:qty*Number(n[i].rate||0)}; setEMedBill(n); }}/></td>
-                                  <td><input className="tinp" type="number" min="0" step="0.01" value={r.rate??0} onChange={e=>{ const n=[...eMedBill]; const rate=Number(e.target.value)||0; n[i]={...n[i],rate,amount:Number(n[i].quantity||1)*rate}; setEMedBill(n); }}/></td>
-                                  <td><input className="tinp" value={r.batchNo||""} onChange={e=>{ const n=[...eMedBill]; n[i]={...n[i],batchNo:e.target.value}; setEMedBill(n); }}/></td>
-                                  <td><input className="tinp" type="date" value={r.expiryDate||""} onChange={e=>{ const n=[...eMedBill]; n[i]={...n[i],expiryDate:e.target.value}; setEMedBill(n); }}/></td>
-                                  <td><input className="tinp" type="number" min="0" step="0.01" value={r.amount} onChange={e=>{ const n=[...eMedBill]; n[i]={...n[i],amount:Number(e.target.value)||0}; setEMedBill(n); }}/></td>
-                                  <td><button className="delbtn" onClick={() => setEMedBill(p=>p.filter((_,j)=>j!==i))}>X</button></td>
-                                </tr>
-                              ))}
-                              {eMedBill.length===0&&(
-                                <tr><td colSpan={8} style={{ textAlign:"center", color:"var(--text3)", fontStyle:"italic", padding:"18px" }}>No medicines added yet. Use the picker above or click + Add.</td></tr>
-                              )}
-                            </tbody>
-                          </table>
-                        </div>
-                        <button className="addbtn" onClick={() => setEMedBill(p=>[...p,{id:Date.now(),item:"",date:new Date().toISOString().slice(0,10),quantity:1,rate:0,batchNo:"",expiryDate:"",amount:0}])}>+ Add Medicine Manually</button>
-                        <div className="totbox"><div className="tr2 fin"><span>Medicine Total</span><span>{fmt(eMedBill.reduce((a,r)=>a+Number(r.amount||0),0))}</span></div></div>
-                      </div>
-                    </div>
-                    <button className="savebtn" onClick={() => saveSection("medicines","Medicine Bill")}>Save Medicine Bill</button>
-                  </>
+                  <div className="secb">
+                    {renderMedicineBill()}
+                  </div>
                 )}
 
                 {/* ── FINAL BILL ── */}
@@ -2170,7 +2328,7 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
                                       <td><input className="tinp" type="number" min="1" step="1" value={r.qty} onChange={e=>updSvc(i,"qty",e.target.value)}/></td>
                                       <td><input className="tinp" type="number" min="0" step="0.01" value={r.rate} onChange={e=>updSvc(i,"rate",e.target.value)}/></td>
                                       <td><input className="tinp" type="number" min="0" step="0.01" value={r.amount??0} onChange={e=>updSvcAmount(i,e.target.value)}/></td>
-                                      <td><button className="delbtn" onClick={() => setESvc(p=>p.filter((_,j)=>j!==i))}>X</button></td>
+                                      <td><button className="delbtn" onClick={() => setESvc(p=>p.filter((_,j)=>j!==i))}>×</button></td>
                                     </tr>
                                   ))}
                                 </tbody>
@@ -2251,7 +2409,7 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
         {showConfirm && (
           <div className="overlay" onClick={() => setShowConfirm(false)}>
             <div className="modal" onClick={e=>e.stopPropagation()}>
-              <button className="mclose" onClick={() => setShowConfirm(false)}>X</button>
+              <button className="mclose" onClick={() => setShowConfirm(false)}>×</button>
               <div className="mico">📤</div>
               <div className="mtitle">Submit to HOD and Admin?</div>
               <div className="msub">Submitting complete billing file for <strong>{sel?.patientName}</strong> ({sel?.uhid}) to the Head of Department.</div>

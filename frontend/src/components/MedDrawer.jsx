@@ -29,7 +29,24 @@ const dr = {
   saveBtn: { background:"#10b981", border:"none", color:"#fff", padding:"9px", borderRadius:7, fontSize:12, cursor:"pointer", fontFamily:"inherit", fontWeight:500 },
 };
 
-export default function MedDrawer({ editMedPt, onClose, updateMed, addMedRow, delMedRow, saveMeds, fmt, canEditRate }) {
+export default function MedDrawer({
+  editMedPt,
+  onClose,
+  updateMed,
+  addMedRow,
+  delMedRow,
+  saveMeds,
+  fmt,
+  canEditRate,
+
+  medicineMaster,
+  medSearch,
+  setMedSearch,
+  selectedMedPatient,
+  setSelectedMedPatient,
+  addMedicineToPatient,
+
+}) {
   if (!editMedPt) return null;
   const meds = editMedPt.medicines || [];
   const total = meds.reduce((s, m) => s + ((+m.qty||0) * (+m.rate||0)), 0);
@@ -51,67 +68,301 @@ export default function MedDrawer({ editMedPt, onClose, updateMed, addMedRow, de
 
         <div style={dr.body}>
 
-          {meds.length > 0 && (
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 100px 70px 28px", gap:8, paddingBottom:6, marginBottom:6, borderBottom:"1px solid #1e2330" }}>
-              {["Medicine","Qty","Rate/unit",""].map(h => (
-                <span key={h} style={{ fontSize:9, color:"#4a5568", textTransform:"uppercase", letterSpacing:"0.06em" }}>{h}</span>
-              ))}
-            </div>
-          )}
+  <div
+    style={{
+      display:"flex",
+      gap:10,
+      marginBottom:16
+    }}
+  >
 
-          {meds.map((m, i) => (
-            <div key={m.id || i} style={dr.card}>
-              <input
-                style={dr.nameInp}
-                placeholder="Medicine name..."
-                value={m.name}
-                autoComplete="off"
-                autoCorrect="off"
-                spellCheck="false"
-                onChange={e => updateMed(i, "name", e.target.value)}
-              />
-              <div style={dr.grid}>
-                <div>
-                  <div style={dr.miniLbl}>Quantity</div>
-                  <div style={dr.qtyWrap}>
-                    <button style={dr.qtyBtn} onClick={() => changeQty(i, -1)}>−</button>
-                    <input
-                      style={dr.qtyInp}
-                      type="number"
-                      value={m.qty}
-                      min={1}
-                      autoComplete="off"
-                      onChange={e => updateMed(i, "qty", e.target.value)}
-                    />
-                    <button style={dr.qtyBtn} onClick={() => changeQty(i, 1)}>+</button>
-                  </div>
-                </div>
+    <input
+      style={dr.nameInp}
+      placeholder="Search medicine..."
+      value={medSearch}
+      onChange={(e)=>
+        setMedSearch(e.target.value)
+      }
+    />
 
-                <div>
-                  <div style={dr.miniLbl}>Rate (₹)</div>
-                  {canEditRate
-                    ? <input style={dr.rateInp} type="number" value={m.rate} autoComplete="off" onChange={e => updateMed(i, "rate", e.target.value)} />
-                    : <div style={dr.rateLocked}>₹{m.rate}</div>
-                  }
-                </div>
+    <select
+      style={dr.rateInp}
+      onChange={(e)=>{
 
-                <button style={dr.delBtn} onClick={() => delMedRow(i)}>×</button>
-              </div>
+        if(!e.target.value) return;
 
-              <div style={dr.subtotalRow}>
-                <span style={dr.subtotalVal}>= {fmt((+m.qty||0) * (+m.rate||0))}</span>
-              </div>
-            </div>
-          ))}
+        addMedicineToPatient(
+          editMedPt,
+          e.target.value
+        );
 
-          <button style={dr.addBtn} onClick={addMedRow}>+ Add Medicine</button>
+      }}
+    >
 
-          <div style={dr.accessBox(canEditRate ? "#818cf8" : "#fb923c")}>
-            <strong style={{ fontSize:11 }}>{canEditRate ? "Management" : "Employee"} Access</strong>
-            <div style={{ marginTop:2, opacity:0.75 }}>
-              {canEditRate ? "You can edit names, quantities and rates." : "You can edit quantities. Rates are locked."}
-            </div>
-          </div>
+      <option value="">
+        Add Medicine
+      </option>
+
+      {medicineMaster
+        .filter(m =>
+
+          (m.name || "")
+            .toLowerCase()
+            .includes(
+              medSearch.toLowerCase()
+            )
+        )
+
+        .map((m, idx) => (
+
+          <option
+            key={idx}
+            value={m.name}
+          >
+            {m.name}
+          </option>
+
+      ))}
+
+    </select>
+
+  </div>
+
+  {(selectedMedPatient[
+    editMedPt?.uhid
+  ] || []).map((m, i) => (
+
+    <div
+      key={i}
+      style={dr.card}
+    >
+
+      <input
+        style={dr.nameInp}
+        value={m.name}
+        placeholder="Medicine name"
+        onChange={(e)=>{
+
+          const val = e.target.value;
+
+          setSelectedMedPatient(prev=>{
+
+            const meds = [
+              ...(prev[
+                editMedPt.uhid
+              ] || [])
+            ];
+
+            meds[i] = {
+              ...meds[i],
+              name: val
+            };
+
+            return {
+              ...prev,
+              [editMedPt.uhid]: meds
+            };
+
+          });
+
+        }}
+      />
+
+      <div
+        style={{
+          display:"grid",
+          gridTemplateColumns:
+            "1fr 1fr 1fr 1fr auto",
+          gap:8
+        }}
+      >
+
+        <input
+          style={dr.rateInp}
+          placeholder="Dosage"
+          value={m.dosage || ""}
+          onChange={(e)=>{
+
+            const val = e.target.value;
+
+            setSelectedMedPatient(prev=>{
+
+              const meds = [
+                ...(prev[
+                  editMedPt.uhid
+                ] || [])
+              ];
+
+              meds[i] = {
+                ...meds[i],
+                dosage: val
+              };
+
+              return {
+                ...prev,
+                [editMedPt.uhid]: meds
+              };
+
+            });
+
+          }}
+        />
+
+        <input
+          style={dr.rateInp}
+          placeholder="Frequency"
+          value={m.frequency || ""}
+          onChange={(e)=>{
+
+            const val = e.target.value;
+
+            setSelectedMedPatient(prev=>{
+
+              const meds = [
+                ...(prev[
+                  editMedPt.uhid
+                ] || [])
+              ];
+
+              meds[i] = {
+                ...meds[i],
+                frequency: val
+              };
+
+              return {
+                ...prev,
+                [editMedPt.uhid]: meds
+              };
+
+            });
+
+          }}
+        />
+
+        <input
+          style={dr.rateInp}
+          placeholder="Days"
+          value={m.days || ""}
+          onChange={(e)=>{
+
+            const val = e.target.value;
+
+            setSelectedMedPatient(prev=>{
+
+              const meds = [
+                ...(prev[
+                  editMedPt.uhid
+                ] || [])
+              ];
+
+              meds[i] = {
+                ...meds[i],
+                days: val
+              };
+
+              return {
+                ...prev,
+                [editMedPt.uhid]: meds
+              };
+
+            });
+
+          }}
+        />
+
+        <input
+          style={dr.rateInp}
+          placeholder="Rate"
+          type="number"
+          value={m.rate || ""}
+          onChange={(e)=>{
+
+            const val = e.target.value;
+
+            setSelectedMedPatient(prev=>{
+
+              const meds = [
+                ...(prev[
+                  editMedPt.uhid
+                ] || [])
+              ];
+
+              meds[i] = {
+                ...meds[i],
+                rate: val
+              };
+
+              return {
+                ...prev,
+                [editMedPt.uhid]: meds
+              };
+
+            });
+
+          }}
+        />
+
+        <button
+          style={dr.delBtn}
+          onClick={()=>{
+
+            setSelectedMedPatient(prev=>({
+
+              ...prev,
+
+              [editMedPt.uhid]:
+
+                (prev[
+                  editMedPt.uhid
+                ] || []).filter(
+                  (_,idx)=>idx!==i
+                )
+
+            }));
+
+          }}
+        >
+          ×
+        </button>
+
+      </div>
+
+      <div style={dr.subtotalRow}>
+        <span style={dr.subtotalVal}>
+          = {fmt((+m.qty||1) * (+m.rate||0))}
+        </span>
+      </div>
+
+    </div>
+
+  ))}
+
+  <div
+    style={dr.accessBox(
+      canEditRate
+        ? "#818cf8"
+        : "#fb923c"
+    )}
+  >
+
+    <strong style={{ fontSize:11 }}>
+      {canEditRate
+        ? "Management"
+        : "Employee"} Access
+    </strong>
+
+    <div
+      style={{
+        marginTop:2,
+        opacity:0.75
+      }}
+    >
+      {canEditRate
+        ? "You can edit medicines and rates."
+        : "Rates are locked."}
+    </div>
+
+  </div>
 
         </div>
 
@@ -120,7 +371,7 @@ export default function MedDrawer({ editMedPt, onClose, updateMed, addMedRow, de
           <div style={dr.totalVal}>{fmt(total)}</div>
           <div style={dr.btnRow}>
             <button style={dr.cancelBtn} onClick={onClose}>Cancel</button>
-            <button style={dr.saveBtn} onClick={saveMeds}>Save Changes</button>
+            <button style={dr.saveBtn} onClick={() => saveMeds(editMedPt)}>Save Medicines</button>
           </div>
         </div>
 

@@ -127,9 +127,14 @@ export const apiService = {
     },
 
     getMedicineMaster: async () => {
-        const response = await axios.get(`${BASE_URL}/medicine-master/`);
-        return Array.isArray(response.data) ? response.data : (response.data?.results || response.data || []);
-    },
+  const response = await axios.get(`${BASE_URL}/medicine-master/`);
+  const data = response.data;
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.results)) return data.results;
+  if (Array.isArray(data?.data)) return data.data;
+  return [];
+},
+    
 
     importMedicineMasterExcel: async (file) => {
         const formData = new FormData();
@@ -141,9 +146,14 @@ export const apiService = {
     },
 
     updateMedicalHistory: async (uhid, admNo, medicalData) => {
-        const response = await axios.patch(`${BASE_URL}/patients/${uhid}/update_medical/`, { admNo, medicalData });
-        return response.data;
-    },
+    const response = await axios.patch(
+        `${BASE_URL}/patients/${uhid}/update_medical/`,
+        { admNo, medicalData }
+    );
+
+    return response.data;
+},
+
 
     addService: async (uhid, admNo, serviceData) => {
         const response = await axios.post(`${BASE_URL}/patients/${uhid}/add_service/`, { admNo, serviceData });
