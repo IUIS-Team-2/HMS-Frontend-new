@@ -140,6 +140,8 @@ async function apiFetch(path, options = {}) {
   return res.json();
 }
 
+const stripTz = (s) => s ? String(s).slice(0,16) : "";
+
 async function apiFetchBlob(path, options = {}) {
   const token = sessionStorage.getItem("hms_token");
   const headers = {
@@ -418,9 +420,15 @@ function PdfDownloadBtn({ uhid, admNo, docType, label, icon, onToast }) {
     setLoading(true);
 
     try {
-      const blob = await apiFetchBlob(
-        `/hod/reports/download/?uhid=${encodeURIComponent(uhid)}&adm_no=${encodeURIComponent(admNo)}&doc_type=${encodeURIComponent(docType)}`
-      );
+      const urlMap = {
+        discharge_summary: `/patients/${uhid}/admissions/${admNo}/dynamic-summary/print/`,
+        admission_note:    `/patients/${uhid}/admissions/${admNo}/admission-note/print/`,
+        lab_reports:       `/patients/${uhid}/admissions/${admNo}/lab-reports/print/`,
+        medicine_bill:     `/patients/${uhid}/admissions/${admNo}/pharmacy-records/print/`,
+        final_bill:        `/patients/${uhid}/admissions/${admNo}/bill/print/`,
+      };
+      const printUrl = urlMap[docType] || urlMap[docType.replace(/-/g,'_')] || `/patients/${uhid}/admissions/${admNo}/dynamic-summary/print/`;
+      const blob = await apiFetchBlob(printUrl);
 
       const url = window.URL.createObjectURL(blob);
 
@@ -801,7 +809,7 @@ const [medicineMaster, setMedicineMaster] = useState([]);
   }, [request]);
 
   const loadEmployees = useCallback(async (dept = null) => {
-    const q = dept ? `?department=${encodeURIComponent(dept)}` : "";
+    const effectiveDept = dept || activeDept || "Billing"; const q = `?department=${encodeURIComponent(effectiveDept)}`;
     const data = await request(`/hod/employees/${q}`);
     if (data) {
       const list = Array.isArray(data) ? data : data.employees || data.results || [];
@@ -1226,7 +1234,12 @@ const [medicineMaster, setMedicineMaster] = useState([]);
         const content = res?.content||{ sections:[] };
         if (content.sections && !Array.isArray(content.sections)) content.sections = Object.entries(content.sections).map(([k,v]) => ({ key:k,...v }));
         setMyDischargeSummary(content);
-        setMyDischargeSummaryType(res?.summary_type||summType);
+        // Only use API summary_type if summary already exists
+        if (res?.is_existing && res?.summary_type) {
+          setMyDischargeSummaryType(res.summary_type);
+        } else {
+          setMyDischargeSummaryType(summType);
+        }
       }).catch(() => setMyDischargeSummary({ sections:[] })).finally(() => setMyDischargeSummaryLoading(false));
 
       Promise.all([
@@ -1251,7 +1264,17 @@ const [medicineMaster, setMedicineMaster] = useState([]);
 
       apiService.getPharmacyRecords(uhid, admNo).then(records => {
         const arr = Array.isArray(records) ? records : [];
-        if (arr.length) setMyEMedBill(arr.map(r => ({ id:r.id||Date.now()+Math.random(), item:r.name||r.medicine_name||"", date:r.date||r.date_given||new Date().toISOString().slice(0,10), quantity:Number(r.quantity||1), rate:Number(r.rate||0), amount:Number(r.rate||0)*Number(r.quantity||1), batchNo:r.batch||r.batch_no||"", expiryDate:r.expiry||r.expiry_date||"" })));
+        if (arr.length) {
+          setMyEMedBill(arr.map(r => ({ id:r.id||Date.now()+Math.random(), item:r.name||r.medicine_name||"", date:r.date||r.date_given||new Date().toISOString().slice(0,10), quantity:Number(r.quantity||1), rate:Number(r.rate||0), amount:Number(r.rate||0)*Number(r.quantity||1), batchNo:r.batch||r.batch_no||"", expiryDate:r.expiry||r.expiry_date||"" })));
+        } else {
+          // Prefill from medical history currentMedications
+          const medHist = sel.medicalHistory || {};
+          const currentMeds = medHist.currentMedications || "";
+          if (currentMeds) {
+            const medList = currentMeds.split(/,|;|\n/).map(s=>s.trim()).filter(Boolean);
+            setMyEMedBill(medList.map(name => ({ id:Date.now()+Math.random(), item:name, date:new Date().toISOString().slice(0,10), quantity:1, rate:0, amount:0, batchNo:"", expiryDate:"" })));
+          }
+        }
       }).catch(() => {});
     }
   };
