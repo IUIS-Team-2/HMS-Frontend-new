@@ -1,3 +1,4 @@
+import React from "react";
 import { useState, useEffect, useCallback } from "react";
 import ThemeModeDock from "../components/ui/ThemeModeDock";
 import { apiService, BASE_URL } from "../services/apiService";
@@ -342,6 +343,100 @@ function AdmissionNoteForm({ eMed, setEMed, readOnly }) {
         {inp("Treating Doctor","treatingDoctor","Dr. Name (MBBS, MD)")}
         {inp("Known Allergies","knownAllergies","e.g. Penicillin")}
       </SBlock>
+    </div>
+  );
+}
+
+// ─── HodMedSearchDropdown ────────────────────────────────────────────────────
+function HodMedSearchDropdown({ medicineMaster, existingItems, onSelect }) {
+  const [query, setQuery]   = React.useState("");
+  const [open, setOpen]     = React.useState(false);
+  const [rect, setRect]     = React.useState(null);
+  const inputRef = React.useRef(null);
+  const wrapRef  = React.useRef(null);
+
+  const filtered = React.useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return (medicineMaster || []).slice(0, 30);
+    return (medicineMaster || []).filter(m =>
+      (m.name || m.medicine_name || "").toLowerCase().includes(q)
+    ).slice(0, 30);
+  }, [query, medicineMaster]);
+
+  React.useEffect(() => {
+    const h = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, []);
+
+  const isAlready = (name) =>
+    (existingItems || []).some(r => (r.item || "").toLowerCase() === (name || "").toLowerCase());
+
+  const openDrop = () => {
+    if (inputRef.current) setRect(inputRef.current.getBoundingClientRect());
+    setOpen(true);
+  };
+
+  const handleSelect = (med) => {
+    const name = med.name || med.medicine_name || "";
+    if (isAlready(name)) return;
+    onSelect({
+      id: Date.now(),
+      item: name,
+      date: new Date().toISOString().slice(0, 10),
+      quantity: 1,
+      rate: Number(med.rate ?? med.price ?? 0),
+      amount: Number(med.rate ?? med.price ?? 0),
+      batchNo: med.batch_no || "",
+      expiryDate: med.expiry_date || "",
+    });
+    setQuery(""); setOpen(false);
+  };
+
+  const handleManual = () => {
+    const name = query.trim();
+    if (!name) return;
+    onSelect({ id: Date.now(), item: name, date: new Date().toISOString().slice(0, 10), quantity: 1, rate: 0, amount: 0, batchNo: "", expiryDate: "" });
+    setQuery(""); setOpen(false);
+  };
+
+  return (
+    <div ref={wrapRef} style={{ position:"relative", marginBottom:12 }}>
+      <input
+        ref={inputRef}
+        value={query}
+        placeholder="🔍 Search & add medicine from master…"
+        onChange={e => { setQuery(e.target.value); openDrop(); }}
+        onFocus={openDrop}
+        onKeyDown={e => { if (e.key === "Enter") handleManual(); if (e.key === "Escape") setOpen(false); }}
+        style={{ width:"100%", boxSizing:"border-box", padding:"10px 14px", borderRadius:8, border:"1.5px solid var(--border)", background:"var(--surface)", color:"var(--text)", fontSize:13, fontFamily:"inherit", outline:"none" }}
+      />
+      {open && rect && filtered.length > 0 && (
+        <div style={{ position:"fixed", top: rect.bottom + 4, left: rect.left, width: rect.width, zIndex:99999, maxHeight:260, overflowY:"auto", borderRadius:10, boxShadow:"0 12px 32px rgba(0,0,0,0.3)", background:"var(--surface)", border:"1px solid var(--border)" }}>
+          {filtered.length === 0 && (
+            <div onClick={handleManual} style={{ padding:"10px 14px", cursor:"pointer", color:"#10b981", fontSize:13, fontWeight:600 }}>
+              + Add "{query.trim()}" manually
+            </div>
+          )}
+          {filtered.map((m, idx) => {
+            const already  = isAlready(m.name || m.medicine_name || "");
+            const medName  = m.name || m.medicine_name || "";
+            const medRate  = m.rate ?? m.price ?? 0;
+            const medExpiry = m.expiry_date || "";
+            return (
+              <div key={idx} onClick={() => !already && handleSelect(m)}
+                style={{ padding:"10px 14px", cursor: already ? "default" : "pointer", borderBottom:"1px solid var(--border)", opacity: already ? 0.45 : 1 }}
+                onMouseEnter={e => { if (!already) e.currentTarget.style.background = "var(--surface-2)"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = ""; }}>
+                <div style={{ fontSize:13, fontWeight:600, color:"var(--text)" }}>{already ? "✓ " : "+ "}{medName}</div>
+                <div style={{ fontSize:11, color:"var(--text-muted)", marginTop:2 }}>
+                  ₹{medRate}{medExpiry ? ` · Exp: ${medExpiry}` : ""}{already ? " (already added)" : ""}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -730,6 +825,8 @@ const [medSearch, setMedSearch] = useState("");
 
 const [reportMaster, setReportMaster] = useState([]);
 const [medicineMaster, setMedicineMaster] = useState([]);
+  const [serviceMaster, setServiceMaster] = useState([]);
+  const [svcSearch, setSvcSearch] = useState({});
   const [myDischargeSummary, setMyDischargeSummary] = useState(null);
   const [myDischargeSummaryType, setMyDischargeSummaryType] = useState("NORMAL");
   const [myDischargeSummaryLoading, setMyDischargeSummaryLoading] = useState(false);
@@ -757,6 +854,8 @@ const [medicineMaster, setMedicineMaster] = useState([]);
   const [rvEMedBill,setRvEMedBill]= useState([]);
   const [rvESvc,   setRvESvc]    = useState([]);
   const [rvEBilling,setRvEBilling]= useState({});
+  const [rvDischargeSummary, setRvDischargeSummary] = useState(null);
+  const [rvDischargeSummaryType, setRvDischargeSummaryType] = useState("NORMAL");
 
   // Assignment modal
   const [showAssignModal,   setShowAssignModal]   = useState(false);
@@ -855,6 +954,21 @@ const [medicineMaster, setMedicineMaster] = useState([]);
   useEffect(() => {
     loadAllPatients(); loadEmployees(); loadTasks(); loadHodOwnTasks();
     apiService.getMedicineMaster().then(d => setMedicineMaster(Array.isArray(d) ? d : [])).catch(() => {});
+    apiService.getServiceMaster().then(d => {
+      const master = Array.isArray(d) ? d : [];
+      setServiceMaster(master);
+      // Re-apply rates to any already-loaded services that have rate=0
+      setMyESvc(prev => prev.map(s => {
+        if (Number(s.rate) === 0 && s.name) {
+          const match = master.find(m => (m.description||m.name||"").toLowerCase() === s.name.toLowerCase());
+          if (match) {
+            const rate = Number(match.rate || match.price || 0);
+            return { ...s, rate, amount: Number(s.qty||1) * rate };
+          }
+        }
+        return s;
+      }));
+    }).catch(() => {});
   }, []); // eslint-disable-line
 
   useEffect(() => {
@@ -922,14 +1036,31 @@ const [medicineMaster, setMedicineMaster] = useState([]);
 
   const mapAdmissionServicesToUi = (services) => {
     if (!Array.isArray(services)) return [];
-    return services.map(s => ({
-      id: s.id || Date.now() + Math.random(),
-      name: s.svcName || s.name || "",
-      category: s.svcCat || s.category || "",
-      qty: s.svcQty ?? s.qty ?? 1,
-      rate: Number(s.svcRate ?? s.rate ?? 0),
-      amount: Number(s.svcTot ?? s.amount ?? (Number(s.svcQty ?? 1) * Number(s.svcRate ?? 0))),
-    }));
+    return services.map(s => {
+      const name = s.svcName || s.name || "";
+      const category = s.svcCat || s.category || "";
+      const qty = s.svcQty ?? s.qty ?? 1;
+      let rate = Number(s.svcRate ?? s.rate ?? 0);
+      // If rate is 0, look up from serviceMaster
+      if (rate === 0 && name) {
+        const match = serviceMaster.find(m => (m.description||m.name||"").toLowerCase() === name.toLowerCase());
+        if (match) {
+          rate = Number(match.rate || match.price || 0);
+          if (!category && (match.category || match.service_category)) {
+            s = { ...s, svcCat: match.category || match.service_category };
+          }
+        }
+      }
+      const amount = rate > 0 ? Number(qty) * rate : Number(s.svcTot ?? s.amount ?? 0);
+      return {
+        id: s.id || Date.now() + Math.random(),
+        name,
+        category: s.svcCat || s.category || "",
+        qty,
+        rate,
+        amount,
+      };
+    });
   };
 
   // ── Open Review Work Modal (load all patient data) ─────────────────────────
@@ -1019,6 +1150,32 @@ const [medicineMaster, setMedicineMaster] = useState([]);
       setRvEMedBill(JSON.parse(JSON.stringify(pharNorm)));
       setRvESvc(JSON.parse(JSON.stringify(nestedSvc)));
       setRvEBilling({ ...billData });
+      // ── HOD Review: load template format AND merge saved discharge data into sections
+      const summContent = summ?.content || null;
+      if (summContent?.sections && !Array.isArray(summContent.sections))
+        summContent.sections = Object.entries(summContent.sections).map(([k,v]) => ({ key:k,...v }));
+      // Merge saved disData values into the template sections
+      if (summContent?.sections) {
+        summContent.sections = summContent.sections.map(sec => {
+          if (sec.type === "vitals_grid" && typeof sec.value === "object") {
+            return { ...sec, value: {
+              bp:    disData.bp    || sec.value?.bp    || "",
+              pulse: disData.pr    || sec.value?.pulse || "",
+              spo2:  disData.spo2  || sec.value?.spo2  || "",
+              temp:  disData.temp  || sec.value?.temp  || "",
+              chest: disData.chest || sec.value?.chest || "",
+              cvs:   disData.cvs   || sec.value?.cvs   || "",
+              cns:   disData.cns   || sec.value?.cns   || "",
+              abd:   disData.pa    || sec.value?.abd    || "",
+            }};
+          }
+          // For text sections, prefer saved disData value over template value
+          const savedVal = disData[sec.key] || disData[sec.key === "chiefComplaints" ? "complaints" : sec.key] || "";
+          return { ...sec, value: savedVal || sec.value || "" };
+        });
+      }
+      setRvDischargeSummary(summContent);
+      setRvDischargeSummaryType(String(nestedDis?.dischargeStatus || summ?.summary_type || "NORMAL").toUpperCase());
     } catch (err) {
       toast("Failed to load patient data", "e");
     } finally {
@@ -1035,6 +1192,9 @@ const [medicineMaster, setMedicineMaster] = useState([]);
     try {
       if (sectionKey === "discharge") {
         await apiService.dischargePatient(pat.uhid, admNo, rvEDis);
+        if (rvDischargeSummary) {
+          await apiService.saveDynamicSummary(pat.uhid, admNo, { summary_type: rvDischargeSummaryType, content: rvDischargeSummary });
+        }
       } else if (sectionKey === "admission") {
         await apiService.updateMedicalHistory(pat.uhid, admNo, rvEMed);
       } else if (sectionKey === "reports") {
@@ -1129,13 +1289,37 @@ const [medicineMaster, setMedicineMaster] = useState([]);
 
   const normalizeMedKey = (v="") => String(v).toLowerCase().replace(/[^\w\s]/g," ").replace(/\s+/g," ").trim();
   const findMedMaster = (name) => {
+    if (!name) return null;
     const needle = normalizeMedKey(name);
-    return medicineMaster.find(e => normalizeMedKey(e?.name) === needle) || null;
+    const needleWords = needle.split(" ").filter(w => w.length > 2);
+    // 1. Exact match
+    let match = medicineMaster.find(e => normalizeMedKey(e?.name || e?.medicine_name) === needle);
+    if (match) return match;
+    // 2. Starts-with match
+    match = medicineMaster.find(e => {
+      const hay = normalizeMedKey(e?.name || e?.medicine_name);
+      return hay.startsWith(needle) || needle.startsWith(hay);
+    });
+    if (match) return match;
+    // 3. Includes match
+    match = medicineMaster.find(e => {
+      const hay = normalizeMedKey(e?.name || e?.medicine_name);
+      return hay.includes(needle) || needle.includes(hay);
+    });
+    if (match) return match;
+    // 4. Word overlap match — most words in needle appear in master name
+    match = medicineMaster.find(e => {
+      const hay = normalizeMedKey(e?.name || e?.medicine_name);
+      const hayWords = hay.split(" ").filter(w => w.length > 2);
+      const commonWords = needleWords.filter(w => hayWords.some(hw => hw.includes(w) || w.includes(hw)));
+      return needleWords.length > 0 && commonWords.length >= Math.ceil(needleWords.length * 0.6);
+    });
+    return match || null;
   };
   const addMedFromPicker = (medName) => {
     const master = findMedMaster(medName);
-    const quantity = 1; const rate = Number(master?.rate||0);
-    setMyEMedBill(p => [...p, { id:Date.now(), item:medName, date:new Date().toISOString().slice(0,10), quantity, rate, amount:quantity*rate, batchNo:master?.batch_no||"", expiryDate:master?.expiry_date||"", availableQty:Number(master?.quantity||0) }]);
+    const quantity = 1; const rate = Number(master?.rate ?? master?.price ?? 0);
+    setMyEMedBill(p => [...p, { id:Date.now(), item:master?.name||master?.medicine_name||medName, date:new Date().toISOString().slice(0,10), quantity, rate, amount:quantity*rate, batchNo:master?.batch_no||"", expiryDate:master?.expiry_date||"", availableQty:Number(master?.quantity||0) }]);
     toast(`Added: ${medName.slice(0,40)}`);
   };
 
@@ -1472,6 +1656,31 @@ const [medicineMaster, setMedicineMaster] = useState([]);
                     <textarea className="hod-ftxt" value={rvEDis?.instructions||""} disabled={!reviewEditMode.discharge}
                       onChange={e=>setRvEDis(p=>({...p,instructions:e.target.value}))}/>
                   </div>
+                </div>
+                <div style={{ marginTop:20, borderTop:"1px solid var(--border)", paddingTop:16 }}>
+                  <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12 }}>
+                    <div style={{ fontSize:13, fontWeight:700, color:"var(--text)" }}>Discharge Summary Template</div>
+                    <select className="hod-finp" style={{ width:"auto" }} value={rvDischargeSummaryType} disabled={!reviewEditMode.discharge}
+                      onChange={e=>{ const t=e.target.value; setRvDischargeSummaryType(t); apiService.getDynamicSummary(uhid,admNo,t).then(res=>{ const c=res?.content||{sections:[]}; if(c.sections&&!Array.isArray(c.sections)) c.sections=Object.entries(c.sections).map(([k,v])=>({key:k,...v})); setRvDischargeSummary(c); }).catch(()=>{}); }}>
+                      {["NORMAL","LAMA","REFER","DOPR","DEATH"].map(t=><option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
+                  {rvDischargeSummary&&Array.isArray(rvDischargeSummary.sections)&&rvDischargeSummary.sections.length>0
+                    ? <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+                        {rvDischargeSummary.sections.map((sec,idx)=>(
+                          <div key={sec.key||idx}>
+                            <label className="hod-lbl">{sec.label}</label>
+                            {sec.type==="vitals_grid"
+                              ? <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))", gap:10 }}>{Object.entries(typeof sec.value==="object"&&sec.value!==null?sec.value:{}).map(([vk,vv])=>(<div key={vk}><label className="hod-lbl" style={{ fontSize:9, textTransform:"uppercase" }}>{vk}</label><input className="hod-finp" value={vv||""} disabled={!reviewEditMode.discharge} onChange={e=>setRvDischargeSummary(prev=>{ const secs=[...(prev?.sections||[])]; secs[idx]={...secs[idx],value:{...(typeof secs[idx].value==="object"?secs[idx].value:{}),[vk]:e.target.value}}; return {...prev,sections:secs}; })}/></div>))}</div>
+                              : sec.type==="textarea"
+                                ? <textarea className="hod-ftxt" rows={3} value={typeof sec.value==="string"?sec.value:""} disabled={!reviewEditMode.discharge} onChange={e=>setRvDischargeSummary(prev=>{ const secs=[...(prev?.sections||[])]; secs[idx]={...secs[idx],value:e.target.value}; return {...prev,sections:secs}; })}/>
+                                : <input className="hod-finp" value={typeof sec.value==="string"?sec.value:""} disabled={!reviewEditMode.discharge} onChange={e=>setRvDischargeSummary(prev=>{ const secs=[...(prev?.sections||[])]; secs[idx]={...secs[idx],value:e.target.value}; return {...prev,sections:secs}; })}/>
+                            }
+                          </div>
+                        ))}
+                      </div>
+                    : <div style={{ textAlign:"center", padding:16, color:"var(--text-muted)", fontSize:13, fontStyle:"italic" }}>No discharge summary template found.</div>
+                  }
                 </div>
               </SectionAccordion>
 
@@ -2311,6 +2520,11 @@ const [medicineMaster, setMedicineMaster] = useState([]);
           {myActiveTab==="med_bill"&&(
             <>
               <MedicineHistoryPicker eMed={myEMed} onAdd={addMedFromPicker}/>
+              <HodMedSearchDropdown
+                medicineMaster={medicineMaster}
+                existingItems={myEMedBill}
+                onSelect={row => setMyEMedBill(p => [...p, row])}
+              />
               <div style={{ overflowX:"auto", border:"1px solid var(--border)", borderRadius:10, marginBottom:10 }}>
                 <table style={{ width:"100%", borderCollapse:"collapse", fontSize:13 }}>
                   <thead><tr style={{ background:"var(--surface-2)" }}>{["Medicine Name","Date","Qty","Rate (₹)","Batch No.","Expiry","Amount (₹)",""].map((h,i)=><th key={i} style={{ textAlign:"left", padding:"10px 14px", fontSize:11, fontWeight:700, color:"var(--text-muted)", textTransform:"uppercase", letterSpacing:".06em", borderBottom:"1px solid var(--border)", whiteSpace:"nowrap" }}>{h}</th>)}</tr></thead>
@@ -2355,7 +2569,18 @@ const [medicineMaster, setMedicineMaster] = useState([]);
                     <tbody>
                       {myESvc.map((r,i)=>(
                         <tr key={r.id} style={{ borderBottom:"1px solid var(--border)" }}>
-                          <td style={{ padding:"8px 14px" }}><input className="hod-tinp" value={r.name} onChange={e=>updMySvc(i,"name",e.target.value)}/></td>
+                          <td style={{ padding:"8px 14px", position:"relative", minWidth:180 }}>
+  <input className="hod-tinp" value={svcSearch[i]!==undefined?svcSearch[i]:r.name} onChange={e=>{ setSvcSearch(p=>({...p,[i]:e.target.value})); updMySvc(i,"name",e.target.value); }} placeholder="Search service..." style={{ minWidth:160 }}/>
+  {svcSearch[i]!==undefined&&svcSearch[i].length>0&&(
+    <div style={{ position:"absolute",top:"105%",left:0,right:0,background:"var(--surface)",border:"1px solid var(--border)",borderRadius:8,maxHeight:200,overflowY:"auto",zIndex:99,boxShadow:"0 8px 24px rgba(0,0,0,0.1)" }}>
+      {serviceMaster.filter(s=>(s.description||s.name||"").toLowerCase().includes(svcSearch[i].toLowerCase())).slice(0,15).map(s=>(
+        <button key={s.id} type="button" onClick={()=>{ updMySvc(i,"name",s.description||s.name); updMySvc(i,"category",s.category||s.service_category||""); updMySvc(i,"rate",Number(s.rate||s.price||0)); updMySvc(i,"amount",Number(r.qty||1)*Number(s.rate||s.price||0)); setSvcSearch(p=>({...p,[i]:undefined})); }} style={{ width:"100%",textAlign:"left",padding:"9px 12px",border:"none",background:"transparent",cursor:"pointer",borderBottom:"1px solid var(--border)",fontSize:12,fontFamily:"inherit",color:"var(--text)" }}>
+          {s.description||s.name}{s.rate?<span style={{ float:"right",color:"#10b981",fontWeight:700 }}>₹{s.rate}</span>:""}
+        </button>
+      ))}
+    </div>
+  )}
+</td>
                           <td style={{ padding:"8px 14px" }}><input className="hod-tinp" value={r.category} onChange={e=>updMySvc(i,"category",e.target.value)}/></td>
                           <td style={{ padding:"8px 14px" }}><input className="hod-tinp" type="number" value={r.qty} onChange={e=>updMySvc(i,"qty",e.target.value)}/></td>
                           <td style={{ padding:"8px 14px" }}><input className="hod-tinp" type="number" value={r.rate} onChange={e=>updMySvc(i,"rate",e.target.value)}/></td>

@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { apiService } from "../services/apiService";
 import { T } from "../data/constants";
 import { Ico, IC } from "../components/ui/Icons";
 import { EXAMINATION_FIELDS, getFieldUnit } from "../data/examinationFields";
@@ -475,7 +476,25 @@ export default function MedicalHistoryPage({ data, setData, onSave, onSkip, pati
   // Doctor groups for dropdown
   const doctorGroups = [{ group:"👨‍⚕️ Doctors", color:"#0369a1", items: doctorOptions }];
   const qualGroups   = [{ group:"🎓 Qualifications", color:"#7c3aed", items: qualificationOptions }];
-  const medGroups    = MEDICATION_GROUPS.map(g => ({ group: g.group, color:"#059669", items: g.items }));
+  const [medicineMaster, setMedicineMaster] = useState([]);
+  useEffect(() => {
+    apiService.getMedicineMaster()
+      .then(list => setMedicineMaster(Array.isArray(list) ? list : []))
+      .catch(() => setMedicineMaster([]));
+  }, []);
+
+  // Merge hardcoded groups + backend medicine master
+  const masterItems = medicineMaster.map(m => m.name || m.medicine_name || "").filter(Boolean);
+  const medGroups = [
+    ...MEDICATION_GROUPS.map(g => ({ group: g.group, color:"#059669", items: g.items })),
+    ...(masterItems.length > 0 ? [{
+      group: "💊 Medicine Master",
+      color: "#059669",
+      items: masterItems.filter(name =>
+        !MEDICATION_GROUPS.some(g => g.items.some(i => i.toLowerCase() === name.toLowerCase()))
+      )
+    }] : []),
+  ];
 
   return (
     <div style={{ padding:"32px 44px 80px", animation:"fadeUp .3s ease both", fontFamily:"DM Sans,sans-serif" }}>

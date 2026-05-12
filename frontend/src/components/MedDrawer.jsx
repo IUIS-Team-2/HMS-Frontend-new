@@ -9,7 +9,7 @@ const dr = {
   body: { flex:1, overflowY:"auto", padding:"14px 18px" },
   card: { background:"#161b27", border:"1px solid #1e2330", borderRadius:8, padding:"10px 12px", marginBottom:8 },
   nameInp: { width:"100%", background:"#0a0c12", border:"1px solid #2d3748", borderRadius:6, color:"#e2e8f0", fontSize:13, padding:"7px 10px", fontFamily:"inherit", outline:"none", marginBottom:6, boxSizing:"border-box" },
-  grid: { display:"grid", gridTemplateColumns:"80px 80px 1fr 28px", gap:8, alignItems:"center" },
+  grid: { display:"grid", gridTemplateColumns:"70px 70px 90px 1fr 28px", gap:8, alignItems:"center" },
   miniLbl: { fontSize:9, color:"#4a5568", textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:3 },
   qtyWrap: { display:"flex", alignItems:"center", background:"#0a0c12", border:"1px solid #2d3748", borderRadius:6, overflow:"hidden", height:32 },
   qtyBtn: { width:28, height:32, background:"#1e2330", border:"none", color:"#e2e8f0", cursor:"pointer", fontSize:16, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 },
@@ -35,9 +35,9 @@ function DrawerMedSearch({ medicineMaster, existingMeds, onAdd }) {
   const wrapRef = useRef(null);
 
   const filtered = useMemo(() => {
-    if (!query.trim()) return [];
-    const q = query.toLowerCase();
-    return (medicineMaster || []).filter(m => (m.name || "").toLowerCase().includes(q)).slice(0, 20);
+    const q = query.trim().toLowerCase();
+    if (!q) return (medicineMaster || []).slice(0, 30);
+    return (medicineMaster || []).filter(m => (m.name || "").toLowerCase().includes(q)).slice(0, 30);
   }, [query, medicineMaster]);
 
   useEffect(() => {
@@ -51,7 +51,7 @@ function DrawerMedSearch({ medicineMaster, existingMeds, onAdd }) {
 
   const handleSelect = (med) => {
     if (isAlready(med.name)) return;
-    onAdd({ id: Date.now(), name: med.name, qty: 1, rate: med.price || 0 });
+    onAdd({ id: Date.now(), name: med.name, qty: 1, rate: med.rate ?? med.price ?? 0, expiryDate: med.expiry_date || "" });
     setQuery(""); setOpen(false);
   };
 
@@ -72,7 +72,7 @@ function DrawerMedSearch({ medicineMaster, existingMeds, onAdd }) {
         onFocus={() => setOpen(true)}
         onKeyDown={e => { if (e.key === "Enter") handleManual(); if (e.key === "Escape") setOpen(false); }}
       />
-      {open && query.trim() && (
+      {open && filtered.length > 0 && (
         <div style={{ position:"absolute", top:"calc(100% + 4px)", left:0, right:0, maxHeight:220, overflowY:"auto", background:"#0a0c12", border:"1px solid #2d3748", borderRadius:8, zIndex:200, boxShadow:"0 8px 24px rgba(0,0,0,0.4)" }}>
           {filtered.length === 0 && (
             <div onClick={handleManual} style={{ padding:"10px 12px", cursor:"pointer", borderBottom:"1px solid #1e2330", color:"#10b981", fontSize:12 }}>
@@ -86,7 +86,7 @@ function DrawerMedSearch({ medicineMaster, existingMeds, onAdd }) {
               <div key={i} onClick={() => !already && handleSelect(m)}
                 style={{ padding:"10px 12px", cursor: already ? "default" : "pointer", borderBottom:"1px solid #1e2330", opacity: already ? 0.45 : 1 }}>
                 <div style={{ color:"#e2e8f0", fontSize:13, fontWeight:500 }}>{already ? "✓ " : "+ "}{m.name}</div>
-                <div style={{ fontSize:11, color:"#4a5568", marginTop:2 }}>₹{m.price || 0}{already ? " (already added)" : ""}</div>
+                <div style={{ fontSize:11, color:"#4a5568", marginTop:2 }}>₹{m.rate ?? m.price ?? 0}{m.expiry_date ? ` · Exp: ${m.expiry_date}` : ""}{already ? " (already added)" : ""}</div>
               </div>
             );
           })}
@@ -183,6 +183,16 @@ export default function MedDrawer({
                   ) : (
                     <div style={dr.rateLocked}>{m.rate || 0}</div>
                   )}
+                </div>
+                {/* Expiry */}
+                <div>
+                  <div style={dr.miniLbl}>Expiry</div>
+                  <input
+                    style={{ ...dr.rateInp, width:"100%", fontSize:11 }}
+                    placeholder="MM/YYYY"
+                    value={m.expiryDate || ""}
+                    onChange={e => updateMed(i, "expiryDate", e.target.value)}
+                  />
                 </div>
                 {/* Subtotal */}
                 <div>

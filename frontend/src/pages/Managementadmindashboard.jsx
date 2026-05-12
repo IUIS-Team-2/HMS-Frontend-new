@@ -310,6 +310,22 @@ const mapTaskFromApi = (task) => ({
   patientNames: task.patient_names||(task.patient_name?[task.patient_name]:[]),
   patientUhids: task.patient_uhids||(task.patient_uhid?[task.patient_uhid]:[]),
   createdBy: task.assigned_by_name||"—",
+  // Work done fields — saved by HOD review / employee submit
+  remarks:     task.remarks||task.notes||"",
+  notes:       task.notes||task.remarks||"",
+  hodNote:     task.hod_note||task.review_note||task.hod_remarks||"",
+  taskType:    task.task_type||task.taskType||task.title||"",
+  adm_no:      task.adm_no||task.admNo||"",
+  patient_uhid: task.patient_uhid||"",
+  // Normalize status from backend variants
+  status: (()=>{
+    const s = String(task.status||"").toLowerCase();
+    if(s==="completed"||s==="done"||s==="approved") return "Completed";
+    if(s==="in_progress"||s==="inprogress"||s==="in-progress") return "In Progress";
+    if(s==="on_hold"||s==="onhold") return "On Hold";
+    if(s==="pending") return "Pending";
+    return task.status||"Pending";
+  })(),
 });
 
 function exportTasksXLSX(tasks,filename="task_report.xlsx") {
@@ -457,32 +473,64 @@ const BILL_PRINT_CSS = `
 function MedSearchDropdown({ medicineMaster, existingMedicines, onSelect, isDark, accent, placeholder = "Search & add medicine..." }) {
   const [query, setQuery] = useState("");
   const [open, setOpen]   = useState(false);
-  const wrapRef = useRef(null);
+  const [rect, setRect]   = useState(null);
+  const inputRef = useRef(null);
+  const wrapRef  = useRef(null);
+
   const filtered = useMemo(() => {
-    if (!query.trim()) return [];
-    const q = query.toLowerCase();
-    return (medicineMaster || []).filter(m => (m.name || "").toLowerCase().includes(q)).slice(0, 20);
+    const q = query.trim().toLowerCase();
+    if (!q) return (medicineMaster || []).slice(0, 30); // show all on focus
+    return (medicineMaster || []).filter(m => ((m.name || m.medicine_name || "").toLowerCase().includes(q))).slice(0, 30);
   }, [query, medicineMaster]);
+
   useEffect(() => {
     const h = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false); };
     document.addEventListener("mousedown", h);
     return () => document.removeEventListener("mousedown", h);
   }, []);
+
+  const openDropdown = () => {
+    if (inputRef.current) setRect(inputRef.current.getBoundingClientRect());
+    setOpen(true);
+  };
+
   const isAlready = (name) => (existingMedicines || []).some(m => (m.name || "").toLowerCase() === (name || "").toLowerCase());
-  const handleSelect = (med) => { if (isAlready(med.name)) return; onSelect(med); setQuery(""); setOpen(false); };
-  const handleManualAdd = () => { if (!query.trim() || isAlready(query.trim())) return; onSelect({ name: query.trim(), price: 0 }); setQuery(""); setOpen(false); };
+  const handleSelect = (med) => { const n = med.name || med.medicine_name || ""; if (isAlready(n)) return; onSelect({...med, name: n}); setQuery(""); setOpen(false); };
+  const handleManualAdd = () => { if (!query.trim() || isAlready(query.trim())) return; onSelect({ name: query.trim(), rate: 0, expiry_date: "" }); setQuery(""); setOpen(false); };
+
   return (
-    <div ref={wrapRef} style={{ position: "relative", maxWidth: 340 }}>
-      <input className="hms-med-inline-input" placeholder={placeholder} value={query}
-        onChange={e => { setQuery(e.target.value); setOpen(true); }} onFocus={() => setOpen(true)}
+    <div ref={wrapRef} style={{ position: "relative", width: "100%" }}>
+      <input
+        ref={inputRef}
+        placeholder={placeholder}
+        value={query}
+        onChange={e => { setQuery(e.target.value); openDropdown(); }}
+        onFocus={openDropdown}
         onKeyDown={e => { if (e.key === "Enter") handleManualAdd(); if (e.key === "Escape") setOpen(false); }}
-        style={{ width: "100%", padding: "10px 12px", borderRadius: 8 }}/>
-      {open && query.trim() && (
-        <div className="hms-med-dropdown">
-          {filtered.length === 0 && (<div className="hms-med-dropdown-item" onClick={handleManualAdd}><div className="hms-med-dropdown-name">+ Add "{query.trim()}" manually</div><div className="hms-med-dropdown-meta">Custom medicine — rate: ₹0</div></div>)}
+        style={{ width:"100%", padding:"10px 12px", borderRadius:8, boxSizing:"border-box", background:isDark?"#0f172a":"#fff", color:isDark?"#e2e8f0":"#0f172a", border:`1px solid ${isDark?"#1e293b":"#c7d5eb"}`, fontSize:13, outline:"none", fontFamily:"inherit" }}
+      />
+      {open && rect && filtered.length > 0 && (
+        <div style={{ position:"fixed", top: rect.bottom + 4, left: rect.left, width: rect.width, zIndex:99999, maxHeight:260, overflowY:"auto", borderRadius:10, boxShadow:"0 12px 32px rgba(0,0,0,0.35)", background:isDark?"#0f172a":"#ffffff", border:`1px solid ${isDark?"#334155":"#c7d5eb"}` }}>
+          {filtered.length === 0 && (
+            <div onClick={handleManualAdd} style={{ padding:"10px 14px", cursor:"pointer", borderBottom:`1px solid ${isDark?"#1e293b":"#e2e8f0"}`, color:"#10b981" }}>
+              <div style={{ fontWeight:600, fontSize:13 }}>+ Add "{query.trim()}" manually</div>
+              <div style={{ fontSize:11, color:"#94a3b8", marginTop:2 }}>Custom entry — rate: ₹0</div>
+            </div>
+          )}
           {filtered.map((m, idx) => {
-            const already = isAlready(m.name);
-            return (<div key={idx} className={`hms-med-dropdown-item${already?" disabled":""}`} onClick={() => !already && handleSelect(m)}><div className="hms-med-dropdown-name">{already?"✓ ":"+ "}{m.name}</div><div className="hms-med-dropdown-meta">₹{m.price||0}{m.dosage?` · ${m.dosage}`:""}{already?" (already added)":""}</div></div>);
+            const already  = isAlready(m.name || m.medicine_name || "");
+            const medName  = m.name || m.medicine_name || "";
+            const medRate  = m.rate ?? m.price ?? 0;
+            const medExpiry = m.expiry_date || m.expiryDate || "";
+            return (
+              <div key={idx} onClick={() => !already && handleSelect(m)}
+                style={{ padding:"10px 14px", cursor:already?"default":"pointer", borderBottom:`1px solid ${isDark?"#1e293b":"#f1f5f9"}`, opacity:already?0.45:1, background:"inherit" }}
+                onMouseEnter={e => { if (!already) e.currentTarget.style.background = isDark?"#1e293b":"#f0f9ff"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = "inherit"; }}>
+                <div style={{ fontSize:13, fontWeight:600, color:isDark?"#e2e8f0":"#0f172a" }}>{already?"✓ ":"+ "}{medName}</div>
+                <div style={{ fontSize:11, color:"#94a3b8", marginTop:2 }}>₹{medRate}{medExpiry?` · Exp: ${medExpiry}`:""}{already?" (already added)":""}</div>
+              </div>
+            );
           })}
         </div>
       )}
@@ -693,6 +741,17 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
   const [empShowConfirm, setEmpShowConfirm] = useState(false);
   const [empPassErr,     setEmpPassErr]     = useState("");
   const [tasks,          setTasks]          = useState([]);
+  const [tasksLoading,   setTasksLoading]   = useState(false);
+
+  const loadTasks = useCallback(async () => {
+    setTasksLoading(true);
+    try {
+      const data = await apiService.getTasks();
+      const list = Array.isArray(data) ? data : (data?.results || []);
+      setTasks(list.map(mapTaskFromApi));
+    } catch(err) { console.error("Failed to load tasks:", err); }
+    finally { setTasksLoading(false); }
+  }, []);
   const [showTaskModal,  setShowTaskModal]  = useState(false);
   const [editTask,       setEditTask]       = useState(null);
   const [taskForm,       setTaskForm]       = useState({title:"",description:"",assignedToId:"",department:"HOD",priority:"Medium",status:"Pending",dueDate:"",patientUhids:[],patientNames:[]});
@@ -772,17 +831,21 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
     }
   }, [db]);
 
-  // ── FETCH MEDICINE MASTER ─────────────────────────────────────────────────
+  // ── FETCH MEDICINE MASTER (uses apiService like HOD/Billing) ────────────
+  // ── Load tasks from backend on mount + refresh every 60s ─────────────────
   useEffect(() => {
-    const load = async () => {
-      try {
-        const res = await fetch(`${BASE_URL}/medicine-master/`, { headers:{ Authorization:`Bearer ${sessionStorage.getItem("hms_token")}` } });
-        if (!res.ok) throw new Error("Failed");
-        const data = await res.json();
-        setMedicineMaster(Array.isArray(data)?data:[]);
-      } catch(err) { setMedicineMaster([]); }
-    };
-    load();
+    loadTasks();
+    const interval = setInterval(loadTasks, 60000);
+    return () => clearInterval(interval);
+  }, [loadTasks]);
+
+  useEffect(() => {
+    apiService.getMedicineMaster()
+      .then(list => {
+        console.log("Medicine master loaded:", list?.length, "items", list?.[0]);
+        setMedicineMaster(Array.isArray(list) && list.length > 0 ? list : []);
+      })
+      .catch(err => { console.error("Medicine master fetch error:", err); setMedicineMaster([]); });
   }, []);
 
   useEffect(()=>safeSave("hms_mgmt_departments",departments),[departments]);
@@ -832,7 +895,7 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
   const addMedToPatientInline = useCallback((branchKey, p, med) => {
     const already = (p.medicines||[]).some(m=>(m.name||"").toLowerCase()===(med.name||"").toLowerCase());
     if (already) { toast(`"${med.name}" already added`,"err"); return; }
-    updatePatient(branchKey, p.uhid, pt=>({ ...pt, medicines:[...(pt.medicines||[]),{id:Date.now(),name:med.name,qty:1,rate:med.price||0}] }));
+    updatePatient(branchKey, p.uhid, pt=>({ ...pt, medicines:[...(pt.medicines||[]),{id:Date.now(),name:med.name||med.medicine_name||"",qty:1,rate:med.rate??med.price??0,expiryDate:med.expiry_date||med.expiryDate||""}] }));
     toast(`"${med.name}" added`);
   }, [updatePatient]);
 
@@ -848,7 +911,7 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
   const delMedRow = (idx) => setEditMedPt(prev=>{ if(!prev) return prev; return{...prev,medicines:(prev.medicines||[]).filter((_,i)=>i!==idx)}; });
 
   const addMedFromDropdownToDrawer = useCallback((med) => {
-    setEditMedPt(prev=>{ if(!prev) return prev; const already=(prev.medicines||[]).some(m=>(m.name||"").toLowerCase()===(med.name||"").toLowerCase()); if(already) return prev; return{...prev,medicines:[...(prev.medicines||[]),{id:Date.now(),name:med.name,qty:1,rate:med.price||0}]}; });
+    setEditMedPt(prev=>{ if(!prev) return prev; const already=(prev.medicines||[]).some(m=>(m.name||"").toLowerCase()===(med.name||"").toLowerCase()); if(already) return prev; return{...prev,medicines:[...(prev.medicines||[]),{id:Date.now(),name:med.name,qty:1,rate:med.rate??med.price??0,expiryDate:med.expiry_date||""}]}; });
   }, []);
 
   const saveMeds = () => {
@@ -890,34 +953,36 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
       }
     } catch(e) { console.warn("Could not fetch summary:", e); }
     setSummaryAdmNo(resolveAdmNo(p));
+    // Pull medical history as prefill source (same as BillingDashboard)
+    const mh = adm.medicalHistory || p.medicalHistory || {};
     setEditDisFields({
       doa:              d.doa||adm.dateTime?.slice(0,10)||"",
       dod:              d.dod||"",
       expectedDod:      d.expectedDod||"",
       ward:             d.wardName||"",
       bed:              d.bedNo||"",
-      doctor:           d.doctorName||ds.doctorName||"",
-      diagnosis:        ds.diagnosis||d.diagnosis||"",
-      chiefComplaints:  ds.chiefComplaints||adm.complaints||"",
-      historyOfIllness: ds.historyOfIllness||"",
-      investigations:   ds.investigations||"",
-      treatmentGiven:   ds.treatmentGiven||ds.treatment||"",
+      doctor:           d.doctorName||ds.doctorName||mh.treatingDoctor||"",
+      diagnosis:        ds.diagnosis||d.diagnosis||mh.diagnosis||mh.provisionalDiagnosis||"",
+      chiefComplaints:  ds.chiefComplaints||adm.complaints||mh.chiefComplaints||mh.presentComplaints||"",
+      historyOfIllness: ds.historyOfIllness||mh.historyOfIllness||mh.historyOfPresentIllness||"",
+      investigations:   ds.investigations||mh.investigations||"",
+      treatmentGiven:   ds.treatmentGiven||ds.treatment||mh.treatmentAdvised||mh.treatmentGiven||"",
       conditionAtDischarge: ds.conditionAtDischarge||"",
-      adviceOnDischarge:    ds.adviceOnDischarge||ds.followUp||"",
-      followUp:         ds.followUp||"",
+      adviceOnDischarge:    ds.adviceOnDischarge||ds.followUp||mh.adviceOnDischarge||"",
+      followUp:         ds.followUp||mh.followUp||"",
       reasonForLama:    ds.reasonForLama||"",
       lamaDeclaration:  ds.lamaDeclaration||"",
       reasonForDopr:    ds.reasonForDopr||"",
       referredTo:       ds.referredTo||"",
-      notes:            ds.notes||"",
-      bp:    d.bp   ||"",
-      pr:    d.pr   ||"",
-      spo2:  d.spo2 ||"",
-      temp:  d.temp ||"",
-      chest: d.chest||"",
-      cvs:   d.cvs  ||"",
-      cns:   d.cns  ||"",
-      pa:    d.pa   ||"",
+      notes:            ds.notes||mh.notes||"",
+      bp:    d.bp   ||mh.bp   ||"",
+      pr:    d.pr   ||mh.pr   ||"",
+      spo2:  d.spo2 ||mh.spo2 ||"",
+      temp:  d.temp ||mh.temp ||"",
+      chest: d.chest||mh.chest||"",
+      cvs:   d.cvs  ||mh.cvs  ||"",
+      cns:   d.cns  ||mh.cns  ||"",
+      pa:    d.pa   ||mh.pa   ||"",
     });
     setSummaryType(initialType);
 
@@ -1211,7 +1276,7 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
       if(editTask){const u=await apiService.updateTask(editTask.id,payload);setTasks(prev=>prev.map(t=>t.id===editTask.id?mapTaskFromApi(u):t));toast("Task updated");}
       else{
         if(linkedPatientIds.length>1){await apiService.bulkAssignTasks({department:taskForm.department,assign_to:Number(taskForm.assignedToId),patient_ids:linkedPatientIds,title:taskForm.title,priority:taskForm.priority,due_date:taskForm.dueDate?`${taskForm.dueDate}T23:59:00Z`:null,notes:taskForm.description||""});const r=await apiService.getTasks();setTasks((r||[]).map(mapTaskFromApi));toast(`Assigned ${linkedPatientIds.length} patients`);}
-        else{const c=await apiService.createTask(payload);setTasks(prev=>[mapTaskFromApi(c),...prev]);toast("Task assigned");}
+        else{await apiService.createTask(payload);await loadTasks();toast("Task assigned");}
       }
       setShowTaskModal(false);setEditTask(null);
     }catch(e){const ae=e.response?.data||{};toast(ae?.patient?.[0]||ae?.assigned_to?.[0]||ae?.detail||"Failed to save task","err");}
@@ -1447,17 +1512,18 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
                   </div>
                 </div>
               )}
-              <div style={{marginBottom:14}}>
+              <div style={{marginBottom:14, position:"relative", zIndex:100}}>
                 <MedSearchDropdown medicineMaster={medicineMaster} existingMedicines={p.medicines||[]} onSelect={(med)=>addMedToPatientInline(branchKey,p,med)} isDark={isDark} accent={accent} placeholder="Search & add medicine…"/>
               </div>
               {!(p.medicines||[]).length?<div className="hms-empty">No medicines.</div>:(
                 <div style={{overflowX:"auto"}}>
-                  <table className="hms-tbl"><thead><tr><Th>Medicine Name</Th><Th>Qty</Th><Th>Rate (₹)</Th><Th>Total</Th><Th>Remove</Th></tr></thead>
+                  <table className="hms-tbl"><thead><tr><Th>Medicine Name</Th><Th>Qty</Th><Th>Rate (₹)</Th><Th>Expiry Date</Th><Th>Total</Th><Th>Remove</Th></tr></thead>
                     <tbody>{(p.medicines||[]).map((m,mi)=>(
                       <tr key={m.id||mi}>
                         <td className="hms-td hms-td-hi"><input className="hms-med-inline-input" style={{width:"100%",minWidth:140}} value={m.name||""} placeholder="Medicine name" onChange={e=>updatePatient(branchKey,p.uhid,pt=>{const meds=[...(pt.medicines||[])];meds[mi]={...meds[mi],name:e.target.value};return{...pt,medicines:meds};})}/></td>
                         <td className="hms-td"><input type="number" min={0} className="hms-med-inline-input" style={{width:70,textAlign:"center"}} value={m.qty||0} onChange={e=>updatePatient(branchKey,p.uhid,pt=>{const meds=[...(pt.medicines||[])];meds[mi]={...meds[mi],qty:Math.max(0,parseInt(e.target.value)||0)};return{...pt,medicines:meds};})}/></td>
                         <td className="hms-td"><input type="number" min={0} step="0.01" className="hms-med-inline-input" style={{width:90,textAlign:"right"}} value={m.rate||0} onChange={e=>updatePatient(branchKey,p.uhid,pt=>{const meds=[...(pt.medicines||[])];meds[mi]={...meds[mi],rate:Math.max(0,parseFloat(e.target.value)||0)};return{...pt,medicines:meds};})}/></td>
+                        <td className="hms-td"><input className="hms-med-inline-input" style={{width:100,textAlign:"center",fontSize:11}} value={m.expiryDate||""} placeholder="MM/YYYY" onChange={e=>updatePatient(branchKey,p.uhid,pt=>{const meds=[...(pt.medicines||[])];meds[mi]={...meds[mi],expiryDate:e.target.value};return{...pt,medicines:meds};})}/></td>
                         <td className="hms-td"><span style={{color:"#f59e0b",fontWeight:700}}>{fmt((m.qty||0)*(m.rate||0))}</span></td>
                         <td className="hms-td"><ActionBtn col="#f87171" onClick={()=>updatePatient(branchKey,p.uhid,pt=>({...pt,medicines:(pt.medicines||[]).filter((_,i)=>i!==mi)}))}>✕</ActionBtn></td>
                       </tr>
@@ -1778,7 +1844,13 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
     const empList=Object.values(empMap);
     return (
       <div>
-        <PageHeader title="Task Report" subtitle="Filter and download task reports"/>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+          <PageHeader title="Task Report" subtitle="Filter and download task reports"/>
+          <button onClick={loadTasks} disabled={tasksLoading}
+            style={{fontSize:11,fontWeight:700,color:accent,background:`${accent}12`,border:`1px solid ${accent}30`,borderRadius:6,padding:"6px 14px",cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",gap:6}}>
+            {tasksLoading?"⏳ Loading…":"↻ Refresh"}
+          </button>
+        </div>
         <div className="hms-card">
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:12,marginBottom:8}}>
             <div><label className="hms-lbl">Time Period</label><select className="hms-sel" value={taskReportFilter.period} onChange={e=>setTaskReportFilter(f=>({...f,period:e.target.value}))}><option value="all">All Time</option><option value="today">Today</option><option value="week">This Week</option><option value="month">This Month</option></select></div>
@@ -1798,6 +1870,100 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
             <TableWrap heads={["Employee","Dept","Total","Pending","In Progress","Completed","Completion %"]}>
               {empList.map((e,i)=>{ const pct=e.total?Math.round((e.completed/e.total)*100):0; return (<tr key={i}><Td hi>{e.name}</Td><Td><Badge col={accent}>{e.dept}</Badge></Td><Td><strong>{e.total}</strong></Td><Td><span style={{color:"#f59e0b"}}>{e.pending}</span></Td><Td><span style={{color:"#38bdf8"}}>{e.inprogress}</span></Td><Td><span style={{color:"#34d399"}}>{e.completed}</span></Td><Td><div style={{display:"flex",alignItems:"center",gap:8}}><ProgressBar pct={pct} col="#34d399"/><span style={{fontSize:10,fontWeight:700,color:pct>=75?"#34d399":pct>=50?"#f59e0b":"#f87171",minWidth:32}}>{pct}%</span></div></Td></tr>); })}
             </TableWrap>
+          )}
+        </div>
+
+        {/* ── Detailed Task Work Done ── */}
+        <div className="hms-card">
+          <div className="hms-card-title" style={{marginBottom:14}}>Detailed Work Report</div>
+          {!filteredTaskReport.length ? <div className="hms-empty">No tasks match filters.</div> : (
+            <div style={{display:"flex",flexDirection:"column",gap:12}}>
+              {filteredTaskReport.map((t,i)=>{
+                const statusCol = t.status==="Completed"?"#34d399":t.status==="In Progress"?"#38bdf8":t.status==="On Hold"?"#f59e0b":"#94a3b8";
+                const sections = t.sections || t.taskSections || [];
+                const workDone = t.remarks || t.notes || t.description || "";
+                const patients = t.patientNames?.length ? t.patientNames : t.patientName ? [t.patientName] : [];
+                const uhids    = t.patientUhids?.length ? t.patientUhids : t.patientUhid ? [t.patientUhid] : [];
+                return (
+                  <div key={t.id||i} style={{border:`1px solid ${isDark?"#1e2a3a":"#e2e8f0"}`,borderRadius:10,overflow:"hidden"}}>
+                    {/* Task header */}
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 14px",background:isDark?"#0b1120":"#f8faff",borderBottom:`1px solid ${isDark?"#1e2a3a":"#e2e8f0"}`}}>
+                      <div style={{display:"flex",alignItems:"center",gap:10}}>
+                        <span style={{fontSize:11,fontWeight:700,color:"#64748b",fontFamily:"monospace"}}>#{t.id}</span>
+                        <span style={{fontSize:13,fontWeight:700,color:isDark?"#e2e8f0":"#0f172a"}}>{t.title}</span>
+                        <Badge col={statusCol}>{t.status}</Badge>
+                        <Badge col={accent}>{t.department}</Badge>
+                        {t.priority&&<Badge col={t.priority==="High"?"#f87171":t.priority==="Medium"?"#f59e0b":"#34d399"}>{t.priority}</Badge>}
+                      </div>
+                      <div style={{fontSize:11,color:"#64748b",textAlign:"right"}}>
+                        <div>👤 {t.assignedTo}</div>
+                        {t.dueDate&&<div>Due: {t.dueDate?.slice(0,10)}</div>}
+                        {t.completedAt&&<div style={{color:"#34d399"}}>✓ Done: {t.completedAt?.slice(0,10)}</div>}
+                      </div>
+                    </div>
+                    {/* Work details */}
+                    <div style={{padding:"12px 14px",display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:12}}>
+                      {/* Patients linked */}
+                      {patients.length>0&&(
+                        <div>
+                          <div style={{fontSize:10,fontWeight:700,color:"#64748b",textTransform:"uppercase",letterSpacing:".05em",marginBottom:6}}>Patients</div>
+                          <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
+                            {patients.map((pn,pi)=>(
+                              <span key={pi} style={{fontSize:11,background:`${accent}18`,color:accent,border:`1px solid ${accent}30`,borderRadius:12,padding:"2px 8px",fontWeight:600}}>
+                                {pn}{uhids[pi]?` · ${uhids[pi]}`:""}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {/* Sections completed */}
+                      {sections.length>0&&(
+                        <div>
+                          <div style={{fontSize:10,fontWeight:700,color:"#64748b",textTransform:"uppercase",letterSpacing:".05em",marginBottom:6}}>Sections Done</div>
+                          <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
+                            {sections.map((s,si)=>(
+                              <span key={si} style={{fontSize:11,background:"rgba(52,211,153,0.1)",color:"#34d399",border:"1px solid rgba(52,211,153,0.3)",borderRadius:12,padding:"2px 8px",fontWeight:600}}>✓ {s}</span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {/* Work done / remarks */}
+                      {(t.remarks||t.notes||t.description)&&(
+                        <div style={{gridColumn:"1/-1"}}>
+                          <div style={{fontSize:10,fontWeight:700,color:"#64748b",textTransform:"uppercase",letterSpacing:".05em",marginBottom:6}}>Work Done / Submit Note</div>
+                          <div style={{fontSize:12,color:isDark?"#cbd5e1":"#334155",background:isDark?"#0f172a":"#f8faff",border:`1px solid ${isDark?"#1e293b":"#e2e8f0"}`,borderRadius:6,padding:"8px 10px",lineHeight:1.6}}>{t.remarks||t.notes||t.description}</div>
+                        </div>
+                      )}
+                      {/* HOD review note */}
+                      {t.hodNote&&(
+                        <div style={{gridColumn:"1/-1"}}>
+                          <div style={{fontSize:10,fontWeight:700,color:"#818cf8",textTransform:"uppercase",letterSpacing:".05em",marginBottom:6}}>HOD Review Note</div>
+                          <div style={{fontSize:12,color:isDark?"#cbd5e1":"#334155",background:isDark?"rgba(129,140,248,0.06)":"#f5f3ff",border:"1px solid rgba(129,140,248,0.2)",borderRadius:6,padding:"8px 10px",lineHeight:1.6}}>{t.hodNote}</div>
+                        </div>
+                      )}
+                      {/* View patient work button */}
+                      {(t.patient_uhid||t.patientUhid)&&(
+                        <div style={{gridColumn:"1/-1"}}>
+                          <button onClick={()=>{ setActiveTab("discharge"); }}
+                            style={{fontSize:11,fontWeight:700,color:accent,background:`${accent}12`,border:`1px solid ${accent}30`,borderRadius:6,padding:"5px 12px",cursor:"pointer",fontFamily:"inherit"}}>
+                            → View Patient Record ({t.patient_uhid||t.patientUhid})
+                          </button>
+                        </div>
+                      )}
+                      {/* Dates */}
+                      <div>
+                        <div style={{fontSize:10,fontWeight:700,color:"#64748b",textTransform:"uppercase",letterSpacing:".05em",marginBottom:6}}>Timeline</div>
+                        <div style={{fontSize:11,color:"#94a3b8",lineHeight:1.8}}>
+                          <div>Created: <span style={{color:isDark?"#cbd5e1":"#475569",fontWeight:600}}>{t.createdAt?.slice(0,10)||"—"}</span></div>
+                          {t.dueDate&&<div>Due: <span style={{color:"#f59e0b",fontWeight:600}}>{t.dueDate?.slice(0,10)}</span></div>}
+                          {t.completedAt&&<div>Completed: <span style={{color:"#34d399",fontWeight:600}}>{t.completedAt?.slice(0,10)}</span></div>}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           )}
         </div>
       </div>

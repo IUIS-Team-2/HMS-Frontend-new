@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { apiService } from "../services/apiService";
 import ThemeModeDock from "../components/ui/ThemeModeDock";
 import { DOCTOR_LIST, QUALIFICATION_LIST, getDoctorQualification } from "../data/doctors";
@@ -316,6 +316,7 @@ function SearchMultiDropdown({ value, onChange, groups, placeholder, chipColor="
 
 // ─── InvestigationsDropdown ───────────────────────────────────────────────────
 function InvestigationsDropdown({ value, onChange }) {
+  // Merge backend lab report names into investigations if available
   const groups = INVESTIGATION_GROUPS.map(g=>({
     group:g.group, color:g.color,
     items:g.items.map(key=>REPORT_TEMPLATES[key]?.label||key),
@@ -445,15 +446,18 @@ function AdmissionNoteForm({
   }));
   const doctorGroups = [{ group:"👨‍⚕️ Doctors", color:"#0369a1", items:DOCTOR_LIST }];
   const qualGroups   = [{ group:"🎓 Qualifications", color:"#7c3aed", items:QUALIFICATION_LIST }]
+  // Merge hardcoded MEDICATION_GROUPS + backend medicine master
+  const masterItems = medicineMaster.map(m => m.name || m.medicine_name || "").filter(Boolean);
   const medGroups = [
-  {
-    group: "💊 Medicine Master",
-    color: "#059669",
-    items: medicineMaster
-      .map(m => m.name || m.medicine_name || "")
-      .filter(Boolean)
-  }
-];
+    ...MEDICATION_GROUPS,
+    ...(masterItems.length > 0 ? [{
+      group: "💊 Medicine Master (Backend)",
+      color: "#059669",
+      items: masterItems.filter(name =>
+        !MEDICATION_GROUPS.some(g => g.items.includes(name))
+      )
+    }] : []),
+  ];
 
   useEffect(() => {
     if (!eMed?.treatingDoctor || eMed?.doctorQual) return;
@@ -1510,15 +1514,7 @@ useEffect(() => {
     setEDis({ ...p.discharge });
     setEMed({ ...p.medicalHistory });
     setESvc(JSON.parse(JSON.stringify(p.services)));
-    try {
-      const admNo = resolveAdmNo(p);
-      const backendReports = await apiService.getLabReports(p.uhid, admNo);
-      setELabRep(backendReports || []);
-    } catch(err) {
-      console.error(err);
-      setELabRep(JSON.parse(JSON.stringify(p.labReports || [])));
-    }
-    setEMedBill(JSON.parse(JSON.stringify(p.medicalBill)));
+    setEMedBill(JSON.parse(JSON.stringify(p.medicalBill || [])));
     setEBilling({ tpaInfo:{}, tpaDocStatus:{}, ...p.billing });
     setESaved({ ...p.saved });
     setRepFilter("All");
@@ -1526,29 +1522,121 @@ useEffect(() => {
     setView("patient");
 
     if (p.uhid && p.admNo) {
+      const admNo = resolveAdmNo(p);
       try {
-        const [reports, templatePayload] = await Promise.all([
-          apiService.getLabReports(p.uhid, p.admNo).catch(() => []),
-          apiService.getLabReportTemplates(p.uhid, p.admNo).catch(() => ({ suggested_reports: [] })),
+        const [reports, templatePayload, pharRecords, canonicalData, serviceMaster] = await Promise.all([
+          apiService.getLabReports(p.uhid, admNo).catch(() => []),
+          apiService.getLabReportTemplates(p.uhid, admNo).catch(() => ({ suggested_reports:[] })),
+          apiService.getPharmacyRecords(p.uhid, admNo).catch(() => []),
+          apiService.getCanonicalRecords(p.uhid, admNo).catch(() => ({})),
+          fetch(`${apiService.BASE_URL||"http://127.0.0.1:8000/api"}/service-master/`, {
+            headers:{ Authorization:`Bearer ${sessionStorage.getItem("hms_token")||""}` }
+          }).then(r=>r.json()).catch(()=>[]),
         ]);
+
+        // ── Lab Reports ──
         const mergedReports = mergeSuggestedReports(
           Array.isArray(reports) ? reports : [],
           Array.isArray(templatePayload?.suggested_reports) ? templatePayload.suggested_reports : []
         );
         if (mergedReports.length) {
           setELabRep(mergedReports);
+          setSel(prev => prev ? { ...prev, labReports: mergedReports } : prev);
           setPatients(prev => prev.map(patient =>
             patient.uhid === p.uhid && Number(patient.admNo) === Number(p.admNo)
               ? { ...patient, labReports: mergedReports } : patient
           ));
-          setSel(prev => prev ? { ...prev, labReports: mergedReports } : prev);
         }
+
+        // ── Pharmacy records — use backend rate first, then master fallback ──
+        if (Array.isArray(pharRecords) && pharRecords.length > 0) {
+          let freshMaster = medicineMaster;
+          if (!freshMaster || freshMaster.length === 0) {
+            try { freshMaster = await apiService.getMedicineMaster(); } catch { freshMaster = []; }
+          }
+          setEMedBill(pharRecords.map(r => {
+            const name = r.name || r.medicine_name || "";
+            const backendRate = Number(r.rate || 0);
+            const master = freshMaster.find(m =>
+              (m.name||m.medicine_name||"").toLowerCase() === name.toLowerCase()
+            ) || freshMaster.find(m =>
+              (m.name||m.medicine_name||"").toLowerCase().includes(name.toLowerCase()) ||
+              name.toLowerCase().includes((m.name||m.medicine_name||"").toLowerCase())
+            );
+            const rate = backendRate > 0 ? backendRate : Number(master?.rate || master?.price || 0);
+            const qty  = Number(r.quantity || 1);
+            return {
+              id: r.id || Date.now() + Math.random(),
+              item: name,
+              date: r.date || r.date_given || new Date().toISOString().slice(0,10),
+              quantity: qty,
+              rate,
+              amount: Number((rate * qty).toFixed(2)),
+              batchNo: r.batch || r.batch_no || master?.batch_no || "",
+              expiryDate: r.expiry || r.expiry_date || master?.expiry_date || "",
+            };
+          }));
+        } else if (canonicalData?.medicines?.length > 0) {
+        } else if (canonicalData?.medicines?.length > 0) {
+          // Fallback: use canonical medicines + match master for rates
+          setEMedBill(canonicalData.medicines.map((r, idx) => {
+            const name = r.name || "";
+            const master = medicineMaster.find(m =>
+              (m.name||m.medicine_name||"").toLowerCase() === name.toLowerCase()
+            ) || medicineMaster.find(m =>
+              (m.name||m.medicine_name||"").toLowerCase().includes(name.toLowerCase()) ||
+              name.toLowerCase().includes((m.name||m.medicine_name||"").toLowerCase())
+            );
+            const rate = Number(master?.rate || master?.price || 0);
+            return {
+              id: Date.now() + idx,
+              item: name,
+              date: r.date || new Date().toISOString().slice(0,10),
+              quantity: 1,
+              rate,
+              amount: rate,
+              batchNo: master?.batch_no || "",
+              expiryDate: master?.expiry_date || "",
+            };
+          }));
+        }
+
+        // ── Services — match against service master for rates ──
+        const matchSvcRate = (name, category) => {
+          if (!Array.isArray(serviceMaster)) return 0;
+          const n = (name||"").toLowerCase();
+          const c = (category||"").toLowerCase();
+          const match = serviceMaster.find(s =>
+            (s.description||"").toLowerCase() === n ||
+            (s.description||"").toLowerCase().includes(n) ||
+            n.includes((s.description||"").toLowerCase())
+          ) || serviceMaster.find(s =>
+            (s.category||"").toLowerCase() === c
+          );
+          return Number(match?.rate || 0);
+        };
+
+        // Apply rates to existing services
+        if (p.services && p.services.length > 0) {
+          setESvc(p.services.map(s => {
+            const rate = s.rate > 0 ? s.rate : matchSvcRate(s.name, s.category);
+            return { ...s, rate, amount: rate * (s.qty || 1) };
+          }));
+        } else if (canonicalData?.reports?.length > 0) {
+          const svcFromReports = canonicalData.reports
+            .filter(r => r.source === "service")
+            .map((r, idx) => {
+              const rate = matchSvcRate(r.name, r.category);
+              return { id: Date.now()+idx, name:r.name||"", category:r.category||"GENERAL SERVICES", qty:1, rate, amount:rate };
+            });
+          if (svcFromReports.length > 0) setESvc(svcFromReports);
+        }
+
       } catch (err) {
-        console.log("Note: Lab report templates may not be available yet for this patient");
+        console.error("Failed to load patient backend data:", err);
       }
     }
   };
-
   const syncSelectedPatient = (overrides = {}) => {
     const nS  = overrides.saved          || eSaved;
     const nD  = overrides.discharge      || eDis;
@@ -1807,61 +1895,124 @@ useEffect(() => {
     );
   };
 
+  // ── Billing Medicine Search Dropdown (fixed-position, shows MH meds first) ──
+  const BillingMedSearchDropdown = ({ onSelect }) => {
+    const [query, setQuery]   = useState("");
+    const [open, setOpen]     = useState(false);
+    const [rect, setRect]     = useState(null);
+    const inputRef = useRef(null);
+    const wrapRef  = useRef(null);
+
+    // Medical history medications come first
+    const mhMeds = (eMed?.currentMedications || "")
+      .split(", ").filter(Boolean)
+      .map(name => {
+        const master = findMedicineMasterMatch(name);
+        return { name, rate: Number(master?.rate ?? master?.price ?? 0), expiry_date: master?.expiry_date || "", batch_no: master?.batch_no || "", fromMH: true };
+      });
+
+    const masterMeds = medicineMaster.map(m => ({
+      name: m.name || m.medicine_name || "",
+      rate: Number(m.rate ?? m.price ?? 0),
+      expiry_date: m.expiry_date || "",
+      batch_no: m.batch_no || "",
+      fromMH: false,
+    })).filter(m => m.name && !mhMeds.some(mh => mh.name.toLowerCase() === m.name.toLowerCase()));
+
+    const allMeds = [...mhMeds, ...masterMeds];
+
+    const filtered = useMemo(() => {
+      const q = query.trim().toLowerCase();
+      if (!q) return allMeds.slice(0, 40);
+      return allMeds.filter(m => m.name.toLowerCase().includes(q)).slice(0, 40);
+    }, [query, allMeds.length]);
+
+    useEffect(() => {
+      const h = e => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false); };
+      document.addEventListener("mousedown", h);
+      return () => document.removeEventListener("mousedown", h);
+    }, []);
+
+    const openDrop = () => {
+      if (inputRef.current) setRect(inputRef.current.getBoundingClientRect());
+      setOpen(true);
+    };
+
+    const handleSelect = (med) => {
+      onSelect(med);
+      setQuery(""); setOpen(false);
+    };
+
+    const handleManual = () => {
+      const name = query.trim();
+      if (!name) return;
+      onSelect({ name, rate: 0, expiry_date: "", batch_no: "" });
+      setQuery(""); setOpen(false);
+    };
+
+    return (
+      <div ref={wrapRef} style={{ position:"relative", marginBottom:16 }}>
+        <input
+          ref={inputRef}
+          value={query}
+          placeholder="🔍 Search & add medicine — shows medical history first…"
+          onChange={e => { setQuery(e.target.value); openDrop(); }}
+          onFocus={openDrop}
+          onKeyDown={e => { if (e.key === "Enter") handleManual(); if (e.key === "Escape") setOpen(false); }}
+          style={{ width:"100%", boxSizing:"border-box", padding:"10px 14px", borderRadius:9, border:"1.5px solid var(--border)", background:"var(--bg)", color:"var(--navy)", fontSize:13, fontFamily:"inherit", outline:"none" }}
+        />
+        {open && rect && (
+          <div style={{ position:"fixed", top: rect.bottom + 4, left: rect.left, width: rect.width, zIndex:99999, maxHeight:300, overflowY:"auto", borderRadius:10, boxShadow:"0 12px 32px rgba(0,0,0,0.25)", background:"var(--white,#fff)", border:"1.5px solid var(--border)" }}>
+            {filtered.length === 0 && (
+              <div onClick={handleManual} style={{ padding:"10px 14px", cursor:"pointer", color:"#10b981", fontSize:13, fontWeight:600 }}>
+                + Add "{query.trim()}" manually
+              </div>
+            )}
+            {filtered.map((m, idx) => (
+              <div key={idx} onClick={() => handleSelect(m)}
+                style={{ padding:"10px 14px", cursor:"pointer", borderBottom:"1px solid var(--border)" }}
+                onMouseEnter={e => e.currentTarget.style.background = "#f0f9ff"}
+                onMouseLeave={e => e.currentTarget.style.background = ""}>
+                <div style={{ fontSize:13, fontWeight:600, color:"var(--navy)", display:"flex", alignItems:"center", gap:6 }}>
+                  {m.fromMH && <span style={{ fontSize:10, background:"#dcfce7", color:"#16a34a", borderRadius:4, padding:"1px 5px", fontWeight:700 }}>MH</span>}
+                  {m.name}
+                </div>
+                <div style={{ fontSize:11, color:"#94a3b8", marginTop:2 }}>
+                  ₹{m.rate}{m.expiry_date ? ` · Exp: ${m.expiry_date}` : ""}{m.batch_no ? ` · Batch: ${m.batch_no}` : ""}
+                  {m.fromMH ? " · From Medical History" : ""}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   // ── ✅ FIXED: Medicine Bill — single dropdown, no duplicate select ──────────
   const renderMedicineBill = () => {
     const medBillTotal = eMedBill.reduce((a, r) => a + Number(r.amount || 0), 0);
 
     return (
       <>
-        {/* Admission note medicines + MEDICATION_GROUPS quick-add */}
-        <MedicineHistoryPicker eMed={eMed} onAdd={addMedFromPicker} />
 
-        {/* Search filter + master dropdown — ONE row only */}
-        <div style={{ display:"flex", gap:10, marginBottom:16, flexWrap:"wrap", alignItems:"center" }}>
-          <input
-            type="text"
-            placeholder="Filter medicine master…"
-            value={medSearch}
-            onChange={e => setMedSearch(e.target.value)}
-            style={{
-              flex:1, minWidth:180, padding:"9px 13px", borderRadius:9,
-              border:"1.5px solid var(--border)", background:"var(--bg)",
-              color:"var(--navy)", fontSize:13, outline:"none", fontFamily:"inherit",
-            }}
-          />
-          <select
-            defaultValue=""
-            onChange={e => {
-              if (!e.target.value) return;
-              addMedicineFromMasterDropdown(e.target.value);
-              e.target.value = "";
-            }}
-            style={{
-              flex:2, minWidth:260, padding:"9px 13px", borderRadius:9,
-              border:"1.5px solid var(--border)", background:"var(--white,#fff)",
-              color:"var(--navy)", fontSize:13, outline:"none", fontFamily:"inherit", cursor:"pointer",
-            }}
-          >
-            <option value="" disabled>
-              {medicineMaster.length === 0
-                ? "⏳ Loading medicines…"
-                : `+ Add from master (${medicineMaster.length} available)`}
-            </option>
-            {medicineMaster
-              .filter(m =>
-                (m.name || m.medicine_name || "")
-                  .toLowerCase()
-                  .includes(medSearch.toLowerCase())
-              )
-              .map((m, idx) => (
-                <option key={m.id ?? idx} value={m.name || m.medicine_name}>
-                  {m.name || m.medicine_name}
-                  {(m.rate || m.price) ? ` | ₹${m.rate ?? m.price}` : ""}
-                  {m.batch_no ? ` | Batch: ${m.batch_no}` : ""}
-                </option>
-              ))}
-          </select>
-        </div>
+        {/* Single searchable dropdown — MH meds first with rates, then master */}
+        <BillingMedSearchDropdown
+          onSelect={med => {
+            const name = med.name || med;
+            const rate = Number(med.rate ?? 0);
+            const already = eMedBill.some(r => (r.item||"").toLowerCase() === name.toLowerCase());
+            if (already) { toast("Already added"); return; }
+            setEMedBill(p => [...p, {
+              id: Date.now(), item: name,
+              date: new Date().toISOString().slice(0,10),
+              quantity: 1, rate, amount: rate,
+              batchNo: med.batch_no || "",
+              expiryDate: med.expiry_date || "",
+            }]);
+            toast(`Added: ${name.slice(0,40)}`);
+          }}
+        />
 
         {/* Medicine table */}
         <div className="tw">
