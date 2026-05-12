@@ -895,14 +895,19 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
   const addMedToPatientInline = useCallback((branchKey, p, med) => {
     const already = (p.medicines||[]).some(m=>(m.name||"").toLowerCase()===(med.name||"").toLowerCase());
     if (already) { toast(`"${med.name}" already added`,"err"); return; }
-    updatePatient(branchKey, p.uhid, pt=>({ ...pt, medicines:[...(pt.medicines||[]),{id:Date.now(),name:med.name||med.medicine_name||"",qty:1,rate:med.rate??med.price??0,expiryDate:med.expiry_date||med.expiryDate||""}] }));
+    updatePatient(branchKey, p.uhid, pt=>({ ...pt, medicines:[...(pt.medicines||[]),{id:Date.now(),name:med.name||med.medicine_name||"",qty:1,rate:parseFloat(med.rate??med.price??0),batchNo:med.batch_no||med.batchNo||"",expiryDate:med.expiry_date||med.expiryDate||""}] }));
     toast(`"${med.name}" added`);
   }, [updatePatient]);
 
   const addMedFromHistoryPill = useCallback((branchKey, p, medName) => {
     const already = (p.medicines||[]).some(m=>(m.name||"").toLowerCase()===medName.toLowerCase());
     if (already) { toast(`"${medName}" already in list`,"err"); return; }
-    updatePatient(branchKey, p.uhid, pt=>({ ...pt, medicines:[...(pt.medicines||[]),{id:Date.now(),name:medName,qty:1,rate:0}] }));
+    const normName = n => String(n||"").toLowerCase().replace(/[^a-z0-9]/g,"");
+    const normMed = normName(medName);
+    const masterMed = (medicineMaster||[]).find(m=>normName(m.name)===normMed)
+      || (medicineMaster||[]).find(m=>normName(m.name).includes(normMed.slice(0,8)))
+      || (medicineMaster||[]).find(m=>normMed.includes(normName(m.name).slice(0,8)));
+    updatePatient(branchKey, p.uhid, pt=>({ ...pt, medicines:[...(pt.medicines||[]),{id:Date.now(),name:medName,qty:1,rate:parseFloat(masterMed?.rate||0),batchNo:masterMed?.batch_no||"",expiryDate:masterMed?.expiry_date||""}] }));
     toast(`Added "${medName}"`);
   }, [updatePatient]);
 
@@ -911,7 +916,7 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
   const delMedRow = (idx) => setEditMedPt(prev=>{ if(!prev) return prev; return{...prev,medicines:(prev.medicines||[]).filter((_,i)=>i!==idx)}; });
 
   const addMedFromDropdownToDrawer = useCallback((med) => {
-    setEditMedPt(prev=>{ if(!prev) return prev; const already=(prev.medicines||[]).some(m=>(m.name||"").toLowerCase()===(med.name||"").toLowerCase()); if(already) return prev; return{...prev,medicines:[...(prev.medicines||[]),{id:Date.now(),name:med.name,qty:1,rate:med.rate??med.price??0,expiryDate:med.expiry_date||""}]}; });
+    setEditMedPt(prev=>{ if(!prev) return prev; const already=(prev.medicines||[]).some(m=>(m.name||"").toLowerCase()===(med.name||"").toLowerCase()); if(already) return prev; return{...prev,medicines:[...(prev.medicines||[]),{id:Date.now(),name:med.name,qty:1,rate:parseFloat(med.rate??med.price??0),batchNo:med.batch_no||med.batchNo||"",expiryDate:med.expiry_date||med.expiryDate||""}]}; });
   }, []);
 
   const saveMeds = () => {
@@ -1517,12 +1522,13 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
               </div>
               {!(p.medicines||[]).length?<div className="hms-empty">No medicines.</div>:(
                 <div style={{overflowX:"auto"}}>
-                  <table className="hms-tbl"><thead><tr><Th>Medicine Name</Th><Th>Qty</Th><Th>Rate (₹)</Th><Th>Expiry Date</Th><Th>Total</Th><Th>Remove</Th></tr></thead>
+                  <table className="hms-tbl"><thead><tr><Th>Medicine Name</Th><Th>Qty</Th><Th>Rate (₹)</Th><Th>Batch No</Th><Th>Expiry Date</Th><Th>Total</Th><Th>Remove</Th></tr></thead>
                     <tbody>{(p.medicines||[]).map((m,mi)=>(
                       <tr key={m.id||mi}>
                         <td className="hms-td hms-td-hi"><input className="hms-med-inline-input" style={{width:"100%",minWidth:140}} value={m.name||""} placeholder="Medicine name" onChange={e=>updatePatient(branchKey,p.uhid,pt=>{const meds=[...(pt.medicines||[])];meds[mi]={...meds[mi],name:e.target.value};return{...pt,medicines:meds};})}/></td>
                         <td className="hms-td"><input type="number" min={0} className="hms-med-inline-input" style={{width:70,textAlign:"center"}} value={m.qty||0} onChange={e=>updatePatient(branchKey,p.uhid,pt=>{const meds=[...(pt.medicines||[])];meds[mi]={...meds[mi],qty:Math.max(0,parseInt(e.target.value)||0)};return{...pt,medicines:meds};})}/></td>
                         <td className="hms-td"><input type="number" min={0} step="0.01" className="hms-med-inline-input" style={{width:90,textAlign:"right"}} value={m.rate||0} onChange={e=>updatePatient(branchKey,p.uhid,pt=>{const meds=[...(pt.medicines||[])];meds[mi]={...meds[mi],rate:Math.max(0,parseFloat(e.target.value)||0)};return{...pt,medicines:meds};})}/></td>
+                        <td className="hms-td"><input className="hms-med-inline-input" style={{width:90,textAlign:"center",fontSize:11}} value={m.batchNo||""} placeholder="Batch No" onChange={e=>updatePatient(branchKey,p.uhid,pt=>{const meds=[...(pt.medicines||[])];meds[mi]={...meds[mi],batchNo:e.target.value};return{...pt,medicines:meds};})}/></td>
                         <td className="hms-td"><input className="hms-med-inline-input" style={{width:100,textAlign:"center",fontSize:11}} value={m.expiryDate||""} placeholder="MM/YYYY" onChange={e=>updatePatient(branchKey,p.uhid,pt=>{const meds=[...(pt.medicines||[])];meds[mi]={...meds[mi],expiryDate:e.target.value};return{...pt,medicines:meds};})}/></td>
                         <td className="hms-td"><span style={{color:"#f59e0b",fontWeight:700}}>{fmt((m.qty||0)*(m.rate||0))}</span></td>
                         <td className="hms-td"><ActionBtn col="#f87171" onClick={()=>updatePatient(branchKey,p.uhid,pt=>({...pt,medicines:(pt.medicines||[]).filter((_,i)=>i!==mi)}))}>✕</ActionBtn></td>
