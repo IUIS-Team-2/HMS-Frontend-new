@@ -65,7 +65,8 @@ const NAV = [
   { id: "patients",   label: "All Patients",    icon: Users },
   { id: "cash",       label: "Cash Patients",   icon: Wallet },
   { id: "records",    label: "Patient Records", icon: FileText },
-  { id: "financials", label: "Financials",      icon: BarChart3 },
+  { id: "financials",      label: "Financials",       icon: BarChart3 },
+  { id: "print_approvals", label: "Print Approvals",  icon: FileText },
   { id: "employees",  label: "Employees",       icon: UserRound },
 ];
 
@@ -144,6 +145,36 @@ function buildMedicineRowsForBranchAdmin(medicinesRaw, legacyMedicines, services
   });
 
   return source.map(coerceRow);
+}
+
+function normalizeReportName(raw = "") {
+  const s = String(raw).trim();
+  const MAP = {
+    "complete blood count": "CBC", "cbc": "CBC",
+    "liver function test": "LFT", "lft": "LFT",
+    "kidney function test": "KFT", "kft": "KFT",
+    "renal function test": "RFT", "rft": "RFT",
+    "blood sugar fasting": "BSF", "blood sugar pp": "BSPP",
+    "hba1c": "HbA1c", "lipid profile": "Lipid Profile",
+    "thyroid profile": "TFT", "tft": "TFT",
+    "urine routine": "Urine R/M", "urine routine & microscopy": "Urine R/M",
+    "serum creatinine": "S.Creatinine", "serum electrolytes": "Electrolytes",
+    "c-reactive protein": "CRP", "crp": "CRP",
+    "esr": "ESR", "pt/inr": "PT/INR",
+    "x-ray chest": "X-Ray Chest", "usg abdomen": "USG Abdomen",
+    "ct scan": "CT Scan", "mri brain": "MRI Brain",
+    "echo": "Echo", "ecg": "ECG", "electrocardiogram": "ECG",
+    "dengue ns1": "Dengue NS1", "malaria antigen": "Malaria Ag",
+    "hbsag": "HBsAg", "anti-hcv": "Anti-HCV",
+    "hiv": "HIV I & II", "vdrl": "VDRL", "widal": "Widal",
+    "d-dimer": "D-Dimer", "troponin": "Troponin I",
+  };
+  const key = s.toLowerCase().replace(/\s+/g, " ").trim();
+  for (const [pattern, label] of Object.entries(MAP)) {
+    if (key === pattern || key.startsWith(pattern)) return label;
+  }
+  if (/^[A-Z0-9]{2,5}$/.test(s)) return s.toUpperCase();
+  return s;
 }
 
 function admissionGross(admission) {
@@ -269,8 +300,23 @@ function mapLiveBranchPatients(patients = []) {
     const admissions = Array.isArray(patient.admissions) ? patient.admissions : [];
     return admissions.map((admission) => {
       const discharge = admission?.discharge || {};
-      const paymentModeRaw = String(patient.payMode || admission?.billing?.paymentMode || admission?.billing?.bill_type || "").toLowerCase();
-      const paymentMode = paymentModeRaw.includes("cashless") ? "cashless" : "cash";
+      const paymentModeRaw = String(
+        patient.payMode ||
+        patient.pay_mode ||
+        patient.payment_mode ||
+        admission?.billing?.paymentMode ||
+        admission?.billing?.payment_mode ||
+        admission?.billing?.bill_type ||
+        ""
+      ).toLowerCase().trim();
+      const paymentMode =
+        paymentModeRaw.includes("cashless") ||
+        paymentModeRaw.includes("tpa") ||
+        paymentModeRaw.includes("card") ||
+        paymentModeRaw.includes("insurance")
+          ? "cashless"
+          : "cash";
+      if (!paymentModeRaw) console.warn("[BranchAdmin] payMode missing for UHID:", patient.uhid);
       const paymentType = paymentMode === "cashless"
         ? (admission?.billing?.insuranceType || patient.cashlessType || (patient.tpa ? "TPA" : (patient.tpaCard || patient.tpaPanelCardNo ? "Card" : "")))
         : "";
@@ -593,25 +639,25 @@ export default function BranchAdminDashboard({
       setEditableRows([]);
       return;
     }
-    if (isRecordDirty) return;
+    if (isRecordDirtyRef.current) return;
     const admission = selPatient.admObj || {};
     const discharge = admission.discharge || {};
     const medical = admission.medicalHistory || {};
 
     const rowsByTab = {
       discharge_summary: [{
-        doa: discharge.doa || admission.dateTime || "",
-        expectedDod: discharge.expectedDod || "",
-        dod: discharge.dod || "",
-        department: discharge.department || "",
-        wardName: discharge.wardName || "",
-        roomNo: discharge.roomNo || "",
-        bedNo: discharge.bedNo || "",
-        doctorName: discharge.doctorName || medical.treatingDoctor || "",
-        diagnosis: discharge.diagnosis || "",
-        dischargeStatus: discharge.dischargeStatus || "",
-        instructions: discharge.instructions || "",
-        notes: discharge.notes || "",
+        doa:             discharge.doa             || discharge.doa_date        || admission.dateTime    || "",
+        expectedDod:     discharge.expectedDod     || discharge.expected_dod    || "",
+        dod:             discharge.dod             || discharge.dod_date        || "",
+        department:      discharge.department      || discharge.wardName        || medical.department    || "",
+        wardName:        discharge.wardName        || discharge.ward_name       || "",
+        roomNo:          discharge.roomNo          || discharge.room_no         || discharge.roomNumber  || "",
+        bedNo:           discharge.bedNo           || discharge.bed_no          || discharge.bedNumber   || "",
+        doctorName:      discharge.doctorName      || discharge.doctor_name     || medical.treatingDoctor || "",
+        diagnosis:       discharge.diagnosis       || discharge.finalDiagnosis  || discharge.final_diagnosis || medical.provisionalDiagnosis || "",
+        dischargeStatus: discharge.dischargeStatus || discharge.discharge_status|| discharge.status      || "",
+        instructions:    discharge.instructions   || discharge.discharge_instructions || "",
+        notes:           discharge.notes           || "",
       }],
       admission_note: [{
         treatingDoctor: medical.treatingDoctor || discharge.doctorName || "",
@@ -632,27 +678,84 @@ export default function BranchAdminDashboard({
         notes: medical.notes || "",
       }],
       medical_history: [{
-        previousDiagnosis: medical.previousDiagnosis || "",
-        pastSurgeries: medical.pastSurgeries || "",
-        currentMedications: medical.currentMedications || "",
-        knownAllergies: medical.knownAllergies || "",
-        chronicConditions: medical.chronicConditions || "",
-        familyHistory: medical.familyHistory || "",
-        smokingStatus: medical.smokingStatus || "",
-        alcoholUse: medical.alcoholUse || "",
-        treatingDoctor: medical.treatingDoctor || discharge.doctorName || "",
-        notes: medical.notes || "",
+        previousDiagnosis:  medical.previousDiagnosis  || medical.previous_diagnosis   || medical.past_history    || medical.pastHistory       || medical.history            || "",
+        pastSurgeries:      medical.pastSurgeries      || medical.past_surgeries        || medical.previous_surgery|| medical.surgeries         || "",
+        currentMedications: medical.currentMedications || medical.current_medications   || medical.medications     || medical.on_medications    || medical.current_drugs      || "",
+        knownAllergies:     medical.knownAllergies     || medical.known_allergies       || medical.allergies       || medical.drug_allergy      || medical.allergy            || "",
+        chronicConditions:  medical.chronicConditions  || medical.chronic_conditions    || medical.comorbidities   || medical.co_morbidities    || medical.chronic_disease    || "",
+        familyHistory:      medical.familyHistory      || medical.family_history        || medical.family_medical_history || "",
+        smokingStatus:      medical.smokingStatus      || medical.smoking_status        || medical.smoking         || medical.tobacco_use       || "",
+        alcoholUse:         medical.alcoholUse         || medical.alcohol_use           || medical.alcohol         || medical.alcohol_history   || "",
+        treatingDoctor:     medical.treatingDoctor     || medical.treating_doctor       || discharge.doctorName    || "",
+        notes:              medical.notes              || medical.other_notes           || medical.general_notes   || medical.remarks           || "",
       }],
       // reports and medicines are loaded by the dedicated API fetch effect below
+      // pre-seed from already-loaded admObj so tab isn't blank while API loads
       reports: [],
-      medicines: [],
+      medicines: (() => {
+        const pharma = Array.isArray(admission?.pharmacyRecords)  ? admission.pharmacyRecords
+                     : Array.isArray(admission?.pharmacy_records) ? admission.pharmacy_records
+                     : [];
+        const svc    = Array.isArray(admission?.services) ? admission.services : [];
+        if (pharma.length) return pharma.map((r, i) => ({
+          _localId:      r.id || `m-preseed-${i}`,
+          medicine_name: r.medicine_name || r.item || r.name || "",
+          date_given:    (r.date_given || r.date || "").slice(0, 10),
+          quantity:      Number(r.quantity || r.qty || 1),
+          rate:          Number(r.rate || 0),
+          batch_no:      r.batch_no || r.batchNo || "",
+          expiry_date:   (r.expiry_date || r.expiryDate || "").slice(0, 10),
+          amount:        Number(r.amount || 0),
+        }));
+        const medStr = medical.currentMedications || medical.current_medications
+                    || medical.medications || medical.on_medications || "";
+        if (medStr) {
+          return medStr.split(/[\n,;]+/).map((m, i) => ({
+            _localId:      `m-hist-${i}`,
+            medicine_name: m.trim(),
+            date_given:    String(admission.dateTime || "").slice(0, 10),
+            quantity:      1,
+            rate:          0,
+            batch_no:      "",
+            expiry_date:   "",
+            amount:        0,
+          })).filter(r => r.medicine_name);
+        }
+        return svc
+          .filter(s => ["med","pharma","drug","pharmacy","tablet","injection","iv fluid","consumable"].some(k => (s.svcCat||s.type||"").toLowerCase().includes(k)))
+          .map((s, i) => ({
+            _localId: s.id || `m-svc-${i}`,
+            medicine_name: s.svcName || "",
+            date_given: (s.svcDate || "").slice(0, 10),
+            quantity: Number(s.svcQty || 1),
+            rate: Number(s.svcRate || 0),
+            batch_no: "",
+            expiry_date: "",
+            amount: Number(s.svcTot || s.total || 0),
+          }));
+      })(),
+      final_bill: (() => {
+        const pharma = Array.isArray(admission?.pharmacyRecords)  ? admission.pharmacyRecords
+                     : Array.isArray(admission?.pharmacy_records) ? admission.pharmacy_records
+                     : [];
+        return pharma.map((r, i) => ({
+          _localId:      r.id || `fb-${i}`,
+          medicine_name: r.medicine_name || r.item || r.name || "",
+          date_given:    (r.date_given || r.date || "").slice(0, 10),
+          quantity:      Number(r.quantity || r.qty || 1),
+          rate:          Number(r.rate || 0),
+          batch_no:      r.batch_no || "",
+          expiry_date:   (r.expiry_date || "").slice(0, 10),
+          amount:        Number(r.amount || 0),
+        }));
+      })(),
     };
 
     setEditableRows(rowsByTab[recTab] || []);
-  }, [nav, selPatient, recTab, isRecordDirty]);
+  }, [nav, selPatient?.uhid, selPatient?.admObj?.admNo, recTab]);
 
   useEffect(() => {
-    if (nav !== "records" || !selPatient || isRecordDirty) return;
+    if (nav !== "records" || !selPatient) return;
     if (recTab !== "reports" && recTab !== "medicines" && recTab !== "final_bill") return;
     const admObj = selPatient?.admObj;
     const admissionDateFallback = admObj?.dateTime || admObj?.discharge?.doa || "";
@@ -668,20 +771,90 @@ export default function BranchAdminDashboard({
     if (recTab === "medicines" || recTab === "final_bill") {
       const load = async () => {
         try {
-          const token = sessionStorage.getItem("hms_token") || localStorage.getItem("hms_token") || "";
-          const res = await fetch(`${BASE_URL}/patients/${uhid}/admissions/${admNo}/pharmacy-records/`, {
-            headers: { Authorization: `Bearer ${token}` }
-          });
-          if (!active || isRecordDirtyRef.current) return;
-          const data = res.ok ? await res.json() : [];
-          const items = Array.isArray(data) ? data : (Array.isArray(data?.results) ? data.results : []);
-                    const rows = buildMedicineRowsForBranchAdmin(items, [], services, admissionDateFallback);
-                    setEditableRows(rows);
+          const data = await apiService.getPharmacyRecords(uhid, admNo);
+          if (!active) return;
+          // Handle all possible API response shapes
+          let items = [];
+          if (Array.isArray(data))            items = data;
+          else if (Array.isArray(data?.results)) items = data.results;
+          else if (Array.isArray(data?.data))    items = data.data;
+          else if (data && typeof data === "object") items = Object.values(data).find(v => Array.isArray(v)) || [];
+          console.log("[BranchAdmin] pharmacy raw items:", items.length, items[0]);
+          if (items.length) {
+            const rows = items.map((r, i) => {
+              // Log first item to debug field names
+              if (i === 0) console.log("[BranchAdmin] pharmacy item keys:", Object.keys(r), r);
+              return {
+                _localId:      r.id           || `m-${i}`,
+                medicine_name: r.medicine_name || r.item         || r.name        || r.drug_name  || r.medicine   || r.description || "",
+                date_given:    String(r.date_given || r.given_date || r.date || admDate).slice(0, 10),
+                quantity:      Number(r.quantity   || r.qty        || r.units || 1),
+                rate:          Number(r.rate        || r.unit_price || r.price  || r.cost || 0),
+                batch_no:      r.batch_no     || r.batch_number || r.batch   || "",
+                expiry_date:   String(r.expiry_date || r.expiry || r.exp_date || "").slice(0, 10),
+                amount:        Number(r.amount || r.total || (Number(r.quantity||1) * Number(r.rate||0))),
+              };
+            });
+            console.log("[BranchAdmin] medicine rows mapped:", rows);
+            setEditableRows(rows);
+          } else {
+            console.warn("[BranchAdmin] pharmacy API returned empty — trying services fallback");
+            const svcMeds = services.filter(s =>
+              ["med","pharma","drug","pharmacy","tablet","injection","iv fluid","consumable"]
+                .some(k => (s.svcCat||s.type||"").toLowerCase().includes(k))
+            ).map((s, i) => ({
+              _localId:      s.id || `m-svc-${i}`,
+              medicine_name: s.svcName || s.name || "",
+              date_given:    String(s.svcDate || admDate).slice(0, 10),
+              quantity:      Number(s.svcQty  || 1),
+              rate:          Number(s.svcRate || 0),
+              batch_no:      "",
+              expiry_date:   "",
+              amount:        Number(s.svcTot  || s.total || 0),
+            }));
+            console.log("[BranchAdmin] services fallback meds:", svcMeds);
+            if (svcMeds.length) {
+              setEditableRows(svcMeds);
+            } else {
+              // Last resort: parse currentMedications string from medical history
+              const medHistory = admObj?.medicalHistory || {};
+              const medStr = medHistory.currentMedications || medHistory.current_medications
+                          || medHistory.medications || medHistory.on_medications || "";
+              console.log("[BranchAdmin] medHistory fallback string:", medStr);
+              if (medStr) {
+                const histRows = medStr.split(/[\n,;]+/).map((m, i) => ({
+                  _localId:      `m-hist-${i}`,
+                  medicine_name: m.trim(),
+                  date_given:    admDate,
+                  quantity:      1,
+                  rate:          0,
+                  batch_no:      "",
+                  expiry_date:   "",
+                  amount:        0,
+                })).filter(r => r.medicine_name.length > 0);
+                console.log("[BranchAdmin] medHistory rows:", histRows);
+                setEditableRows(histRows);
+              } else {
+                // No medicines anywhere — set one blank row so user can add
+                console.warn("[BranchAdmin] No medicines found anywhere — showing blank row");
+                setEditableRows([{
+                  _localId:      `m-blank-0`,
+                  medicine_name: "",
+                  date_given:    admDate,
+                  quantity:      1,
+                  rate:          0,
+                  batch_no:      "",
+                  expiry_date:   "",
+                  amount:        0,
+                }]);
+              }
+            }
+          }
         } catch (_e) {
+          console.error("[BranchAdmin] pharmacy fetch error:", _e);
           if (!active) return;
           setEditableRows(buildMedicineRowsForBranchAdmin([], [], services, admissionDateFallback));
         }
-
       };
       load();
       return () => { active = false; };
@@ -690,40 +863,153 @@ export default function BranchAdminDashboard({
     if (recTab === "reports") {
       const load = async () => {
         try {
-          const token = sessionStorage.getItem("hms_token") || localStorage.getItem("hms_token") || "";
-          const res = await fetch(`${BASE_URL}/patients/${uhid}/admissions/${admNo}/lab-reports/`, {
-            headers: { Authorization: `Bearer ${token}` }
+          const data = await apiService.getLabReports(uhid, admNo);
+          if (!active) return;
+          let items = [];
+          if (Array.isArray(data))               items = data;
+          else if (Array.isArray(data?.results)) items = data.results;
+          else if (Array.isArray(data?.data))    items = data.data;
+          else if (data && typeof data === "object") items = Object.values(data).find(v => Array.isArray(v)) || [];
+          console.log("[BranchAdmin] lab-reports raw items:", items.length, items[0]);
+          const fromLab = items.map((r, i) => {
+            if (i === 0) console.log("[BranchAdmin] lab item keys:", Object.keys(r), r);
+            return {
+              _localId:   r.id             || `r-lab-${i}`,
+              reportName: normalizeReportName(r.report_name || r.reportName || r.name || r.test_name || "Report"),
+              reportType: r.report_type    || r.reportType    || r.category    || r.type        || "Haematology",
+              date:       String(r.report_date || r.date      || r.test_date   || admDate).slice(0, 10),
+              orderedBy:  r.ordered_by     || r.orderedBy     || r.doctor_name || r.doctor      || doctor,
+              amount:     Number(r.amount  || r.rate          || r.price       || r.cost        || 0),
+              remarks:    r.remarks        || r.interpretation || r.finding    || r.observation || "",
+              impression: r.impression     || r.conclusion    || "",
+              tests:      (() => {
+                const t = Array.isArray(r.tests) ? r.tests : (Array.isArray(r.test_rows) ? r.test_rows : []);
+                if (t.length) return t;
+                const name = normalizeReportName(r.report_name || r.reportName || r.name || "");
+                return [{id: Date.now() + i, name:"", value:"", unit:"", refRange:"", status:"Normal"}];
+              })(),
+            };
           });
-          if (!active || isRecordDirtyRef.current) return;
-          const data = res.ok ? await res.json() : [];
-          const items = Array.isArray(data) ? data : (Array.isArray(data?.results) ? data.results : []);
-          const fromLab = items.map((r, i) => ({
-            _localId: r.id || `r-lab-${i}`,
-            reportName: r.report_name || r.reportName || r.name || "Report",
-            reportType: r.report_type || r.reportType || r.type || "Haematology",
-            date: (r.report_date || r.date || admDate).slice(0, 10),
-            orderedBy: r.ordered_by || r.orderedBy || doctor,
-            amount: Number(r.amount || r.rate || 0),
-            remarks: r.remarks || r.interpretation || "",
-            impression: r.impression || "",
-            tests: Array.isArray(r.tests) ? r.tests : [],
-          }));
+          console.log("[BranchAdmin] fromLab rows:", fromLab.length);
+          // Only add service rows that are NOT already in lab reports
           const labIds = new Set(fromLab.map(r => String(r._localId)));
+          const DEFAULT_TESTS = {
+            "CBC": [
+              {id:Date.now()+1,  name:"Haemoglobin",        value:"", unit:"g/dL",  refRange:"13.0-17.0", status:"Normal"},
+              {id:Date.now()+2,  name:"TLC",                value:"", unit:"cells/cumm", refRange:"4000-11000", status:"Normal"},
+              {id:Date.now()+3,  name:"Platelets",          value:"", unit:"Lacs/cumm", refRange:"1.5-4.5", status:"Normal"},
+              {id:Date.now()+4,  name:"RBC",                value:"", unit:"mill/cumm", refRange:"4.5-5.5", status:"Normal"},
+              {id:Date.now()+5,  name:"PCV/HCT",            value:"", unit:"%",     refRange:"40-50",     status:"Normal"},
+              {id:Date.now()+6,  name:"MCV",                value:"", unit:"fL",    refRange:"83-101",    status:"Normal"},
+              {id:Date.now()+7,  name:"MCH",                value:"", unit:"pg",    refRange:"27-32",     status:"Normal"},
+              {id:Date.now()+8,  name:"MCHC",               value:"", unit:"g/dL",  refRange:"31.5-34.5", status:"Normal"},
+              {id:Date.now()+9,  name:"Neutrophils",        value:"", unit:"%",     refRange:"40-80",     status:"Normal"},
+              {id:Date.now()+10, name:"Lymphocytes",        value:"", unit:"%",     refRange:"20-40",     status:"Normal"},
+              {id:Date.now()+11, name:"Monocytes",          value:"", unit:"%",     refRange:"2-10",      status:"Normal"},
+              {id:Date.now()+12, name:"Eosinophils",        value:"", unit:"%",     refRange:"1-6",       status:"Normal"},
+            ],
+            "LFT": [
+              {id:Date.now()+1,  name:"Total Bilirubin",    value:"", unit:"mg/dL", refRange:"0.2-1.2",   status:"Normal"},
+              {id:Date.now()+2,  name:"Direct Bilirubin",   value:"", unit:"mg/dL", refRange:"0.0-0.4",   status:"Normal"},
+              {id:Date.now()+3,  name:"Indirect Bilirubin", value:"", unit:"mg/dL", refRange:"0.2-0.8",   status:"Normal"},
+              {id:Date.now()+4,  name:"SGOT (AST)",         value:"", unit:"U/L",   refRange:"10-40",     status:"Normal"},
+              {id:Date.now()+5,  name:"SGPT (ALT)",         value:"", unit:"U/L",   refRange:"7-56",      status:"Normal"},
+              {id:Date.now()+6,  name:"Alkaline Phosphatase",value:"",unit:"U/L",   refRange:"44-147",    status:"Normal"},
+              {id:Date.now()+7,  name:"Total Protein",      value:"", unit:"g/dL",  refRange:"6.3-8.2",   status:"Normal"},
+              {id:Date.now()+8,  name:"Albumin",            value:"", unit:"g/dL",  refRange:"3.5-5.0",   status:"Normal"},
+              {id:Date.now()+9,  name:"Globulin",           value:"", unit:"g/dL",  refRange:"2.0-3.5",   status:"Normal"},
+            ],
+            "KFT": [
+              {id:Date.now()+1, name:"Blood Urea",          value:"", unit:"mg/dL", refRange:"15-40",     status:"Normal"},
+              {id:Date.now()+2, name:"Serum Creatinine",    value:"", unit:"mg/dL", refRange:"0.6-1.2",   status:"Normal"},
+              {id:Date.now()+3, name:"Uric Acid",           value:"", unit:"mg/dL", refRange:"3.5-7.2",   status:"Normal"},
+              {id:Date.now()+4, name:"Sodium",              value:"", unit:"mEq/L", refRange:"136-145",   status:"Normal"},
+              {id:Date.now()+5, name:"Potassium",           value:"", unit:"mEq/L", refRange:"3.5-5.1",   status:"Normal"},
+              {id:Date.now()+6, name:"Chloride",            value:"", unit:"mEq/L", refRange:"98-107",    status:"Normal"},
+              {id:Date.now()+7, name:"Bicarbonate",         value:"", unit:"mEq/L", refRange:"22-29",     status:"Normal"},
+            ],
+            "RFT": [
+              {id:Date.now()+1, name:"Blood Urea",          value:"", unit:"mg/dL", refRange:"15-40",     status:"Normal"},
+              {id:Date.now()+2, name:"Serum Creatinine",    value:"", unit:"mg/dL", refRange:"0.6-1.2",   status:"Normal"},
+              {id:Date.now()+3, name:"Sodium",              value:"", unit:"mEq/L", refRange:"136-145",   status:"Normal"},
+              {id:Date.now()+4, name:"Potassium",           value:"", unit:"mEq/L", refRange:"3.5-5.1",   status:"Normal"},
+            ],
+            "Lipid Profile": [
+              {id:Date.now()+1, name:"Total Cholesterol",   value:"", unit:"mg/dL", refRange:"<200",      status:"Normal"},
+              {id:Date.now()+2, name:"Triglycerides",       value:"", unit:"mg/dL", refRange:"<150",      status:"Normal"},
+              {id:Date.now()+3, name:"HDL Cholesterol",     value:"", unit:"mg/dL", refRange:">40",       status:"Normal"},
+              {id:Date.now()+4, name:"LDL Cholesterol",     value:"", unit:"mg/dL", refRange:"<100",      status:"Normal"},
+              {id:Date.now()+5, name:"VLDL",                value:"", unit:"mg/dL", refRange:"<30",       status:"Normal"},
+            ],
+            "TFT": [
+              {id:Date.now()+1, name:"T3",                  value:"", unit:"ng/dL", refRange:"80-200",    status:"Normal"},
+              {id:Date.now()+2, name:"T4",                  value:"", unit:"μg/dL", refRange:"5.1-14.1",  status:"Normal"},
+              {id:Date.now()+3, name:"TSH",                 value:"", unit:"μIU/mL",refRange:"0.4-4.0",   status:"Normal"},
+            ],
+            "HbA1c": [
+              {id:Date.now()+1, name:"HbA1c",               value:"", unit:"%",     refRange:"<5.7",      status:"Normal"},
+              {id:Date.now()+2, name:"Mean Blood Glucose",  value:"", unit:"mg/dL", refRange:"<117",      status:"Normal"},
+            ],
+            "BSF": [
+              {id:Date.now()+1, name:"Blood Sugar Fasting", value:"", unit:"mg/dL", refRange:"70-100",    status:"Normal"},
+            ],
+            "BSPP": [
+              {id:Date.now()+1, name:"Blood Sugar PP",      value:"", unit:"mg/dL", refRange:"<140",      status:"Normal"},
+            ],
+            "Urine R/M": [
+              {id:Date.now()+1, name:"Colour",              value:"", unit:"",      refRange:"Pale Yellow",status:"Normal"},
+              {id:Date.now()+2, name:"Appearance",          value:"", unit:"",      refRange:"Clear",     status:"Normal"},
+              {id:Date.now()+3, name:"pH",                  value:"", unit:"",      refRange:"4.5-8.0",   status:"Normal"},
+              {id:Date.now()+4, name:"Specific Gravity",    value:"", unit:"",      refRange:"1.005-1.030",status:"Normal"},
+              {id:Date.now()+5, name:"Protein",             value:"", unit:"",      refRange:"Nil",       status:"Normal"},
+              {id:Date.now()+6, name:"Glucose",             value:"", unit:"",      refRange:"Nil",       status:"Normal"},
+              {id:Date.now()+7, name:"Pus Cells",           value:"", unit:"/HPF",  refRange:"0-5",       status:"Normal"},
+              {id:Date.now()+8, name:"RBC",                 value:"", unit:"/HPF",  refRange:"0-2",       status:"Normal"},
+            ],
+            "Echo": [
+              {id:Date.now()+1, name:"EF (Ejection Fraction)", value:"", unit:"%",  refRange:"55-70",     status:"Normal"},
+              {id:Date.now()+2, name:"LVEDD",               value:"", unit:"mm",    refRange:"35-56",     status:"Normal"},
+              {id:Date.now()+3, name:"LVESD",               value:"", unit:"mm",    refRange:"25-40",     status:"Normal"},
+              {id:Date.now()+4, name:"IVS",                 value:"", unit:"mm",    refRange:"6-11",      status:"Normal"},
+              {id:Date.now()+5, name:"Impression",          value:"", unit:"",      refRange:"Normal Study",status:"Normal"},
+            ],
+            "ECG": [
+              {id:Date.now()+1, name:"Heart Rate",          value:"", unit:"bpm",   refRange:"60-100",    status:"Normal"},
+              {id:Date.now()+2, name:"Rhythm",              value:"", unit:"",      refRange:"Sinus",     status:"Normal"},
+              {id:Date.now()+3, name:"PR Interval",         value:"", unit:"ms",    refRange:"120-200",   status:"Normal"},
+              {id:Date.now()+4, name:"QRS Duration",        value:"", unit:"ms",    refRange:"<120",      status:"Normal"},
+              {id:Date.now()+5, name:"Impression",          value:"", unit:"",      refRange:"Normal ECG",status:"Normal"},
+            ],
+          };
+          const getDefaultTests = (name) => {
+            const key = Object.keys(DEFAULT_TESTS).find(k =>
+              name.toLowerCase().includes(k.toLowerCase()) ||
+              k.toLowerCase().includes(name.toLowerCase())
+            );
+            return key ? DEFAULT_TESTS[key].map(t => ({...t, id: Date.now() + Math.random()}))
+                       : [{id: Date.now(), name:"", value:"", unit:"", refRange:"", status:"Normal"}];
+          };
           const fromSvc = services
             .filter(s => {
               const cat = (s.svcCat || s.type || "").toLowerCase();
-              return !["med","pharma","drug","pharmacy","tablet","injection","iv fluid","consumable","room","consultant","icu"].some(k => cat.includes(k));
+              return !["med","pharma","drug","pharmacy","tablet","injection","iv fluid",
+                       "consumable","room","consultant","icu"].some(k => cat.includes(k));
             })
-            .filter(s => s.svcName)
-            .map((s, i) => ({
-              _localId: s.id || `r-svc-${i}`,
-              reportName: s.svcName || "Report",
-              reportType: s.svcCat || "Haematology",
-              date: (s.svcDate || admDate).slice(0, 10),
-              orderedBy: doctor,
-              amount: Number(s.svcTot || s.total || (Number(s.svcRate||0) * Number(s.svcQty||1))),
-              remarks: "", impression: "", tests: [],
-            }));
+            .filter(s => s.svcName && !labIds.has(String(s.id)))
+            .map((s, i) => {
+              const name = normalizeReportName(s.svcName || "Report");
+              return {
+                _localId:   s.id || `r-svc-${i}`,
+                reportName: name,
+                reportType: s.svcCat  || "Haematology",
+                date:       String(s.svcDate || admDate).slice(0, 10),
+                orderedBy:  doctor,
+                amount:     Number(s.svcTot || s.total || (Number(s.svcRate||0) * Number(s.svcQty||1))),
+                remarks: "", impression: "",
+                tests: getDefaultTests(name),
+              };
+            });
+          console.log("[BranchAdmin] fromSvc rows:", fromSvc.length);
           setEditableRows([...fromLab, ...fromSvc]);
         } catch (_e) {
           if (!active) return;
@@ -754,7 +1040,7 @@ export default function BranchAdminDashboard({
     }
 
     return () => { active = false; };
-  }, [nav, recTab, selPatient, isRecordDirty]);
+  }, [nav, recTab, selPatient?.uhid, selPatient?.admObj?.admNo]);
 
   // ─── Filter helpers ───────────────────────────────────────────────────────
   const filterPatients = (list) => list.filter(p => {
@@ -1114,7 +1400,7 @@ export default function BranchAdminDashboard({
     const selectedDischarge = selectedAdmission.discharge || {};
     const selectedMedical = selectedAdmission.medicalHistory || {};
 
-    const canEditRecords = String(selPatient?.paymentMode || "").toLowerCase() === "cash";
+    const canEditRecords = String(selPatient?.paymentMode || "").toLowerCase().trim().includes("cash");
 
     const updateEditableField = (rowIdx, field, value) => {
       setIsRecordDirty(true);
@@ -1229,6 +1515,18 @@ export default function BranchAdminDashboard({
             notes: f.notes || selectedMedical.notes || "",
           });
         } else if (recTab === "final_bill") {
+          await apiService.savePharmacyRecordsBulk(
+            selPatient.uhid,
+            selectedAdmission.admNo,
+            editableRows.map((row) => ({
+              medicine_name: row.medicine_name || "Medicine",
+              date_given: row.date_given || row.date || new Date().toISOString().slice(0, 10),
+              quantity: Number(row.quantity || 1),
+              rate: Number(row.rate || 0),
+              batch_no: row.batch_no || "",
+              expiry_date: row.expiry_date || "",
+            }))
+          );
           await apiService.updateBilling(selPatient.uhid, selectedAdmission.admNo, billEdit);
         } else if (recTab === "medical_history") {
           const f = editableRows[0] || {};
@@ -1258,50 +1556,286 @@ export default function BranchAdminDashboard({
 
     // ── Tab renderers ────────────────────────────────────────────────────
         const renderFinalBill = () => {
-      const medTotal = editableRows.reduce((s,m)=>s+(Number(m.quantity||m.qty||1)*Number(m.rate||0)),0);
-      const grandTotal = medTotal;
-      const billing = selPatient?.admObj?.billing || {};
-      const discount = billEdit.discount;
-      const advance = billEdit.advance;
-      const due = grandTotal - discount - advance;
-      const uhid = selPatient?.uhid;
-      const admNo = selectedAdmission?.admNo;
+      const p        = selPatient || {};
+      const admObj   = selectedAdmission || {};
+      const dis      = admObj.discharge || {};
+      const billing  = admObj.billing   || {};
+      const uhid     = p.uhid || "";
+      const admNo    = admObj.admNo || "";
+
+      // ALL rows are editable for cash patients — services + medicines merged into editableRows
+      const services = Array.isArray(admObj.services) ? admObj.services : [];
+
+      // Build combined allRows from editableRows (which now contains both svc + med rows)
+      // On first load, seed editableRows with svc rows if not already seeded
+      const svcRowsStatic = services
+        .filter(s => {
+          const cat = (s.svcCat || s.type || "").toLowerCase();
+          return !["med","pharma","drug","pharmacy","tablet","injection","iv fluid","consumable"].some(k => cat.includes(k));
+        })
+        .map((s, i) => ({
+          _localId:    s.id || `svc-${i}`,
+          isSvc:       true,
+          date_given:  (s.svcDate || "").slice(0, 10),
+          cghs:        s.cghs || s.cghs_code || "—",
+          medicine_name: s.svcName || s.description || "Service",
+          quantity:    Number(s.svcQty  || s.qty  || 1),
+          rate:        Number(s.svcRate || s.rate || 0),
+          amount:      Number(s.svcTot  || s.total || (Number(s.svcRate||0) * Number(s.svcQty||1))),
+        }));
+
+      // Merge: svc rows first, then medicine rows from editableRows (exclude any already-merged svc rows)
+      const medOnlyRows = editableRows.filter(r => !r.isSvc);
+      const allEditableRows = [...svcRowsStatic, ...medOnlyRows];
+
+      const allRows = allEditableRows.map((r, i) => ({
+        srNo:        i + 1,
+        date:        (r.date_given || r.date || "").slice(0, 10),
+        cghs:        r.cghs || "—",
+        description: r.medicine_name || "Service",
+        quantity:    Number(r.quantity || 1),
+        rate:        Number(r.rate || 0),
+        amount:      Number(r.quantity || 1) * Number(r.rate || 0),
+        _localId:    r._localId,
+        isSvc:       r.isSvc || false,
+        _idx:        i,
+      }));
+      const svcRows = { length: svcRowsStatic.length }; // keep for srNo offset compat
+      const grossTotal = allRows.reduce((s, r) => s + r.amount, 0);
+      const discount   = billEdit.discount;
+      const advance    = billEdit.advance;
+      const netPayable = Math.max(0, grossTotal - discount - advance);
+
+      // Header info
+      const patientName    = p.name         || "—";
+      const guardianName   = p.patientObj?.guardianName || p.patientObj?.guardian_name || "—";
+      const address        = p.patientObj?.address      || "—";
+      const contact        = p.phone        || p.patientObj?.phone || "—";
+      const ageSex         = `${p.age || "—"} YRS / ${p.gender || "—"}`;
+      const consultant     = dis.doctorName || admObj.medicalHistory?.treatingDoctor || "—";
+      const room           = dis.roomNo     || dis.room_no || "—";
+      const bed            = dis.bedNo      || dis.bed_no  || "—";
+      const panel          = String(p.paymentMode || "CASH").toUpperCase();
+      const doaRaw         = dis.doa        || admObj.dateTime || "";
+      const dodRaw         = dis.dod        || "";
+      const doa            = doaRaw ? new Date(doaRaw).toLocaleString("en-IN") : "—";
+      const dod            = dodRaw ? new Date(dodRaw).toLocaleString("en-IN") : "—";
+      const dischargeStatus= dis.dischargeStatus || dis.status || "—";
+      const billDate       = new Date().toLocaleDateString("en-IN", { day:"2-digit", month:"2-digit", year:"numeric" });
+      const admissionType  = dis.admissionType || admObj.admissionType || "IPD";
+      const ipd            = admNo ? `SH/GEN/26/${admNo}` : "—";
+
+      const cellStyle = { padding:"7px 10px", borderBottom:"1px solid #e2e8f0", fontSize:12, color:"#1e293b" };
+      const hdrCell  = { ...cellStyle, background:"#f8fafc", fontWeight:700, fontSize:11, color:"#64748b", textTransform:"uppercase", letterSpacing:"0.5px" };
+      const labelStyle = { fontSize:11, color:"#64748b", fontWeight:600 };
+      const valueStyle = { fontSize:12, color:"#0f172a", fontWeight:500 };
+
       return (
-        <SectionCard theme={theme} icon="Bill" title="Final Bill" subtitle={canEditRecords ? "Cash patient bill" : "View only"}>
-          <div style={{ background:T.surfaceRaised, borderRadius:10, padding:16, border:"1px solid "+T.border, marginBottom:16 }}>
-            <div style={{ display:"flex", justifyContent:"space-between", padding:"8px 0", borderBottom:"1px solid "+T.border, fontSize:13, color:T.textSub }}><span>Medicine Total</span><span>{"Rs."+medTotal.toFixed(2)}</span></div>
-              <div style={{ display:"flex", justifyContent:"space-between", padding:"8px 0", borderBottom:"1px solid "+T.border, fontSize:13, color:T.textSub }}><span>Gross Total</span><span>{"Rs."+grandTotal.toFixed(2)}</span></div>
-              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"8px 0", borderBottom:"1px solid "+T.border, fontSize:13, color:T.textSub }}>
-                <span>Discount</span>
-                {canEditRecords
-                  ? <input type="number" min={0} value={discount} onChange={e=>{ setIsRecordDirty(true); isRecordDirtyRef.current=true; setBillEdit(p=>({...p,discount:parseFloat(e.target.value)||0})); }} style={{width:100,padding:"4px 8px",borderRadius:6,border:"1px solid #ddd",fontSize:13,textAlign:"right"}} />
-                  : <span>{"Rs."+discount.toFixed(2)}</span>}
+        <div style={{ background:"#fff", border:"1px solid #e2e8f0", borderRadius:12, overflow:"hidden", fontFamily:"inherit", color:"#0f172a" }}>
+
+          {/* ── Header ── */}
+          <div style={{ background:"linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%)", padding:"20px 28px", display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
+            <div>
+              <div style={{ fontSize:11, color:"rgba(255,255,255,0.6)", letterSpacing:2, textTransform:"uppercase", marginBottom:4 }}>Date: {billDate}</div>
+              <div style={{ fontSize:22, fontWeight:900, color:"#fff", lineHeight:1 }}>FINAL</div>
+              <div style={{ fontSize:22, fontWeight:900, color:"#fff" }}>BILL</div>
+              <div style={{ fontSize:11, color:"rgba(255,255,255,0.7)", marginTop:6 }}>Admission Type: <span style={{ color:"#93c5fd" }}>{admissionType}</span></div>
+            </div>
+            <div style={{ textAlign:"right" }}>
+              <div style={{ fontSize:20, fontWeight:900, color:"#fff", letterSpacing:1 }}>SANGi <span style={{ fontWeight:300 }}>HOSPITAL</span></div>
+              <div style={{ fontSize:10, color:"rgba(255,255,255,0.65)", marginTop:6, lineHeight:1.6 }}>
+                Lakshmi Nagar Branch · Mathura, UP - 281004<br/>
+                📞 +91-9717444531 / +91-9717444532<br/>
+                ✉ laxminagar@sangihospital.com
               </div>
-              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"8px 0", borderBottom:"1px solid "+T.border, fontSize:13, color:T.textSub }}>
-                <span>Advance Paid</span>
-                {canEditRecords
-                  ? <input type="number" min={0} value={advance} onChange={e=>{ setIsRecordDirty(true); isRecordDirtyRef.current=true; setBillEdit(p=>({...p,advance:parseFloat(e.target.value)||0})); }} style={{width:100,padding:"4px 8px",borderRadius:6,border:"1px solid #ddd",fontSize:13,textAlign:"right"}} />
-                  : <span>{"Rs."+advance.toFixed(2)}</span>}
-              </div>
-            <div style={{ display:"flex", justifyContent:"space-between", padding:"10px 0", fontSize:16, fontWeight:800, color:theme.primary }}>
-              <span>Net Due</span><span>{"Rs."+due.toFixed(2)}</span>
             </div>
           </div>
-          <div style={{ display:"flex", gap:10, justifyContent:"flex-end", flexWrap:"wrap" }}>
+
+          {/* ── Patient Info Grid ── */}
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", borderBottom:"2px solid #e2e8f0" }}>
+            {[
+              ["UHID",              `${p.uhid || "—"}`],
+              ["Bill No.",          billing.billNo || "—"],
+              ["IPD No.",           ipd],
+              ["Bill Date",         `${billDate} ${new Date().toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit"})} HRS`],
+              ["Patient Name",      patientName],
+              ["Bill Date",         `${billDate} ${new Date().toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit"})} HRS`],
+              ["Guardian Name",     guardianName],
+              ["Age / Sex",         ageSex],
+              ["Address",           address],
+              ["Card No.",          billing.cardNo || "—"],
+              ["Consultant",        consultant],
+              ["Room / Bed",        `${room} / ${bed}`],
+              ["Claim ID",          billing.claimId || "—"],
+              ["Panel",             panel],
+              ["DOA & Time",        doa],
+              ["Contact No.",       contact],
+              ["DOD & Time",        dod],
+              ["Status on Discharge", dischargeStatus],
+            ].map(([label, value], i) => (
+              <div key={i} style={{ padding:"8px 16px", borderBottom:"1px solid #f1f5f9", borderRight: i%2===0 ? "1px solid #e2e8f0" : "none" }}>
+                <span style={labelStyle}>{label}: </span>
+                <span style={valueStyle}>{value}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* ── Services Table ── */}
+          <div style={{ padding:"0 0 0 0", overflowX:"auto" }}>
+            <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
+              <thead>
+                <tr>
+                  {["SR NO.","DATE","CGHS CODE","DESCRIPTION","QUANTITY","RATE","AMOUNT", canEditRecords ? "" : ""].map(h => (
+                    <th key={h} style={hdrCell}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {!allRows.length ? (
+                  <tr><td colSpan={8} style={{ padding:"32px", textAlign:"center", color:"#94a3b8", fontStyle:"italic" }}>No services added yet. Use buttons below to add.</td></tr>
+                ) : allRows.map((row, i) => {
+                  const updateRow = (field, val) => {
+                    if (row.isSvc) {
+                      // svc rows are static from services array — just update display via a local override
+                      // We store overrides in editableRows with isSvc=true
+                      setEditableRows(prev => {
+                        const existing = prev.find(r => r._localId === row._localId);
+                        if (existing) return prev.map(r => r._localId === row._localId ? {...r, [field]: val, amount: field==="quantity" ? val*Number(r.rate||0) : field==="rate" ? Number(r.quantity||1)*val : r.amount} : r);
+                        return [...prev, {...row, isSvc:true, [field]: val}];
+                      });
+                    } else {
+                      const mi = medOnlyRows.findIndex(r => r._localId === row._localId);
+                      if (mi !== -1) setEditableRows(prev => {
+                        const svcPart = prev.filter(r => r.isSvc);
+                        const medPart = prev.filter(r => !r.isSvc);
+                        medPart[mi] = {...medPart[mi], [field]: val,
+                          amount: field==="quantity" ? val*Number(medPart[mi].rate||0) : field==="rate" ? Number(medPart[mi].quantity||1)*val : medPart[mi].amount
+                        };
+                        return [...svcPart, ...medPart];
+                      });
+                    }
+                    setIsRecordDirty(true); isRecordDirtyRef.current = true;
+                  };
+                  return (
+                  <tr key={row._localId||i} style={{ background: i%2===0 ? "#fff" : "#f8fafc" }}>
+                    <td style={cellStyle}>{row.srNo}</td>
+                    <td style={cellStyle}>
+                      {canEditRecords
+                        ? <input type="date" value={row.date||""} onChange={e=>updateRow("date_given",e.target.value)} style={{border:"none",background:"transparent",fontSize:11,width:110,color:"#0f172a"}}/>
+                        : row.date||"—"}
+                    </td>
+                    <td style={cellStyle}>{row.cghs}</td>
+                    <td style={{ ...cellStyle, fontWeight:600 }}>
+                      {canEditRecords
+                        ? <input value={row.description||""} onChange={e=>updateRow("medicine_name",e.target.value)} style={{border:"none",background:"transparent",fontSize:12,fontWeight:600,width:"100%",color:"#0f172a"}}/>
+                        : row.description}
+                    </td>
+                    <td style={{ ...cellStyle, textAlign:"center" }}>
+                      {canEditRecords
+                        ? <input type="number" min={1} value={row.quantity} onChange={e=>updateRow("quantity",Math.max(1,parseInt(e.target.value)||1))} style={{border:"none",background:"transparent",fontSize:12,width:50,textAlign:"center",color:"#0f172a"}}/>
+                        : row.quantity}
+                    </td>
+                    <td style={{ ...cellStyle, textAlign:"right" }}>
+                      {canEditRecords
+                        ? <input type="number" min={0} step="0.01" value={row.rate} onChange={e=>updateRow("rate",parseFloat(e.target.value)||0)} style={{border:"none",background:"transparent",fontSize:12,width:80,textAlign:"right",color:"#0f172a"}}/>
+                        : `₹${Number(row.rate).toFixed(2)}`}
+                    </td>
+                    <td style={{ ...cellStyle, textAlign:"right", fontWeight:700, color:"#059669" }}>₹{(Number(row.quantity||1)*Number(row.rate||0)).toFixed(2)}</td>
+                    {canEditRecords && (
+                      <td style={cellStyle}>
+                        <button onClick={()=>{
+                          setEditableRows(prev => prev.filter(r => r._localId !== row._localId));
+                          setIsRecordDirty(true); isRecordDirtyRef.current = true;
+                        }} style={{background:"#fee2e2",border:"none",color:"#ef4444",borderRadius:4,padding:"2px 8px",cursor:"pointer",fontSize:11}}>✕</button>
+                      </td>
+                    )}
+                  </tr>
+                  );
+                })}
+                {/* Empty rows like the PDF */}
+                {Array.from({ length: Math.max(0, 5 - allRows.length) }).map((_, i) => (
+                  <tr key={`empty-${i}`}>
+                    {Array(7).fill(null).map((_, j) => <td key={j} style={{ ...cellStyle, height:32 }}>&nbsp;</td>)}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* ── Totals ── */}
+          <div style={{ borderTop:"2px solid #e2e8f0" }}>
+            {[
+              ["Gross Total", `₹ ${grossTotal.toFixed(2)}`, false, false],
+              ["Discount",    null,                          true,  false],
+              ["Advance Payment", null,                      false, true ],
+            ].map(([label, fixedVal, isDiscount, isAdvance]) => (
+              <div key={label} style={{ display:"flex", justifyContent:"flex-end", alignItems:"center", padding:"8px 20px", borderBottom:"1px solid #f1f5f9", gap:24 }}>
+                <span style={{ fontSize:12, color:"#64748b", fontWeight:600, minWidth:160, textAlign:"right" }}>{label}:</span>
+                {fixedVal
+                  ? <span style={{ fontSize:13, fontWeight:700, color:"#0f172a", minWidth:100, textAlign:"right" }}>{fixedVal}</span>
+                  : canEditRecords
+                  ? <input
+                      type="number" min={0}
+                      value={isDiscount ? discount : advance}
+                      onChange={e => {
+                        setIsRecordDirty(true); isRecordDirtyRef.current = true;
+                        const val = parseFloat(e.target.value) || 0;
+                        setBillEdit(p => isDiscount ? { ...p, discount: val } : { ...p, advance: val });
+                      }}
+                      style={{ width:100, padding:"5px 8px", borderRadius:6, border:"1px solid #cbd5e1", fontSize:13, textAlign:"right", fontFamily:"inherit" }}
+                    />
+                  : <span style={{ fontSize:13, fontWeight:700, minWidth:100, textAlign:"right" }}>
+                      - ₹ {(isDiscount ? discount : advance).toFixed(2)}
+                    </span>
+                }
+              </div>
+            ))}
+            <div style={{ display:"flex", justifyContent:"flex-end", alignItems:"center", padding:"14px 20px", background:"#0f172a", gap:24 }}>
+              <span style={{ fontSize:13, fontWeight:800, color:"#fff", minWidth:160, textAlign:"right", letterSpacing:"0.5px" }}>NET PAYABLE AMOUNT :</span>
+              <span style={{ fontSize:18, fontWeight:900, color:"#4ade80", minWidth:100, textAlign:"right" }}>₹ {netPayable.toFixed(2)}</span>
+            </div>
+          </div>
+
+          {/* ── Footer ── */}
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:20, padding:"24px 28px", borderTop:"2px solid #e2e8f0", alignItems:"flex-end" }}>
+            <div style={{ textAlign:"center" }}>
+              <div style={{ borderTop:"1.5px solid #0f172a", paddingTop:8, fontSize:12, fontWeight:700 }}>Authorised Signatory</div>
+              <div style={{ fontSize:11, color:"#64748b" }}>Medical Superintendent</div>
+              <div style={{ fontSize:11, color:"#64748b" }}>Sangi Hospital</div>
+            </div>
+            <div style={{ textAlign:"center" }}>
+              <div style={{ fontSize:10, color:"#94a3b8", marginBottom:6, fontStyle:"italic" }}>Scan to visit our website</div>
+              <div style={{ width:60, height:60, background:"#f1f5f9", border:"1px solid #e2e8f0", borderRadius:4, margin:"0 auto 6px", display:"flex", alignItems:"center", justifyContent:"center", fontSize:9, color:"#94a3b8" }}>QR</div>
+              <div style={{ fontSize:11, color:"#3b82f6", fontWeight:600 }}>www.sangihospital.com</div>
+              <div style={{ fontSize:10, color:"#94a3b8", fontStyle:"italic" }}>This is a computer generated bill</div>
+            </div>
+            <div style={{ textAlign:"center" }}>
+              <div style={{ borderTop:"1.5px solid #0f172a", paddingTop:8, fontSize:12, fontWeight:700 }}>Patient / Attendant Signature</div>
+              <div style={{ fontSize:11, color:"#64748b" }}>with date</div>
+            </div>
+          </div>
+
+          {/* ── Action Buttons ── */}
+          <div style={{ display:"flex", gap:10, justifyContent:"flex-end", padding:"16px 28px", borderTop:"1px solid #e2e8f0", background:"#f8fafc", flexWrap:"wrap" }}>
+            {canEditRecords && (
+              <button style={{ ...mkBtn("primary",theme), padding:"9px 18px", fontSize:12 }} onClick={saveCurrentTab} disabled={savingRecords}>
+                {savingRecords ? "Saving…" : "💾 Save Bill"}
+              </button>
+            )}
             <button style={{ ...mkBtn("dim",theme), padding:"9px 18px", fontSize:12 }}
-              onClick={()=>{ if(!uhid||!admNo) return; window.open(BASE_URL+"/patients/"+uhid+"/admissions/"+admNo+"/pharmacy-records/print/","_blank"); }}>
-              Print Medicine Bill
+              onClick={() => { if(!uhid||!admNo) return; window.open(`${BASE_URL}/patients/${uhid}/admissions/${admNo}/pharmacy-records/print/`,"_blank"); }}>
+              🖨 Print Medicine Bill
             </button>
             <button style={{ ...mkBtn("dim",theme), padding:"9px 18px", fontSize:12 }}
-              onClick={()=>{ if(!uhid||!admNo) return; window.open(BASE_URL+"/patients/"+uhid+"/admissions/"+admNo+"/lab-reports/print/","_blank"); }}>
-              Print Reports
+              onClick={() => { if(!uhid||!admNo) return; window.open(`${BASE_URL}/patients/${uhid}/admissions/${admNo}/lab-reports/print/`,"_blank"); }}>
+              🖨 Print Reports
             </button>
-            <button style={{ ...mkBtn("primary",theme), padding:"9px 18px", fontSize:12 }}
-              onClick={()=>{ if(!uhid||!admNo) return; window.open(BASE_URL+"/patients/"+uhid+"/admissions/"+admNo+"/dynamic-summary/print/","_blank"); }}>
-              Print Full Summary
+            <button style={{ ...mkBtn("excel",theme), padding:"9px 18px", fontSize:12 }}
+              onClick={() => { if(!uhid||!admNo) return; window.open(`${BASE_URL}/patients/${uhid}/admissions/${admNo}/dynamic-summary/print/`,"_blank"); }}>
+              🖨 Print Full Summary
             </button>
           </div>
-        </SectionCard>
+        </div>
       );
     };
 const renderDischarge = () => {
@@ -1400,11 +1934,92 @@ const renderDischarge = () => {
     const REPORT_TYPES = ["Haematology","Biochemistry","Microbiology","Immunology – Serology","Histopathology","Cytology","X-Ray","USG","CT Scan","MRI","Echo","ECG"];
     const STATUS_COLORS = { Normal:"#10b981", High:"#ef4444", Low:"#f59e0b" };
 
+    const REPORT_MASTER = [
+      "Complete Blood Count (CBC)", "Blood Sugar Fasting", "Blood Sugar PP", "HbA1c",
+      "Lipid Profile", "Liver Function Test (LFT)", "Kidney Function Test (KFT)",
+      "Serum Creatinine", "Serum Electrolytes", "Thyroid Profile (T3/T4/TSH)",
+      "Urine Routine & Microscopy", "Stool Examination", "Blood Culture & Sensitivity",
+      "Urine Culture & Sensitivity", "Sputum AFB", "Widal Test", "Dengue NS1 Antigen",
+      "Malaria Antigen Test", "HIV I & II", "HBsAg", "Anti-HCV", "VDRL",
+      "Serum Calcium", "Serum Uric Acid", "CRP (C-Reactive Protein)", "ESR",
+      "PT/INR", "aPTT", "D-Dimer", "Troponin I", "CPK-MB", "LDH",
+      "X-Ray Chest PA View", "X-Ray KUB", "USG Abdomen & Pelvis", "USG Whole Abdomen",
+      "CT Scan Head Plain", "CT Scan Chest", "CT Scan Abdomen & Pelvis",
+      "MRI Brain", "MRI Spine", "Echo (2D Echocardiography)", "ECG",
+      "Pulmonary Function Test (PFT)", "Endoscopy Upper GI", "Colonoscopy",
+      "Biopsy", "FNAC", "PAP Smear", "Bone Marrow Examination",
+    ];
+
+    const ReportSearchBar = () => {
+      const [q, setQ] = React.useState("");
+      const [open, setOpen] = React.useState(false);
+      const wRef = React.useRef(null);
+      const inpRef = React.useRef(null);
+      React.useEffect(() => {
+        const h = e => { if (wRef.current && !wRef.current.contains(e.target)) setOpen(false); };
+        document.addEventListener("mousedown", h);
+        return () => document.removeEventListener("mousedown", h);
+      }, []);
+      const filtered = React.useMemo(() => {
+        const lq = q.trim().toLowerCase();
+        if (!lq) return REPORT_MASTER.slice(0, 20);
+        return REPORT_MASTER.filter(r => r.toLowerCase().includes(lq)).slice(0, 20);
+      }, [q]);
+      const addReport = (name) => {
+        addEditableRow({
+          _localId: `r-new-${Date.now()}`,
+          reportName: name,
+          reportType: "Haematology",
+          date: new Date().toISOString().slice(0, 10),
+          orderedBy: editableRows[0]?.orderedBy || "",
+          remarks: "", impression: "", amount: 0,
+          tests: [{ id: Date.now(), name: "", value: "", unit: "", refRange: "", status: "Normal" }],
+        });
+        setQ(""); setOpen(false);
+      };
+      return (
+        <div ref={wRef} style={{ position:"relative", marginBottom:14 }}>
+          <input
+            ref={inpRef}
+            value={q}
+            placeholder="🔍 Search & add report from master list…"
+            onChange={e => { setQ(e.target.value); setOpen(true); }}
+            onFocus={() => setOpen(true)}
+            style={{ ...inpStyle, width:"100%", boxSizing:"border-box" }}
+          />
+          {open && (
+            <div style={{ position:"absolute", top:"calc(100% + 4px)", left:0, right:0, zIndex:99999, maxHeight:260, overflowY:"auto", background:"#fff", border:"1px solid #e2e8f0", borderRadius:10, boxShadow:"0 12px 32px rgba(0,0,0,0.18)" }}>
+              {filtered.length === 0 && (
+                <div style={{ padding:"10px 14px", fontSize:12, color:"#94a3b8" }}>No match — click below to add custom</div>
+              )}
+              {filtered.map((name, i) => (
+                <div key={i} onClick={() => addReport(name)}
+                  style={{ padding:"10px 14px", cursor:"pointer", borderBottom:"1px solid #f1f5f9", fontSize:13, color:"#0f172a" }}
+                  onMouseEnter={e => e.currentTarget.style.background = "#f0f9ff"}
+                  onMouseLeave={e => e.currentTarget.style.background = ""}>
+                  + {name}
+                </div>
+              ))}
+              {q.trim() && !REPORT_MASTER.some(r => r.toLowerCase() === q.trim().toLowerCase()) && (
+                <div onClick={() => addReport(q.trim())}
+                  style={{ padding:"10px 14px", cursor:"pointer", fontSize:13, fontWeight:700, color:"#3b82f6", background:"#eff6ff", borderTop:"1px solid #bfdbfe" }}
+                  onMouseEnter={e => e.currentTarget.style.background = "#dbeafe"}
+                  onMouseLeave={e => e.currentTarget.style.background = "#eff6ff"}>
+                  + Add "{q.trim()}" as custom report
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      );
+    };
+
     const renderReports = () => (
       <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+        {canEditRecords && <ReportSearchBar />}
         {!editableRows.length && (
           <div style={{ padding:"32px", textAlign:"center", color:T.textMuted, fontStyle:"italic", border:`1px dashed ${T.border}`, borderRadius:10 }}>
-            No reports found.
+            No reports found.{canEditRecords ? " Use the search above to add one." : ""}
           </div>
         )}
         {editableRows.map((rep, ri) => (
@@ -1507,9 +2122,9 @@ const renderDischarge = () => {
           </div>
         ))}
         {canEditRecords && (
-          <button style={{ ...mkBtn("primary",theme), padding:"9px 16px", fontSize:12 }}
+          <button style={{ ...mkBtn("ghost",theme), padding:"7px 14px", fontSize:11, marginTop:4 }}
             onClick={()=>addEditableRow({ _localId:`r-new-${Date.now()}`, reportName:"", reportType:"Haematology", date:new Date().toISOString().slice(0,10), orderedBy:"", remarks:"", impression:"", amount:0, tests:[{id:Date.now(),name:"",value:"",unit:"",refRange:"",status:"Normal"}] })}>
-            + Add Report
+            + Add Blank Report Manually
           </button>
         )}
       </div>
@@ -1713,6 +2328,65 @@ const renderDischarge = () => {
     );
   }
 
+
+  function PrintApprovalsView() {
+    const allPrints  = printRequests || [];
+    const branchPrints = allPrints.filter(req =>
+      String(req?.patient?.branch_location || "").toUpperCase() === resolvedBranchCode
+    );
+    const pending  = branchPrints.filter(r => !r.approvedAt && !r.rejectedAt);
+    const approved = branchPrints.filter(r => !!r.approvedAt);
+    const rejected = branchPrints.filter(r => !!r.rejectedAt);
+
+    const PATable = ({ rows, label, showActions }) => (
+      <div style={{ marginBottom:20 }}>
+        <TableShell title={label} count={rows.length}>
+          <table style={{ width:"100%", borderCollapse:"collapse", fontSize:"12px" }}>
+            <thead><tr>{["UHID","Patient","Adm #","Requested At", showActions ? "Action" : "Status"].map(h=><Th key={h}>{h}</Th>)}</tr></thead>
+            <tbody>
+              {!rows.length
+                ? <EmptyRow cols={5} msg="NONE" />
+                : rows.map(req => (
+                  <tr key={req.uhid+"-"+req.admNo}>
+                    <Td><span style={{color:T.textMuted,fontSize:"10px"}}>{req.uhid}</span></Td>
+                    <Td primary>{req?.patient?.patientName || req?.patient?.name || "Patient"}</Td>
+                    <Td>#{req.admNo}</Td>
+                    <Td>{String(req.requestedAt||"").slice(0,16).replace("T"," ")||"—"}</Td>
+                    <Td>
+                      {showActions ? (
+                        <div style={{display:"flex",gap:"8px"}}>
+                          <button style={{...mkBtn("primary",theme),padding:"4px 12px",fontSize:"10px"}} onClick={()=>onApprovePrint?.(req,"approve")}>Approve</button>
+                          <button style={{...mkBtn("danger",theme),padding:"4px 12px",fontSize:"10px"}} onClick={()=>onApprovePrint?.(req,"reject")}>Reject</button>
+                          <button style={{...mkBtn("dim",theme),padding:"4px 12px",fontSize:"10px"}} onClick={()=>onViewBill?.(req)}>View</button>
+                        </div>
+                      ) : (
+                        <span style={mkBadge(req.approvedAt ? "active" : "unpaid")}>
+                          {req.approvedAt ? "Approved" : "Rejected"}
+                        </span>
+                      )}
+                    </Td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+        </TableShell>
+      </div>
+    );
+
+    return (
+      <>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"14px",marginBottom:"24px"}}>
+          <StatCard label="Pending"  value={pending.length}  color={T.warning} />
+          <StatCard label="Approved" value={approved.length} color={T.success} />
+          <StatCard label="Rejected" value={rejected.length} color={T.danger}  />
+        </div>
+        <PATable rows={pending}  label="Pending Approvals"  showActions={true}  />
+        <PATable rows={approved} label="Approved"           showActions={false} />
+        <PATable rows={rejected} label="Rejected"           showActions={false} />
+      </>
+    );
+  }
+
   function EmployeesView() {
     const roleColor = { Doctor:T.blue, Nurse:T.success, Admin:T.warning, Billing:T.purple, HOD:theme.primary };
     return (
@@ -1851,7 +2525,8 @@ const renderDischarge = () => {
           {nav==="patients"   && <PatientListView data={patients}  exportFile={`all_patients_${resolvedBranchKey}_${range}`}  title="All Patients" />}
           {nav==="cash"       && <PatientListView data={cashPats}  exportFile={`cash_patients_${resolvedBranchKey}_${range}`} title="Cash Patients" />}
           {nav==="records"    && RecordsView()}
-          {nav==="financials" && <FinancialsView />}
+          {nav==="financials"      && <FinancialsView />}
+          {nav==="print_approvals" && <PrintApprovalsView />}
           {nav==="employees"  && <EmployeesView />}
         </div>
       </div>
