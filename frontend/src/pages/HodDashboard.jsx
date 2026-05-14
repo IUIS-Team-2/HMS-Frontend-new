@@ -1,17 +1,331 @@
-import React from "react";
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import ThemeModeDock from "../components/ui/ThemeModeDock";
 import { apiService, BASE_URL } from "../services/apiService";
 import {
-  IndianRupee, Upload, CircleHelp, Hospital,
-  ClipboardList, CheckSquare, BarChart3, Star, Users,
-  FileText, Activity, Send,
+  IndianRupee,
+  Upload,
+  CircleHelp,
+  Hospital,
+  ClipboardList,
+  CheckSquare,
+  BarChart3,
+  Star,
+  Users,
+  FileText,
+  Activity,
+  Send,
   RefreshCw,
-  Stethoscope, BookOpen, Search, Filter, LogOut,
-  Eye, Edit3, MessageSquare, ThumbsUp, ThumbsDown,
-  Printer, ChevronDown, ChevronUp, ArrowLeft,
+  Stethoscope,
+  BookOpen,
+  Search,
+  Filter,
+  LogOut,
+  Eye,
+  Edit3,
+  MessageSquare,
+  ThumbsUp,
+  ThumbsDown,
+  Printer,
+  ChevronDown,
+  ChevronUp,
+  ArrowLeft,
 } from "lucide-react";
 
+
+const REPORT_TEMPLATES = {
+
+
+"BLOOD_GAS": {
+  key:"BLOOD_GAS",
+  label:"Blood Gas Analysis",
+  dept:"BIOCHEMISTRY",
+  tests:[
+    { id:1, name:"pH", value:"", unit:"", refRange:"7.35–7.45", status:"Normal" },
+    { id:2, name:"pCO2", value:"", unit:"mmHg", refRange:"35–45", status:"Normal" },
+    { id:3, name:"pO2", value:"", unit:"mmHg", refRange:"80–100", status:"Normal" }
+  ]
+},
+
+"CRP": {
+  key:"CRP",
+  label:"CRP (Qualitative)",
+  dept:"BIOCHEMISTRY",
+  tests:[
+    { id:1, name:"CRP", value:"", unit:"mg/L", refRange:"Negative", status:"Normal" }
+  ]
+},
+
+"RBS": {
+  key:"RBS",
+  label:"Blood Glucose (Random)",
+  dept:"BIOCHEMISTRY",
+  tests:[
+    { id:1, name:"Random Blood Sugar", value:"", unit:"mg/dL", refRange:"70–140", status:"Normal" }
+  ]
+},
+
+"FBS": {
+  key:"FBS",
+  label:"Blood Glucose (Fasting)",
+  dept:"BIOCHEMISTRY",
+  tests:[
+    { id:1, name:"Fasting Blood Sugar", value:"", unit:"mg/dL", refRange:"70–100", status:"Normal" }
+  ]
+},
+
+"WIDAL": {
+  key:"WIDAL",
+  label:"Widal Test (Slide Method)",
+  dept:"MICROBIOLOGY",
+  tests:[
+    { id:1, name:"S. Typhi O", value:"", unit:"", refRange:"Negative", status:"Normal" },
+    { id:2, name:"S. Typhi H", value:"", unit:"", refRange:"Negative", status:"Normal" }
+  ]
+},
+
+"MALARIA": {
+  key:"MALARIA",
+  label:"Malaria Antigen Test",
+  dept:"MICROBIOLOGY",
+  tests:[
+    { id:1, name:"Malaria Antigen", value:"", unit:"", refRange:"Negative", status:"Normal" }
+  ]
+},
+
+"TYPHI_DOT": {
+  key:"TYPHI_DOT",
+  label:"Typhi Dot (IgG & IgM)",
+  dept:"MICROBIOLOGY",
+  tests:[
+    { id:1, name:"IgG", value:"", unit:"", refRange:"Negative", status:"Normal" },
+    { id:2, name:"IgM", value:"", unit:"", refRange:"Negative", status:"Normal" }
+  ]
+},
+
+"DENGUE": {
+  key:"DENGUE",
+  label:"Dengue (IgM & IgG)",
+  dept:"MICROBIOLOGY",
+  tests:[
+    { id:1, name:"IgG", value:"", unit:"", refRange:"Negative", status:"Normal" },
+    { id:2, name:"IgM", value:"", unit:"", refRange:"Negative", status:"Normal" }
+  ]
+},
+
+"DENGUE_NS1": {
+  key:"DENGUE_NS1",
+  label:"Dengue NS1 Antigen Test",
+  dept:"MICROBIOLOGY",
+  tests:[
+    { id:1, name:"NS1 Antigen", value:"", unit:"", refRange:"Negative", status:"Normal" }
+  ]
+},
+
+"VIRAL_MARKERS": {
+  key:"VIRAL_MARKERS",
+  label:"Viral Markers (HIV, HBsAg, HCV)",
+  dept:"MICROBIOLOGY",
+  tests:[
+    { id:1, name:"HIV", value:"", unit:"", refRange:"Negative", status:"Normal" },
+    { id:2, name:"HBsAg", value:"", unit:"", refRange:"Negative", status:"Normal" },
+    { id:3, name:"HCV", value:"", unit:"", refRange:"Negative", status:"Normal" }
+  ]
+},
+
+"COVID": {
+  key:"COVID",
+  label:"COVID-19 Rapid Antigen",
+  dept:"MICROBIOLOGY",
+  tests:[
+    { id:1, name:"COVID Antigen", value:"", unit:"", refRange:"Negative", status:"Normal" }
+  ]
+},
+
+"SPUTUM_AFB": {
+  key:"SPUTUM_AFB",
+  label:"Sputum for AFB",
+  dept:"MICROBIOLOGY",
+  tests:[
+    { id:1, name:"AFB", value:"", unit:"", refRange:"Negative", status:"Normal" }
+  ]
+},
+
+"CARDIAC_MARKERS": {
+  key:"CARDIAC_MARKERS",
+  label:"Cardiac Markers (Trop-T, Trop-I, CPK)",
+  dept:"BIOCHEMISTRY",
+  tests:[
+    { id:1, name:"Troponin-T", value:"", unit:"", refRange:"Negative", status:"Normal" },
+    { id:2, name:"Troponin-I", value:"", unit:"", refRange:"Negative", status:"Normal" },
+    { id:3, name:"CPK", value:"", unit:"U/L", refRange:"22–198", status:"Normal" }
+  ]
+},
+
+"AMYLASE_LIPASE": {
+  key:"AMYLASE_LIPASE",
+  label:"Serum Amylase & Lipase",
+  dept:"BIOCHEMISTRY",
+  tests:[
+    { id:1, name:"Amylase", value:"", unit:"U/L", refRange:"30–110", status:"Normal" },
+    { id:2, name:"Lipase", value:"", unit:"U/L", refRange:"0–160", status:"Normal" }
+  ]
+},
+
+"ADA": {
+  key:"ADA",
+  label:"Adenosine Deaminase (ADA)",
+  dept:"BIOCHEMISTRY",
+  tests:[
+    { id:1, name:"ADA", value:"", unit:"U/L", refRange:"<40", status:"Normal" }
+  ]
+},
+
+"BODY_FLUID": {
+  key:"BODY_FLUID",
+  label:"Body Fluid Routine Analysis",
+  dept:"PATHOLOGY",
+  tests:[
+    { id:1, name:"Colour", value:"", unit:"", refRange:"Clear", status:"Normal" },
+    { id:2, name:"Protein", value:"", unit:"g/dL", refRange:"<3", status:"Normal" },
+    { id:3, name:"Cell Count", value:"", unit:"cells/mm³", refRange:"0–5", status:"Normal" }
+  ]
+},
+
+"ANTI_TPO": {
+  key:"ANTI_TPO",
+  label:"Anti-TPO (Thyroid Peroxidase Antibody)",
+  dept:"ENDOCRINOLOGY",
+  tests:[
+    { id:1, name:"Anti-TPO", value:"", unit:"IU/mL", refRange:"<35", status:"Normal" }
+  ]
+},
+
+
+"CRP_PROCALCITONIN": {
+  key:"CRP_PROCALCITONIN",
+  label:"CRP / Procalcitonin",
+  dept:"BIOCHEMISTRY",
+  tests:[
+    { id:1, name:"CRP", value:"", unit:"mg/L", refRange:"NEGATIVE", status:"Normal" },
+    { id:2, name:"Procalcitonin", value:"", unit:"ng/mL", refRange:"<0.5", status:"Normal" }
+  ]
+},
+
+"URINE_CS": {
+  key:"URINE_CS",
+  label:"Urine C/S (Culture & Sensitivity)",
+  dept:"MICROBIOLOGY",
+  tests:[
+    { id:1, name:"Organism Isolated", value:"", unit:"", refRange:"No Growth", status:"Normal" },
+    { id:2, name:"Colony Count", value:"", unit:"CFU/mL", refRange:"<100000", status:"Normal" },
+    { id:3, name:"Antibiotic Sensitivity", value:"", unit:"", refRange:"", status:"Normal" }
+  ]
+},
+
+"TOTAL_THYROID_PROFILE": {
+  key:"TOTAL_THYROID_PROFILE",
+  label:"Total Thyroid Profile",
+  dept:"ENDOCRINOLOGY",
+  tests:[
+    { id:1, name:"T3", value:"", unit:"ng/dL", refRange:"80–200", status:"Normal" },
+    { id:2, name:"T4", value:"", unit:"µg/dL", refRange:"5–12", status:"Normal" },
+    { id:3, name:"TSH", value:"", unit:"µIU/mL", refRange:"0.4–4.5", status:"Normal" }
+  ]
+},
+
+  "CBC": { key:"CBC", label:"Complete Blood Count", dept:"HAEMATOLOGY" ,
+  tests:[
+    { id:1, name:"Hemoglobin", value:"", unit:"", refRange:"", status:"Normal" },
+    { id:2, name:"Total WBC Count", value:"", unit:"", refRange:"", status:"Normal" },
+    { id:3, name:"Platelet Count", value:"", unit:"", refRange:"", status:"Normal" },
+    { id:4, name:"RBC Count", value:"", unit:"", refRange:"", status:"Normal" }
+  ]
+},
+  "COAGULATION": { key:"COAGULATION", label:"Coagulation Profile", dept:"HAEMATOLOGY" },
+  "BLOODGROUP": { key:"BLOODGROUP", label:"Blood Group & Rh Factor", dept:"HAEMATOLOGY" },
+  "PERIPHERAL_SMEAR": {
+  key:"PERIPHERAL_SMEAR",
+  label:"Blood Picture (Peripheral Smear)",
+  dept:"HAEMATOLOGY",
+  tests:[
+    {
+      id:1,
+      name:"RBC Morphology",
+      value:"",
+      unit:"",
+      refRange:"Normal",
+      status:"Normal"
+    },
+    {
+      id:2,
+      name:"WBC Morphology",
+      value:"",
+      unit:"",
+      refRange:"Normal",
+      status:"Normal"
+    },
+    {
+      id:3,
+      name:"Platelet Morphology",
+      value:"",
+      unit:"",
+      refRange:"Adequate",
+      status:"Normal"
+    },
+    {
+      id:4,
+      name:"Impression",
+      value:"",
+      unit:"",
+      refRange:"",
+      status:"Normal"
+    }
+  ]
+},
+  "KFT": { key:"KFT", label:"Kidney Function Test", dept:"BIOCHEMISTRY" ,
+  tests:[
+    { id:1, name:"Urea", value:"", unit:"", refRange:"", status:"Normal" },
+    { id:2, name:"Creatinine", value:"", unit:"", refRange:"", status:"Normal" },
+    { id:3, name:"Uric Acid", value:"", unit:"", refRange:"", status:"Normal" },
+    { id:4, name:"Sodium", value:"", unit:"", refRange:"", status:"Normal" },
+    { id:5, name:"Potassium", value:"", unit:"", refRange:"", status:"Normal" }
+  ]
+},
+  "LFT": {
+  key:"LFT",
+  label:"Liver Function Test",
+  dept:"BIOCHEMISTRY",
+  tests:[
+    { id:1, name:"Total Bilirubin", value:"", unit:"mg/dL", refRange:"0.2–1.2", status:"Normal" },
+    { id:2, name:"Direct Bilirubin", value:"", unit:"mg/dL", refRange:"0–0.3", status:"Normal" },
+    { id:3, name:"Indirect Bilirubin", value:"", unit:"mg/dL", refRange:"0.2–0.9", status:"Normal" },
+    { id:4, name:"SGOT (AST)", value:"", unit:"U/L", refRange:"5–40", status:"Normal" },
+    { id:5, name:"SGPT (ALT)", value:"", unit:"U/L", refRange:"5–41", status:"Normal" },
+    { id:6, name:"Alkaline Phosphatase", value:"", unit:"U/L", refRange:"44–147", status:"Normal" },
+    { id:7, name:"Total Protein", value:"", unit:"g/dL", refRange:"6.0–8.3", status:"Normal" },
+    { id:8, name:"Albumin", value:"", unit:"g/dL", refRange:"3.5–5.0", status:"Normal" }
+  ]
+},
+  "LIPID": { key:"LIPID", label:"Lipid Profile", dept:"BIOCHEMISTRY" },
+  "BLOODGAS": { key:"BLOODGAS", label:"Blood Gas Analysis", dept:"BIOCHEMISTRY" },
+  "GLUCOSE": { key:"GLUCOSE", label:"Blood Glucose", dept:"BIOCHEMISTRY" },
+  "CARDIAC": { key:"CARDIAC", label:"Cardiac Markers", dept:"BIOCHEMISTRY" },
+  "CRP": { key:"CRP", label:"CRP / Procalcitonin", dept:"BIOCHEMISTRY" },
+  "PANCREATIC": { key:"PANCREATIC", label:"Pancreatic Enzymes", dept:"BIOCHEMISTRY" },
+  "VITAMINS": { key:"VITAMINS", label:"Vitamins", dept:"BIOCHEMISTRY" },
+  "IRON": { key:"IRON", label:"Iron Profile", dept:"BIOCHEMISTRY" },
+  "THYROID": { key:"THYROID", label:"Total Thyroid Profile", dept:"ENDOCRINOLOGY" },
+  "WIDAL": { key:"WIDAL", label:"Widal Test (Slide Method)", dept:"IMMUNOLOGY – SEROLOGY" },
+  "TYPHIDOT": { key:"TYPHIDOT", label:"Typhi Dot (IgG & IgM)", dept:"IMMUNOLOGY – SEROLOGY" },
+  "DENGUE": { key:"DENGUE", label:"Dengue Panel", dept:"IMMUNOLOGY – SEROLOGY" },
+  "MALARIA": { key:"MALARIA", label:"Malaria Antigen Test", dept:"MICROBIOLOGY" },
+  "VIRAL": { key:"VIRAL", label:"Viral Markers", dept:"MICROBIOLOGY" },
+  "URINE_RM": { key:"URINE_RM", label:"Urine Examination (R/M)", dept:"MICROBIOLOGY" },
+  "URINE_CS": { key:"URINE_CS", label:"Urine C/S (Culture & Sensitivity)", dept:"MICROBIOLOGY" },
+  "BLOOD_CS": { key:"BLOOD_CS", label:"Blood C/S (Culture & Sensitivity)", dept:"MICROBIOLOGY" },
+  "STOOL": { key:"STOOL", label:"Stool Examination (R/M)", dept:"MICROBIOLOGY" },
+  "BODY_FLUID": { key:"BODY_FLUID", label:"Body Fluid Analysis", dept:"MICROBIOLOGY" },
+};
 // ─── Constants ────────────────────────────────────────────────────────────────
 const DEPARTMENTS = [
   "Billing", "Uploading", "Query", "OPD", "Intimation",
@@ -188,10 +502,7 @@ function PathologyReportCard({ rep, ri, patientName, updRep, updTest, addTest, d
           <div style={{ display:"flex", gap:18, flexWrap:"wrap", marginTop:10, fontSize:12, color:"rgba(255,255,255,.7)", alignItems:"center" }}>
             <span>👤 <strong style={{ color:"#fff" }}>{patientName||"—"}</strong></span>
             <span>Dept:&nbsp;
-              <select value={rep.reportType} onChange={e => updRep(ri,"reportType",e.target.value)} disabled={readOnly}
-                style={{ background:"transparent", border:"none", borderBottom:"1px solid rgba(255,255,255,.3)", outline:"none", color:"rgba(255,255,255,.85)", fontFamily:"inherit", fontSize:12 }}>
-                {PATHOLOGY_REPORT_TYPES.map(t => <option key={t} value={t} style={{ background:"#1e3a5f" }}>{t}</option>)}
-              </select>
+              
             </span>
             <span>Date:&nbsp;<input type="date" value={rep.date} onChange={e => updRep(ri,"date",e.target.value)} disabled={readOnly} style={{ background:"transparent", border:"none", borderBottom:"1px solid rgba(255,255,255,.3)", outline:"none", color:"rgba(255,255,255,.7)", fontFamily:"inherit", fontSize:12 }}/></span>
             <span>Ref.by:&nbsp;<input value={rep.orderedBy} placeholder="Doctor" onChange={e => updRep(ri,"orderedBy",e.target.value)} disabled={readOnly} style={{ background:"transparent", border:"none", borderBottom:"1px solid rgba(255,255,255,.3)", outline:"none", color:"rgba(255,255,255,.7)", fontFamily:"inherit", fontSize:12, width:140 }}/></span>
@@ -1480,7 +1791,7 @@ const [medicineMaster, setMedicineMaster] = useState([]);
       apiService.getPharmacyRecords(uhid, admNo).then(records => {
         const arr = Array.isArray(records) ? records : [];
         if (arr.length) {
-          setMyEMedBill(arr.map(r => ({ id:r.id||Date.now()+Math.random(), item:r.name||r.medicine_name||"", date:r.date||r.date_given||new Date().toISOString().slice(0,10), quantity:Number(r.quantity||1), rate:Number(r.rate||0), amount:Number(r.rate||0)*Number(r.quantity||1), batchNo:r.batch||r.batch_no||"", expiryDate:r.expiry||r.expiry_date||"" })));
+          setMyEMedBill(arr.map(r => ({ id:r.id||Date.now()+Math.random(), item:r.name||r.medicine_name||"", date:r.date||r.date_given||new Date().toISOString().slice(0,10), quantity:Number(r.quantity||1), rate:Number(r.rate||0), amount:Number(r.rate||0)*Number(r.quantity||1), batchNo:r.batch_no||r.batch||r.batchNo||"", expiryDate:r.expiry_date||r.expiry||r.expiryDate||"" })));
         } else {
           // Prefill from medical history currentMedications
           const medHist = sel.medicalHistory || {};
@@ -2392,7 +2703,94 @@ const [medicineMaster, setMedicineMaster] = useState([]);
       ))}
     </div>
 
-    {/* SEARCH REPORT TEMPLATE */}
+    {
+<select
+  style={{
+    padding:"10px 14px",
+    borderRadius:10,
+    border:"1px solid var(--border)",
+    background:"var(--white)",
+    minWidth:260,
+    fontSize:13,
+    fontFamily:"inherit",
+    marginBottom:14
+  }}
+  onChange={e => {
+    if (!e.target.value) return;
+
+    const tmpl = Object.values(REPORT_TEMPLATES).find(t => t.label === e.target.value);
+    const isRadiology = RADIOLOGY_REPORT_TYPES.includes(tmpl?.dept || "");
+    setMyELabRep(prev => [
+      ...prev,
+      isRadiology
+        ? { ...emptyRadReport(), reportName: tmpl?.label || e.target.value, reportType: tmpl?.dept || "X-Ray" }
+        : { ...emptyPathReport(), reportName: tmpl?.label || e.target.value, reportType: tmpl?.dept || "Haematology", tests: Array.isArray(tmpl?.tests) && tmpl.tests.length ? tmpl.tests.map(t => ({ ...t, id: Date.now() + Math.random() })) : [] }
+    ]);
+
+    e.target.value = "";
+  }}
+>
+  <option value="">Add Report Template</option>
+
+  {(reportMaster?.length
+    ? reportMaster
+    : [
+        "Complete Blood Count (CBC)",
+        "Kidney Function Test (KFT)",
+        "Liver Function Test (LFT)",
+        "Lipid Profile",
+        "Blood Gas Analysis",
+        "CRP (Qualitative)",
+        "Blood Glucose (Random)",
+        "Blood Glucose (Fasting)",
+        "Widal Test (Slide Method)",
+        "Malaria Antigen Test",
+        "Typhi Dot (IgG & IgM)",
+        "Dengue (IgM & IgG)",
+        "Dengue NS1 Antigen Test",
+        "Viral Markers (HIV, HBsAg, HCV)",
+        "COVID-19 Rapid Antigen",
+        "Urine Examination (Routine)",
+        "Urine Gram Stain",
+        "Aerobic Culture & Sensitivity",
+        "Serum Procalcitonin",
+        "Sputum for AFB",
+        "Sputum Gram Stain",
+        "Cardiac Markers (Trop-T, Trop-I, CPK)",
+        "Total Thyroid Profile",
+        "Vitamin B-12 (Cyanocobalamin)",
+        "25 OH Vitamin D3",
+        "Stool Examination",
+        "Blood Group & Rh Factor",
+        "HbA1c (Glycosylated Hemoglobin)",
+        "Urine Ketone",
+        "D-Dimer",
+        "Serum Amylase & Lipase",
+        "Homocysteine (Quantitative)",
+        "PSA (Prostate Specific Antigen)",
+        "Prothrombin Time (PT)",
+        "Activated Partial Thromboplastin Time (APTT)",
+        "Adenosine Deaminase (ADA)",
+        "Body Fluid For Cytology",
+        "Body Fluid Routine Analysis",
+        "SAAG (Serum Ascites Albumin Gradient)",
+        "Iron Profile",
+        "Blood Picture (Peripheral Smear)",
+        "Anti-TPO (Thyroid Peroxidase Antibody)",
+        "Bleeding Time (BT) & Clotting Time (CT)"
+      ].map((name,i)=>({
+        id:i,
+        name
+      }))
+  ).map((r,i) => (
+    <option key={i} value={r.name}>
+      {r.name}
+    </option>
+  ))}
+</select>
+
+
+/* SEARCH REPORT TEMPLATE */}
     <div style={{ marginBottom:18, position:"relative" }}>
       <input
         type="text"
@@ -2427,7 +2825,7 @@ const [medicineMaster, setMedicineMaster] = useState([]);
             boxShadow:"0 10px 24px rgba(0,0,0,0.08)",
           }}
         >
-          {reportMaster
+          {Object.values(REPORT_TEMPLATES)
             .filter(r =>
               (r.name || "")
                 .toLowerCase()
@@ -2440,24 +2838,13 @@ const [medicineMaster, setMedicineMaster] = useState([]);
                 type="button"
                 onClick={() => {
 
-                  const isRadiology =
-                    RADIOLOGY_REPORT_TYPES.includes(
-                      r.category
-                    );
-
+                  const tmpl = Object.values(REPORT_TEMPLATES).find(t => t.label === r.name);
+                  const isRadiology = RADIOLOGY_REPORT_TYPES.includes(tmpl?.dept || "");
                   setMyELabRep(prev => [
                     ...prev,
                     isRadiology
-                      ? {
-                          ...emptyRadReport(),
-                          reportName:r.name,
-                          reportType:r.category || "X-Ray",
-                        }
-                      : {
-                          ...emptyPathReport(),
-                          reportName:r.name,
-                          reportType:r.category || "Haematology",
-                        }
+                      ? { ...emptyRadReport(), reportName: tmpl?.label || r.name, reportType: tmpl?.dept || "X-Ray" }
+                      : { ...emptyPathReport(), reportName: tmpl?.label || r.name, reportType: tmpl?.dept || "Haematology", tests: Array.isArray(tmpl?.tests) && tmpl.tests.length ? tmpl.tests.map(t => ({ ...t, id: Date.now() + Math.random() })) : [] }
                   ]);
 
                   setReportSearch("");
