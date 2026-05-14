@@ -71,9 +71,10 @@ const NAV = [
 
 const RECORD_TYPES = [
   { id: "discharge_summary", label: "Discharge Summary" },
+  { id: "admission_note",    label: "Admission Note"    },
   { id: "reports",           label: "Reports"           },
   { id: "medicines",         label: "Medicines"         },
-  { id: "admission_note",    label: "Admission Note"    },
+  { id: "final_bill",        label: "Final Bill"        },
   { id: "medical_history",   label: "Medical History"   },
 ];
 
@@ -519,6 +520,7 @@ export default function BranchAdminDashboard({
   const [isRecordDirty, setIsRecordDirty] = useState(false);
   const isRecordDirtyRef = useRef(false);
   const [medicineMaster, setMedicineMaster] = useState([]);
+  const [billEdit, setBillEdit] = useState({ discount: 0, advance: 0 });
 
   // Fetch medicine master on mount
   useEffect(() => {
@@ -589,6 +591,11 @@ export default function BranchAdminDashboard({
   }, [nav, recTab, selPatient?.uhid, selPatient?.admObj?.admNo]);
 
   useEffect(() => {
+    const b = selPatient?.admObj?.billing || {};
+    setBillEdit({ discount: Number(b.discount||0), advance: Number(b.advance||0) });
+  }, [selPatient?.uhid, selPatient?.admObj?.admNo]);
+
+  useEffect(() => {
     if (nav !== "records" || !selPatient) {
       setEditableRows([]);
       return;
@@ -653,7 +660,7 @@ export default function BranchAdminDashboard({
 
   useEffect(() => {
     if (nav !== "records" || !selPatient || isRecordDirty) return;
-    if (recTab !== "reports" && recTab !== "medicines") return;
+    if (recTab !== "reports" && recTab !== "medicines" && recTab !== "final_bill") return;
     const admObj = selPatient?.admObj;
     const admissionDateFallback = admObj?.dateTime || admObj?.discharge?.doa || "";
     const uhid = selPatient?.uhid;
@@ -665,7 +672,7 @@ export default function BranchAdminDashboard({
     const services = Array.isArray(admObj?.services) ? admObj.services : [];
     let active = true;
 
-    if (recTab === "medicines") {
+    if (recTab === "medicines" || recTab === "final_bill") {
       const load = async () => {
         try {
           const token = sessionStorage.getItem("hms_token") || localStorage.getItem("hms_token") || "";
@@ -675,8 +682,8 @@ export default function BranchAdminDashboard({
           if (!active || isRecordDirtyRef.current) return;
           const data = res.ok ? await res.json() : [];
           const items = Array.isArray(data) ? data : (Array.isArray(data?.results) ? data.results : []);
-          const rows = buildMedicineRowsForBranchAdmin(items, [], services, admissionDateFallback);
-          setEditableRows(rows);
+                    const rows = buildMedicineRowsForBranchAdmin(items, [], services, admissionDateFallback);
+                    setEditableRows(rows);
         } catch (_e) {
           if (!active) return;
           setEditableRows(buildMedicineRowsForBranchAdmin([], [], services, admissionDateFallback));
@@ -1228,6 +1235,8 @@ export default function BranchAdminDashboard({
             treatmentAdvised: f.treatmentAdvised || selectedMedical.treatmentAdvised || "",
             notes: f.notes || selectedMedical.notes || "",
           });
+        } else if (recTab === "final_bill") {
+          await apiService.updateBilling(selPatient.uhid, selectedAdmission.admNo, billEdit);
         } else if (recTab === "medical_history") {
           const f = editableRows[0] || {};
           await apiService.updateMedicalHistory(selPatient.uhid, selectedAdmission.admNo, {
@@ -1255,7 +1264,54 @@ export default function BranchAdminDashboard({
     };
 
     // ── Tab renderers ────────────────────────────────────────────────────
-    const renderDischarge = () => {
+        const renderFinalBill = () => {
+      const medTotal = editableRows.reduce((s,m)=>s+(Number(m.quantity||m.qty||1)*Number(m.rate||0)),0);
+      const grandTotal = medTotal;
+      const billing = selPatient?.admObj?.billing || {};
+      const discount = billEdit.discount;
+      const advance = billEdit.advance;
+      const due = grandTotal - discount - advance;
+      const uhid = selPatient?.uhid;
+      const admNo = selectedAdmission?.admNo;
+      return (
+        <SectionCard theme={theme} icon="Bill" title="Final Bill" subtitle={canEditRecords ? "Cash patient bill" : "View only"}>
+          <div style={{ background:T.surfaceRaised, borderRadius:10, padding:16, border:"1px solid "+T.border, marginBottom:16 }}>
+            <div style={{ display:"flex", justifyContent:"space-between", padding:"8px 0", borderBottom:"1px solid "+T.border, fontSize:13, color:T.textSub }}><span>Medicine Total</span><span>{"Rs."+medTotal.toFixed(2)}</span></div>
+              <div style={{ display:"flex", justifyContent:"space-between", padding:"8px 0", borderBottom:"1px solid "+T.border, fontSize:13, color:T.textSub }}><span>Gross Total</span><span>{"Rs."+grandTotal.toFixed(2)}</span></div>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"8px 0", borderBottom:"1px solid "+T.border, fontSize:13, color:T.textSub }}>
+                <span>Discount</span>
+                {canEditRecords
+                  ? <input type="number" min={0} value={discount} onChange={e=>{ setIsRecordDirty(true); isRecordDirtyRef.current=true; setBillEdit(p=>({...p,discount:parseFloat(e.target.value)||0})); }} style={{width:100,padding:"4px 8px",borderRadius:6,border:"1px solid #ddd",fontSize:13,textAlign:"right"}} />
+                  : <span>{"Rs."+discount.toFixed(2)}</span>}
+              </div>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"8px 0", borderBottom:"1px solid "+T.border, fontSize:13, color:T.textSub }}>
+                <span>Advance Paid</span>
+                {canEditRecords
+                  ? <input type="number" min={0} value={advance} onChange={e=>{ setIsRecordDirty(true); isRecordDirtyRef.current=true; setBillEdit(p=>({...p,advance:parseFloat(e.target.value)||0})); }} style={{width:100,padding:"4px 8px",borderRadius:6,border:"1px solid #ddd",fontSize:13,textAlign:"right"}} />
+                  : <span>{"Rs."+advance.toFixed(2)}</span>}
+              </div>
+            <div style={{ display:"flex", justifyContent:"space-between", padding:"10px 0", fontSize:16, fontWeight:800, color:theme.primary }}>
+              <span>Net Due</span><span>{"Rs."+due.toFixed(2)}</span>
+            </div>
+          </div>
+          <div style={{ display:"flex", gap:10, justifyContent:"flex-end", flexWrap:"wrap" }}>
+            <button style={{ ...mkBtn("dim",theme), padding:"9px 18px", fontSize:12 }}
+              onClick={()=>{ if(!uhid||!admNo) return; window.open(BASE_URL+"/patients/"+uhid+"/admissions/"+admNo+"/pharmacy-records/print/","_blank"); }}>
+              Print Medicine Bill
+            </button>
+            <button style={{ ...mkBtn("dim",theme), padding:"9px 18px", fontSize:12 }}
+              onClick={()=>{ if(!uhid||!admNo) return; window.open(BASE_URL+"/patients/"+uhid+"/admissions/"+admNo+"/lab-reports/print/","_blank"); }}>
+              Print Reports
+            </button>
+            <button style={{ ...mkBtn("primary",theme), padding:"9px 18px", fontSize:12 }}
+              onClick={()=>{ if(!uhid||!admNo) return; window.open(BASE_URL+"/patients/"+uhid+"/admissions/"+admNo+"/dynamic-summary/print/","_blank"); }}>
+              Print Full Summary
+            </button>
+          </div>
+        </SectionCard>
+      );
+    };
+const renderDischarge = () => {
       const r = editableRows[0] || {};
       const u = (k) => (v) => updateEditableField(0, k, v);
       return (
@@ -1658,6 +1714,7 @@ export default function BranchAdminDashboard({
           {recTab === "medical_history"   && renderMedicalHistory()}
           {recTab === "reports"           && renderReports()}
           {recTab === "medicines"         && renderMedicines()}
+          {recTab === "final_bill"       && renderFinalBill()}
         </div>
       </>
     );

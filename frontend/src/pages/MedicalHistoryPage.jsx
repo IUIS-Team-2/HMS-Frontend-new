@@ -34,14 +34,96 @@ const REPORT_TEMPLATES = {
   "BODY_FLUID": { key:"BODY_FLUID", label:"Body Fluid Analysis", dept:"MICROBIOLOGY", color:"#065f46", bg:"#ecfdf5", type:"body_fluid" },
 };
 
+
+
 // ─── Grouped investigations for the dropdown (report names only) ──────────────
+
 const INVESTIGATION_GROUPS = [
-  { group:"🩸 Haematology", color:"#dc2626", items:["CBC","COAGULATION","BLOODGROUP","PERIPHERAL_SMEAR"] },
-  { group:"🧪 Biochemistry", color:"#2563eb", items:["KFT","LFT","LIPID","BLOODGAS","GLUCOSE","CARDIAC","CRP","PANCREATIC","VITAMINS","IRON"] },
-  { group:"⚗️ Endocrinology", color:"#7c3aed", items:["THYROID"] },
-  { group:"🔬 Immunology – Serology", color:"#b45309", items:["WIDAL","TYPHIDOT","DENGUE"] },
-  { group:"🦠 Microbiology", color:"#065f46", items:["MALARIA","VIRAL","URINE_RM","URINE_CS","BLOOD_CS","STOOL","BODY_FLUID"] },
+  { 
+    group:"🩸 Haematology",
+    color:"#dc2626",
+    items:[
+      "CBC",
+      "COAGULATION",
+      "BLOODGROUP",
+      "PERIPHERAL_SMEAR",
+      "D_DIMER",
+      "BT_CT"
+    ]
+  },
+
+  {
+    group:"🧪 Biochemistry",
+    color:"#2563eb",
+    items:[
+      "KFT",
+      "LFT",
+      "LIPID",
+      "BLOODGAS",
+      "GLUCOSE",
+      "CARDIAC",
+      "CRP",
+      "PANCREATIC",
+      "VITAMINS",
+      "IRON",
+      "SAAG",
+      "HOMOCYSTEINE",
+      "PSA",
+      "HBA1C",
+      "URINE_KETONE"
+    ]
+  },
+
+  {
+    group:"⚗️ Endocrinology",
+    color:"#7c3aed",
+    items:[
+      "THYROID",
+      "ANTI_TPO"
+    ]
+  },
+
+  {
+    group:"🔬 Immunology – Serology",
+    color:"#b45309",
+    items:[
+      "WIDAL",
+      "TYPHIDOT",
+      "DENGUE",
+      "COVID_AG"
+    ]
+  },
+
+  {
+    group:"🦠 Microbiology",
+    color:"#065f46",
+    items:[
+      "MALARIA",
+      "VIRAL",
+      "URINE_RM",
+      "URINE_GRAM",
+      "URINE_CS",
+      "BLOOD_CS",
+      "SPUTUM_AFB",
+      "SPUTUM_GRAM",
+      "STOOL",
+      "BODY_FLUID",
+      "BODY_FLUID_CYTOLOGY",
+      "ADA",
+      "PROCALCITONIN"
+    ]
+  },
+
+  {
+    group:"🧬 Coagulation",
+    color:"#be123c",
+    items:[
+      "PT",
+      "APTT"
+    ]
+  }
 ];
+
 
 // ─── Common medications ────────────────────────────────────────────────────────
 const MEDICATION_GROUPS = [
