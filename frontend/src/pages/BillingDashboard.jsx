@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef } from "react";
 import { apiService } from "../services/apiService";
 import ThemeModeDock from "../components/ui/ThemeModeDock";
 import { DOCTOR_LIST, QUALIFICATION_LIST, getDoctorQualification } from "../data/doctors";
@@ -1297,7 +1297,6 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
   const [patients, setPatients]             = useState([]);
   const [assignedTasks, setAssignedTasks]   = useState([]);
   const [medicineMaster, setMedicineMaster] = useState([]);
-  const [medSearch, setMedSearch]           = useState("");
   const [view, setView]                     = useState("tasks");
   const [sel, setSel]                       = useState(null);
   const [activeTab, setActiveTab]           = useState("discharge");
@@ -1733,44 +1732,6 @@ useEffect(() => {
     return medicineMaster.find((entry) => normalizeMedicineKey(entry?.name || entry?.medicine_name) === needle) || null;
   };
 
-  // ── Add from MedicineHistoryPicker (admission note chips or MEDICATION_GROUPS) ──
-  const addMedFromPicker = (medName) => {
-    const master = findMedicineMasterMatch(medName);
-    const quantity = 1;
-    const rate = Number(master?.rate ?? master?.price ?? 0);
-    setEMedBill(p => [...p, {
-      id: Date.now(),
-      item: medName,
-      date: new Date().toISOString().slice(0,10),
-      quantity,
-      rate,
-      amount: quantity * rate,
-      batchNo: master?.batch_no || "",
-      expiryDate: master?.expiry_date || "",
-    }]);
-    toast(`Added: ${medName.slice(0,40)}${medName.length > 40 ? "…" : ""}${master ? " (master pricing)" : ""}`);
-  };
-
-  // ── Add from the backend master dropdown ──
-  const addMedicineFromMasterDropdown = (selectedName) => {
-    if (!selectedName) return;
-    const med = medicineMaster.find(m =>
-      (m.name || m.medicine_name || "") === selectedName
-    );
-    const rate = Number(med?.rate ?? med?.price ?? 0);
-    setEMedBill(prev => ([...prev, {
-      id: Date.now(),
-      item: med?.name || med?.medicine_name || selectedName,
-      date: new Date().toISOString().slice(0,10),
-      quantity: 1,
-      rate,
-      batchNo: med?.batch_no || "",
-      expiryDate: med?.expiry_date || "",
-      amount: rate,
-    }]));
-    toast(`Added: ${selectedName}`);
-  };
-
   const patientName = sel?.patientName || "";
   const pathReps    = eLabRep.filter(r => !isRadiologyType(r.reportType));
   const radReps     = eLabRep.filter(r =>  isRadiologyType(r.reportType));
@@ -1931,11 +1892,10 @@ useEffect(() => {
 
     const allMeds = [...mhMeds, ...masterMeds];
 
-    const filtered = useMemo(() => {
-      const q = query.trim().toLowerCase();
-      if (!q) return allMeds.slice(0, 40);
-      return allMeds.filter(m => m.name.toLowerCase().includes(q)).slice(0, 40);
-    }, [query, allMeds.length]);
+    const q = query.trim().toLowerCase();
+    const filtered = q
+      ? allMeds.filter(m => m.name.toLowerCase().includes(q)).slice(0, 40)
+      : allMeds.slice(0, 40);
 
     useEffect(() => {
       const h = e => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false); };

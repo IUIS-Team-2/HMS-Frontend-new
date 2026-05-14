@@ -514,7 +514,6 @@ export default function BranchAdminDashboard({
 
   const [selPatient, setSelPatient] = useState(null);
   const [recTab,     setRecTab]     = useState("discharge_summary");
-  const [records,    setRecords]    = useState([]);
   const [editableRows, setEditableRows] = useState([]);
   const [savingRecords, setSavingRecords] = useState(false);
   const [isRecordDirty, setIsRecordDirty] = useState(false);
@@ -577,13 +576,7 @@ export default function BranchAdminDashboard({
 
     loadLiveData();
     return () => { active = false; };
-  }, [nav, range, fromDate, toDate, db, resolvedBranchKey]);
-
-  useEffect(() => {
-    if (nav === "records" && selPatient) {
-      setRecords(selPatient.records?.[recTab] || []);
-    }
-  }, [selPatient, recTab, nav]);
+  }, [nav, range, fromDate, toDate, db, resolvedBranchKey, resolvedBranchRaw, resolvedBranchCode]);
 
   useEffect(() => {
     setIsRecordDirty(false);

@@ -9,8 +9,7 @@ import {
   RefreshCw,
   Stethoscope, BookOpen, Search, Filter, LogOut,
   Eye, Edit3, MessageSquare, ThumbsUp, ThumbsDown,
-  Printer, ChevronDown, ChevronUp, CheckCircle, XCircle,
-  AlertTriangle, ArrowLeft,
+  Printer, ChevronDown, ChevronUp, ArrowLeft,
 } from "lucide-react";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -141,8 +140,6 @@ async function apiFetch(path, options = {}) {
   return res.json();
 }
 
-const stripTz = (s) => s ? String(s).slice(0,16) : "";
-
 async function apiFetchBlob(path, options = {}) {
   const token = sessionStorage.getItem("hms_token");
   const headers = {
@@ -207,7 +204,7 @@ function PathologyReportCard({ rep, ri, patientName, updRep, updTest, addTest, d
           <colgroup><col style={{ width:"35%" }}/><col style={{ width:"12%" }}/><col style={{ width:"9%" }}/><col style={{ width:"35%" }}/><col style={{ width:"9%" }}/>{!readOnly&&<col style={{ width:"40px" }}/>}</colgroup>
           <thead>
             <tr style={{ background:"var(--surface-2)" }}>
-              {["Test Name","Value ✏️","Unit","Normal / Reference Range","Status",...(!readOnly?[""]:[])] .map((h,i) => (
+              {["Test Name","Value ✏️","Unit","Normal / Reference Range","Status",...(!readOnly?[""]:[])].map((h,i) => (
                 <th key={i} style={{ textAlign:i===1?"center":"left", padding:"10px 14px", fontSize:11, fontWeight:700, color:"var(--text-muted)", textTransform:"uppercase", letterSpacing:".06em", borderBottom:"2px solid var(--border)" }}>{h}</th>
               ))}
             </tr>
@@ -821,9 +818,7 @@ export default function HodDashboard({ currentUser, onLogout }) {
   const [myESaved,  setMyESaved] = useState({});
   const [myRepFilter,setMyRepFilter]= useState("All");
   const [reportSearch, setReportSearch] = useState("");
-const [medSearch, setMedSearch] = useState("");
-
-const [reportMaster, setReportMaster] = useState([]);
+const [reportMaster] = useState([]);
 const [medicineMaster, setMedicineMaster] = useState([]);
   const [serviceMaster, setServiceMaster] = useState([]);
   const [svcSearch, setSvcSearch] = useState({});
@@ -835,7 +830,7 @@ const [medicineMaster, setMedicineMaster] = useState([]);
   const [reviewWorkModal,  setReviewWorkModal]  = useState(false);  // the big review modal
   const [reviewWorkTask,   setReviewWorkTask]   = useState(null);   // task being reviewed
   const [reviewWorkPat,    setReviewWorkPat]    = useState(null);   // patient record
-  const [reviewWorkData,   setReviewWorkData]   = useState({        // all loaded data
+  const [, setReviewWorkData]   = useState({        // all loaded data
     discharge:{}, admission:{}, labReports:[], medBill:[], services:[], billing:{}, dischargeSummary:null,
   });
   const [reviewWorkLoading, setReviewWorkLoading] = useState(false);
@@ -923,7 +918,7 @@ const [medicineMaster, setMedicineMaster] = useState([]);
       return nextList;
     }
     return [];
-  }, [request, currentUser]);
+  }, [request, currentUser, activeDept]);
 
   const loadTasks = useCallback(async () => {
     const params = new URLSearchParams({ department: activeDept });
@@ -1759,7 +1754,7 @@ const [medicineMaster, setMedicineMaster] = useState([]);
                   <table style={{ width:"100%", borderCollapse:"collapse", fontSize:13 }}>
                     <thead>
                       <tr style={{ background:"var(--surface-2)" }}>
-                        {["Medicine","Date","Qty","Rate","Batch","Expiry","Amount",...(reviewEditMode.medicines?[""]:[])] .map((h,i)=><th key={i} style={{ textAlign:"left", padding:"10px 14px", fontSize:11, fontWeight:700, color:"var(--text-muted)", textTransform:"uppercase", letterSpacing:".06em", borderBottom:"1px solid var(--border)" }}>{h}</th>)}
+                        {["Medicine","Date","Qty","Rate","Batch","Expiry","Amount",...(reviewEditMode.medicines?[""]:[])].map((h,i)=><th key={i} style={{ textAlign:"left", padding:"10px 14px", fontSize:11, fontWeight:700, color:"var(--text-muted)", textTransform:"uppercase", letterSpacing:".06em", borderBottom:"1px solid var(--border)" }}>{h}</th>)}
                       </tr>
                     </thead>
                     <tbody>
@@ -1801,7 +1796,7 @@ const [medicineMaster, setMedicineMaster] = useState([]);
                     <div style={{ fontSize:12, fontWeight:700, color:"var(--text)", marginBottom:10 }}>Services & Charges</div>
                     <div style={{ overflowX:"auto", border:"1px solid var(--border)", borderRadius:10 }}>
                       <table style={{ width:"100%", borderCollapse:"collapse", fontSize:13 }}>
-                        <thead><tr style={{ background:"var(--surface-2)" }}>{["Service","Qty","Rate","Amount",...(reviewEditMode.billing?[""]:[])] .map((h,i)=><th key={i} style={{ textAlign:"left", padding:"10px 14px", fontSize:11, fontWeight:700, color:"var(--text-muted)", textTransform:"uppercase", letterSpacing:".06em", borderBottom:"1px solid var(--border)" }}>{h}</th>)}</tr></thead>
+                        <thead><tr style={{ background:"var(--surface-2)" }}>{["Service","Qty","Rate","Amount",...(reviewEditMode.billing?[""]:[])].map((h,i)=><th key={i} style={{ textAlign:"left", padding:"10px 14px", fontSize:11, fontWeight:700, color:"var(--text-muted)", textTransform:"uppercase", letterSpacing:".06em", borderBottom:"1px solid var(--border)" }}>{h}</th>)}</tr></thead>
                         <tbody>
                           {rvESvc.length===0
                             ? <tr><td colSpan={5} style={{ textAlign:"center", color:"var(--text-muted)", fontStyle:"italic", padding:18 }}>No services recorded.</td></tr>

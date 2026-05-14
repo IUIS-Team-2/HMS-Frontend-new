@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import * as XLSX from "xlsx";
 import { apiService } from "../services/apiService";
 import ThemeModeDock from "../components/ui/ThemeModeDock";
-import { Hospital, LogOut, ClipboardList, Archive, Save, Users, ChevronRight, X } from "lucide-react";
+import { Hospital, LogOut, ClipboardList, Save, Users, ChevronRight, X } from "lucide-react";
 
 // ── Columns ────────────────────────────────────────────────────────────────────
 const COLUMNS = [
@@ -78,9 +78,9 @@ export default function QueryDashboard({ currentUser, onLogout }) {
   // Entry / Records state
   const [allEntries,  setAllEntries]  = useState([]);
   const [rows,        setRows]        = useState(() => Array.from({ length: 10 }, (_, i) => blankRow(i + 1)));
-  const [filterMode,  setFilterMode]  = useState("today");
-  const [customStart, setCustomStart] = useState(today);
-  const [customEnd,   setCustomEnd]   = useState(today);
+  const [filterMode]  = useState("today");
+  const [customStart] = useState(today);
+  const [customEnd]   = useState(today);
   const [viewTab,     setViewTab]     = useState("entry");
   const [savedAt,     setSavedAt]     = useState(null);
   const [hasUnsaved,  setHasUnsaved]  = useState(false);

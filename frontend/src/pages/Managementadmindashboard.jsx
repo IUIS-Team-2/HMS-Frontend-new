@@ -302,7 +302,7 @@ const safeSave = (key,val) => { try { localStorage.setItem(key,JSON.stringify(va
 const mapTaskFromApi = (task) => ({
   id: task.id, title: task.title, description: task.description||"",
   assignedToId: task.assigned_to, assignedTo: task.assigned_to_name||"—",
-  department: task.department, priority: task.priority, status: task.status,
+  department: task.department, priority: task.priority,
   dueDate: task.due_date ? task.due_date.slice(0,10) : "", createdAt: task.created_at, updatedAt: task.updated_at,
   completedAt: task.status==="Completed" ? task.updated_at : "",
   patientName: task.patient_name||task.patient_names?.[0]||"",
@@ -342,10 +342,6 @@ function exportCSV(filename,rows,headers) {
   const csv = [headers.join(","),...rows.map(r=>headers.map(h=>`"${(r[h]??"").toString().replace(/"/g,'""')}"`).join(","))].join("\n");
   const a = document.createElement("a"); a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"})); a.download=filename; a.click();
 }
-function exportTxt(filename,content) {
-  const a = document.createElement("a"); a.href=URL.createObjectURL(new Blob([content],{type:"text/plain"})); a.download=filename; a.click();
-}
-
 const statusColor = (s) => s==="High"?"#dc2626":s==="Low"?"#d97706":"#059669";
 
 // ── DYNAMIC CSS ────────────────────────────────────────────────────────────────
@@ -869,14 +865,14 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
 
   const currentDisplayName = `${profileForm.first_name||""} ${profileForm.last_name||""}`.trim()||currentUser?.name||"";
 
-  const getEmployeeBranchCode = ()=>{ if(isOfficeAdmin) return "ALL"; if(isSuperAdmin) return activeBranchCode; return String(currentUser?.branch||activeBranchCode||"LNM").toUpperCase(); };
-  const buildEmployeeId = (branchCode)=>{ const prefix=EMPLOYEE_ID_PREFIXES[branchCode]||"EMP"; const hi=employees.reduce((max,e)=>{ const c=String(e.empId||"").trim().toUpperCase(); if(!c.startsWith(prefix)) return max; const n=Number(c.slice(prefix.length)); return Number.isInteger(n)?Math.max(max,n):max; },0); return `${prefix}${String(hi+1).padStart(4,"0")}`; };
+  const getEmployeeBranchCode = useCallback(()=>{ if(isOfficeAdmin) return "ALL"; if(isSuperAdmin) return activeBranchCode; return String(currentUser?.branch||activeBranchCode||"LNM").toUpperCase(); }, [isOfficeAdmin, isSuperAdmin, activeBranchCode, currentUser?.branch]);
+  const buildEmployeeId = useCallback((branchCode)=>{ const prefix=EMPLOYEE_ID_PREFIXES[branchCode]||"EMP"; const hi=employees.reduce((max,e)=>{ const c=String(e.empId||"").trim().toUpperCase(); if(!c.startsWith(prefix)) return max; const n=Number(c.slice(prefix.length)); return Number.isInteger(n)?Math.max(max,n):max; },0); return `${prefix}${String(hi+1).padStart(4,"0")}`; }, [employees]);
 
   useEffect(()=>{
     if(!showEmpModal||editEmpId) return;
     const load=async()=>{ const bc2=getEmployeeBranchCode(); try { const d=await apiService.getNextEmpId({role:empForm.role,branch:bc2}); setEmpForm(f=>({...f,empId:d?.next_id||f.empId})); } catch { setEmpForm(f=>({...f,empId:f.empId||buildEmployeeId(bc2)})); } };
     load();
-  },[showEmpModal,editEmpId,empForm.role,viewBranch,currentUser?.role]);
+  },[showEmpModal,editEmpId,empForm.role,viewBranch,currentUser?.role,buildEmployeeId,getEmployeeBranchCode]);
 
   // ── PATIENT UPDATER ───────────────────────────────────────────────────────
   const updatePatient = useCallback((branchKey, uhid, updater) => {
@@ -1190,6 +1186,7 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
   const getPreferredReports   = (p) => p.reports?.length?p.reports:(getPreferredAdmission(p).labReports||[]);
   const getPreferredDischarge = (p) => ({...(getPreferredAdmission(p).discharge||{}),...(p.dischargeSummary||{})});
 
+  // eslint-disable-next-line no-unused-vars
   const openReportEditor = (p) => {
     const next=JSON.parse(JSON.stringify(p));
     next.reports=getPreferredReports(p);
@@ -1703,7 +1700,7 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
             const key=getBillKey(p.uhid,adm.admNo);
             const bd=billData[key]||initBillData(p,adm);
             const services=getServices(p.uhid,adm.admNo);
-            const {gross,disc,adv,net}=calcBillTotals(p.uhid,adm.admNo,bd);
+            const {gross,net}=calcBillTotals(p.uhid,adm.admNo,bd);
             const setF=(f,v)=>setBillField(p.uhid,adm.admNo,f,v);
             const today=new Date().toLocaleDateString("en-IN",{day:"2-digit",month:"2-digit",year:"numeric"});
             const nowTime=new Date().toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit"}).toUpperCase()+" HRS";
@@ -1887,7 +1884,6 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
               {filteredTaskReport.map((t,i)=>{
                 const statusCol = t.status==="Completed"?"#34d399":t.status==="In Progress"?"#38bdf8":t.status==="On Hold"?"#f59e0b":"#94a3b8";
                 const sections = t.sections || t.taskSections || [];
-                const workDone = t.remarks || t.notes || t.description || "";
                 const patients = t.patientNames?.length ? t.patientNames : t.patientName ? [t.patientName] : [];
                 const uhids    = t.patientUhids?.length ? t.patientUhids : t.patientUhid ? [t.patientUhid] : [];
                 return (

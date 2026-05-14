@@ -1019,7 +1019,7 @@ function MedicalTab({ all }) {
   const T = useT();
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [medData, setMedData] = useState({});
-  const [loading, setLoading] = useState(false);
+  const [loading] = useState(false);
   const [branch, setBranch] = useState("all");
   const [search, setSearch] = useState("");
 
