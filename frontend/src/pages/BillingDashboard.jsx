@@ -230,7 +230,8 @@ function SearchMultiDropdown({ value, onChange, groups, placeholder, chipColor="
 
   useEffect(() => {
     if (open) { calcPosition(); window.addEventListener("scroll",calcPosition,true); window.addEventListener("resize",calcPosition); }
-    return () => { window.removeEventListener("scroll",calcPosition,true); window.removeEventListener("resize",calcPosition); };
+    
+return () => { window.removeEventListener("scroll",calcPosition,true); window.removeEventListener("resize",calcPosition); };
   }, [open]);
 
   useEffect(() => {
@@ -420,7 +421,7 @@ function MedicineHistoryPicker({ eMed, onAdd }) {
         )}
         {historyMeds.length === 0 && !search && (
           <div style={{ fontSize:11, color:"#86efac", fontStyle:"italic", marginBottom:4 }}>
-            No medications found in Admission Note. Fill in the Admission Note to see them here.
+            No medications found in Medical History. Fill in the Admission Note to see them here.
           </div>
         )}
 
@@ -1967,7 +1968,60 @@ useEffect(() => {
       <>
 
         {/* Medical history medicine pills */}
-        <MedicineHistoryPicker eMed={eMed} onAdd={addMedFromPicker} />
+        <MedicineHistoryPicker eMed={eMed} onAdd={(med) => {
+  const medName =
+    typeof med === "string"
+      ? med
+      : (
+          med?.itemDescription ||
+          med?.medicineName ||
+          med?.name ||
+          med?.item ||
+          ""
+        );
+
+  const found =
+    medicineMaster.find(m =>
+      (m.name || m.itemDescription || "")
+        .toLowerCase()
+        .includes(medName.toLowerCase())
+    ) || {};
+
+  setEMedBill((prev) => [
+    ...prev,
+    {
+      item: medName,
+
+      date: new Date().toISOString().slice(0,10),
+
+      qty: 1,
+
+      rate: Number(
+        found.rate ||
+        found.mrp ||
+        found.price ||
+        0
+      ),
+
+      batchNo:
+        found.batchNo ||
+        found.batch ||
+        "",
+
+      expiryDate:
+        found.expiryDate ||
+        found.expiry ||
+        "",
+
+      amount: Number(
+        found.rate ||
+        found.mrp ||
+        found.price ||
+        0
+      ),
+    }
+  ]);
+}} />
         {/* Single searchable dropdown — MH meds first with rates, then master */}
         <BillingMedSearchDropdown
           onSelect={med => {
