@@ -897,7 +897,7 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
     if (already) { toast(`"${med.name}" already added`,"err"); return; }
     updatePatient(branchKey, p.uhid, pt=>({ ...pt, medicines:[...(pt.medicines||[]),{id:Date.now(),name:med.name||med.medicine_name||"",qty:1,rate:parseFloat(med.rate??med.price??0),batchNo:med.batch_no||med.batchNo||"",expiryDate:med.expiry_date||med.expiryDate||""}] }));
     toast(`"${med.name}" added`);
-  }, [updatePatient]);
+  }, [updatePatient, medicineMaster]);
 
   const addMedFromHistoryPill = useCallback((branchKey, p, medName) => {
     const already = (p.medicines||[]).some(m=>(m.name||"").toLowerCase()===medName.toLowerCase());
@@ -907,9 +907,9 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
     const masterMed = (medicineMaster||[]).find(m=>normName(m.name)===normMed)
       || (medicineMaster||[]).find(m=>normName(m.name).includes(normMed.slice(0,8)))
       || (medicineMaster||[]).find(m=>normMed.includes(normName(m.name).slice(0,8)));
-    updatePatient(branchKey, p.uhid, pt=>({ ...pt, medicines:[...(pt.medicines||[]),{id:Date.now(),name:medName,qty:1,rate:parseFloat(masterMed?.rate||0),batchNo:masterMed?.batch_no||"",expiryDate:masterMed?.expiry_date||""}] }));
+    updatePatient(branchKey, p.uhid, pt=>({ ...pt, medicines:[...(pt.medicines||[]),{id:Date.now(),name:medName,qty:1,rate:parseFloat(masterMed?.rate??masterMed?.price??masterMed?.selling_price??masterMed?.mrp??0),batchNo:masterMed?.batch_no||masterMed?.batchNo||"",expiryDate:masterMed?.expiry_date||masterMed?.expiryDate||""}] }));
     toast(`Added "${medName}"`);
-  }, [updatePatient]);
+  }, [updatePatient, medicineMaster]);
 
   const updateMed = (idx,field,val) => setEditMedPt(prev=>{ if(!prev) return prev; const m=[...(prev.medicines||[])]; m[idx]={...m[idx],[field]:field==="name"?val:(parseFloat(val)||0)}; return{...prev,medicines:m}; });
   const addMedRow = () => setEditMedPt(prev=>{ if(!prev) return prev; return{...prev,medicines:[...(prev.medicines||[]),{id:Date.now(),name:"",qty:1,rate:0}]}; });

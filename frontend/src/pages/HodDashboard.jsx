@@ -1416,9 +1416,45 @@ const [medicineMaster, setMedicineMaster] = useState([]);
       setMyDischargeSummaryLoading(true);
       apiService.getDynamicSummary(uhid, admNo, summType).then(res => {
         const content = res?.content||{ sections:[] };
-        if (content.sections && !Array.isArray(content.sections)) content.sections = Object.entries(content.sections).map(([k,v]) => ({ key:k,...v }));
+        if (content.sections && !Array.isArray(content.sections))
+          content.sections = Object.entries(content.sections).map(([k,v]) => ({ key:k,...v }));
+
+        // Pre-fill sections with saved discharge + medical history data
+        const disData = { ...dischargeFromAdm, ...rowDischarge };
+        const mhData  = medicalFromAdm || {};
+        if (Array.isArray(content.sections)) {
+          content.sections = content.sections.map(sec => {
+            if (sec.type === "vitals_grid" && typeof sec.value === "object") {
+              return { ...sec, value: {
+                bp:    disData.bp    || mhData.bp    || sec.value?.bp    || "",
+                pulse: disData.pr    || mhData.pr    || sec.value?.pulse || "",
+                spo2:  disData.spo2  || mhData.spo2  || sec.value?.spo2  || "",
+                temp:  disData.temp  || mhData.temp  || sec.value?.temp  || "",
+                chest: disData.chest || mhData.chest || sec.value?.chest || "",
+                cvs:   disData.cvs   || mhData.cvs   || sec.value?.cvs   || "",
+                cns:   disData.cns   || mhData.cns   || sec.value?.cns   || "",
+                abd:   disData.pa    || mhData.pa    || sec.value?.abd   || "",
+              }};
+            }
+            // Map common section keys to saved data fields
+            const keyMap = {
+              chiefComplaints:     disData.chiefComplaints    || mhData.chiefComplaints    || mhData.presentComplaints || "",
+              diagnosis:           disData.diagnosis          || mhData.provisionalDiagnosis || "",
+              historyOfIllness:    disData.historyOfIllness   || mhData.historyOfIllness   || "",
+              investigations:      disData.investigations     || mhData.investigations     || "",
+              treatmentGiven:      disData.treatmentGiven     || mhData.treatmentAdvised   || "",
+              conditionAtDischarge:disData.conditionAtDischarge || "",
+              adviceOnDischarge:   disData.adviceOnDischarge  || disData.followUp          || "",
+              followUp:            disData.followUp           || "",
+              notes:               disData.notes              || "",
+              reasonForLama:       disData.reasonForLama      || "",
+              referredTo:          disData.referredTo         || "",
+            };
+            const savedVal = keyMap[sec.key] || "";
+            return { ...sec, value: savedVal || sec.value || "" };
+          });
+        }
         setMyDischargeSummary(content);
-        // Only use API summary_type if summary already exists
         if (res?.is_existing && res?.summary_type) {
           setMyDischargeSummaryType(res.summary_type);
         } else {
@@ -1456,7 +1492,14 @@ const [medicineMaster, setMedicineMaster] = useState([]);
           const currentMeds = medHist.currentMedications || "";
           if (currentMeds) {
             const medList = currentMeds.split(/,|;|\n/).map(s=>s.trim()).filter(Boolean);
-            setMyEMedBill(medList.map(name => ({ id:Date.now()+Math.random(), item:name, date:new Date().toISOString().slice(0,10), quantity:1, rate:0, amount:0, batchNo:"", expiryDate:"" })));
+            const norm = n => String(n||"").toLowerCase().replace(/[^a-z0-9]/g,"");
+            setMyEMedBill(medList.map(name => {
+              const master = (medicineMaster||[]).find(m=>norm(m.name)===norm(name))
+                || (medicineMaster||[]).find(m=>norm(m.name).includes(norm(name).slice(0,8)))
+                || (medicineMaster||[]).find(m=>norm(name).includes(norm(m.name).slice(0,8)));
+              const rate = Number(master?.rate??master?.price??0);
+              return { id:Date.now()+Math.random(), item:name, date:new Date().toISOString().slice(0,10), quantity:1, rate, amount:rate, batchNo:master?.batch_no||"", expiryDate:master?.expiry_date||"" };
+            }));
           }
         }
       }).catch(() => {});
@@ -2220,12 +2263,15 @@ const [medicineMaster, setMedicineMaster] = useState([]);
         </div>
 
         {/* PDF Downloads */}
-        {p.uhid && p.admNo && (
+        {p.uhid && (
           <div className="hod-pdf-panel">
-            <div style={{ fontSize:12, fontWeight:700, color:"var(--text)" }}>📥 Download Documents as PDF</div>
+            <div style={{ fontSize:12, fontWeight:700, color:"var(--text)" }}>📥 Download & Print Documents</div>
             <div className="hod-pdf-grid">
               {PDF_DOC_TYPES.map(d=>(
-                <PdfDownloadBtn key={d.key} uhid={p.uhid} admNo={p.admNo} docType={d.key} label={d.label} icon={d.icon} onToast={toast}/>
+                <PdfDownloadBtn key={d.key}
+                  uhid={p.uhid}
+                  admNo={p.admNo || myWorkSel?.admNo || 1}
+                  docType={d.key} label={d.label} icon={d.icon} onToast={toast}/>
               ))}
             </div>
           </div>
@@ -2637,7 +2683,16 @@ const [medicineMaster, setMedicineMaster] = useState([]);
           )}
 
           <div style={{ marginTop:16, paddingTop:14, borderTop:"1px solid var(--border)", display:"flex", gap:10, justifyContent:"flex-end" }}>
-            <button className="hod-savebtn" onClick={()=>{ const m={discharge:"discharge",medical:"admission",reports:"reports",med_bill:"medicines",finalbill:"billing"}; const sKey=m[myActiveTab]; saveMySection(sKey,SECTION_LABELS[sKey]); }}>💾 Save {SECTION_LABELS[({discharge:"discharge",medical:"admission",reports:"reports",med_bill:"medicines",finalbill:"billing"})[myActiveTab]]}</button>
+            <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+              <PdfDownloadBtn
+                uhid={myWorkSel?.uhid} admNo={myWorkSel?.admNo||1}
+                docType={({discharge:"discharge_summary",medical:"admission_note",reports:"lab_reports",med_bill:"medicine_bill",finalbill:"final_bill"})[myActiveTab]||"discharge_summary"}
+                label={({discharge:"Discharge Summary",medical:"Admission Note",reports:"Lab Reports",med_bill:"Medicine Bill",finalbill:"Final Bill"})[myActiveTab]||"Document"}
+                icon={({discharge:"📋",medical:"🩺",reports:"🗂️",med_bill:"💊",finalbill:"🧾"})[myActiveTab]||"📄"}
+                onToast={toast}
+              />
+              <button className="hod-savebtn" onClick={()=>{ const m={discharge:"discharge",medical:"admission",reports:"reports",med_bill:"medicines",finalbill:"billing"}; const sKey=m[myActiveTab]; saveMySection(sKey,SECTION_LABELS[sKey]); }}>💾 Save {SECTION_LABELS[({discharge:"discharge",medical:"admission",reports:"reports",med_bill:"medicines",finalbill:"billing"})[myActiveTab]]}</button>
+            </div>
           </div>
         </div>
 

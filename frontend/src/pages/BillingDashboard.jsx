@@ -4,12 +4,15 @@ import ThemeModeDock from "../components/ui/ThemeModeDock";
 import { DOCTOR_LIST, QUALIFICATION_LIST, getDoctorQualification } from "../data/doctors";
 
 // ─── Discharge Type Configs ────────────────────────────────────────────────
+const normalizeDischType = (u="") => { u = String(u).toUpperCase().trim(); if (u.startsWith("REFER") || u==="REFERRED") return "REFER"; if (u.startsWith("LAMA")) return "LAMA"; if (u==="DEATH" || u==="EXPIRED") return "DEATH"; if (u==="DOPR" || u==="DAMA" || u==="DOR") return "DOPR"; if (u==="RECOVERED") return "RECOVERED"; return "NORMAL"; };
 const DISCHARGE_TYPES = {
   NORMAL:    { key:"NORMAL",    label:"Normal Discharge",  color:"#059669", bg:"#d1fae5", border:"#6ee7b7",  icon:"✅" },
   RECOVERED: { key:"RECOVERED", label:"Recovered",         color:"#2563eb", bg:"#dbeafe", border:"#93c5fd",  icon:"💚" },
   LAMA:      { key:"LAMA",      label:"LAMA",              color:"#d97706", bg:"#fef3c7", border:"#fcd34d",  icon:"⚠️" },
   DISCHARGE: { key:"DISCHARGE", label:"Discharge",         color:"#7c3aed", bg:"#ede9fe", border:"#c4b5fd",  icon:"🏥" },
-  DOPR:      { key:"DOPR",      label:"DAMA / DOPR",       color:"#dc2626", bg:"#fee2e2", border:"#fca5a5",  icon:"🚨" },
+  REFER:     { key:"REFER",     label:"Refer",             color:"#2563eb", bg:"#dbeafe", border:"#93c5fd",  icon:"🏥" },
+  DEATH:     { key:"DEATH",     label:"Death",             color:"#dc2626", bg:"#fee2e2", border:"#fca5a5",  icon:"💀" },
+  DOPR:      { key:"DOPR",      label:"DAMA / DOPR",       color:"#7c3aed", bg:"#ede9fe", border:"#c4b5fd",  icon:"🚨" },
 };
 
 const DISCHARGE_SECTIONS = {
@@ -54,6 +57,22 @@ const DISCHARGE_SECTIONS = {
     { key:"adviceOnDischarge",    label:"Advice on Discharge",           rows:3 },
     { key:"followUp",             label:"Follow Up",                     rows:2 },
     { key:"notes",                label:"Additional Notes",              rows:2 },
+  ],
+  REFER: [
+    { key:"chiefComplaints",      label:"Chief Complaints",              rows:3 },
+    { key:"diagnosis",            label:"Diagnosis",                     rows:2 },
+    { key:"onExamination",        label:"On Examination",                rows:2, type:"vitals_grid" },
+    { key:"treatmentGiven",       label:"Treatment Given",               rows:3 },
+    { key:"referredTo",           label:"Referred To",                   rows:1 },
+    { key:"reasonForDopr",        label:"Reason for Referral",           rows:2 },
+    { key:"adviceOnDischarge",    label:"Advice Given",                  rows:2 },
+  ],
+  DEATH: [
+    { key:"chiefComplaints",      label:"Chief Complaints",              rows:3 },
+    { key:"diagnosis",            label:"Diagnosis",                     rows:2 },
+    { key:"onExamination",        label:"On Examination",                rows:2, type:"vitals_grid" },
+    { key:"treatmentGiven",       label:"Treatment Given",               rows:3 },
+    { key:"adviceOnDischarge",    label:"Remarks / Declaration",         rows:3 },
   ],
   DOPR: [
     { key:"chiefComplaints",      label:"Chief Complaints",              rows:3 },
@@ -404,28 +423,7 @@ function MedicineHistoryPicker({ eMed, onAdd }) {
             No medications found in Admission Note. Fill in the Admission Note to see them here.
           </div>
         )}
-        {MEDICATION_GROUPS.map(grp => {
-          const items = search.trim()
-            ? grp.items.filter(m => m.toLowerCase().includes(search.toLowerCase()))
-            : grp.items;
-          if (items.length === 0) return null;
-          return (
-            <div key={grp.group}>
-              <div style={{ fontSize:10, fontWeight:700, color:"var(--text3)", textTransform:"uppercase", letterSpacing:".08em", marginBottom:6 }}>{grp.group}</div>
-              <div style={{ display:"flex", flexWrap:"wrap", gap:5 }}>
-                {items.map(med => (
-                  <button key={med} onClick={() => onAdd(med)}
-                    style={{ display:"inline-flex", alignItems:"center", gap:4, background:"var(--bg)", border:"1px solid var(--border)", borderRadius:20, padding:"4px 10px", fontSize:11, color:"var(--text2)", fontWeight:500, cursor:"pointer", fontFamily:"inherit", transition:"all .13s" }}
-                    onMouseEnter={e => { e.currentTarget.style.background="var(--tealBg)"; e.currentTarget.style.borderColor="var(--teal)"; e.currentTarget.style.color="var(--teal)"; }}
-                    onMouseLeave={e => { e.currentTarget.style.background="var(--bg)"; e.currentTarget.style.borderColor="var(--border)"; e.currentTarget.style.color="var(--text2)"; }}
-                  >
-                    + {med}
-                  </button>
-                ))}
-              </div>
-            </div>
-          );
-        })}
+
       </div>
     </div>
   );
@@ -963,7 +961,7 @@ function mapLivePatients(records=[], branchKey="laxmi") {
         condition:            discharge.dischargeStatus  || "",
         instructions:         discharge.instructions     || "",
         notes:                discharge.notes            || "",
-        dischargeType:        discharge.dischargeType    || "NORMAL",
+        dischargeType:        (()=>{ const dt = normalizeDischType(discharge.dischargeType || discharge.dischargeStatus || "NORMAL"); console.log("[dischargeType] raw:", discharge.dischargeType, discharge.dischargeStatus, "=> mapped:", dt); return dt; })(),
         chiefComplaints:      discharge.chiefComplaints  || medicalHistory.chiefComplaints  || "",
         historyOfIllness:     discharge.historyOfIllness || "",
         investigations:       discharge.investigations   || medicalHistory.investigations   || "",
@@ -1440,7 +1438,7 @@ useEffect(() => {
           saved: deriveSavedState(taskDischarge, taskMedHistory, taskLabReports, taskMedicalBill, taskAdmissionDetail.billing||{}, taskDirectServices),
           discharge: {
             ...taskDischarge,
-            dischargeType: taskDischarge.dischargeType || "NORMAL",
+            dischargeType: normalizeDischType(taskDischarge.dischargeType || taskDischarge.dischargeStatus || "NORMAL"),
             chiefComplaints: taskDischarge.chiefComplaints||taskMedHistory.chiefComplaints||"",
             historyOfIllness: taskDischarge.historyOfIllness||"",
             investigations: taskDischarge.investigations||taskMedHistory.investigations||"",
@@ -1510,6 +1508,7 @@ useEffect(() => {
   };
 
   const openPatient = async (p) => {
+    console.log("[openPatient] p.discharge.dischargeType:", p.discharge?.dischargeType, "dischargeStatus:", p.discharge?.dischargeStatus);
     setSel(p);
     setEDis({ ...p.discharge });
     setEMed({ ...p.medicalHistory });
@@ -1523,8 +1522,9 @@ useEffect(() => {
 
     if (p.uhid && p.admNo) {
       const admNo = resolveAdmNo(p);
+      console.log("[openPatient] fetching for", p.uhid, admNo);
       try {
-        const [reports, templatePayload, pharRecords, canonicalData, serviceMaster] = await Promise.all([
+        const [reports, templatePayload, pharRecords, canonicalData, serviceMaster, dynamicSummary] = await Promise.all([
           apiService.getLabReports(p.uhid, admNo).catch(() => []),
           apiService.getLabReportTemplates(p.uhid, admNo).catch(() => ({ suggested_reports:[] })),
           apiService.getPharmacyRecords(p.uhid, admNo).catch(() => []),
@@ -1532,8 +1532,17 @@ useEffect(() => {
           fetch(`${apiService.BASE_URL||"http://127.0.0.1:8000/api"}/service-master/`, {
             headers:{ Authorization:`Bearer ${sessionStorage.getItem("hms_token")||""}` }
           }).then(r=>r.json()).catch(()=>[]),
+          fetch(`${apiService.BASE_URL||"http://127.0.0.1:8000/api"}/patients/${p.uhid}/admissions/${admNo}/dynamic-summary/`, { headers:{ Authorization:`Bearer ${sessionStorage.getItem("hms_token")||""}` } }).then(r=>r.ok?r.json():null).catch(()=>null),
         ]);
 
+        // ── Apply discharge type from dynamic summary if available ──
+        console.log("[DynamicSummary] response:", dynamicSummary);
+        if (dynamicSummary?.is_existing && dynamicSummary?.summary_type) {
+          const norm = dynamicSummary.summary_type.toUpperCase();
+          const mapped = norm === "REFERRED" ? "REFER" : norm;
+          setEDis(prev => ({ ...prev, dischargeType: mapped }));
+          setSel(prev => prev ? ({ ...prev, discharge: { ...(prev.discharge||{}), dischargeType: mapped } }) : prev);
+        }
         // ── Lab Reports ──
         const mergedReports = mergeSuggestedReports(
           Array.isArray(reports) ? reports : [],
@@ -1814,6 +1823,7 @@ useEffect(() => {
 
   // ── Discharge Summary ───────────────────────────────────────────────────────
   const renderDischargeSummary = () => {
+    console.log("[render] eDis.dischargeType:", eDis?.dischargeType);
     const dischargeType = eDis?.dischargeType || "NORMAL";
     const dtConfig = DISCHARGE_TYPES[dischargeType] || DISCHARGE_TYPES.NORMAL;
     const sections = DISCHARGE_SECTIONS[dischargeType] || DISCHARGE_SECTIONS.NORMAL;
@@ -1996,6 +2006,8 @@ useEffect(() => {
     return (
       <>
 
+        {/* Medical history medicine pills */}
+        <MedicineHistoryPicker eMed={eMed} onAdd={addMedFromPicker} />
         {/* Single searchable dropdown — MH meds first with rates, then master */}
         <BillingMedSearchDropdown
           onSelect={med => {

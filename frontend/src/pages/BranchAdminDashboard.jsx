@@ -1,3 +1,4 @@
+import React from 'react';
 import { useState, useEffect, useRef } from "react";
 import { apiService, BASE_URL } from "../services/apiService";
 import ThemeModeDock from "../components/ui/ThemeModeDock";
@@ -517,6 +518,14 @@ export default function BranchAdminDashboard({
   const [savingRecords, setSavingRecords] = useState(false);
   const [isRecordDirty, setIsRecordDirty] = useState(false);
   const isRecordDirtyRef = useRef(false);
+  const [medicineMaster, setMedicineMaster] = useState([]);
+
+  // Fetch medicine master on mount
+  useEffect(() => {
+    apiService.getMedicineMaster()
+      .then(list => setMedicineMaster(Array.isArray(list) ? list : []))
+      .catch(() => setMedicineMaster([]));
+  }, []);
 
   const [search,    setSearch]    = useState("");
   const [statusFil, setStatusFil] = useState("all");
@@ -634,9 +643,7 @@ export default function BranchAdminDashboard({
         treatingDoctor: medical.treatingDoctor || discharge.doctorName || "",
         notes: medical.notes || "",
       }],
-      // Reports and medicines are populated from the canonical-records endpoint
-      // in the dedicated effect below; keep them empty here so the UI renders
-      // an empty state until the network call resolves.
+      // reports and medicines are loaded by the dedicated API fetch effect below
       reports: [],
       medicines: [],
     };
@@ -647,39 +654,105 @@ export default function BranchAdminDashboard({
   useEffect(() => {
     if (nav !== "records" || !selPatient || isRecordDirty) return;
     if (recTab !== "reports" && recTab !== "medicines") return;
-    const uhid = selPatient.uhid;
-    const admNo = selPatient.admObj?.admNo;
+    const admObj = selPatient?.admObj;
+    const admissionDateFallback = admObj?.dateTime || admObj?.discharge?.doa || "";
+    const uhid = selPatient?.uhid;
+    const admNo = selPatient?.admObj?.admNo;
     if (!uhid || !admNo) return;
-
+    const admDate = admissionDateFallback.slice(0, 10);
+    const discharge = admObj?.discharge || {};
+    const doctor = discharge.doctorName || admObj?.medicalHistory?.treatingDoctor || "";
+    const services = Array.isArray(admObj?.services) ? admObj.services : [];
     let active = true;
-    const loadCanonical = async () => {
-      try {
-        const data = await apiService.getCanonicalRecords(uhid, admNo);
-        if (!active || isRecordDirtyRef.current) return;
-        const admissionDateFallback =
-          selPatient?.admObj?.dateTime || selPatient?.admObj?.discharge?.doa || "";
 
-        if (recTab === "reports") {
-          const items = Array.isArray(data?.reports) ? data.reports : [];
-          setEditableRows(
-            items.map((r, i) => ({
-              _localId: r.id || r._localId || `r-canon-${i}`,
-              reportName: r.name || r.reportName || r.report_name || "Report",
-              date: r.date || "",
-            }))
-          );
-        } else if (recTab === "medicines") {
-          const items = Array.isArray(data?.medicines) ? data.medicines : [];
-          setEditableRows(
-            buildMedicineRowsForBranchAdmin(items, [], [], admissionDateFallback)
-          );
+    if (recTab === "medicines") {
+      const load = async () => {
+        try {
+          const token = sessionStorage.getItem("hms_token") || localStorage.getItem("hms_token") || "";
+          const res = await fetch(`${BASE_URL}/patients/${uhid}/admissions/${admNo}/pharmacy-records/`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          if (!active || isRecordDirtyRef.current) return;
+          const data = res.ok ? await res.json() : [];
+          const items = Array.isArray(data) ? data : (Array.isArray(data?.results) ? data.results : []);
+          const rows = buildMedicineRowsForBranchAdmin(items, [], services, admissionDateFallback);
+          setEditableRows(rows);
+        } catch (_e) {
+          if (!active) return;
+          setEditableRows(buildMedicineRowsForBranchAdmin([], [], services, admissionDateFallback));
         }
-      } catch (_error) {
-        // Network/server failure — leave the empty list shown by the init effect.
-      }
-    };
 
-    loadCanonical();
+      };
+      load();
+      return () => { active = false; };
+    }
+
+    if (recTab === "reports") {
+      const load = async () => {
+        try {
+          const token = sessionStorage.getItem("hms_token") || localStorage.getItem("hms_token") || "";
+          const res = await fetch(`${BASE_URL}/patients/${uhid}/admissions/${admNo}/lab-reports/`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          if (!active || isRecordDirtyRef.current) return;
+          const data = res.ok ? await res.json() : [];
+          const items = Array.isArray(data) ? data : (Array.isArray(data?.results) ? data.results : []);
+          const fromLab = items.map((r, i) => ({
+            _localId: r.id || `r-lab-${i}`,
+            reportName: r.report_name || r.reportName || r.name || "Report",
+            reportType: r.report_type || r.reportType || r.type || "Haematology",
+            date: (r.report_date || r.date || admDate).slice(0, 10),
+            orderedBy: r.ordered_by || r.orderedBy || doctor,
+            amount: Number(r.amount || r.rate || 0),
+            remarks: r.remarks || r.interpretation || "",
+            impression: r.impression || "",
+            tests: Array.isArray(r.tests) ? r.tests : [],
+          }));
+          const labIds = new Set(fromLab.map(r => String(r._localId)));
+          const fromSvc = services
+            .filter(s => {
+              const cat = (s.svcCat || s.type || "").toLowerCase();
+              return !["med","pharma","drug","pharmacy","tablet","injection","iv fluid","consumable","room","consultant","icu"].some(k => cat.includes(k));
+            })
+            .filter(s => s.svcName)
+            .map((s, i) => ({
+              _localId: s.id || `r-svc-${i}`,
+              reportName: s.svcName || "Report",
+              reportType: s.svcCat || "Haematology",
+              date: (s.svcDate || admDate).slice(0, 10),
+              orderedBy: doctor,
+              amount: Number(s.svcTot || s.total || (Number(s.svcRate||0) * Number(s.svcQty||1))),
+              remarks: "", impression: "", tests: [],
+            }));
+          setEditableRows([...fromLab, ...fromSvc]);
+        } catch (_e) {
+          if (!active) return;
+          // fallback to services on error
+          const admObj = selPatient?.admObj;
+          const svcFallback = Array.isArray(admObj?.services) ? admObj.services : [];
+          const admDateFb = (admObj?.dateTime || admObj?.discharge?.doa || "").slice(0, 10);
+          const docFb = (admObj?.discharge?.doctorName || admObj?.medicalHistory?.treatingDoctor || "");
+          setEditableRows(svcFallback
+            .filter(s => {
+              const cat = (s.svcCat || s.type || "").toLowerCase();
+              return !["med","pharma","drug","pharmacy","tablet","injection","iv fluid","consumable","room","consultant","icu"].some(k => cat.includes(k));
+            })
+            .filter(s => s.svcName)
+            .map((s, i) => ({
+              _localId: s.id || `r-svc-${i}`,
+              reportName: s.svcName || "Report",
+              reportType: s.svcCat || "Haematology",
+              date: (s.svcDate || admDateFb).slice(0, 10),
+              orderedBy: docFb,
+              amount: Number(s.svcTot || s.total || (Number(s.svcRate||0) * Number(s.svcQty||1))),
+              remarks: "", impression: "", tests: [],
+            })));
+        }
+      };
+      load();
+      return () => { active = false; };
+    }
+
     return () => { active = false; };
   }, [nav, recTab, selPatient, isRecordDirty]);
 
@@ -1107,9 +1180,15 @@ export default function BranchAdminDashboard({
           await apiService.saveLabReportsBulk(
             selPatient.uhid,
             selectedAdmission.admNo,
-            editableRows.map((row) => ({
+            editableRows.filter(r=>r.reportName).map((row) => ({
               reportName: row.reportName || "Report",
+              reportType: row.reportType || "Haematology",
               date: row.date || new Date().toISOString().slice(0, 10),
+              orderedBy: row.orderedBy || "",
+              remarks: row.remarks || "",
+              impression: row.impression || "",
+              amount: Number(row.amount || 0),
+              tests: (row.tests||[]).filter(t=>t.name),
             }))
           );
         } else if (recTab === "medicines") {
@@ -1118,8 +1197,11 @@ export default function BranchAdminDashboard({
             selectedAdmission.admNo,
             editableRows.map((row) => ({
               medicine_name: row.medicine_name || "Medicine",
-              date_given: row.date_given || new Date().toISOString().slice(0, 10),
+              date_given: row.date_given || row.date || new Date().toISOString().slice(0, 10),
+              quantity: Number(row.quantity || row.qty || 1),
+              rate: Number(row.rate || 0),
               batch_no: row.batch_no || "",
+              expiry_date: row.expiry_date || "",
               quantity: Number(row.quantity || 1) || 1,
               rate: Number(row.rate || 0),
               expiry_date: row.expiry_date || "",
@@ -1266,79 +1348,243 @@ export default function BranchAdminDashboard({
       );
     };
 
+    const REPORT_TYPES = ["Haematology","Biochemistry","Microbiology","Immunology – Serology","Histopathology","Cytology","X-Ray","USG","CT Scan","MRI","Echo","ECG"];
+    const STATUS_COLORS = { Normal:"#10b981", High:"#ef4444", Low:"#f59e0b" };
+
     const renderReports = () => (
-      <SectionCard theme={theme} icon="🧪" title="Reports" subtitle="Only report names selected during registration">
+      <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
         {!editableRows.length && (
-          <div style={{ padding:"22px", textAlign:"center", color:T.textMuted, fontStyle:"italic", border:`1px dashed ${T.border}`, borderRadius:"10px" }}>
-            No reports added.
+          <div style={{ padding:"32px", textAlign:"center", color:T.textMuted, fontStyle:"italic", border:`1px dashed ${T.border}`, borderRadius:10 }}>
+            No reports found.
           </div>
         )}
-        <div style={{ display:"grid", gap:"10px" }}>
-          {editableRows.map((rep, ri) => (
-            <div key={rep._localId || ri} style={{ display:"grid", gridTemplateColumns:"1fr auto", gap:"10px", alignItems:"center", background:T.surfaceRaised, border:`1px solid ${T.border}`, borderRadius:"10px", padding:"10px 12px" }}>
-              {canEditRecords ? (
-                <input
-                  value={rep.reportName || ""}
-                  placeholder="Report name"
-                  onChange={(e) => updateEditableField(ri, "reportName", e.target.value)}
-                  style={inpStyle}
-                />
-              ) : (
-                <div style={ROStyle}>{rep.reportName || "—"}</div>
-              )}
+        {editableRows.map((rep, ri) => (
+          <div key={rep._localId||ri} style={{ background:T.card, border:`1px solid ${T.border}`, borderRadius:12, overflow:"hidden" }}>
+            {/* Report Header */}
+            <div style={{ background:"linear-gradient(135deg,#0f172a,#1e3a5f)", padding:"12px 16px", display:"flex", alignItems:"center", justifyContent:"space-between", gap:12, flexWrap:"wrap" }}>
+              <div style={{ flex:1 }}>
+                {canEditRecords
+                  ? <input value={rep.reportName||""} placeholder="Report Name (e.g. Complete Blood Count)"
+                      onChange={e=>updateEditableField(ri,"reportName",e.target.value)}
+                      style={{ background:"transparent", border:"none", borderBottom:"1.5px solid rgba(255,255,255,.3)", outline:"none", color:"#fff", fontFamily:"inherit", fontSize:14, fontWeight:700, width:"100%", paddingBottom:2 }}/>
+                  : <div style={{ fontSize:14, fontWeight:700, color:"#fff" }}>{rep.reportName||"Report"}</div>}
+                <div style={{ display:"flex", gap:12, flexWrap:"wrap", marginTop:8, fontSize:11, color:"rgba(255,255,255,.7)", alignItems:"center" }}>
+                  <span>Type:&nbsp;
+                    {canEditRecords
+                      ? <select value={rep.reportType||"Haematology"} onChange={e=>updateEditableField(ri,"reportType",e.target.value)}
+                          style={{ background:"transparent", border:"none", borderBottom:"1px solid rgba(255,255,255,.3)", outline:"none", color:"rgba(255,255,255,.85)", fontFamily:"inherit", fontSize:11 }}>
+                          {REPORT_TYPES.map(t=><option key={t} value={t} style={{ background:"#1e3a5f" }}>{t}</option>)}
+                        </select>
+                      : rep.reportType}
+                  </span>
+                  <span>Date:&nbsp;
+                    {canEditRecords
+                      ? <input type="date" value={rep.date||""} onChange={e=>updateEditableField(ri,"date",e.target.value)}
+                          style={{ background:"transparent", border:"none", borderBottom:"1px solid rgba(255,255,255,.3)", outline:"none", color:"rgba(255,255,255,.85)", fontFamily:"inherit", fontSize:11 }}/>
+                      : rep.date||"—"}
+                  </span>
+                  <span>Dr:&nbsp;
+                    {canEditRecords
+                      ? <input value={rep.orderedBy||""} placeholder="Doctor name" onChange={e=>updateEditableField(ri,"orderedBy",e.target.value)}
+                          style={{ background:"transparent", border:"none", borderBottom:"1px solid rgba(255,255,255,.3)", outline:"none", color:"rgba(255,255,255,.85)", fontFamily:"inherit", fontSize:11, width:160 }}/>
+                      : rep.orderedBy||"—"}
+                  </span>
+                  <span>₹:&nbsp;
+                    {canEditRecords
+                      ? <input type="number" min={0} value={rep.amount||0} onChange={e=>updateEditableField(ri,"amount",parseFloat(e.target.value)||0)}
+                          style={{ background:"transparent", border:"none", borderBottom:"1px solid rgba(255,255,255,.3)", outline:"none", color:"rgba(255,255,255,.85)", fontFamily:"inherit", fontSize:11, width:70 }}/>
+                      : `₹${rep.amount||0}`}
+                  </span>
+                </div>
+              </div>
               {canEditRecords && (
-                <button style={{ ...mkBtn("danger", theme), padding:"5px 9px", fontSize:"11px" }} onClick={() => removeEditableRow(ri)}>✕</button>
+                <button onClick={()=>removeEditableRow(ri)}
+                  style={{ background:"rgba(239,68,68,0.15)", border:"1px solid rgba(239,68,68,0.3)", color:"#ef4444", borderRadius:6, padding:"4px 10px", cursor:"pointer", fontSize:11, fontFamily:"inherit" }}>✕ Remove</button>
               )}
             </div>
-          ))}
-        </div>
+            {/* Test Rows */}
+            <div style={{ padding:"12px 16px" }}>
+              {(rep.tests||[]).length > 0 && (
+                <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12, marginBottom:8 }}>
+                  <thead>
+                    <tr style={{ background:T.surfaceRaised }}>
+                      {["Test Name","Value","Unit","Ref Range","Status"].map(h=>(
+                        <th key={h} style={{ padding:"6px 10px", textAlign:"left", fontWeight:700, color:T.textMuted, fontSize:10, textTransform:"uppercase", borderBottom:`1px solid ${T.border}` }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(rep.tests||[]).map((t,ti)=>(
+                      <tr key={t.id||ti} style={{ borderBottom:`1px solid ${T.border}` }}>
+                        <td style={{ padding:"6px 10px", fontWeight:500, color:T.text }}>{canEditRecords
+                          ? <input value={t.name||""} onChange={e=>{const rows=[...editableRows];rows[ri]={...rows[ri],tests:rows[ri].tests.map((x,j)=>j===ti?{...x,name:e.target.value}:x)};setEditableRows(rows);setIsRecordDirty(true);isRecordDirtyRef.current=true;}} style={{...inpStyle,minWidth:120}}/>
+                          : t.name||"—"}</td>
+                        <td style={{ padding:"6px 10px" }}>{canEditRecords
+                          ? <input value={t.value||""} onChange={e=>{const rows=[...editableRows];rows[ri]={...rows[ri],tests:rows[ri].tests.map((x,j)=>j===ti?{...x,value:e.target.value}:x)};setEditableRows(rows);setIsRecordDirty(true);isRecordDirtyRef.current=true;}} style={{...inpStyle,width:80}}/>
+                          : <span style={{ fontWeight:700, color:STATUS_COLORS[t.status]||T.text }}>{t.value||"—"}</span>}</td>
+                        <td style={{ padding:"6px 10px", color:T.textMuted }}>{t.unit||"—"}</td>
+                        <td style={{ padding:"6px 10px", color:T.textMuted }}>{t.refRange||t.normal||"—"}</td>
+                        <td style={{ padding:"6px 10px" }}>
+                          {canEditRecords
+                            ? <select value={t.status||"Normal"} onChange={e=>{const rows=[...editableRows];rows[ri]={...rows[ri],tests:rows[ri].tests.map((x,j)=>j===ti?{...x,status:e.target.value}:x)};setEditableRows(rows);setIsRecordDirty(true);isRecordDirtyRef.current=true;}} style={{...inpStyle,width:80}}>
+                                {["Normal","High","Low"].map(s=><option key={s}>{s}</option>)}
+                              </select>
+                            : <span style={{ fontSize:10, fontWeight:700, color:STATUS_COLORS[t.status]||"#10b981", background:STATUS_COLORS[t.status]+"18"||"#10b98118", borderRadius:4, padding:"2px 6px" }}>{t.status||"Normal"}</span>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+              {/* Remarks / Findings */}
+              {canEditRecords && (
+                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginTop:8 }}>
+                  <div><label style={{ fontSize:10, color:T.textMuted, textTransform:"uppercase", fontWeight:700 }}>Remarks / Interpretation</label>
+                    <input value={rep.remarks||""} placeholder="Clinical interpretation…" onChange={e=>updateEditableField(ri,"remarks",e.target.value)} style={{...inpStyle,width:"100%",boxSizing:"border-box",marginTop:4}}/></div>
+                  <div><label style={{ fontSize:10, color:T.textMuted, textTransform:"uppercase", fontWeight:700 }}>Impression</label>
+                    <input value={rep.impression||""} placeholder="Impression…" onChange={e=>updateEditableField(ri,"impression",e.target.value)} style={{...inpStyle,width:"100%",boxSizing:"border-box",marginTop:4}}/></div>
+                </div>
+              )}
+              {!canEditRecords && (rep.remarks||rep.impression) && (
+                <div style={{ fontSize:12, color:T.textSub, marginTop:6, fontStyle:"italic" }}>{rep.remarks||""}{rep.impression?` · ${rep.impression}`:""}</div>
+              )}
+              {canEditRecords && (
+                <button style={{ ...mkBtn("dim",theme), padding:"4px 10px", fontSize:11, marginTop:8 }}
+                  onClick={()=>{const rows=[...editableRows];rows[ri]={...rows[ri],tests:[...(rows[ri].tests||[]),{id:Date.now(),name:"",value:"",unit:"",refRange:"",status:"Normal"}]};setEditableRows(rows);setIsRecordDirty(true);isRecordDirtyRef.current=true;}}>
+                  + Add Test Row
+                </button>
+              )}
+            </div>
+          </div>
+        ))}
         {canEditRecords && (
-          <button
-            style={{ ...mkBtn("primary", theme), padding:"8px 14px", fontSize:"12px", marginTop:"12px" }}
-            onClick={() => addEditableRow({ _localId: `r-new-${Date.now()}`, reportName: "", date: new Date().toISOString().slice(0, 10) })}
-          >
-            + Add Report Name
+          <button style={{ ...mkBtn("primary",theme), padding:"9px 16px", fontSize:12 }}
+            onClick={()=>addEditableRow({ _localId:`r-new-${Date.now()}`, reportName:"", reportType:"Haematology", date:new Date().toISOString().slice(0,10), orderedBy:"", remarks:"", impression:"", amount:0, tests:[{id:Date.now(),name:"",value:"",unit:"",refRange:"",status:"Normal"}] })}>
+            + Add Report
           </button>
         )}
-      </SectionCard>
+      </div>
     );
 
-    const renderMedicines = () => (
-      <SectionCard theme={theme} icon="💊" title="Medicines" subtitle="Only medicine names selected during registration">
-        {!editableRows.length && (
-          <div style={{ padding:"22px", textAlign:"center", color:T.textMuted, fontStyle:"italic", border:`1px dashed ${T.border}`, borderRadius:"10px" }}>
-            No medicines added.
+    const renderMedicines = () => {
+      const medTotal = editableRows.reduce((s,m)=>s+(Number(m.quantity||m.qty||1)*Number(m.rate||0)),0);
+      return (
+        <SectionCard theme={theme} icon="💊" title="Medicine Bill" subtitle={canEditRecords ? "Edit medicines with rate and expiry for cash patient" : "View only — cashless patient"}>
+          {/* Search dropdown for cash patients */}
+          {canEditRecords && (() => {
+            const BranchMedDrop = () => {
+              const [q, setQ] = React.useState("");
+              const [open, setOpen] = React.useState(false);
+              const [rect, setRect] = React.useState(null);
+              const ref = React.useRef(null);
+              const wRef = React.useRef(null);
+              React.useEffect(()=>{
+                const h=e=>{if(wRef.current&&!wRef.current.contains(e.target))setOpen(false);};
+                document.addEventListener("mousedown",h);
+                return()=>document.removeEventListener("mousedown",h);
+              },[]);
+              const filtered = React.useMemo(()=>{
+                const lq=q.trim().toLowerCase();
+                if(!lq) return medicineMaster.slice(0,30);
+                return medicineMaster.filter(m=>(m.name||"").toLowerCase().includes(lq)).slice(0,30);
+              },[q]);
+              return (
+                <div ref={wRef} style={{position:"relative",marginBottom:12}}>
+                  <input ref={ref} value={q} placeholder="🔍 Search & add medicine from master…"
+                    onChange={e=>{setQ(e.target.value);if(ref.current)setRect(ref.current.getBoundingClientRect());setOpen(true);}}
+                    onFocus={()=>{if(ref.current)setRect(ref.current.getBoundingClientRect());setOpen(true);}}
+                    style={{...inpStyle,width:"100%",boxSizing:"border-box"}}/>
+                  {open && rect && (
+                    <div style={{position:"fixed",top:rect.bottom+4,left:rect.left,width:rect.width,zIndex:99999,maxHeight:250,overflowY:"auto",background:"#fff",border:"1px solid #e2e8f0",borderRadius:10,boxShadow:"0 12px 32px rgba(0,0,0,0.2)"}}>
+                      {filtered.length===0 && <div style={{padding:"10px 14px",fontSize:12,color:"#94a3b8"}}>No medicines found</div>}
+                      {filtered.map((m,i)=>(
+                        <div key={i} onClick={()=>{
+                          const rate=Number(m.rate||m.price||0);
+                          addEditableRow({_localId:`m-${Date.now()}`,medicine_name:m.name||"",quantity:1,qty:1,rate,amount:rate,expiry_date:m.expiry_date||"",batch_no:m.batch_no||"",date_given:new Date().toISOString().slice(0,10)});
+                          setQ(""); setOpen(false);
+                        }} style={{padding:"10px 14px",cursor:"pointer",borderBottom:"1px solid #f1f5f9"}}
+                        onMouseEnter={e=>e.currentTarget.style.background="#f0f9ff"}
+                        onMouseLeave={e=>e.currentTarget.style.background=""}>
+                          <div style={{fontSize:13,fontWeight:600,color:"#0f172a"}}>+ {m.name}</div>
+                          <div style={{fontSize:11,color:"#94a3b8",marginTop:2}}>₹{m.rate||0}{m.expiry_date?` · Exp: ${m.expiry_date}`:""}{m.batch_no?` · Batch: ${m.batch_no}`:""}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            };
+            return <BranchMedDrop/>;
+          })()}
+          {!editableRows.length && (
+            <div style={{ padding:"22px", textAlign:"center", color:T.textMuted, fontStyle:"italic", border:`1px dashed ${T.border}`, borderRadius:"10px" }}>No medicines added.</div>
+          )}
+          <div style={{ overflowX:"auto" }}>
+            <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
+              <thead>
+                <tr style={{ background:T.surfaceRaised }}>
+                  {["Medicine Name","Date","Qty","Rate (₹)","Expiry","Amount",canEditRecords?"":""].map((h,i)=>(
+                    <th key={i} style={{ padding:"8px 12px", textAlign:"left", fontWeight:700, color:T.textMuted, fontSize:10, textTransform:"uppercase", borderBottom:`1px solid ${T.border}` }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {editableRows.map((m, mi) => {
+                  const qty = Number(m.quantity||m.qty||1);
+                  const rate = Number(m.rate||0);
+                  return (
+                    <tr key={m._localId||mi} style={{ borderBottom:`1px solid ${T.border}` }}>
+                      <td style={{ padding:"8px 12px" }}>
+                        {canEditRecords
+                          ? <input value={m.medicine_name||""} placeholder="Medicine name" onChange={e=>updateEditableField(mi,"medicine_name",e.target.value)} style={{...inpStyle,minWidth:150}}/>
+                          : <span style={{ fontWeight:600, color:T.text }}>{m.medicine_name||"—"}</span>}
+                      </td>
+                      <td style={{ padding:"8px 12px" }}>
+                        {canEditRecords
+                          ? <input type="date" value={m.date_given||m.date||""} onChange={e=>updateEditableField(mi,"date_given",e.target.value)} style={{...inpStyle,width:120}}/>
+                          : <span style={{ color:T.textSub }}>{m.date_given||m.date||"—"}</span>}
+                      </td>
+                      <td style={{ padding:"8px 12px" }}>
+                        {canEditRecords
+                          ? <input type="number" min={1} value={qty} onChange={e=>{const q=Math.max(1,parseInt(e.target.value)||1);updateEditableField(mi,"quantity",q);updateEditableField(mi,"amount",q*rate);}} style={{...inpStyle,width:60,textAlign:"center"}}/>
+                          : <span style={{ color:T.textSub }}>{qty}</span>}
+                      </td>
+                      <td style={{ padding:"8px 12px" }}>
+                        {canEditRecords
+                          ? <input type="number" min={0} step="0.01" value={rate} onChange={e=>{const r=parseFloat(e.target.value)||0;updateEditableField(mi,"rate",r);updateEditableField(mi,"amount",qty*r);}} style={{...inpStyle,width:80,textAlign:"right"}}/>
+                          : <span style={{ color:T.textSub }}>₹{rate}</span>}
+                      </td>
+                      <td style={{ padding:"8px 12px" }}>
+                        {canEditRecords
+                          ? <input value={m.expiry_date||""} placeholder="MM/YYYY" onChange={e=>updateEditableField(mi,"expiry_date",e.target.value)} style={{...inpStyle,width:90}}/>
+                          : <span style={{ color:T.textSub }}>{m.expiry_date||"—"}</span>}
+                      </td>
+                      <td style={{ padding:"8px 12px", fontWeight:700, color:"#f59e0b" }}>₹{(qty*rate).toFixed(2)}</td>
+                      {canEditRecords && (
+                        <td style={{ padding:"8px 12px" }}>
+                          <button style={{ ...mkBtn("danger",theme), padding:"4px 8px", fontSize:11 }} onClick={()=>removeEditableRow(mi)}>✕</button>
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
-        )}
-        <div style={{ display:"grid", gap:"10px" }}>
-          {editableRows.map((m, mi) => (
-            <div key={m._localId || mi} style={{ display:"grid", gridTemplateColumns:"1fr auto", gap:"10px", alignItems:"center", background:T.surfaceRaised, border:`1px solid ${T.border}`, borderRadius:"10px", padding:"10px 12px" }}>
-              {canEditRecords ? (
-                <input
-                  value={m.medicine_name || ""}
-                  placeholder="Medicine name"
-                  onChange={(e) => updateEditableField(mi, "medicine_name", e.target.value)}
-                  style={inpStyle}
-                />
-              ) : (
-                <div style={ROStyle}>{m.medicine_name || "—"}</div>
-              )}
-              {canEditRecords && (
-                <button style={{ ...mkBtn("danger", theme), padding:"5px 9px", fontSize:"11px" }} onClick={() => removeEditableRow(mi)}>✕</button>
-              )}
+          {canEditRecords && (
+            <button style={{ ...mkBtn("primary",theme), padding:"8px 14px", fontSize:12, marginTop:12 }}
+              onClick={()=>addEditableRow({_localId:`m-new-${Date.now()}`,medicine_name:"",quantity:1,qty:1,rate:0,amount:0,expiry_date:"",batch_no:"",date_given:new Date().toISOString().slice(0,10)})}>
+              + Add Medicine Manually
+            </button>
+          )}
+          {editableRows.length>0 && (
+            <div style={{ display:"flex", justifyContent:"flex-end", marginTop:10, paddingTop:10, borderTop:`1px solid ${T.border}` }}>
+              <span style={{ fontWeight:800, color:"#f59e0b", fontSize:13 }}>Total: ₹{medTotal.toFixed(2)}</span>
             </div>
-          ))}
-        </div>
-        {canEditRecords && (
-          <button
-            style={{ ...mkBtn("primary", theme), padding:"8px 14px", fontSize:"12px", marginTop:"12px" }}
-            onClick={() => addEditableRow({ _localId: `m-new-${Date.now()}`, medicine_name: "", date_given: new Date().toISOString().slice(0, 10) })}
-          >
-            + Add Medicine Name
-          </button>
-        )}
-      </SectionCard>
-    );
+          )}
+        </SectionCard>
+      );
+    };
 
     return (
       <>
@@ -1357,6 +1603,27 @@ export default function BranchAdminDashboard({
             <button style={{ ...mkBtn("dim", theme), padding:"8px 14px", fontSize:"11px" }} onClick={handlePrint}>
               ⎙ Print Section
             </button>
+            {canEditRecords && (
+              <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                {[
+                  {key:"discharge_summary", label:"Discharge", kind:"dynamic-summary"},
+                  {key:"admission_note",    label:"Admission", kind:"admission-note"},
+                  {key:"reports",           label:"Reports",   kind:"lab-reports"},
+                  {key:"medicines",         label:"Medicines", kind:"pharmacy-records"},
+                ].map(d => (
+                  <button key={d.key}
+                    style={{ ...mkBtn("primary", theme), padding:"6px 10px", fontSize:10 }}
+                    onClick={() => {
+                      const uhid = selPatient?.uhid;
+                      const admNo = selectedAdmission?.admNo;
+                      if(!uhid||!admNo) return;
+                      window.open(`${BASE_URL}/patients/${uhid}/admissions/${admNo}/${d.kind}/print/`, "_blank");
+                    }}>
+                    🖨 {d.label}
+                  </button>
+                ))}
+              </div>
+            )}
             <button style={{ ...mkBtn("excel", theme), fontSize:"11px" }}
               onClick={() => exportExcel((editableRows || []).map(r=>({...r, patientId:selPatient.id, patientName:selPatient.name})), `${recTab}_${selPatient.id}`)}>
               ↓ Excel
