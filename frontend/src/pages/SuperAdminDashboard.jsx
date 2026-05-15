@@ -35,7 +35,15 @@ const useT = () => useContext(TC);
 const SD = "0 4px 32px rgba(0,0,0,.5)";
 const cardStyle = (t) => ({ background: t.card, borderRadius: 14, padding: 20, boxShadow: SD });
 const ALL_HOSPITALS_LABEL = "All Hospitals";
-const isGlobalAccessUser = (user) => user?.role === "superadmin" || user?.role === "office_admin" || user?.branch === "ALL";
+// Back-office roles mirror CENTRAL_STAFF_ROLES on the backend (users/views.py):
+// these accounts serve every hospital, so their branch is always "ALL".
+// Only 'admin' and 'receptionist' are per-branch.
+const BACK_OFFICE_ROLES = new Set([
+  "hod","billing","opd","intimation","query","uploading",
+  "nursing","notes","medical_officer","quality_analyst","doctor"
+]);
+const roleUsesAllBranch = (role) => role === "office_admin" || BACK_OFFICE_ROLES.has(role);
+const isGlobalAccessUser = (user) => user?.role === "superadmin" || roleUsesAllBranch(user?.role) || user?.branch === "ALL";
 const BRANCH_ACCENTS = ["#3b82f6", "#2563eb", "#10b981", "#f59e0b", "#8b5cf6", "#ef4444"];
 let BRANCH_REGISTRY = [];
 const getBranchMeta = (loc) => {
@@ -1719,7 +1727,9 @@ function AdminsTab({ branches = [] }) {
         ...u, id: u.id, username: u.username,
         name: `${u.first_name} ${u.last_name}`.trim() || u.username,
         role: u.role === "admin" ? "branch_admin" : u.role,
-        branch: ["superadmin","office_admin"].includes(u.role) ? "ALL" : (branches.find((branch) => branch.code === u.branch)?.slug || defaultBranchSlug),
+        branch: (u.branch === "ALL" || u.role === "superadmin" || roleUsesAllBranch(u.role))
+          ? "ALL"
+          : (branches.find((branch) => branch.code === u.branch)?.slug || defaultBranchSlug),
         isActive: u.is_active, lastLogin: u.last_login,
       }));
       setUsers(formatted);
@@ -1742,14 +1752,15 @@ function AdminsTab({ branches = [] }) {
 
   const sf = k => e => { setForm(f => ({ ...f, [k]: e.target.value })); setPassErr(""); };
   const sef = k => e => setEditForm(f => ({ ...f, [k]: e.target.value }));
-  const handleRoleChange = val => setForm(f => ({ ...f, role: val, branch: val==="office_admin" ? "ALL" : (f.branch==="ALL" ? defaultBranchSlug : f.branch) }));
+  const handleRoleChange = val => setForm(f => ({ ...f, role: val, branch: roleUsesAllBranch(val) ? "ALL" : (f.branch==="ALL" ? defaultBranchSlug : f.branch) }));
 
   const handleCreate = async () => {
     if (!form.id||!form.name||!form.password) { toast.error("Fill all required fields"); return; }
     if (form.password !== form.confirmPassword) { setPassErr("Passwords do not match"); return; }
-    const isOfficeAdmin = form.role === "office_admin";
     const backendRole = form.role === "branch_admin" ? "admin" : form.role;
-    const branchCode = isOfficeAdmin ? "ALL" : (branches.find((branch) => branch.slug === form.branch)?.code || defaultBranchSlug.toUpperCase());
+    const branchCode = roleUsesAllBranch(form.role)
+      ? "ALL"
+      : (branches.find((branch) => branch.slug === form.branch)?.code || defaultBranchSlug.toUpperCase());
     const nameParts = form.name.split(" ");
     const payload = { username: form.id, first_name: nameParts[0], last_name: nameParts.length>1 ? nameParts.slice(1).join(" ") : ".", password: form.password, confirm_password: form.password, role: backendRole, branch: branchCode, email: `${form.id}@sangihospital.com` };
     try {
@@ -1772,7 +1783,9 @@ function AdminsTab({ branches = [] }) {
     setLoading(true);
     const nameParts = editForm.name.split(" ");
     const backendRole = editForm.role === "branch_admin" ? "admin" : editForm.role;
-    const branchCode = editForm.role === "office_admin" ? "ALL" : (branches.find((branch) => branch.slug === editForm.branch)?.code || defaultBranchSlug.toUpperCase());
+    const branchCode = roleUsesAllBranch(editForm.role)
+      ? "ALL"
+      : (branches.find((branch) => branch.slug === editForm.branch)?.code || defaultBranchSlug.toUpperCase());
     const payload = { first_name: nameParts[0], last_name: nameParts.length>1 ? nameParts.slice(1).join(" ") : ".", role: backendRole, branch: branchCode, ...(editForm.newPass ? { password: editForm.newPass, confirm_password: editForm.newPass } : {}) };
     try {
       await apiService.updateUser(editModal.id, payload);
@@ -1897,7 +1910,7 @@ function AdminsTab({ branches = [] }) {
             </div>
             <div style={{ marginBottom:18 }}>
               <label style={labelSt}>Branch</label>
-              {form.role==="office_admin" ? (
+              {roleUsesAllBranch(form.role) ? (
                 <div style={{ padding:"9px 13px",borderRadius:8,border:`1px solid ${T.border}`,background:T.bg,color:T.dim,fontSize:13,display:"flex",gap:8 }}><Pill color={T.laxmi}>{ALL_HOSPITALS_LABEL}</Pill></div>
               ) : (
                 <select value={form.branch} onChange={sf("branch")} style={{ ...inputSt,cursor:"pointer" }}>{branches.map((branch) => <option key={branch.slug} value={branch.slug}>{branch.name}</option>)}</select>
@@ -1923,14 +1936,14 @@ function AdminsTab({ branches = [] }) {
             <div style={{ marginBottom:12 }}><label style={labelSt}>Full Name <span style={{ color:T.red }}>*</span></label><input type="text" value={editForm.name} onChange={sef("name")} style={inputSt}/></div>
             <div style={{ marginBottom:12 }}>
               <label style={labelSt}>Role</label>
-              <select value={editForm.role} onChange={e => setEditForm(f => ({ ...f,role:e.target.value,branch:e.target.value==="office_admin"?"ALL":(f.branch==="ALL"?defaultBranchSlug:f.branch) }))} style={{ ...inputSt,cursor:"pointer" }}>
+              <select value={editForm.role} onChange={e => setEditForm(f => ({ ...f,role:e.target.value,branch:roleUsesAllBranch(e.target.value)?"ALL":(f.branch==="ALL"?defaultBranchSlug:f.branch) }))} style={{ ...inputSt,cursor:"pointer" }}>
                 <option value="office_admin">Office Admin (All Hospitals)</option>
                 <option value="branch_admin">Branch Admin (Single Branch)</option>
               </select>
             </div>
             <div style={{ marginBottom:12 }}>
               <label style={labelSt}>Branch</label>
-              {editForm.role==="office_admin" ? (
+              {roleUsesAllBranch(editForm.role) ? (
                 <div style={{ padding:"9px 13px",borderRadius:8,border:`1px solid ${T.border}`,background:T.bg,display:"flex",gap:8 }}><Pill color={T.laxmi}>{ALL_HOSPITALS_LABEL}</Pill></div>
               ) : (
                 <select value={editForm.branch} onChange={sef("branch")} style={{ ...inputSt,cursor:"pointer" }}>{branches.map((branch) => <option key={branch.slug} value={branch.slug}>{branch.name}</option>)}</select>
