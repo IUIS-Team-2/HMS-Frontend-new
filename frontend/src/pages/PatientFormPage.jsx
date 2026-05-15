@@ -21,7 +21,7 @@ export default function PatientFormPage({data, setData, onSubmit, errs, onBack})
     setData(p => ({ ...p, dob, ageYY: String(yy), ageMM: String(mm), ageDD: String(dd) }));
   };
 
-  const payMode = data.payMode || "cash";
+  const payMode = data.payMode || "";
   const cashlessType = data.cashlessType || "";
 // 🌟 UPDATED: Catching the real data and removing alerts
   const handleApiSubmit = (e) => {
@@ -72,7 +72,7 @@ export default function PatientFormPage({data, setData, onSubmit, errs, onBack})
             <div style={{ fontWeight: 700, fontSize: 14, color: payMode === "cash" ? T.green : T.text }}>Cash</div>
             <div style={{ fontSize: 12, color: T.textMuted, marginTop: 2 }}>Direct payment</div>
           </button>
-          <button onClick={() => setVal("payMode")("cashless")}
+          <button onClick={() => { setVal("payMode")("cashless"); }}
             style={{ flex: 1, padding: "14px 12px", borderRadius: 12, border: `2px solid ${payMode === "cashless" ? T.accentDeep : T.border}`, background: payMode === "cashless" ? T.bgTint : T.white, cursor: "pointer", transition: "all .15s" }}>
             <div style={{ fontSize: 22, marginBottom: 6 }}>🏥</div>
             <div style={{ fontWeight: 700, fontSize: 14, color: payMode === "cashless" ? T.accentDeep : T.text }}>Cashless</div>

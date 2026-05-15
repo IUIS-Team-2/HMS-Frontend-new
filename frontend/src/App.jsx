@@ -235,11 +235,56 @@ export default function App() {
       } else {
         setMasterServices([]);
       }
-      if (doctorsResult.status === "fulfilled") {
-        setDoctors(Array.isArray(doctorsResult.value) ? doctorsResult.value : []);
-      } else {
-        setDoctors([]);
+      
+
+if (servicesResult.status === "fulfilled") {
+  setMasterServices(
+    Array.isArray(servicesResult.value)
+      ? servicesResult.value
+      : (servicesResult.value?.results || [])
+  );
+} else {
+  setMasterServices([]);
+}
+
+if (doctorsResult.status === "fulfilled") {
+
+  const apiDoctors = Array.isArray(doctorsResult.value)
+    ? doctorsResult.value
+    : [];
+
+  const branchDoctors = [];
+
+  Object.keys(localStorage).forEach((key) => {
+
+    if (key.startsWith("medcore_doctors_")) {
+
+      try {
+
+        const parsed = JSON.parse(localStorage.getItem(key) || "[]");
+
+        if (Array.isArray(parsed)) {
+          branchDoctors.push(...parsed);
+        }
+
+      } catch (e) {
+        console.error("Doctor parse error:", e);
       }
+    }
+  });
+
+  const mergedDoctors = [
+    ...apiDoctors,
+    ...branchDoctors
+  ];
+
+  console.log("MERGED DOCTORS:", mergedDoctors);
+
+  setDoctors(mergedDoctors);
+
+} else {
+  setDoctors([]);
+}
 
       const scopedPatients = livePatients;
 

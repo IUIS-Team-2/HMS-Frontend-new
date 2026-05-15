@@ -2,7 +2,8 @@ import React from 'react';
 import { useState, useEffect, useRef } from "react";
 import { apiService, BASE_URL } from "../services/apiService";
 import ThemeModeDock from "../components/ui/ThemeModeDock";
-import DoctorsView   from "../components/doctors/DoctorsView";
+import DoctorsView        from "../components/doctors/DoctorsView";
+import DoctorSelectField from "../components/doctors/DoctorSelectField";
 import { useDoctors } from "../hooks/useDoctors";
 import {
   LayoutDashboard,
@@ -79,6 +80,7 @@ const RECORD_TYPES = [
   { id: "admission_note",    label: "Admission Note"    },
   { id: "reports",           label: "Reports"           },
   { id: "medicines",         label: "Medicines"         },
+  { id: "services",          label: "Services"          },
   { id: "final_bill",        label: "Final Bill"        },
 
 ];
@@ -792,6 +794,20 @@ export default function BranchAdminDashboard({
         treatingDoctor:     medical.treatingDoctor     || medical.treating_doctor       || discharge.doctorName    || "",
         notes:              medical.notes              || medical.other_notes           || medical.general_notes   || medical.remarks           || "",
       }],
+      services: (() => {
+        const svcList = Array.isArray(admission?.services) ? admission.services : [];
+        return svcList.map((s, i) => ({
+          _localId:      s.id ? `svc-${s.id}` : `svc-seed-${i}`,
+          isSvc:         true,
+          medicine_name: s.svcName || s.description || s.title || "",
+          date_given:    (s.svcDate || String(admission?.dateTime || "").slice(0, 10)),
+          quantity:      Number(s.svcQty  || s.qty  || 1),
+          rate:          Number(s.svcRate || s.rate || 0),
+          batch_no:      s.svcCode || s.code || s.cghs || "",
+          expiry_date:   "",
+          amount:        Number(s.svcTot || s.total || (Number(s.svcRate||0) * Number(s.svcQty||1))),
+        }));
+      })(),
       // reports and medicines are loaded by the dedicated API fetch effect below
       // pre-seed from already-loaded admObj so tab isn't blank while API loads
       reports: [],
@@ -878,7 +894,7 @@ export default function BranchAdminDashboard({
 
   useEffect(() => {
     if (nav !== "records" || !selPatient) return;
-    if (recTab !== "reports" && recTab !== "medicines" && recTab !== "final_bill") return;
+    if (recTab !== "reports" && recTab !== "medicines" && recTab !== "final_bill" && recTab !== "services") return;
     const admObj = selPatient?.admObj;
     const admissionDateFallback = admObj?.dateTime || admObj?.discharge?.doa || "";
     const uhid = selPatient?.uhid;
@@ -889,6 +905,23 @@ export default function BranchAdminDashboard({
     const doctor = discharge.doctorName || admObj?.medicalHistory?.treatingDoctor || "";
     const services = Array.isArray(admObj?.services) ? admObj.services : [];
     let active = true;
+
+    if (recTab === "services") {
+      const svcList = Array.isArray(admObj?.services) ? admObj.services : [];
+      isRecordDirtyRef.current = false;
+      setEditableRows(svcList.map((s, i) => ({
+        _localId:      s.id ? `svc-${s.id}` : `svc-seed-${i}`,
+        isSvc:         true,
+        medicine_name: s.svcName || s.description || s.title || "",
+        date_given:    (s.svcDate || admDate),
+        quantity:      Number(s.svcQty  || s.qty  || 1),
+        rate:          Number(s.svcRate || s.rate || 0),
+        batch_no:      s.svcCode || s.code || s.cghs || "",
+        expiry_date:   "",
+        amount:        Number(s.svcTot || s.total || (Number(s.svcRate||0) * Number(s.svcQty||1))),
+      })));
+      return () => { active = false; };
+    }
 
     if (recTab === "medicines" || recTab === "final_bill") {
       const load = async () => {
@@ -1558,7 +1591,12 @@ export default function BranchAdminDashboard({
     const selectedDischarge = selectedAdmission.discharge || {};
     const selectedMedical = selectedAdmission.medicalHistory || {};
 
-    const canEditRecords = String(selPatient?.paymentMode || "").toLowerCase().trim().includes("cash");
+    const canEditRecords =
+  String(
+    selectedAdmission?.billing?.paymentMode ||
+    selPatient?.paymentMode ||
+    ""
+  ).toLowerCase().trim() === "cash";
 
     const updateEditableField = (rowIdx, field, value) => {
       setIsRecordDirty(true);
@@ -1672,7 +1710,21 @@ export default function BranchAdminDashboard({
             treatmentAdvised: f.treatmentAdvised || selectedMedical.treatmentAdvised || "",
             notes: f.notes || selectedMedical.notes || "",
           });
-        } else if (recTab === "final_bill") {
+        } else if (recTab === "services") {
+        await apiService.updateServices(
+          selPatient.uhid,
+          selectedAdmission.admNo,
+          editableRows.map((row) => ({
+            svcName: row.medicine_name || "Service",
+            svcDate: row.date_given || new Date().toISOString().slice(0, 10),
+            svcQty:  Number(row.quantity || 1),
+            svcRate: Number(row.rate || 0),
+            svcTot:  Number(row.quantity || 1) * Number(row.rate || 0),
+            svcCode: row.batch_no || "",
+            cghs:    row.batch_no || "",
+          }))
+        );
+      } else if (recTab === "final_bill") {
           await apiService.savePharmacyRecordsBulk(
             selPatient.uhid,
             selectedAdmission.admNo,
@@ -2050,7 +2102,17 @@ const renderDischarge = () => {
               <Field editable={canEditRecords} label="Date & Time of Admission (DOA)" type="datetime-local" value={String(r.doa || "").slice(0,16)} onChange={u("doa")} />
               <Field editable={canEditRecords} label="Date & Time of Discharge (DOD)" type="datetime-local" value={String(r.dod || "").slice(0,16)} onChange={u("dod")} />
               <Field editable={canEditRecords} label="Expected Discharge Date" type="date" value={String(r.expectedDod || "").slice(0,10)} onChange={u("expectedDod")} />
-              <Field editable={canEditRecords} label="Treating Doctor"    value={r.doctorName}      onChange={u("doctorName")}      placeholder="e.g. Dr. Sangi"  list={`branch-doctors-${resolvedBranchCode}`} />
+              <DoctorSelectField
+                editable={canEditRecords}
+                label="Treating Doctor"
+                value={r.doctorName}
+                onChange={u("doctorName")}
+                onSelectDoctor={doc => {
+                  updateEditableField(0, "doctorName", `Dr. ${doc.name}`);
+                }}
+                placeholder="e.g. Dr. Sangi"
+                doctors={doctors}
+              />
               <Field editable={canEditRecords} label="Ward Name"          value={r.wardName}        onChange={u("wardName")}        placeholder="e.g. General Ward" />
               <Field editable={canEditRecords} label="Room Number"        value={r.roomNo}          onChange={u("roomNo")}          placeholder="e.g. 204" />
               <Field editable={canEditRecords} label="Bed Number"         value={r.bedNo}           onChange={u("bedNo")}           placeholder="e.g. B-12" />
@@ -2101,7 +2163,18 @@ const renderDischarge = () => {
           </SectionCard>
           <SectionCard theme={theme} icon="👨‍⚕️" title="Treating Doctor & Notes" subtitle="Doctor details and additional clinical notes">
             <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:"14px 16px" }}>
-              <Field editable={canEditRecords} label="Treating Doctor"          value={r.treatingDoctor} onChange={u("treatingDoctor")} placeholder="Select or type doctor name…" list={`branch-doctors-${resolvedBranchCode}`} />
+              <DoctorSelectField
+                editable={canEditRecords}
+                label="Treating Doctor"
+                value={r.treatingDoctor}
+                onChange={u("treatingDoctor")}
+                onSelectDoctor={doc => {
+                  updateEditableField(0, "treatingDoctor", `Dr. ${doc.name}`);
+                  if (doc.qualification) updateEditableField(0, "doctorQual", doc.qualification);
+                }}
+                placeholder="Select or type doctor name…"
+                doctors={doctors}
+              />
               <Field editable={canEditRecords} label="Qualification & Reg. No." value={r.doctorQual}     onChange={u("doctorQual")}     placeholder="MBBS, MD…" />
               <Field editable={canEditRecords} label="Additional Notes / Remarks" colSpan={2} multiline rows={2} value={r.notes} onChange={u("notes")} placeholder="Any other relevant clinical information…" />
             </div>
@@ -2124,7 +2197,17 @@ const renderDischarge = () => {
             <Field editable={canEditRecords} label="Family History"                    colSpan={2} multiline rows={2} value={r.familyHistory}      onChange={u("familyHistory")}     placeholder="Relevant family medical history…" />
             <Field editable={canEditRecords} label="Smoking Status"                                        value={r.smokingStatus}     onChange={u("smokingStatus")}     placeholder="Yes / No / Former" />
             <Field editable={canEditRecords} label="Alcohol Use"                                           value={r.alcoholUse}        onChange={u("alcoholUse")}        placeholder="Yes / No / Occasional" />
-            <Field editable={canEditRecords} label="Treating Doctor"                                       value={r.treatingDoctor}    onChange={u("treatingDoctor")}    placeholder="Treating doctor name" list={`branch-doctors-${resolvedBranchCode}`} />
+            <DoctorSelectField
+                editable={canEditRecords}
+                label="Treating Doctor"
+                value={r.treatingDoctor}
+                onChange={u("treatingDoctor")}
+                onSelectDoctor={doc => {
+                  updateEditableField(0, "treatingDoctor", `Dr. ${doc.name}`);
+                }}
+                placeholder="Treating doctor name"
+                doctors={doctors}
+              />
             <Field editable={canEditRecords} label="Additional Notes"                  colSpan={2} multiline rows={3} value={r.notes}              onChange={u("notes")}             placeholder="Other notes…" />
           </div>
         </SectionCard>
@@ -2480,6 +2563,180 @@ const renderDischarge = () => {
       );
     };
 
+
+    const SERVICE_MASTER = [
+      { name: "General Ward",            code: "RM01",  rate: 1500 },
+      { name: "Semi-Private Ward",       code: "RM02",  rate: 2500 },
+      { name: "Private Room",            code: "RM03",  rate: 4000 },
+      { name: "ICU",                     code: "CC001", rate: 5400 },
+      { name: "NICU",                    code: "CC002", rate: 6000 },
+      { name: "HDU",                     code: "CC003", rate: 4500 },
+      { name: "Ventilator Charges",      code: "CC004", rate: 3000 },
+      { name: "Oxygen Charges",          code: "OX001", rate:  500 },
+      { name: "Consultant Visit",        code: "CN001", rate:  700 },
+      { name: "Specialist Consultation", code: "CN002", rate: 1000 },
+      { name: "Operation Theatre (OT)",  code: "OT001", rate: 8000 },
+      { name: "Minor OT",                code: "OT002", rate: 2000 },
+      { name: "Dressing",                code: "DR001", rate:  300 },
+      { name: "IV Cannula Insertion",    code: "PR001", rate:  150 },
+      { name: "Catheterisation",         code: "PR002", rate:  400 },
+      { name: "Nebulization",            code: "PR003", rate:  200 },
+      { name: "ECG",                     code: "EC001", rate:  350 },
+      { name: "Blood Transfusion",       code: "BT001", rate:  800 },
+      { name: "Physiotherapy",           code: "PT001", rate:  600 },
+      { name: "Diet Charges",            code: "DT001", rate:  250 },
+      { name: "Ambulance",               code: "AM001", rate: 1200 },
+      { name: "Registration Fee",        code: "RF001", rate:  100 },
+    ];
+
+    const renderServices = () => {
+      const svcTotal = editableRows.reduce((s, r) => s + Number(r.quantity || 1) * Number(r.rate || 0), 0);
+
+      const SvcSearchBar = () => {
+        const [q, setQ] = React.useState("");
+        const [open, setOpen] = React.useState(false);
+        const wRef = React.useRef(null);
+        React.useEffect(() => {
+          const h = (e) => { if (wRef.current && !wRef.current.contains(e.target)) setOpen(false); };
+          document.addEventListener("mousedown", h);
+          return () => document.removeEventListener("mousedown", h);
+        }, []);
+        const filtered = React.useMemo(() => {
+          const lq = q.trim().toLowerCase();
+          if (!lq) return SERVICE_MASTER.slice(0, 20);
+          return SERVICE_MASTER.filter(s => s.name.toLowerCase().includes(lq) || s.code.toLowerCase().includes(lq)).slice(0, 20);
+        }, [q]);
+        const addSvc = (svc) => {
+          addEditableRow({
+            _localId:      `svc-new-${Date.now()}`,
+            isSvc:         true,
+            medicine_name: svc.name,
+            date_given:    new Date().toISOString().slice(0, 10),
+            quantity:      1,
+            rate:          svc.rate || 0,
+            batch_no:      svc.code || "",
+            expiry_date:   "",
+            amount:        svc.rate || 0,
+          });
+          setQ(""); setOpen(false);
+        };
+        return (
+          <div ref={wRef} style={{ position: "relative", marginBottom: 14 }}>
+            <input
+              value={q}
+              placeholder="🔍 Search & add service from master list…"
+              onChange={e => { setQ(e.target.value); setOpen(true); }}
+              onFocus={() => setOpen(true)}
+              style={{ ...inpStyle, width: "100%", boxSizing: "border-box" }}
+            />
+            {open && (
+              <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, zIndex: 99999, maxHeight: 280, overflowY: "auto", background: "#fff", border: "1px solid #e2e8f0", borderRadius: 10, boxShadow: "0 12px 32px rgba(0,0,0,0.18)" }}>
+                {filtered.length === 0 && <div style={{ padding: "10px 14px", fontSize: 12, color: "#94a3b8" }}>No match — add custom below</div>}
+                {filtered.map((svc, i) => (
+                  <div key={i} onClick={() => addSvc(svc)}
+                    style={{ padding: "10px 14px", cursor: "pointer", borderBottom: "1px solid #f1f5f9", fontSize: 13, color: "#0f172a", display: "flex", justifyContent: "space-between", alignItems: "center" }}
+                    onMouseEnter={e => e.currentTarget.style.background = "#f0f9ff"}
+                    onMouseLeave={e => e.currentTarget.style.background = ""}>
+                    <span><strong>{svc.name}</strong> <span style={{ fontSize: 11, color: "#94a3b8" }}>({svc.code})</span></span>
+                    <span style={{ fontSize: 12, color: "#059669", fontWeight: 700 }}>₹{svc.rate}</span>
+                  </div>
+                ))}
+                {q.trim() && !SERVICE_MASTER.some(s => s.name.toLowerCase() === q.trim().toLowerCase()) && (
+                  <div onClick={() => addSvc({ name: q.trim(), code: "", rate: 0 })}
+                    style={{ padding: "10px 14px", cursor: "pointer", fontSize: 13, fontWeight: 700, color: "#3b82f6", background: "#eff6ff", borderTop: "1px solid #bfdbfe" }}
+                    onMouseEnter={e => e.currentTarget.style.background = "#dbeafe"}
+                    onMouseLeave={e => e.currentTarget.style.background = "#eff6ff"}>
+                    + Add "{q.trim()}" as custom service
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      };
+
+      return (
+        <SectionCard theme={theme} icon="🏥" title="Services & Charges" subtitle={canEditRecords ? "Add, edit or remove service line-items for this admission" : "View only — cashless patient"}>
+          {canEditRecords && <SvcSearchBar />}
+          {!editableRows.length && (
+            <div style={{ padding: "22px", textAlign: "center", color: T.textMuted, fontStyle: "italic", border: `1px dashed ${T.border}`, borderRadius: "10px" }}>
+              No services added.{canEditRecords ? " Use the search above or add manually." : ""}
+            </div>
+          )}
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+              <thead>
+                <tr style={{ background: T.surfaceRaised }}>
+                  {["#", "Description", "CGHS Code", "Date", "Qty", "Rate (₹)", "Amount", canEditRecords ? "" : ""].map((h, i) => (
+                    <th key={i} style={{ padding: "8px 12px", textAlign: "left", fontWeight: 700, color: T.textMuted, fontSize: 10, textTransform: "uppercase", borderBottom: `1px solid ${T.border}`, whiteSpace: "nowrap" }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {editableRows.map((row, ri) => {
+                  const qty  = Number(row.quantity || 1);
+                  const rate = Number(row.rate || 0);
+                  return (
+                    <tr key={row._localId || ri} style={{ borderBottom: `1px solid ${T.border}`, background: ri % 2 === 0 ? "transparent" : T.surfaceRaised + "44" }}>
+                      <td style={{ padding: "8px 12px", color: T.textMuted, fontSize: 11, fontWeight: 600 }}>{ri + 1}</td>
+                      <td style={{ padding: "8px 12px", minWidth: 180 }}>
+                        {canEditRecords
+                          ? <input value={row.medicine_name || ""} placeholder="Service description" onChange={e => updateEditableField(ri, "medicine_name", e.target.value)} style={{ ...inpStyle, minWidth: 160 }} />
+                          : <span style={{ fontWeight: 600, color: T.text }}>{row.medicine_name || "—"}</span>}
+                      </td>
+                      <td style={{ padding: "8px 12px", minWidth: 110 }}>
+                        {canEditRecords
+                          ? <input value={row.batch_no || ""} placeholder="e.g. RM01" onChange={e => updateEditableField(ri, "batch_no", e.target.value)} style={{ ...inpStyle, width: 90 }} />
+                          : <span style={{ color: T.textMuted, fontFamily: "monospace", fontSize: 11 }}>{row.batch_no || "—"}</span>}
+                      </td>
+                      <td style={{ padding: "8px 12px" }}>
+                        {canEditRecords
+                          ? <input type="date" value={row.date_given || ""} onChange={e => updateEditableField(ri, "date_given", e.target.value)} style={{ ...inpStyle, width: 130 }} />
+                          : <span style={{ color: T.textSub }}>{row.date_given || "—"}</span>}
+                      </td>
+                      <td style={{ padding: "8px 12px" }}>
+                        {canEditRecords
+                          ? <input type="number" min={1} value={qty}
+                              onChange={e => { const q = Math.max(1, parseInt(e.target.value) || 1); updateEditableField(ri, "quantity", q); updateEditableField(ri, "amount", q * rate); }}
+                              style={{ ...inpStyle, width: 60, textAlign: "center" }} />
+                          : <span style={{ color: T.textSub }}>{qty}</span>}
+                      </td>
+                      <td style={{ padding: "8px 12px" }}>
+                        {canEditRecords
+                          ? <input type="number" min={0} step="0.01" value={rate}
+                              onChange={e => { const r = parseFloat(e.target.value) || 0; updateEditableField(ri, "rate", r); updateEditableField(ri, "amount", qty * r); }}
+                              style={{ ...inpStyle, width: 90, textAlign: "right" }} />
+                          : <span style={{ color: T.textSub }}>₹{rate.toLocaleString()}</span>}
+                      </td>
+                      <td style={{ padding: "8px 12px", fontWeight: 700, color: theme.primary, whiteSpace: "nowrap" }}>
+                        ₹{(qty * rate).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                      </td>
+                      {canEditRecords && (
+                        <td style={{ padding: "8px 12px" }}>
+                          <button style={{ ...mkBtn("danger", theme), padding: "4px 8px", fontSize: 11 }} onClick={() => removeEditableRow(ri)}>✕</button>
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          {canEditRecords && (
+            <button style={{ ...mkBtn("primary", theme), padding: "8px 14px", fontSize: 12, marginTop: 12 }}
+              onClick={() => addEditableRow({ _localId: `svc-new-${Date.now()}`, isSvc: true, medicine_name: "", date_given: new Date().toISOString().slice(0, 10), quantity: 1, rate: 0, batch_no: "", expiry_date: "", amount: 0 })}>
+              + Add Service Manually
+            </button>
+          )}
+          {editableRows.length > 0 && (
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 12, paddingTop: 10, borderTop: `1px solid ${T.border}`, gap: 24, alignItems: "center" }}>
+              <span style={{ fontSize: 12, color: T.textMuted }}>Total Services: {editableRows.length}</span>
+              <span style={{ fontWeight: 800, color: theme.primary, fontSize: 14 }}>Total: ₹{svcTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+            </div>
+          )}
+        </SectionCard>
+      );
+    };
     return (
       <>
         <div style={{ background:T.card, border:`1px solid ${T.border}`, borderLeft:`3px solid ${theme.primary}`, borderRadius:"10px", padding:"18px 24px", marginBottom:"22px", display:"flex", gap:"28px", flexWrap:"wrap", alignItems:"center" }}>
@@ -2553,6 +2810,7 @@ const renderDischarge = () => {
 
           {recTab === "reports"           && renderReports()}
           {recTab === "medicines"         && renderMedicines()}
+          {recTab === "services"          && renderServices()}
           {recTab === "final_bill"       && renderFinalBill()}
         </div>
       </>

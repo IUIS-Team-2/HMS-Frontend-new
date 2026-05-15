@@ -3,7 +3,6 @@ import { apiService } from "../services/apiService";
 import { T } from "../data/constants";
 import { Ico, IC } from "../components/ui/Icons";
 import { EXAMINATION_FIELDS, getFieldUnit } from "../data/examinationFields";
-import { DOCTOR_LIST, QUALIFICATION_LIST, getDoctorQualification } from "../data/doctors";
 
 // ─── REPORT TEMPLATES ─────────────────────────────────────────────────────────
 const REPORT_TEMPLATES = {
@@ -498,34 +497,41 @@ export function downloadAdmissionNote(data, patient, discharge, locId) {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function MedicalHistoryPage({ data, setData, onSave, onSkip, patient, discharge, locId, doctors = [] }) {
   const doctorDirectory = useMemo(() => {
-    const normalized = doctors
-      .map((doctor) => {
-        const name = String(doctor?.name || "").trim();
-        const qualification = String(doctor?.qualification || "").trim();
-        if (!name) return null;
-        return {
-          name,
-          qualification,
-          display: qualification ? `${name} (${qualification})` : name,
-        };
-      })
-      .filter(Boolean);
-    return normalized.length
-      ? normalized
-      : DOCTOR_LIST.map((display) => ({
-          name: display,
-          qualification: getDoctorQualification(display) || "",
-          display,
-        }));
-  }, [doctors]);
+  const normalized = doctors
+    .map((doctor) => {
+      const name = String(
+        doctor?.name ||
+        doctor?.doctor_name ||
+        doctor?.doctorName ||
+        doctor?.full_name ||
+        ""
+      ).trim();
+
+      const qualification = String(
+        doctor?.qualification ||
+        doctor?.degree ||
+        doctor?.doctor_qualification ||
+        doctor?.qualification_name ||
+        ""
+      ).trim();
+
+      if (!name) return null;
+
+      return {
+        name,
+        qualification,
+        display: qualification
+          ? `${name} (${qualification})`
+          : name,
+      };
+    })
+    .filter(Boolean);
+
+  return normalized;
+}, [doctors]);
 
   const doctorOptions = doctorDirectory.map((doctor) => doctor.display);
-  const qualificationOptions = Array.from(
-    new Set([
-      ...doctorDirectory.map((doctor) => doctor.qualification).filter(Boolean),
-      ...QUALIFICATION_LIST,
-    ])
-  );
+  const qualificationOptions = Array.from(new Set(doctorDirectory.map((doctor) => doctor.qualification).filter(Boolean)));
 
   const resolveDoctorQualification = useCallback((doctorValue = "") => {
     const trimmed = String(doctorValue || "").trim();
@@ -533,7 +539,7 @@ export default function MedicalHistoryPage({ data, setData, onSave, onSkip, pati
     const match = doctorDirectory.find(
       (doctor) => doctor.display === trimmed || doctor.name === trimmed
     );
-    return match?.qualification || getDoctorQualification(trimmed) || "";
+    return match?.qualification || "";
   }, [doctorDirectory]);
 
   const set = k => v => setData(p => ({ ...p, [k]: v }));
