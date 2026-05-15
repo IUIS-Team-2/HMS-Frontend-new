@@ -4,6 +4,7 @@ import * as XLSX from "xlsx";
 import { apiService, BASE_URL } from "../services/apiService";
 import { toast } from "react-toastify";
 import ThemeModeDock from "../components/ui/ThemeModeDock";
+import SuperAdminDoctorsTab from "../components/doctors/SuperAdminDoctorsTab";
 import MedicalHistoryPage from "./MedicalHistoryPage";
 import UpdateRecordsPanel from "../components/admin/UpdateRecordsPanel";
 import {
@@ -2196,6 +2197,7 @@ export default function SuperAdminDashboard({ db = {}, branches = [], onBranches
     { id:"admins",      icon:UserCog,         label:"Admin Management" },
     { id:"departments", icon:Building2,       label:"Departments" },
     { id:"performance", icon:Star,            label:"Task Performance" },
+    { id:"doctors",     icon:Stethoscope,     label:"Doctors Registry" },
   ];
 
   const activeLabel = NAV.find(n => n.id === tab);
@@ -2277,6 +2279,19 @@ export default function SuperAdminDashboard({ db = {}, branches = [], onBranches
               {tab==="admins"      && <AdminsTab branches={branches}/>}
               {tab==="departments" && <DepartmentsTab all={all}/>}
               {tab==="performance" && <TaskPerformanceTab/>}
+              {tab==="doctors"     && (
+                <SuperAdminDoctorsTab
+                  branches={branches}
+                  T={T}
+                  bColor={bColor}
+                  bName={bName}
+                  Pill={Pill}
+                  StatCard={StatCard}
+                  TH={TH}
+                  cardStyle={cardStyle}
+                  SD={SD}
+                />
+              )}
             </div>
           </div>
         </div>

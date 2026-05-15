@@ -2,6 +2,8 @@ import React from 'react';
 import { useState, useEffect, useRef } from "react";
 import { apiService, BASE_URL } from "../services/apiService";
 import ThemeModeDock from "../components/ui/ThemeModeDock";
+import DoctorsView   from "../components/doctors/DoctorsView";
+import { useDoctors } from "../hooks/useDoctors";
 import {
   LayoutDashboard,
   Users,
@@ -9,6 +11,7 @@ import {
   FileText,
   BarChart3,
   UserRound,
+  Stethoscope,
 } from "lucide-react";
 
 const UI_FONT_STACK = "var(--ui-font-sans)";
@@ -68,6 +71,7 @@ const NAV = [
   { id: "financials",      label: "Financials",       icon: BarChart3 },
   { id: "print_approvals", label: "Print Approvals",  icon: FileText },
   { id: "employees",  label: "Employees",       icon: UserRound },
+  { id: "doctors",    label: "Doctors",         icon: Stethoscope },
 ];
 
 const RECORD_TYPES = [
@@ -76,7 +80,7 @@ const RECORD_TYPES = [
   { id: "reports",           label: "Reports"           },
   { id: "medicines",         label: "Medicines"         },
   { id: "final_bill",        label: "Final Bill"        },
-  { id: "medical_history",   label: "Medical History"   },
+
 ];
 
 const RANGES = ["daily", "weekly", "monthly", "yearly"];
@@ -176,6 +180,102 @@ function normalizeReportName(raw = "") {
   if (/^[A-Z0-9]{2,5}$/.test(s)) return s.toUpperCase();
   return s;
 }
+
+const DEFAULT_TESTS = {
+  'CBC': [
+    {id:1,  name:'Haemoglobin',        value:'', unit:'g/dL',       refRange:'13.0-17.0',  status:'Normal'},
+    {id:2,  name:'TLC',                value:'', unit:'cells/cumm', refRange:'4000-11000', status:'Normal'},
+    {id:3,  name:'Platelets',          value:'', unit:'Lacs/cumm',  refRange:'1.5-4.5',    status:'Normal'},
+    {id:4,  name:'RBC',                value:'', unit:'mill/cumm',  refRange:'4.5-5.5',    status:'Normal'},
+    {id:5,  name:'PCV/HCT',            value:'', unit:'%',          refRange:'40-50',      status:'Normal'},
+    {id:6,  name:'MCV',                value:'', unit:'fL',         refRange:'83-101',     status:'Normal'},
+    {id:7,  name:'MCH',                value:'', unit:'pg',         refRange:'27-32',      status:'Normal'},
+    {id:8,  name:'MCHC',               value:'', unit:'g/dL',       refRange:'31.5-34.5',  status:'Normal'},
+    {id:9,  name:'Neutrophils',        value:'', unit:'%',          refRange:'40-80',      status:'Normal'},
+    {id:10, name:'Lymphocytes',        value:'', unit:'%',          refRange:'20-40',      status:'Normal'},
+    {id:11, name:'Monocytes',          value:'', unit:'%',          refRange:'2-10',       status:'Normal'},
+    {id:12, name:'Eosinophils',        value:'', unit:'%',          refRange:'1-6',        status:'Normal'},
+  ],
+  'LFT': [
+    {id:1, name:'Total Bilirubin',     value:'', unit:'mg/dL', refRange:'0.2-1.2',  status:'Normal'},
+    {id:2, name:'Direct Bilirubin',    value:'', unit:'mg/dL', refRange:'0.0-0.4',  status:'Normal'},
+    {id:3, name:'Indirect Bilirubin',  value:'', unit:'mg/dL', refRange:'0.2-0.8',  status:'Normal'},
+    {id:4, name:'SGOT (AST)',          value:'', unit:'U/L',   refRange:'10-40',    status:'Normal'},
+    {id:5, name:'SGPT (ALT)',          value:'', unit:'U/L',   refRange:'7-56',     status:'Normal'},
+    {id:6, name:'Alkaline Phosphatase',value:'', unit:'U/L',   refRange:'44-147',   status:'Normal'},
+    {id:7, name:'Total Protein',       value:'', unit:'g/dL',  refRange:'6.3-8.2',  status:'Normal'},
+    {id:8, name:'Albumin',             value:'', unit:'g/dL',  refRange:'3.5-5.0',  status:'Normal'},
+    {id:9, name:'Globulin',            value:'', unit:'g/dL',  refRange:'2.0-3.5',  status:'Normal'},
+  ],
+  'KFT': [
+    {id:1, name:'Blood Urea',       value:'', unit:'mg/dL', refRange:'15-40',   status:'Normal'},
+    {id:2, name:'Serum Creatinine', value:'', unit:'mg/dL', refRange:'0.6-1.2', status:'Normal'},
+    {id:3, name:'Uric Acid',        value:'', unit:'mg/dL', refRange:'3.5-7.2', status:'Normal'},
+    {id:4, name:'Sodium',           value:'', unit:'mEq/L', refRange:'136-145', status:'Normal'},
+    {id:5, name:'Potassium',        value:'', unit:'mEq/L', refRange:'3.5-5.1', status:'Normal'},
+    {id:6, name:'Chloride',         value:'', unit:'mEq/L', refRange:'98-107',  status:'Normal'},
+    {id:7, name:'Bicarbonate',      value:'', unit:'mEq/L', refRange:'22-29',   status:'Normal'},
+  ],
+  'RFT': [
+    {id:1, name:'Blood Urea',       value:'', unit:'mg/dL', refRange:'15-40',   status:'Normal'},
+    {id:2, name:'Serum Creatinine', value:'', unit:'mg/dL', refRange:'0.6-1.2', status:'Normal'},
+    {id:3, name:'Sodium',           value:'', unit:'mEq/L', refRange:'136-145', status:'Normal'},
+    {id:4, name:'Potassium',        value:'', unit:'mEq/L', refRange:'3.5-5.1', status:'Normal'},
+  ],
+  'Lipid Profile': [
+    {id:1, name:'Total Cholesterol', value:'', unit:'mg/dL', refRange:'<200', status:'Normal'},
+    {id:2, name:'Triglycerides',     value:'', unit:'mg/dL', refRange:'<150', status:'Normal'},
+    {id:3, name:'HDL Cholesterol',   value:'', unit:'mg/dL', refRange:'>40',  status:'Normal'},
+    {id:4, name:'LDL Cholesterol',   value:'', unit:'mg/dL', refRange:'<100', status:'Normal'},
+    {id:5, name:'VLDL',              value:'', unit:'mg/dL', refRange:'<30',  status:'Normal'},
+  ],
+  'TFT': [
+    {id:1, name:'T3',  value:'', unit:'ng/dL',   refRange:'80-200',  status:'Normal'},
+    {id:2, name:'T4',  value:'', unit:'μg/dL',   refRange:'5.1-14.1',status:'Normal'},
+    {id:3, name:'TSH', value:'', unit:'μIU/mL',  refRange:'0.4-4.0', status:'Normal'},
+  ],
+  'HbA1c': [
+    {id:1, name:'HbA1c',            value:'', unit:'%',     refRange:'<5.7',  status:'Normal'},
+    {id:2, name:'Mean Blood Glucose',value:'', unit:'mg/dL', refRange:'<117',  status:'Normal'},
+  ],
+  'BSF':  [{id:1, name:'Blood Sugar Fasting', value:'', unit:'mg/dL', refRange:'70-100', status:'Normal'}],
+  'BSPP': [{id:1, name:'Blood Sugar PP',      value:'', unit:'mg/dL', refRange:'<140',   status:'Normal'}],
+  'Urine R/M': [
+    {id:1, name:'Colour',          value:'', unit:'',     refRange:'Pale Yellow', status:'Normal'},
+    {id:2, name:'Appearance',      value:'', unit:'',     refRange:'Clear',       status:'Normal'},
+    {id:3, name:'pH',              value:'', unit:'',     refRange:'4.5-8.0',     status:'Normal'},
+    {id:4, name:'Specific Gravity',value:'', unit:'',     refRange:'1.005-1.030', status:'Normal'},
+    {id:5, name:'Protein',         value:'', unit:'',     refRange:'Nil',         status:'Normal'},
+    {id:6, name:'Glucose',         value:'', unit:'',     refRange:'Nil',         status:'Normal'},
+    {id:7, name:'Pus Cells',       value:'', unit:'/HPF', refRange:'0-5',         status:'Normal'},
+    {id:8, name:'RBC',             value:'', unit:'/HPF', refRange:'0-2',         status:'Normal'},
+  ],
+  'Echo': [
+    {id:1, name:'EF (Ejection Fraction)', value:'', unit:'%',  refRange:'55-70',       status:'Normal'},
+    {id:2, name:'LVEDD',                  value:'', unit:'mm', refRange:'35-56',       status:'Normal'},
+    {id:3, name:'LVESD',                  value:'', unit:'mm', refRange:'25-40',       status:'Normal'},
+    {id:4, name:'IVS',                    value:'', unit:'mm', refRange:'6-11',        status:'Normal'},
+    {id:5, name:'Impression',             value:'', unit:'',   refRange:'Normal Study',status:'Normal'},
+  ],
+  'ECG': [
+    {id:1, name:'Heart Rate',    value:'', unit:'bpm', refRange:'60-100',  status:'Normal'},
+    {id:2, name:'Rhythm',        value:'', unit:'',    refRange:'Sinus',   status:'Normal'},
+    {id:3, name:'PR Interval',   value:'', unit:'ms',  refRange:'120-200', status:'Normal'},
+    {id:4, name:'QRS Duration',  value:'', unit:'ms',  refRange:'<120',    status:'Normal'},
+    {id:5, name:'Impression',    value:'', unit:'',    refRange:'Normal ECG',status:'Normal'},
+  ],
+};
+
+function getDefaultTests(name) {
+  const key = Object.keys(DEFAULT_TESTS).find(k =>
+    name.toLowerCase().includes(k.toLowerCase()) ||
+    k.toLowerCase().includes(name.toLowerCase())
+  );
+  return key
+    ? DEFAULT_TESTS[key].map(t => ({ ...t, id: Date.now() + Math.random() }))
+    : [{ id: Date.now(), name: '', value: '', unit: '', refRange: '', status: 'Normal' }];
+}
+
 
 function admissionGross(admission) {
   const services = admission?.services || [];
@@ -486,14 +586,14 @@ const ROStyle  = { fontSize:"13px", color:T.text, fontWeight:"600", padding:"9px
 // inside RecordsView() they would receive a fresh function identity on every
 // keystroke, causing React to unmount/remount the underlying <input>/<textarea>
 // and lose focus after each character.
-function Field({ label, value, onChange, type = "text", placeholder = "", colSpan = 1, multiline = false, rows = 3, editable }) {
+function Field({ label, value, onChange, type = "text", placeholder = "", colSpan = 1, multiline = false, rows = 3, editable, list }) {
   return (
     <div style={{ gridColumn: `span ${colSpan}`, display:"flex", flexDirection:"column" }}>
       <label style={lblStyle}>{label}</label>
       {editable ? (
         multiline
           ? <textarea rows={rows} placeholder={placeholder} value={value || ""} onChange={(e) => onChange(e.target.value)} style={txaStyle} />
-          : <input type={type} placeholder={placeholder} value={value || ""} onChange={(e) => onChange(e.target.value)} style={inpStyle} />
+          : <input type={type} placeholder={placeholder} value={value || ""} onChange={(e) => onChange(e.target.value)} style={inpStyle} list={list} />
       ) : (
         <div style={ROStyle}>{value || "—"}</div>
       )}
@@ -566,6 +666,9 @@ export default function BranchAdminDashboard({
   const isRecordDirtyRef = useRef(false);
   const [medicineMaster, setMedicineMaster] = useState([]);
   const [billEdit, setBillEdit] = useState({ discount: 0, advance: 0 });
+
+  // ─── Doctors registry ────────────────────────────────────────────────────
+  const { doctors, addDoctor, removeDoctor } = useDoctors(resolvedBranchCode);
 
   // Fetch medicine master on mount
   useEffect(() => {
@@ -735,19 +838,38 @@ export default function BranchAdminDashboard({
           }));
       })(),
       final_bill: (() => {
-        const pharma = Array.isArray(admission?.pharmacyRecords)  ? admission.pharmacyRecords
-                     : Array.isArray(admission?.pharmacy_records) ? admission.pharmacy_records
-                     : [];
-        return pharma.map((r, i) => ({
-          _localId:      r.id || `fb-${i}`,
+        const svcList = Array.isArray(admission?.services) ? admission.services : [];
+        const pharma  = Array.isArray(admission?.pharmacyRecords)  ? admission.pharmacyRecords
+                      : Array.isArray(admission?.pharmacy_records) ? admission.pharmacy_records
+                      : [];
+        const PURE_MED = ["pharmacy","pharma","medicine","drug","tablet","capsule","injection","iv fluid","consumable"];
+        // All non-medicine services (room, consultant, oxygen, procedures etc)
+        const svcRows = svcList
+          .filter(s => !PURE_MED.some(k => (s.svcCat||s.type||"").toLowerCase().includes(k)))
+          .map((s, i) => ({
+            _localId:      s.id ? `svc-${s.id}` : `svc-${i}`,
+            isSvc:         true,
+            medicine_name: s.svcName || s.title || "Service",
+            date_given:    (s.svcDate || admission?.dateTime || "").slice(0, 10),
+            quantity:      Number(s.svcQty  || s.qty  || 1),
+            rate:          Number(s.svcRate || s.rate || 0),
+            batch_no:      s.svcCode || s.code || "",
+            expiry_date:   "",
+            amount:        Number(s.svcTot  || s.total || (Number(s.svcRate||0) * Number(s.svcQty||1))),
+          }));
+        // Pharmacy rows
+        const medRows = pharma.map((r, i) => ({
+          _localId:      r.id ? `med-${r.id}` : `med-${i}`,
+          isSvc:         false,
           medicine_name: r.medicine_name || r.item || r.name || "",
           date_given:    (r.date_given || r.date || "").slice(0, 10),
           quantity:      Number(r.quantity || r.qty || 1),
           rate:          Number(r.rate || 0),
           batch_no:      r.batch_no || "",
           expiry_date:   (r.expiry_date || "").slice(0, 10),
-          amount:        Number(r.amount || 0),
+          amount:        Number(r.amount || (Number(r.quantity||1) * Number(r.rate||0))),
         }));
+        return [...svcRows, ...medRows];
       })(),
     };
 
@@ -780,25 +902,59 @@ export default function BranchAdminDashboard({
           else if (Array.isArray(data?.data))    items = data.data;
           else if (data && typeof data === "object") items = Object.values(data).find(v => Array.isArray(v)) || [];
           console.log("[BranchAdmin] pharmacy raw items:", items.length, items[0]);
+          // Build service rows from admObj (room, consultant, etc) — always include these
+          const PURE_MED_CATS = ["pharmacy","pharma","medicine","drug","tablet","capsule","injection","iv fluid","consumable"];
+          const svcRowsForBill = services
+            .filter(s => !PURE_MED_CATS.some(k => (s.svcCat||s.type||"").toLowerCase().includes(k)))
+            .map((s, i) => ({
+              _localId:      s.id ? `svc-${s.id}` : `svc-${i}`,
+              isSvc:         true,
+              medicine_name: s.svcName || s.title || "Service",
+              date_given:    (s.svcDate || admDate),
+              quantity:      Number(s.svcQty  || s.qty  || 1),
+              rate:          Number(s.svcRate || s.rate || 0),
+              batch_no:      s.svcCode || s.code || "",
+              expiry_date:   "",
+              amount:        Number(s.svcTot || s.total || (Number(s.svcRate||0)*Number(s.svcQty||1))),
+            }));
+
           if (items.length) {
-            const rows = items.map((r, i) => {
-              // Log first item to debug field names
+            const medRows = items.map((r, i) => {
               if (i === 0) console.log("[BranchAdmin] pharmacy item keys:", Object.keys(r), r);
               return {
                 _localId:      r.id           || `m-${i}`,
-                medicine_name: r.medicine_name || r.item         || r.name        || r.drug_name  || r.medicine   || r.description || "",
+                isSvc:         false,
+                medicine_name: r.medicine_name || r.item    || r.name     || r.drug_name || r.medicine || r.description || "",
                 date_given:    String(r.date_given || r.given_date || r.date || admDate).slice(0, 10),
-                quantity:      Number(r.quantity   || r.qty        || r.units || 1),
-                rate:          Number(r.rate        || r.unit_price || r.price  || r.cost || 0),
-                batch_no:      r.batch_no     || r.batch_number || r.batch   || "",
+                quantity:      Number(r.quantity   || r.qty  || r.units   || 1),
+                rate:          Number(r.rate        || r.unit_price || r.price || r.cost || 0),
+                batch_no:      r.batch_no || r.batch_number || r.batch || "",
                 expiry_date:   String(r.expiry_date || r.expiry || r.exp_date || "").slice(0, 10),
-                amount:        Number(r.amount || r.total || (Number(r.quantity||1) * Number(r.rate||0))),
+                amount:        Number(r.amount || r.total || (Number(r.quantity||1)*Number(r.rate||0))),
               };
             });
-            console.log("[BranchAdmin] medicine rows mapped:", rows);
-            setEditableRows(rows);
+            console.log("[BranchAdmin] bill rows — svc:", svcRowsForBill.length, "med:", medRows.length);
+            isRecordDirtyRef.current = false;
+            // For final_bill: always show svc rows + med rows together
+            // For medicines tab: show only med rows
+            if (recTab === "final_bill") {
+              // svcRowsForBill already has room/consultant/etc from admObj
+              // medRows has pharmacy from API — merge both
+              isRecordDirtyRef.current = false;
+              setEditableRows([...svcRowsForBill, ...medRows]);
+            } else {
+              // medicines tab: only pharmacy rows
+              isRecordDirtyRef.current = false;
+              setEditableRows(medRows);
+            }
           } else {
-            console.warn("[BranchAdmin] pharmacy API returned empty — trying services fallback");
+            console.warn("[BranchAdmin] pharmacy API returned empty");
+            console.log("[BranchAdmin] svcRowsForBill:", svcRowsForBill.length, svcRowsForBill, "raw services:", services.length, services);
+            if (recTab === "final_bill") {
+              isRecordDirtyRef.current = false;
+              setEditableRows(svcRowsForBill);
+              return;
+            }
             const svcMeds = services.filter(s =>
               ["med","pharma","drug","pharmacy","tablet","injection","iv fluid","consumable"]
                 .some(k => (s.svcCat||s.type||"").toLowerCase().includes(k))
@@ -822,17 +978,45 @@ export default function BranchAdminDashboard({
                           || medHistory.medications || medHistory.on_medications || "";
               console.log("[BranchAdmin] medHistory fallback string:", medStr);
               if (medStr) {
-                const histRows = medStr.split(/[\n,;]+/).map((m, i) => ({
-                  _localId:      `m-hist-${i}`,
-                  medicine_name: m.trim(),
-                  date_given:    admDate,
-                  quantity:      1,
-                  rate:          0,
-                  batch_no:      "",
-                  expiry_date:   "",
-                  amount:        0,
-                })).filter(r => r.medicine_name.length > 0);
-                console.log("[BranchAdmin] medHistory rows:", histRows);
+                // fetch medicine master to cross-ref rates/batch/expiry
+                let master = [];
+                try { master = await apiService.getMedicineMaster(); } catch(_) {}
+                // Normalize: uppercase, strip dots, strip common prefixes, collapse spaces
+                const normalizeMedName = (s) => String(s || "")
+                  .toUpperCase()
+                  .replace(/\./g, "")
+                  .replace(/\b(INJ|CAP|TAB|SYP|SYRUP|OINT|NEB|AMP|VIAL|SACHET|GEL|CREAM|DROP|EYE|EAR)\b/gi, "")
+                  .replace(/[^A-Z0-9%\/]/g, " ")
+                  .replace(/\s+/g, " ")
+                  .trim();
+                const masterMap = {};
+                (Array.isArray(master) ? master : []).forEach(m => {
+                  if (m.name) masterMap[normalizeMedName(m.name)] = m;
+                });
+                const histRows = medStr.split(/[\n,;]+/).map((m, i) => {
+                  const name = m.trim();
+                  if (!name) return null;
+                  const normName = normalizeMedName(name);
+                  // Try exact normalized match first, then partial
+                  const masterKey = masterMap[normName]
+                    ? normName
+                    : Object.keys(masterMap).find(k =>
+                        k.includes(normName) || normName.includes(k)
+                      );
+                  const masterEntry = masterKey ? masterMap[masterKey] : null;
+                  const rate = Number(masterEntry?.rate || masterEntry?.price || 0);
+                  return {
+                    _localId:      `m-hist-${i}`,
+                    medicine_name: name,
+                    date_given:    admDate,
+                    quantity:      1,
+                    rate,
+                    batch_no:      masterEntry?.batch_no || masterEntry?.batch || "",
+                    expiry_date:   masterEntry?.expiry_date || masterEntry?.expiry || "",
+                    amount:        rate,
+                  };
+                }).filter(r => r && r.medicine_name.length > 0);
+                console.log("[BranchAdmin] medHistory rows with master lookup:", histRows);
                 setEditableRows(histRows);
               } else {
                 // No medicines anywhere — set one blank row so user can add
@@ -871,11 +1055,31 @@ export default function BranchAdminDashboard({
           else if (Array.isArray(data?.data))    items = data.data;
           else if (data && typeof data === "object") items = Object.values(data).find(v => Array.isArray(v)) || [];
           console.log("[BranchAdmin] lab-reports raw items:", items.length, items[0]);
+          // Debug: show what's in admObj directly
+          const admObjDebug = selPatient?.admObj || {};
+          console.log("[BranchAdmin] admObj.labReports:", admObjDebug.labReports);
+          console.log("[BranchAdmin] admObj.lab_reports:", admObjDebug.lab_reports);
+          console.log("[BranchAdmin] admObj.services count:", admObjDebug.services?.length, "cats:", admObjDebug.services?.map(s=>s.svcCat));
+          const getDefaultTests = (name) => {
+            const n = (name || "").toLowerCase().trim();
+            // Exact match first
+            const exactKey = Object.keys(DEFAULT_TESTS).find(k => k.toLowerCase() === n);
+            if (exactKey) return DEFAULT_TESTS[exactKey].map(t => ({...t, id: Date.now() + Math.random()}));
+            // Partial match
+            const partialKey = Object.keys(DEFAULT_TESTS).find(k =>
+              n.includes(k.toLowerCase()) || k.toLowerCase().includes(n)
+            );
+            return partialKey
+              ? DEFAULT_TESTS[partialKey].map(t => ({...t, id: Date.now() + Math.random()}))
+              : [{id: Date.now(), name:"", value:"", unit:"", refRange:"", status:"Normal"}];
+          };
           const fromLab = items.map((r, i) => {
             if (i === 0) console.log("[BranchAdmin] lab item keys:", Object.keys(r), r);
+            // Keep full name for display — only use normalizeReportName for DEFAULT_TESTS lookup
+            const rawName = r.report_name || r.reportName || r.name || r.test_name || "Report";
             return {
               _localId:   r.id             || `r-lab-${i}`,
-              reportName: normalizeReportName(r.report_name || r.reportName || r.name || r.test_name || "Report"),
+              reportName: rawName,
               reportType: r.report_type    || r.reportType    || r.category    || r.type        || "Haematology",
               date:       String(r.report_date || r.date      || r.test_date   || admDate).slice(0, 10),
               orderedBy:  r.ordered_by     || r.orderedBy     || r.doctor_name || r.doctor      || doctor,
@@ -885,115 +1089,20 @@ export default function BranchAdminDashboard({
               tests:      (() => {
                 const t = Array.isArray(r.tests) ? r.tests : (Array.isArray(r.test_rows) ? r.test_rows : []);
                 if (t.length) return t;
-                const name = normalizeReportName(r.report_name || r.reportName || r.name || "");
-                return [{id: Date.now() + i, name:"", value:"", unit:"", refRange:"", status:"Normal"}];
+                return getDefaultTests(normalizeReportName(rawName));
               })(),
             };
           });
           console.log("[BranchAdmin] fromLab rows:", fromLab.length);
+          console.log("[BranchAdmin] ALL service cats:", services.map(s => ({ name: s.svcName, cat: s.svcCat, type: s.type })));
           // Only add service rows that are NOT already in lab reports
           const labIds = new Set(fromLab.map(r => String(r._localId)));
-          const DEFAULT_TESTS = {
-            "CBC": [
-              {id:Date.now()+1,  name:"Haemoglobin",        value:"", unit:"g/dL",  refRange:"13.0-17.0", status:"Normal"},
-              {id:Date.now()+2,  name:"TLC",                value:"", unit:"cells/cumm", refRange:"4000-11000", status:"Normal"},
-              {id:Date.now()+3,  name:"Platelets",          value:"", unit:"Lacs/cumm", refRange:"1.5-4.5", status:"Normal"},
-              {id:Date.now()+4,  name:"RBC",                value:"", unit:"mill/cumm", refRange:"4.5-5.5", status:"Normal"},
-              {id:Date.now()+5,  name:"PCV/HCT",            value:"", unit:"%",     refRange:"40-50",     status:"Normal"},
-              {id:Date.now()+6,  name:"MCV",                value:"", unit:"fL",    refRange:"83-101",    status:"Normal"},
-              {id:Date.now()+7,  name:"MCH",                value:"", unit:"pg",    refRange:"27-32",     status:"Normal"},
-              {id:Date.now()+8,  name:"MCHC",               value:"", unit:"g/dL",  refRange:"31.5-34.5", status:"Normal"},
-              {id:Date.now()+9,  name:"Neutrophils",        value:"", unit:"%",     refRange:"40-80",     status:"Normal"},
-              {id:Date.now()+10, name:"Lymphocytes",        value:"", unit:"%",     refRange:"20-40",     status:"Normal"},
-              {id:Date.now()+11, name:"Monocytes",          value:"", unit:"%",     refRange:"2-10",      status:"Normal"},
-              {id:Date.now()+12, name:"Eosinophils",        value:"", unit:"%",     refRange:"1-6",       status:"Normal"},
-            ],
-            "LFT": [
-              {id:Date.now()+1,  name:"Total Bilirubin",    value:"", unit:"mg/dL", refRange:"0.2-1.2",   status:"Normal"},
-              {id:Date.now()+2,  name:"Direct Bilirubin",   value:"", unit:"mg/dL", refRange:"0.0-0.4",   status:"Normal"},
-              {id:Date.now()+3,  name:"Indirect Bilirubin", value:"", unit:"mg/dL", refRange:"0.2-0.8",   status:"Normal"},
-              {id:Date.now()+4,  name:"SGOT (AST)",         value:"", unit:"U/L",   refRange:"10-40",     status:"Normal"},
-              {id:Date.now()+5,  name:"SGPT (ALT)",         value:"", unit:"U/L",   refRange:"7-56",      status:"Normal"},
-              {id:Date.now()+6,  name:"Alkaline Phosphatase",value:"",unit:"U/L",   refRange:"44-147",    status:"Normal"},
-              {id:Date.now()+7,  name:"Total Protein",      value:"", unit:"g/dL",  refRange:"6.3-8.2",   status:"Normal"},
-              {id:Date.now()+8,  name:"Albumin",            value:"", unit:"g/dL",  refRange:"3.5-5.0",   status:"Normal"},
-              {id:Date.now()+9,  name:"Globulin",           value:"", unit:"g/dL",  refRange:"2.0-3.5",   status:"Normal"},
-            ],
-            "KFT": [
-              {id:Date.now()+1, name:"Blood Urea",          value:"", unit:"mg/dL", refRange:"15-40",     status:"Normal"},
-              {id:Date.now()+2, name:"Serum Creatinine",    value:"", unit:"mg/dL", refRange:"0.6-1.2",   status:"Normal"},
-              {id:Date.now()+3, name:"Uric Acid",           value:"", unit:"mg/dL", refRange:"3.5-7.2",   status:"Normal"},
-              {id:Date.now()+4, name:"Sodium",              value:"", unit:"mEq/L", refRange:"136-145",   status:"Normal"},
-              {id:Date.now()+5, name:"Potassium",           value:"", unit:"mEq/L", refRange:"3.5-5.1",   status:"Normal"},
-              {id:Date.now()+6, name:"Chloride",            value:"", unit:"mEq/L", refRange:"98-107",    status:"Normal"},
-              {id:Date.now()+7, name:"Bicarbonate",         value:"", unit:"mEq/L", refRange:"22-29",     status:"Normal"},
-            ],
-            "RFT": [
-              {id:Date.now()+1, name:"Blood Urea",          value:"", unit:"mg/dL", refRange:"15-40",     status:"Normal"},
-              {id:Date.now()+2, name:"Serum Creatinine",    value:"", unit:"mg/dL", refRange:"0.6-1.2",   status:"Normal"},
-              {id:Date.now()+3, name:"Sodium",              value:"", unit:"mEq/L", refRange:"136-145",   status:"Normal"},
-              {id:Date.now()+4, name:"Potassium",           value:"", unit:"mEq/L", refRange:"3.5-5.1",   status:"Normal"},
-            ],
-            "Lipid Profile": [
-              {id:Date.now()+1, name:"Total Cholesterol",   value:"", unit:"mg/dL", refRange:"<200",      status:"Normal"},
-              {id:Date.now()+2, name:"Triglycerides",       value:"", unit:"mg/dL", refRange:"<150",      status:"Normal"},
-              {id:Date.now()+3, name:"HDL Cholesterol",     value:"", unit:"mg/dL", refRange:">40",       status:"Normal"},
-              {id:Date.now()+4, name:"LDL Cholesterol",     value:"", unit:"mg/dL", refRange:"<100",      status:"Normal"},
-              {id:Date.now()+5, name:"VLDL",                value:"", unit:"mg/dL", refRange:"<30",       status:"Normal"},
-            ],
-            "TFT": [
-              {id:Date.now()+1, name:"T3",                  value:"", unit:"ng/dL", refRange:"80-200",    status:"Normal"},
-              {id:Date.now()+2, name:"T4",                  value:"", unit:"μg/dL", refRange:"5.1-14.1",  status:"Normal"},
-              {id:Date.now()+3, name:"TSH",                 value:"", unit:"μIU/mL",refRange:"0.4-4.0",   status:"Normal"},
-            ],
-            "HbA1c": [
-              {id:Date.now()+1, name:"HbA1c",               value:"", unit:"%",     refRange:"<5.7",      status:"Normal"},
-              {id:Date.now()+2, name:"Mean Blood Glucose",  value:"", unit:"mg/dL", refRange:"<117",      status:"Normal"},
-            ],
-            "BSF": [
-              {id:Date.now()+1, name:"Blood Sugar Fasting", value:"", unit:"mg/dL", refRange:"70-100",    status:"Normal"},
-            ],
-            "BSPP": [
-              {id:Date.now()+1, name:"Blood Sugar PP",      value:"", unit:"mg/dL", refRange:"<140",      status:"Normal"},
-            ],
-            "Urine R/M": [
-              {id:Date.now()+1, name:"Colour",              value:"", unit:"",      refRange:"Pale Yellow",status:"Normal"},
-              {id:Date.now()+2, name:"Appearance",          value:"", unit:"",      refRange:"Clear",     status:"Normal"},
-              {id:Date.now()+3, name:"pH",                  value:"", unit:"",      refRange:"4.5-8.0",   status:"Normal"},
-              {id:Date.now()+4, name:"Specific Gravity",    value:"", unit:"",      refRange:"1.005-1.030",status:"Normal"},
-              {id:Date.now()+5, name:"Protein",             value:"", unit:"",      refRange:"Nil",       status:"Normal"},
-              {id:Date.now()+6, name:"Glucose",             value:"", unit:"",      refRange:"Nil",       status:"Normal"},
-              {id:Date.now()+7, name:"Pus Cells",           value:"", unit:"/HPF",  refRange:"0-5",       status:"Normal"},
-              {id:Date.now()+8, name:"RBC",                 value:"", unit:"/HPF",  refRange:"0-2",       status:"Normal"},
-            ],
-            "Echo": [
-              {id:Date.now()+1, name:"EF (Ejection Fraction)", value:"", unit:"%",  refRange:"55-70",     status:"Normal"},
-              {id:Date.now()+2, name:"LVEDD",               value:"", unit:"mm",    refRange:"35-56",     status:"Normal"},
-              {id:Date.now()+3, name:"LVESD",               value:"", unit:"mm",    refRange:"25-40",     status:"Normal"},
-              {id:Date.now()+4, name:"IVS",                 value:"", unit:"mm",    refRange:"6-11",      status:"Normal"},
-              {id:Date.now()+5, name:"Impression",          value:"", unit:"",      refRange:"Normal Study",status:"Normal"},
-            ],
-            "ECG": [
-              {id:Date.now()+1, name:"Heart Rate",          value:"", unit:"bpm",   refRange:"60-100",    status:"Normal"},
-              {id:Date.now()+2, name:"Rhythm",              value:"", unit:"",      refRange:"Sinus",     status:"Normal"},
-              {id:Date.now()+3, name:"PR Interval",         value:"", unit:"ms",    refRange:"120-200",   status:"Normal"},
-              {id:Date.now()+4, name:"QRS Duration",        value:"", unit:"ms",    refRange:"<120",      status:"Normal"},
-              {id:Date.now()+5, name:"Impression",          value:"", unit:"",      refRange:"Normal ECG",status:"Normal"},
-            ],
-          };
-          const getDefaultTests = (name) => {
-            const key = Object.keys(DEFAULT_TESTS).find(k =>
-              name.toLowerCase().includes(k.toLowerCase()) ||
-              k.toLowerCase().includes(name.toLowerCase())
-            );
-            return key ? DEFAULT_TESTS[key].map(t => ({...t, id: Date.now() + Math.random()}))
-                       : [{id: Date.now(), name:"", value:"", unit:"", refRange:"", status:"Normal"}];
-          };
           const fromSvc = services
             .filter(s => {
-              const cat = (s.svcCat || s.type || "").toLowerCase();
-              return !["med","pharma","drug","pharmacy","tablet","injection","iv fluid",
-                       "consumable","room","consultant","icu"].some(k => cat.includes(k));
+              const cat = (s.svcCat || s.type || '').toLowerCase();
+              return ['path','lab','bio','haem','micro','sero','histo',
+                'radiology','x-ray','xray','scan','echo','usg','mri','ct','ecg']
+                .some(k => cat.includes(k));
             })
             .filter(s => s.svcName && !labIds.has(String(s.id)))
             .map((s, i) => {
@@ -1006,11 +1115,51 @@ export default function BranchAdminDashboard({
                 orderedBy:  doctor,
                 amount:     Number(s.svcTot || s.total || (Number(s.svcRate||0) * Number(s.svcQty||1))),
                 remarks: "", impression: "",
-                tests: getDefaultTests(name),
+                tests: getDefaultTests(normalizeReportName(s.svcName || "")),
               };
             });
           console.log("[BranchAdmin] fromSvc rows:", fromSvc.length);
-          setEditableRows([...fromLab, ...fromSvc]);
+
+          // Parse investigations text from admission note into report rows
+          const investigationsText = admObj?.medicalHistory?.investigations
+                                  || admObj?.medicalHistory?.investigation
+                                  || admObj?.medicalHistory?.tests_ordered
+                                  || "";
+          const existingNames = new Set([
+            ...fromLab.map(r => r.reportName.toLowerCase().trim()),
+            ...fromSvc.map(r => r.reportName.toLowerCase().trim()),
+          ]);
+          const fromInvestigations = investigationsText
+            ? investigationsText
+                .split(/[,;\n]+/)
+                .map(s => s.trim())
+                .filter(s => s.length > 2)
+                .map(s => {
+                  // strip leading labels like "1.", "-", "Adv:", "Inv:"
+                  return s.replace(/^(\d+[.)\s]+|[-•*]+|adv[:\s]+|inv[:\s]+|investigation[s]?[:\s]+)/i, '').trim();
+                })
+                .filter(s => s.length > 1)
+                .filter(s => {
+                  const norm = normalizeReportName(s).toLowerCase().trim();
+                  return !existingNames.has(norm) && !existingNames.has(s.toLowerCase().trim());
+                })
+                .map((s, i) => {
+                  const name = normalizeReportName(s);
+                  return {
+                    _localId:   `r-inv-${Date.now()}-${i}`,
+                    reportName: name,
+                    reportType: "Haematology",
+                    date:       admDate,
+                    orderedBy:  doctor,
+                    amount:     0,
+                    remarks:    "",
+                    impression: "",
+                    tests:      getDefaultTests(name),
+                  };
+                })
+            : [];
+          console.log("[BranchAdmin] fromInvestigations rows:", fromInvestigations.length, investigationsText);
+          setEditableRows([...fromLab, ...fromSvc, ...fromInvestigations]);
         } catch (_e) {
           if (!active) return;
           // fallback to services on error
@@ -1380,6 +1529,15 @@ export default function BranchAdminDashboard({
   }
 
   function RecordsView() {
+    // datalist for treating-doctor autocomplete
+    const doctorDatalist = (
+      <datalist id={`branch-doctors-${resolvedBranchCode}`}>
+        {doctors.map(d => (
+          <option key={d.id} value={`Dr. ${d.name}${d.qualification ? " (" + d.qualification + ")" : ""}`} />
+        ))}
+      </datalist>
+    );
+
     if (!selPatient) return (
       <div style={{ textAlign:"center", padding:"80px 20px" }}>
         <div style={{ fontSize:"40px", marginBottom:"16px", color:T.textMuted }}>◈</div>
@@ -1815,6 +1973,48 @@ export default function BranchAdminDashboard({
             </div>
           </div>
 
+          {/* ── Add Row Buttons ── */}
+          {canEditRecords && (
+            <div style={{ display:"flex", gap:10, padding:"12px 28px", borderTop:"1px solid #e2e8f0", background:"#f8fafc", flexWrap:"wrap" }}>
+              <button
+                style={{ ...mkBtn("dim", theme), padding:"8px 16px", fontSize:12 }}
+                onClick={() => {
+                  setEditableRows(prev => [...prev, {
+                    _localId: `svc-new-${Date.now()}`,
+                    isSvc: true,
+                    medicine_name: "",
+                    date_given: new Date().toISOString().slice(0,10),
+                    quantity: 1,
+                    rate: 0,
+                    batch_no: "",
+                    expiry_date: "",
+                    amount: 0,
+                  }]);
+                  setIsRecordDirty(true); isRecordDirtyRef.current = true;
+                }}>
+                + Add Service Row
+              </button>
+              <button
+                style={{ ...mkBtn("ghost", theme), padding:"8px 16px", fontSize:12 }}
+                onClick={() => {
+                  setEditableRows(prev => [...prev, {
+                    _localId: `med-new-${Date.now()}`,
+                    isSvc: false,
+                    medicine_name: "",
+                    date_given: new Date().toISOString().slice(0,10),
+                    quantity: 1,
+                    rate: 0,
+                    batch_no: "",
+                    expiry_date: "",
+                    amount: 0,
+                  }]);
+                  setIsRecordDirty(true); isRecordDirtyRef.current = true;
+                }}>
+                + Add Medicine Row
+              </button>
+            </div>
+          )}
+
           {/* ── Action Buttons ── */}
           <div style={{ display:"flex", gap:10, justifyContent:"flex-end", padding:"16px 28px", borderTop:"1px solid #e2e8f0", background:"#f8fafc", flexWrap:"wrap" }}>
             {canEditRecords && (
@@ -1850,7 +2050,7 @@ const renderDischarge = () => {
               <Field editable={canEditRecords} label="Date & Time of Admission (DOA)" type="datetime-local" value={String(r.doa || "").slice(0,16)} onChange={u("doa")} />
               <Field editable={canEditRecords} label="Date & Time of Discharge (DOD)" type="datetime-local" value={String(r.dod || "").slice(0,16)} onChange={u("dod")} />
               <Field editable={canEditRecords} label="Expected Discharge Date" type="date" value={String(r.expectedDod || "").slice(0,10)} onChange={u("expectedDod")} />
-              <Field editable={canEditRecords} label="Treating Doctor"    value={r.doctorName}      onChange={u("doctorName")}      placeholder="e.g. Dr. Sangi" />
+              <Field editable={canEditRecords} label="Treating Doctor"    value={r.doctorName}      onChange={u("doctorName")}      placeholder="e.g. Dr. Sangi"  list={`branch-doctors-${resolvedBranchCode}`} />
               <Field editable={canEditRecords} label="Ward Name"          value={r.wardName}        onChange={u("wardName")}        placeholder="e.g. General Ward" />
               <Field editable={canEditRecords} label="Room Number"        value={r.roomNo}          onChange={u("roomNo")}          placeholder="e.g. 204" />
               <Field editable={canEditRecords} label="Bed Number"         value={r.bedNo}           onChange={u("bedNo")}           placeholder="e.g. B-12" />
@@ -1901,7 +2101,7 @@ const renderDischarge = () => {
           </SectionCard>
           <SectionCard theme={theme} icon="👨‍⚕️" title="Treating Doctor & Notes" subtitle="Doctor details and additional clinical notes">
             <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:"14px 16px" }}>
-              <Field editable={canEditRecords} label="Treating Doctor"          value={r.treatingDoctor} onChange={u("treatingDoctor")} placeholder="Select or type doctor name…" />
+              <Field editable={canEditRecords} label="Treating Doctor"          value={r.treatingDoctor} onChange={u("treatingDoctor")} placeholder="Select or type doctor name…" list={`branch-doctors-${resolvedBranchCode}`} />
               <Field editable={canEditRecords} label="Qualification & Reg. No." value={r.doctorQual}     onChange={u("doctorQual")}     placeholder="MBBS, MD…" />
               <Field editable={canEditRecords} label="Additional Notes / Remarks" colSpan={2} multiline rows={2} value={r.notes} onChange={u("notes")} placeholder="Any other relevant clinical information…" />
             </div>
@@ -1924,7 +2124,7 @@ const renderDischarge = () => {
             <Field editable={canEditRecords} label="Family History"                    colSpan={2} multiline rows={2} value={r.familyHistory}      onChange={u("familyHistory")}     placeholder="Relevant family medical history…" />
             <Field editable={canEditRecords} label="Smoking Status"                                        value={r.smokingStatus}     onChange={u("smokingStatus")}     placeholder="Yes / No / Former" />
             <Field editable={canEditRecords} label="Alcohol Use"                                           value={r.alcoholUse}        onChange={u("alcoholUse")}        placeholder="Yes / No / Occasional" />
-            <Field editable={canEditRecords} label="Treating Doctor"                                       value={r.treatingDoctor}    onChange={u("treatingDoctor")}    placeholder="Treating doctor name" />
+            <Field editable={canEditRecords} label="Treating Doctor"                                       value={r.treatingDoctor}    onChange={u("treatingDoctor")}    placeholder="Treating doctor name" list={`branch-doctors-${resolvedBranchCode}`} />
             <Field editable={canEditRecords} label="Additional Notes"                  colSpan={2} multiline rows={3} value={r.notes}              onChange={u("notes")}             placeholder="Other notes…" />
           </div>
         </SectionCard>
@@ -1935,19 +2135,49 @@ const renderDischarge = () => {
     const STATUS_COLORS = { Normal:"#10b981", High:"#ef4444", Low:"#f59e0b" };
 
     const REPORT_MASTER = [
-      "Complete Blood Count (CBC)", "Blood Sugar Fasting", "Blood Sugar PP", "HbA1c",
-      "Lipid Profile", "Liver Function Test (LFT)", "Kidney Function Test (KFT)",
-      "Serum Creatinine", "Serum Electrolytes", "Thyroid Profile (T3/T4/TSH)",
-      "Urine Routine & Microscopy", "Stool Examination", "Blood Culture & Sensitivity",
-      "Urine Culture & Sensitivity", "Sputum AFB", "Widal Test", "Dengue NS1 Antigen",
-      "Malaria Antigen Test", "HIV I & II", "HBsAg", "Anti-HCV", "VDRL",
-      "Serum Calcium", "Serum Uric Acid", "CRP (C-Reactive Protein)", "ESR",
-      "PT/INR", "aPTT", "D-Dimer", "Troponin I", "CPK-MB", "LDH",
-      "X-Ray Chest PA View", "X-Ray KUB", "USG Abdomen & Pelvis", "USG Whole Abdomen",
-      "CT Scan Head Plain", "CT Scan Chest", "CT Scan Abdomen & Pelvis",
-      "MRI Brain", "MRI Spine", "Echo (2D Echocardiography)", "ECG",
-      "Pulmonary Function Test (PFT)", "Endoscopy Upper GI", "Colonoscopy",
-      "Biopsy", "FNAC", "PAP Smear", "Bone Marrow Examination",
+      "Complete Blood Count (CBC)",
+      "Kidney Function Test (KFT)",
+      "Liver Function Test (LFT)",
+      "Lipid Profile",
+      "Blood Gas Analysis",
+      "CRP (Qualitative)",
+      "Blood Glucose (Random)",
+      "Blood Glucose (Fasting)",
+      "Widal Test (Slide Method)",
+      "Malaria Antigen Test",
+      "Typhi Dot (IgG & IgM)",
+      "Dengue (IgM & IgG)",
+      "Dengue NS1 Antigen Test",
+      "Viral Markers (HIV, HBsAg, HCV)",
+      "COVID-19 Rapid Antigen",
+      "Urine Examination (Routine)",
+      "Urine Gram Stain",
+      "Aerobic Culture & Sensitivity",
+      "Serum Procalcitonin",
+      "Sputum for AFB",
+      "Sputum Gram Stain",
+      "Cardiac Markers (Trop-T, Trop-I, CPK)",
+      "Total Thyroid Profile",
+      "Vitamin B-12 (Cyanocobalamin)",
+      "25 OH Vitamin D3",
+      "Stool Examination",
+      "Blood Group & Rh Factor",
+      "HbA1c (Glycosylated Hemoglobin)",
+      "Urine Ketone",
+      "D-Dimer",
+      "Serum Amylase & Lipase",
+      "Homocysteine (Quantitative)",
+      "PSA (Prostate Specific Antigen)",
+      "Prothrombin Time (PT)",
+      "Activated Partial Thromboplastin Time (APTT)",
+      "Adenosine Deaminase (ADA)",
+      "Body Fluid For Cytology",
+      "Body Fluid Routine Analysis",
+      "SAAG (Serum Ascites Albumin Gradient)",
+      "Iron Profile",
+      "Blood Picture (Peripheral Smear)",
+      "Anti-TPO (Thyroid Peroxidase Antibody)",
+      "Bleeding Time (BT) & Clotting Time (CT)",
     ];
 
     const ReportSearchBar = () => {
@@ -1973,7 +2203,7 @@ const renderDischarge = () => {
           date: new Date().toISOString().slice(0, 10),
           orderedBy: editableRows[0]?.orderedBy || "",
           remarks: "", impression: "", amount: 0,
-          tests: [{ id: Date.now(), name: "", value: "", unit: "", refRange: "", status: "Normal" }],
+          tests: getDefaultTests(name),
         });
         setQ(""); setOpen(false);
       };
@@ -2303,6 +2533,7 @@ const renderDischarge = () => {
           </div>
         </div>
 
+        {doctorDatalist}
         <div style={{ display:"flex", gap:"6px", marginBottom:"20px", flexWrap:"wrap" }}>
           {RECORD_TYPES.map(rt => (
             <button key={rt.id} onClick={() => setRecTab(rt.id)} style={{
@@ -2319,7 +2550,7 @@ const renderDischarge = () => {
         <div>
           {recTab === "discharge_summary" && renderDischarge()}
           {recTab === "admission_note"    && renderAdmissionNote()}
-          {recTab === "medical_history"   && renderMedicalHistory()}
+
           {recTab === "reports"           && renderReports()}
           {recTab === "medicines"         && renderMedicines()}
           {recTab === "final_bill"       && renderFinalBill()}
@@ -2528,6 +2759,17 @@ const renderDischarge = () => {
           {nav==="financials"      && <FinancialsView />}
           {nav==="print_approvals" && <PrintApprovalsView />}
           {nav==="employees"  && <EmployeesView />}
+          {nav==="doctors"    && (
+            <DoctorsView
+              doctors={doctors}
+              addDoctor={addDoctor}
+              removeDoctor={removeDoctor}
+              theme={theme}
+              T={T}
+              mkBtn={mkBtn}
+              mkInput={mkInput}
+            />
+          )}
         </div>
       </div>
 
