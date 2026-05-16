@@ -1289,12 +1289,16 @@ const [medicineMaster, setMedicineMaster] = useState([]);
   }, [activeView, activeDept, filterRange]); // eslint-disable-line
 
   // ── Derived ────────────────────────────────────────────────────────────────
-  const assignedUhids = new Set(tasks.flatMap(t => {
-    if (t.patientId) return [t.patientId];
-    return t.patient_uhids || (t.patient_uhid ? [t.patient_uhid] : []);
-  }));
+  const assignedUhids = new Set(
+    tasks
+      .filter(t => !isTaskRowCompleted(t))   // ignore completed tasks — patient can be re-assigned
+      .flatMap(t => {
+        if (t.patientId) return [t.patientId];
+        return t.patient_uhids || (t.patient_uhid ? [t.patient_uhid] : []);
+      })
+  );
   const unassignedPatients = allPatients.filter(p => !assignedUhids.has(p.uhid));
-  const filteredPatientSearch = allPatients.filter(p =>
+  const filteredPatientSearch = unassignedPatients.filter(p =>
     !patientSearch ||
     p.patientName?.toLowerCase().includes(patientSearch.toLowerCase()) ||
     p.uhid?.toLowerCase().includes(patientSearch.toLowerCase())
@@ -1659,6 +1663,19 @@ const [medicineMaster, setMedicineMaster] = useState([]);
     if (assignPatients.length === 0) { toast("Select at least one patient", "w"); return; }
     const empId = parseInt(assignEmployee, 10);
     if (isNaN(empId))                { toast("Invalid employee selected", "w"); return; }
+
+    // ── Duplicate guard — skip patients already having an active task ──
+    const dupes = assignPatients.filter(p => assignedUhids.has(p.uhid));
+    if (dupes.length > 0) {
+      toast(`${dupes.map(p => p.patientName || p.uhid).join(", ")} already assigned — skipping`, "w");
+      const clean        = assignPatients.filter(p => !assignedUhids.has(p.uhid));
+      const cleanIds     = assignPatientIds.filter((_, i) => !assignedUhids.has(assignPatients[i]?.uhid));
+      const cleanNames   = assignPatientNames.filter((_, i) => !assignedUhids.has(assignPatients[i]?.uhid));
+      setAssignPatients(clean);
+      setAssignPatientIds(cleanIds);
+      setAssignPatientNames(cleanNames);
+      if (clean.length === 0) return;
+    }
     const payload = { department:assignDept, assign_to:empId, patient_ids:assignPatientIds, title:`${assignDept} — ${assignPatients.length} patient(s)`, priority:assignPriority };
     if (assignDueDate.trim()) payload.due_date = assignDueDate;
     if (assignNotes.trim())   payload.notes    = assignNotes;

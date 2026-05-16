@@ -3,6 +3,20 @@ import { apiService } from "../services/apiService";
 import ThemeModeDock from "../components/ui/ThemeModeDock";
 import { DOCTOR_LIST, QUALIFICATION_LIST, getDoctorQualification } from "../data/doctors";
 
+// Strip ISO timezone offset — datetime-local inputs require "yyyy-MM-ddThh:mm"
+const toLocalDT = (v) => String(v || "").replace(/([+-]\d{2}:\d{2}|Z).*$/, "").slice(0, 16);
+
+// Strip timezone from all date strings before API calls
+const stripTZ = (obj) => {
+  if (!obj || typeof obj !== "object") return obj;
+  const out = { ...obj };
+  for (const k of Object.keys(out)) {
+    if (typeof out[k] === "string" && /\d{4}-\d{2}-\d{2}T/.test(out[k]))
+      out[k] = out[k].replace(/([+-]\d{2}:\d{2}|Z).*$/, "");
+  }
+  return out;
+};
+
 // ─── Discharge Type Configs ────────────────────────────────────────────────
 const normalizeDischType = (u="") => { u = String(u).toUpperCase().trim(); if (u.startsWith("REFER") || u==="REFERRED") return "REFER"; if (u.startsWith("LAMA")) return "LAMA"; if (u==="DEATH" || u==="EXPIRED") return "DEATH"; if (u==="DOPR" || u==="DAMA" || u==="DOR") return "DOPR"; if (u==="RECOVERED") return "RECOVERED"; return "NORMAL"; };
 const DISCHARGE_TYPES = {
@@ -1969,8 +1983,12 @@ useEffect(() => {
       const nextSaved = { ...eSaved, reports:true, medicines:true };
       setESaved(nextSaved);
       syncSelectedPatient({ saved:nextSaved, labReports:eLabRep, medicalBill:eMedBill });
-      if (sel.taskId) await apiService.updateTask(sel.taskId, { status:"Completed", description:buildSubmissionNotes(sel) });
-      await apiService.requestPrint(sel.uhid, sel.admNo);
+      if (sel.taskId) {
+        try { await apiService.updateTask(sel.taskId, { status:"Completed", description:buildSubmissionNotes(sel) }); }
+        catch (taskErr) { console.warn("[submitTask] updateTask failed (non-blocking):", taskErr?.response?.data || taskErr?.message); }
+      }
+      try { await apiService.requestPrint(sel.uhid, sel.admNo); }
+      catch (printErr) { console.warn("[submitTask] requestPrint failed (non-blocking):", printErr?.response?.data || printErr?.message); }
       setPatients(prev => prev.map(p =>
         p.uhid === sel.uhid && p.admNo === sel.admNo
           ? { ...p, taskStatus:"completed", billing:{...p.billing,printStatus:"PENDING"} } : p
@@ -1979,7 +1997,8 @@ useEffect(() => {
       setShowConfirm(false);
       toast("Submitted to HOD and Admin ✓");
     } catch (error) {
-      toast("Failed to submit billing task", "e");
+      console.error("[submitTask] FAILED:", error?.response?.status, error?.response?.data || error?.message);
+      toast(`Failed to submit billing task: ${error?.response?.data?.detail || error?.response?.data?.error || error?.message || "unknown error"}`, "e");
     }
   };
 
@@ -2080,9 +2099,9 @@ useEffect(() => {
           </div>
           <div className="ds-card-body">
             <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(210px,1fr))", gap:14 }}>
-              <div className="fg"><label className="flbl">Date of Admission</label><input className="finp" type="datetime-local" value={eDis?.doa||""} onChange={e=>setDis("doa",e.target.value)}/></div>
+              <div className="fg"><label className="flbl">Date of Admission</label><input className="finp" type="datetime-local" value={toLocalDT(eDis?.doa)} onChange={e=>setDis("doa",e.target.value)}/></div>
               <div className="fg"><label className="flbl">Expected Discharge Date</label><input className="finp" type="date" value={eDis?.expectedDod?String(eDis.expectedDod).slice(0,10):""} onChange={e=>setDis("expectedDod",e.target.value)}/></div>
-              <div className="fg"><label className="flbl">Actual Discharge Date</label><input className="finp" type="datetime-local" value={eDis?.dod||""} onChange={e=>setDis("dod",e.target.value)}/></div>
+              <div className="fg"><label className="flbl">Actual Discharge Date</label><input className="finp" type="datetime-local" value={toLocalDT(eDis?.dod)} onChange={e=>setDis("dod",e.target.value)}/></div>
               <div className="fg"><label className="flbl">Ward</label><input className="finp" value={eDis?.ward||""} onChange={e=>setDis("ward",e.target.value)} placeholder="e.g. General Ward"/></div>
               <div className="fg"><label className="flbl">Bed No.</label><input className="finp" value={eDis?.bed||""} onChange={e=>setDis("bed",e.target.value)} placeholder="e.g. B-12"/></div>
               <div className="fg"><label className="flbl">Treating Doctor</label><input className="finp" value={eDis?.doctor||""} onChange={e=>setDis("doctor",e.target.value)} placeholder="Dr. Name"/></div>

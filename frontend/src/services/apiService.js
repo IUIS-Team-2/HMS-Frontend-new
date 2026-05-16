@@ -181,7 +181,7 @@ export const apiService = {
     },
 
     requestPrint: async (uhid, admNo) => {
-        const response = await axios.post(`${BASE_URL}/patients/${uhid}/request_print/`, { admNo });
+        const response = await axios.post(`${BASE_URL}/patients/${uhid}/request_print/`, { adm_no: admNo });
         return response.data;
     },
 
