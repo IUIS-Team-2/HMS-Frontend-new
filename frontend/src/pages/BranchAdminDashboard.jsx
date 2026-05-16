@@ -663,6 +663,8 @@ export default function BranchAdminDashboard({
   const [selPatient, setSelPatient] = useState(null);
   const [recTab,     setRecTab]     = useState("discharge_summary");
   const [editableRows, setEditableRows] = useState([]);
+  const [persistedSvcRows, setPersistedSvcRows] = useState([]); // survives tab switches
+  const [persistedMedRows, setPersistedMedRows] = useState([]); // med rows survive tab switches
   const [savingRecords, setSavingRecords] = useState(false);
   const [isRecordDirty, setIsRecordDirty] = useState(false);
   const isRecordDirtyRef = useRef(false);
@@ -732,7 +734,9 @@ export default function BranchAdminDashboard({
   useEffect(() => {
     setIsRecordDirty(false);
     isRecordDirtyRef.current = false;
-  }, [nav, recTab, selPatient?.uhid, selPatient?.admObj?.admNo]);
+    setPersistedSvcRows([]); // reset persisted svc rows when patient changes
+    setPersistedMedRows([]); // reset persisted med rows when patient changes
+  }, [nav, selPatient?.uhid, selPatient?.admObj?.admNo]);
 
   useEffect(() => {
     const b = selPatient?.admObj?.billing || {};
@@ -908,18 +912,27 @@ export default function BranchAdminDashboard({
 
     if (recTab === "services") {
       const svcList = Array.isArray(admObj?.services) ? admObj.services : [];
-      isRecordDirtyRef.current = false;
-      setEditableRows(svcList.map((s, i) => ({
-        _localId:      s.id ? `svc-${s.id}` : `svc-seed-${i}`,
-        isSvc:         true,
-        medicine_name: s.svcName || s.description || s.title || "",
-        date_given:    (s.svcDate || admDate),
-        quantity:      Number(s.svcQty  || s.qty  || 1),
-        rate:          Number(s.svcRate || s.rate || 0),
-        batch_no:      s.svcCode || s.code || s.cghs || "",
-        expiry_date:   "",
-        amount:        Number(s.svcTot || s.total || (Number(s.svcRate||0) * Number(s.svcQty||1))),
-      })));
+      // Only reload from API if we don't have persisted edits for this patient
+      if (persistedSvcRows.length === 0) {
+        const mapped = svcList.map((s, i) => ({
+          _localId:      s.id ? `svc-${s.id}` : `svc-seed-${i}`,
+          isSvc:         true,
+          medicine_name: s.svcName || s.description || s.title || "",
+          date_given:    (s.svcDate || admDate),
+          quantity:      Number(s.svcQty  || s.qty  || 1),
+          rate:          Number(s.svcRate || s.rate || 0),
+          batch_no:      s.svcCode || s.code || s.cghs || "",
+          expiry_date:   "",
+          amount:        Number(s.svcTot || s.total || (Number(s.svcRate||0) * Number(s.svcQty||1))),
+        }));
+        isRecordDirtyRef.current = false;
+        setEditableRows(mapped);
+        setPersistedSvcRows(mapped);
+      } else {
+        // Restore persisted edits
+        isRecordDirtyRef.current = false;
+        setEditableRows(persistedSvcRows);
+      }
       return () => { active = false; };
     }
 
@@ -971,14 +984,20 @@ export default function BranchAdminDashboard({
             // For final_bill: always show svc rows + med rows together
             // For medicines tab: show only med rows
             if (recTab === "final_bill") {
-              // svcRowsForBill already has room/consultant/etc from admObj
-              // medRows has pharmacy from API — merge both
+              // seed persistedMedRows only once
+              if (persistedMedRows.length === 0) setPersistedMedRows(medRows);
+              // editableRows for final_bill = ONLY med rows (svc rows come from persistedSvcRows/svcRowsStatic in renderFinalBill)
               isRecordDirtyRef.current = false;
-              setEditableRows([...svcRowsForBill, ...medRows]);
+              setEditableRows(persistedMedRows.length ? persistedMedRows : medRows);
             } else {
               // medicines tab: only pharmacy rows
               isRecordDirtyRef.current = false;
-              setEditableRows(medRows);
+              if (persistedMedRows.length === 0) {
+                setPersistedMedRows(medRows);
+                setEditableRows(medRows);
+              } else {
+                setEditableRows(persistedMedRows);
+              }
             }
           } else {
             console.warn("[BranchAdmin] pharmacy API returned empty");
@@ -1591,27 +1610,53 @@ export default function BranchAdminDashboard({
     const selectedDischarge = selectedAdmission.discharge || {};
     const selectedMedical = selectedAdmission.medicalHistory || {};
 
-    const canEditRecords =
-  String(
-    selectedAdmission?.billing?.paymentMode ||
-    selPatient?.paymentMode ||
-    ""
-  ).toLowerCase().trim() === "cash";
+    const canEditRecords = (() => {
+      const raw = String(
+        selectedAdmission?.billing?.paymentMode ||
+        selectedAdmission?.billing?.payment_mode ||
+        selectedAdmission?.billing?.bill_type ||
+        selPatient?.paymentMode ||
+        selPatient?.patientObj?.payMode ||
+        selPatient?.patientObj?.pay_mode ||
+        ""
+      ).toLowerCase().trim();
+      const isCashless =
+        raw.includes("cashless") ||
+        raw.includes("tpa") ||
+        raw.includes("card") ||
+        raw.includes("insurance");
+      return !isCashless;
+    })();
 
     const updateEditableField = (rowIdx, field, value) => {
       setIsRecordDirty(true);
       isRecordDirtyRef.current = true;
-      setEditableRows((prev) => prev.map((row, idx) => idx === rowIdx ? { ...row, [field]: value } : row));
+      setEditableRows((prev) => {
+        const next = prev.map((row, idx) => idx === rowIdx ? { ...row, [field]: value } : row);
+        if (recTab === "services") setPersistedSvcRows(next);
+        if (recTab === "medicines") setPersistedMedRows(next);
+        return next;
+      });
     };
     const addEditableRow = (template) => {
       setIsRecordDirty(true);
       isRecordDirtyRef.current = true;
-      setEditableRows((prev) => [...prev, template]);
+      setEditableRows((prev) => {
+        const next = [...prev, template];
+        if (recTab === "services") setPersistedSvcRows(next);
+        if (recTab === "medicines") setPersistedMedRows(next);
+        return next;
+      });
     };
     const removeEditableRow = (rowIdx) => {
       setIsRecordDirty(true);
       isRecordDirtyRef.current = true;
-      setEditableRows((prev) => prev.filter((_, idx) => idx !== rowIdx));
+      setEditableRows((prev) => {
+        const next = prev.filter((_, idx) => idx !== rowIdx);
+        if (recTab === "services") setPersistedSvcRows(next);
+        if (recTab === "medicines") setPersistedMedRows(next);
+        return next;
+      });
     };
 
     const PRINT_KIND_MAP = {
@@ -1711,7 +1756,7 @@ export default function BranchAdminDashboard({
             notes: f.notes || selectedMedical.notes || "",
           });
         } else if (recTab === "services") {
-        await apiService.updateServices(
+        await apiService.saveServicesBulk(
           selPatient.uhid,
           selectedAdmission.admNo,
           editableRows.map((row) => ({
@@ -1795,8 +1840,12 @@ export default function BranchAdminDashboard({
         }));
 
       // Merge: svc rows first, then medicine rows from editableRows (exclude any already-merged svc rows)
-      const medOnlyRows = editableRows.filter(r => !r.isSvc);
-      const allEditableRows = [...svcRowsStatic, ...medOnlyRows];
+      // Use editableRows isSvc entries if available (reflects any edits/additions on Services tab)
+      // Use persistedSvcRows (from Services tab edits) OR fall back to svcRowsStatic (original admObj)
+      // Never merge both — that caused duplication
+      const finalSvcRows = persistedSvcRows.length ? persistedSvcRows : svcRowsStatic;
+      const finalMedRows = persistedMedRows.length ? persistedMedRows : editableRows.filter(r => !r.isSvc);
+      const allEditableRows = [...finalSvcRows, ...finalMedRows];
 
       const allRows = allEditableRows.map((r, i) => ({
         srNo:        i + 1,
@@ -1914,14 +1963,17 @@ export default function BranchAdminDashboard({
                         return [...prev, {...row, isSvc:true, [field]: val}];
                       });
                     } else {
-                      const mi = medOnlyRows.findIndex(r => r._localId === row._localId);
-                      if (mi !== -1) setEditableRows(prev => {
+                      setEditableRows(prev => {
                         const svcPart = prev.filter(r => r.isSvc);
                         const medPart = prev.filter(r => !r.isSvc);
+                        const mi = medPart.findIndex(r => r._localId === row._localId);
+                        if (mi === -1) return prev;
                         medPart[mi] = {...medPart[mi], [field]: val,
                           amount: field==="quantity" ? val*Number(medPart[mi].rate||0) : field==="rate" ? Number(medPart[mi].quantity||1)*val : medPart[mi].amount
                         };
-                        return [...svcPart, ...medPart];
+                        const next = [...svcPart, ...medPart];
+                        setPersistedMedRows(medPart);
+                        return next;
                       });
                     }
                     setIsRecordDirty(true); isRecordDirtyRef.current = true;
@@ -2074,17 +2126,9 @@ export default function BranchAdminDashboard({
                 {savingRecords ? "Saving…" : "💾 Save Bill"}
               </button>
             )}
-            <button style={{ ...mkBtn("dim",theme), padding:"9px 18px", fontSize:12 }}
-              onClick={() => { if(!uhid||!admNo) return; window.open(`${BASE_URL}/patients/${uhid}/admissions/${admNo}/pharmacy-records/print/`,"_blank"); }}>
-              🖨 Print Medicine Bill
-            </button>
-            <button style={{ ...mkBtn("dim",theme), padding:"9px 18px", fontSize:12 }}
-              onClick={() => { if(!uhid||!admNo) return; window.open(`${BASE_URL}/patients/${uhid}/admissions/${admNo}/lab-reports/print/`,"_blank"); }}>
-              🖨 Print Reports
-            </button>
             <button style={{ ...mkBtn("excel",theme), padding:"9px 18px", fontSize:12 }}
-              onClick={() => { if(!uhid||!admNo) return; window.open(`${BASE_URL}/patients/${uhid}/admissions/${admNo}/dynamic-summary/print/`,"_blank"); }}>
-              🖨 Print Full Summary
+              onClick={() => { if(!uhid||!admNo) return; window.open(`${BASE_URL}/patients/${uhid}/admissions/${admNo}/bill/print/`,"_blank"); }}>
+              🖨 Print Final Bill
             </button>
           </div>
         </div>
@@ -2723,10 +2767,16 @@ const renderDischarge = () => {
             </table>
           </div>
           {canEditRecords && (
-            <button style={{ ...mkBtn("primary", theme), padding: "8px 14px", fontSize: 12, marginTop: 12 }}
-              onClick={() => addEditableRow({ _localId: `svc-new-${Date.now()}`, isSvc: true, medicine_name: "", date_given: new Date().toISOString().slice(0, 10), quantity: 1, rate: 0, batch_no: "", expiry_date: "", amount: 0 })}>
-              + Add Service Manually
-            </button>
+            <div style={{ display:"flex", gap:10, marginTop:12, flexWrap:"wrap" }}>
+              <button style={{ ...mkBtn("primary", theme), padding: "8px 14px", fontSize: 12 }}
+                onClick={() => addEditableRow({ _localId: `svc-new-${Date.now()}`, isSvc: true, medicine_name: "", date_given: new Date().toISOString().slice(0, 10), quantity: 1, rate: 0, batch_no: "", expiry_date: "", amount: 0 })}>
+                + Add Service Manually
+              </button>
+              <button style={{ ...mkBtn("success", theme), padding: "8px 18px", fontSize: 12 }}
+                onClick={saveCurrentTab} disabled={savingRecords}>
+                {savingRecords ? "Saving…" : "💾 Save Services"}
+              </button>
+            </div>
           )}
           {editableRows.length > 0 && (
             <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 12, paddingTop: 10, borderTop: `1px solid ${T.border}`, gap: 24, alignItems: "center" }}>
