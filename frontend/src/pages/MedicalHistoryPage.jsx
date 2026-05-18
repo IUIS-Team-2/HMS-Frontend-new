@@ -33,104 +33,37 @@ const REPORT_TEMPLATES = {
   "BODY_FLUID": { key:"BODY_FLUID", label:"Body Fluid Analysis", dept:"MICROBIOLOGY", color:"#065f46", bg:"#ecfdf5", type:"body_fluid" },
 };
 
-
-
-// ─── Grouped investigations for the dropdown (report names only) ──────────────
-
 const INVESTIGATION_GROUPS = [
-  { 
-    group:"🩸 Haematology",
-    color:"#dc2626",
-    items:[
-      "CBC",
-      "COAGULATION",
-      "BLOODGROUP",
-      "PERIPHERAL_SMEAR",
-      "D_DIMER",
-      "BT_CT"
-    ]
-  },
-
-  {
-    group:"🧪 Biochemistry",
-    color:"#2563eb",
-    items:[
-      "KFT",
-      "LFT",
-      "LIPID",
-      "BLOODGAS",
-      "GLUCOSE",
-      "CARDIAC",
-      "CRP",
-      "PANCREATIC",
-      "VITAMINS",
-      "IRON",
-      "SAAG",
-      "HOMOCYSTEINE",
-      "PSA",
-      "HBA1C",
-      "URINE_KETONE"
-    ]
-  },
-
-  {
-    group:"⚗️ Endocrinology",
-    color:"#7c3aed",
-    items:[
-      "THYROID",
-      "ANTI_TPO"
-    ]
-  },
-
-  {
-    group:"🔬 Immunology – Serology",
-    color:"#b45309",
-    items:[
-      "WIDAL",
-      "TYPHIDOT",
-      "DENGUE",
-      "COVID_AG"
-    ]
-  },
-
-  {
-    group:"🦠 Microbiology",
-    color:"#065f46",
-    items:[
-      "MALARIA",
-      "VIRAL",
-      "URINE_RM",
-      "URINE_GRAM",
-      "URINE_CS",
-      "BLOOD_CS",
-      "SPUTUM_AFB",
-      "SPUTUM_GRAM",
-      "STOOL",
-      "BODY_FLUID",
-      "BODY_FLUID_CYTOLOGY",
-      "ADA",
-      "PROCALCITONIN"
-    ]
-  },
-
-  {
-    group:"🧬 Coagulation",
-    color:"#be123c",
-    items:[
-      "PT",
-      "APTT"
-    ]
-  }
+  { group:"🩸 Haematology", color:"#dc2626", items:["CBC","COAGULATION","BLOODGROUP","PERIPHERAL_SMEAR","D_DIMER","BT_CT"] },
+  { group:"🧪 Biochemistry", color:"#2563eb", items:["KFT","LFT","LIPID","BLOODGAS","GLUCOSE","CARDIAC","CRP","PANCREATIC","VITAMINS","IRON","SAAG","HOMOCYSTEINE","PSA","HBA1C","URINE_KETONE"] },
+  { group:"⚗️ Endocrinology", color:"#7c3aed", items:["THYROID","ANTI_TPO"] },
+  { group:"🔬 Immunology – Serology", color:"#b45309", items:["WIDAL","TYPHIDOT","DENGUE","COVID_AG"] },
+  { group:"🦠 Microbiology", color:"#065f46", items:["MALARIA","VIRAL","URINE_RM","URINE_GRAM","URINE_CS","BLOOD_CS","SPUTUM_AFB","SPUTUM_GRAM","STOOL","BODY_FLUID","BODY_FLUID_CYTOLOGY","ADA","PROCALCITONIN"] },
+  { group:"🧬 Coagulation", color:"#be123c", items:["PT","APTT"] },
 ];
 
-
-// ─── Common medications ────────────────────────────────────────────────────────
 const MEDICATION_GROUPS = [
   { group:"💉 IV / Injections", items:["Inj. Normal Saline (NS) 500ml", "Inj. Ringer Lactate (RL) 500ml", "Inj. DNS 500ml", "Inj. Pantoprazole 40mg IV BD", "Inj. Esomeprazole 40mg IV BD", "Inj. Ondansetron 4mg IV TDS", "Inj. Tramadol 50mg IV TDS", "Inj. Diclofenac 75mg IM BD", "Inj. Ceftriaxone 1g IV BD", "Inj. Amikacin 500mg IV OD", "Inj. Metronidazole 500mg IV TDS", "Inj. Furosemide 40mg IV OD", "Inj. Dexamethasone 8mg IV OD", "Inj. Hydrocortisone 100mg IV TDS", "Inj. Heparin 5000 IU SC BD", "Inj. Enoxaparin 40mg SC OD", "Inj. Insulin Regular SC TDS", "Inj. Atropine 0.6mg IV", "Inj. Adrenaline 1mg IV"] },
   { group:"💊 Oral Tablets / Capsules", items:["Tab. Paracetamol 500mg TDS", "Tab. Paracetamol 650mg TDS", "Tab. Ibuprofen 400mg TDS", "Tab. Diclofenac 50mg BD", "Tab. Pantoprazole 40mg OD", "Tab. Rabeprazole 20mg OD", "Tab. Ondansetron 4mg TDS", "Tab. Metformin 500mg BD", "Tab. Metformin 1000mg BD", "Tab. Amlodipine 5mg OD", "Tab. Amlodipine 10mg OD", "Tab. Atenolol 50mg OD", "Tab. Ramipril 5mg OD", "Tab. Losartan 50mg OD", "Tab. Telmisartan 40mg OD", "Tab. Atorvastatin 20mg HS", "Tab. Atorvastatin 40mg HS", "Tab. Clopidogrel 75mg OD", "Tab. Aspirin 75mg OD", "Tab. Aspirin 150mg OD", "Tab. Azithromycin 500mg OD", "Tab. Amoxicillin 500mg TDS", "Tab. Ciprofloxacin 500mg BD", "Tab. Metronidazole 400mg TDS", "Tab. Doxycycline 100mg BD", "Tab. Prednisolone 10mg OD", "Tab. Prednisolone 40mg OD", "Tab. Levothyroxine 50mcg OD", "Tab. Folic Acid 5mg OD", "Tab. Ferrous Sulphate 200mg BD", "Cap. Amoxicillin + Clavulanate 625mg BD", "Cap. Omeprazole 20mg BD"] },
   { group:"🩹 Topical / Local", items:["Syrup Paracetamol 125mg/5ml", "Syrup Amoxicillin 125mg/5ml", "Nebulisation Salbutamol 2.5mg", "Nebulisation Ipratropium 0.5mg", "Inhalation Budesonide 200mcg BD"] },
   { group:"🔧 Supportive / Others", items:["O2 Inhalation 2–4 L/min", "Ryle's Tube Feed", "IV Fluids NS/RL @ 100ml/hr", "IV Fluids DNS @ 80ml/hr", "Urinary Catheterisation", "Dressing BD", "Steam Inhalation BD", "Physiotherapy", "ICU Monitoring", "Vital Monitoring 4th Hourly"] },
 ];
+
+// ─── XSS FIX: HTML escape helper ─────────────────────────────────────────────
+// All user-supplied values MUST be passed through this before being
+// interpolated into a document.write / innerHTML string.
+function escapeHtml(value) {
+  return String(value == null ? "" : value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+// Convenience: escape + toUpperCase (used for names/gender throughout)
+function escHtmlUpper(value) {
+  return escapeHtml(String(value == null ? "" : value).toUpperCase());
+}
 
 // ─── Reusable Searchable Multi-Select Dropdown ────────────────────────────────
 function SearchMultiDropdown({ value, onChange, groups, placeholder, chipColor = "#0369a1", chipBg = "#e0f2fe", chipBorder = "#7dd3fc", allowCustom = false, singleSelect = false }) {
@@ -230,7 +163,6 @@ function SearchMultiDropdown({ value, onChange, groups, placeholder, chipColor =
 
   return (
     <div ref={ref} style={{ position:"relative", width:"100%" }}>
-      {/* Trigger */}
       <div
         ref={triggerRef}
         onClick={() => setOpen(o => !o)}
@@ -246,7 +178,6 @@ function SearchMultiDropdown({ value, onChange, groups, placeholder, chipColor =
         </svg>
       </div>
 
-      {/* Chips */}
       {!singleSelect && selected.length > 0 && (
         <div style={{ display:"flex", flexWrap:"wrap", gap:5, marginTop:7 }}>
           {selected.map(item => (
@@ -259,10 +190,8 @@ function SearchMultiDropdown({ value, onChange, groups, placeholder, chipColor =
         </div>
       )}
 
-      {/* Dropdown panel */}
       {open && (
         <div ref={panelRef} style={panelStyle}>
-          {/* Search */}
           <div style={{ padding:"10px 12px", borderBottom:`1px solid ${T.border}`, background:T.offwhite }}>
             <div style={{ position:"relative" }}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ position:"absolute", left:10, top:"50%", transform:"translateY(-50%)", color:T.textMuted }}>
@@ -280,7 +209,6 @@ function SearchMultiDropdown({ value, onChange, groups, placeholder, chipColor =
             </div>
           </div>
 
-          {/* List */}
           <div style={{ overflowY:"auto", flex:1 }}>
             {filteredGroups.length === 0 && !allowCustom && (
               <div style={{ padding:"20px", textAlign:"center", fontSize:13, color:T.textMuted }}>No results found</div>
@@ -313,7 +241,6 @@ function SearchMultiDropdown({ value, onChange, groups, placeholder, chipColor =
               </div>
             ))}
 
-            {/* Add custom option */}
             {allowCustom && search.trim() && !exactMatch && (
               <div
                 onMouseDown={e => { e.preventDefault(); addCustom(); }}
@@ -325,7 +252,6 @@ function SearchMultiDropdown({ value, onChange, groups, placeholder, chipColor =
             )}
           </div>
 
-          {/* Footer */}
           {!singleSelect && (
             <div style={{ padding:"8px 14px", borderTop:`1px solid ${T.border}`, display:"flex", justifyContent:"space-between", alignItems:"center", background:T.offwhite }}>
               <span style={{ fontSize:12, color:T.textMuted }}>{selected.length} selected</span>
@@ -338,7 +264,6 @@ function SearchMultiDropdown({ value, onChange, groups, placeholder, chipColor =
   );
 }
 
-// ─── Investigations Dropdown (report-names only) ───────────────────────────────
 function InvestigationsDropdown({ value, onChange }) {
   const groups = INVESTIGATION_GROUPS.map(g => ({
     group: g.group,
@@ -360,7 +285,6 @@ function InvestigationsDropdown({ value, onChange }) {
   );
 }
 
-// ─── Form Primitives ──────────────────────────────────────────────────────────
 function Field({ label, req, children }) {
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
@@ -372,8 +296,6 @@ function Field({ label, req, children }) {
   );
 }
 
-
-// Enhanced input with unit display for examination fields
 function InpWithUnit({ fieldName, label, req, placeholder, value, onChange, type="text" }) {
   const unit = getFieldUnit(fieldName);
   const fieldConfig = EXAMINATION_FIELDS[fieldName];
@@ -483,6 +405,9 @@ export function AdmissionNotePrint({ data, patient, discharge, locId }) {
   );
 }
 
+// ─── FIX (XSS #3): downloadAdmissionNote — all user values escaped ─────────────
+// Previously interpolated raw patient fields directly into document.write HTML.
+// Every field is now passed through escapeHtml() before insertion.
 export function downloadAdmissionNote(data, patient, discharge, locId) {
   const printWindow = window.open("","_blank","width=900,height=700");
   const branchInfo = { "laxmi":{ address:"Lakshmi Nagar, Mathura, Uttar Pradesh - 281004", phone1:"+91-9717444531", phone2:"+91-9717444532", email:"laxminagar@sangihospital.com" }, "raya":{ address:"Raya, Mathura, Uttar Pradesh - 281204", phone1:"+91-9311212090", phone2:"+91-9311212091", email:"info@sangihospital.com" } };
@@ -490,7 +415,31 @@ export function downloadAdmissionNote(data, patient, discharge, locId) {
   const today   = new Date().toLocaleDateString("en-IN",{day:"2-digit",month:"2-digit",year:"numeric"});
   const nowTime = new Date().toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit",hour12:false});
   const investigationsText = [data?.investigations,data?.investigationsCustom].filter(Boolean).join(", ");
-  printWindow.document.write(`<!DOCTYPE html><html><head><title>Admission Note - ${patient?.patientName||""}</title><style>body{font-family:Arial,sans-serif;font-size:12px;color:#000;padding:24px 32px;margin:0}table{width:100%;border-collapse:collapse}td{border:1px solid #000;padding:10px 12px;vertical-align:top;width:50%}.pre{white-space:pre-wrap;min-height:50px}@media print{@page{size:A4;margin:10mm}}</style></head><body><div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #000;padding-bottom:10px;margin-bottom:10px"><div style="display:flex;align-items:center;gap:12px"><img src="/logo512.png" style="width:64px;height:64px;object-fit:contain;border-radius:12px"/><div><div style="font-size:28px;font-weight:900;color:#1a5b8c;letter-spacing:2px;line-height:1">SANGi</div><div style="font-size:13px;font-weight:700;color:#d93838;letter-spacing:4px">HOSPITAL</div></div></div><div style="text-align:right;font-size:11px;color:#444;line-height:1.8"><div>Add.: ${branch.address}</div><div>Ph.: ${branch.phone1}, ${branch.phone2}</div><div>Email: ${branch.email}</div><div>Web.: www.sangihospital.com</div></div></div><div style="text-align:center;font-size:16px;font-weight:900;letter-spacing:2px;border-bottom:1px solid #000;padding-bottom:8px;margin-bottom:10px">ADMISSION NOTE</div><div style="display:flex;gap:24px;margin-bottom:8px;flex-wrap:wrap"><div><strong>Name of the Patient: </strong><u>${(patient?.patientName||"—").toUpperCase()}</u></div><div><strong>Age/Sex: </strong><u>${patient?.ageYY||"—"}Y / ${(patient?.gender||"—").toUpperCase()}</u></div><div><strong>IPD NO: </strong><u>SH/${discharge?.department?.substring(0,4)?.toUpperCase()||"GEN"}/26/001</u></div></div><div style="display:flex;gap:24px;margin-bottom:14px;flex-wrap:wrap"><div><strong>Card No: </strong><u>${patient?.tpaCard||patient?.tpaPanelCardNo||"—"}</u></div><div><strong>WARD/Bed NO: </strong><u>${discharge?.wardName||"—"}</u></div><div><strong>Date: </strong><u>${today} AT ${nowTime} HR</u></div></div><table><tr><td><strong>PRESENT COMPLAINTS-</strong><div class="pre">${data?.presentComplaints||"—"}</div>${data?.chiefComplaints?`<strong>C/O-</strong><div class="pre">${data.chiefComplaints}</div>`:""}</td><td><strong>INVESTIGATIONS-</strong><div class="pre">${investigationsText||"—"}</div></td></tr><tr><td><strong>PAST HISTORY-</strong><div class="pre">${[data?.previousDiagnosis,data?.pastSurgeries].filter(Boolean).join("\n")||"—"}</div></td><td><strong>TREATMENT ADVISED-</strong><div class="pre">${data?.treatmentAdvised||"—"}</div></td></tr><tr><td><strong>EXAMINATIONS-</strong><br/><div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;margin-top:6px"><div><strong>BP= </strong>${data?.bp||"—"}</div><div><strong>Chest: </strong>${data?.chest||"—"}</div><div><strong>PR= </strong>${data?.pr||"—"}</div><div><strong>CVS: </strong>${data?.cvs||"—"}</div><div><strong>SPO2= </strong>${data?.spo2||"—"}</div><div><strong>CNS: </strong>${data?.cns||"—"}</div><div><strong>TEMP= </strong>${data?.temp||"—"}</div><div><strong>P/A: </strong>${data?.pa||"—"}</div></div></td><td><strong>PROVISIONAL DIAGNOSIS-</strong><div class="pre">${data?.provisionalDiagnosis||discharge?.diagnosis||"—"}</div></td></tr></table><div style="display:flex;justify-content:space-between;margin-top:50px"><div style="text-align:center;min-width:160px"><div style="border-top:1px solid #000;padding-top:6px;font-weight:700">Adv.</div><div style="color:#555;margin-top:4px">${data?.treatingDoctor||discharge?.doctorName||"—"}</div></div><div style="text-align:center;min-width:160px"><div style="border-top:1px solid #000;padding-top:6px;font-weight:700">Consultant</div></div><div style="text-align:center;min-width:160px"><div style="border-top:1px solid #000;padding-top:6px;font-weight:700">DOCTOR SIGNATURE</div></div></div><script>window.onload=()=>{window.print();}</script></body></html>`);
+
+  // ── Escaped patient/data values ──────────────────────────────────────────
+  const eName        = escHtmlUpper(patient?.patientName || "—");
+  const eAgeYY       = escapeHtml(patient?.ageYY || "—");
+  const eGender      = escHtmlUpper(patient?.gender || "—");
+  const eDept        = escapeHtml(discharge?.department?.substring(0,4)?.toUpperCase() || "GEN");
+  const eTpaCard     = escapeHtml(patient?.tpaCard || patient?.tpaPanelCardNo || "—");
+  const eWardName    = escapeHtml(discharge?.wardName || "—");
+  const eComplaints  = escapeHtml(data?.presentComplaints || "—");
+  const eChief       = data?.chiefComplaints ? `<strong>C/O-</strong><div class="pre">${escapeHtml(data.chiefComplaints)}</div>` : "";
+  const eInvest      = escapeHtml(investigationsText || "—");
+  const ePastHist    = escapeHtml([data?.previousDiagnosis,data?.pastSurgeries].filter(Boolean).join("\n") || "—");
+  const eTreatment   = escapeHtml(data?.treatmentAdvised || "—");
+  const eBP          = escapeHtml(data?.bp || "—");
+  const ePR          = escapeHtml(data?.pr || "—");
+  const eSPO2        = escapeHtml(data?.spo2 || "—");
+  const eTemp        = escapeHtml(data?.temp || "—");
+  const eChest       = escapeHtml(data?.chest || "—");
+  const eCVS         = escapeHtml(data?.cvs || "—");
+  const eCNS         = escapeHtml(data?.cns || "—");
+  const ePA          = escapeHtml(data?.pa || "—");
+  const eDiagnosis   = escapeHtml(data?.provisionalDiagnosis || discharge?.diagnosis || "—");
+  const eDoctor      = escapeHtml(data?.treatingDoctor || discharge?.doctorName || "—");
+
+  printWindow.document.write(`<!DOCTYPE html><html><head><title>Admission Note - ${eName}</title><style>body{font-family:Arial,sans-serif;font-size:12px;color:#000;padding:24px 32px;margin:0}table{width:100%;border-collapse:collapse}td{border:1px solid #000;padding:10px 12px;vertical-align:top;width:50%}.pre{white-space:pre-wrap;min-height:50px}@media print{@page{size:A4;margin:10mm}}</style></head><body><div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #000;padding-bottom:10px;margin-bottom:10px"><div style="display:flex;align-items:center;gap:12px"><img src="/logo512.png" style="width:64px;height:64px;object-fit:contain;border-radius:12px"/><div><div style="font-size:28px;font-weight:900;color:#1a5b8c;letter-spacing:2px;line-height:1">SANGi</div><div style="font-size:13px;font-weight:700;color:#d93838;letter-spacing:4px">HOSPITAL</div></div></div><div style="text-align:right;font-size:11px;color:#444;line-height:1.8"><div>Add.: ${escapeHtml(branch.address)}</div><div>Ph.: ${escapeHtml(branch.phone1)}, ${escapeHtml(branch.phone2)}</div><div>Email: ${escapeHtml(branch.email)}</div><div>Web.: www.sangihospital.com</div></div></div><div style="text-align:center;font-size:16px;font-weight:900;letter-spacing:2px;border-bottom:1px solid #000;padding-bottom:8px;margin-bottom:10px">ADMISSION NOTE</div><div style="display:flex;gap:24px;margin-bottom:8px;flex-wrap:wrap"><div><strong>Name of the Patient: </strong><u>${eName}</u></div><div><strong>Age/Sex: </strong><u>${eAgeYY}Y / ${eGender}</u></div><div><strong>IPD NO: </strong><u>SH/${eDept}/26/001</u></div></div><div style="display:flex;gap:24px;margin-bottom:14px;flex-wrap:wrap"><div><strong>Card No: </strong><u>${eTpaCard}</u></div><div><strong>WARD/Bed NO: </strong><u>${eWardName}</u></div><div><strong>Date: </strong><u>${escapeHtml(today)} AT ${escapeHtml(nowTime)} HR</u></div></div><table><tr><td><strong>PRESENT COMPLAINTS-</strong><div class="pre">${eComplaints}</div>${eChief}</td><td><strong>INVESTIGATIONS-</strong><div class="pre">${eInvest}</div></td></tr><tr><td><strong>PAST HISTORY-</strong><div class="pre">${ePastHist}</div></td><td><strong>TREATMENT ADVISED-</strong><div class="pre">${eTreatment}</div></td></tr><tr><td><strong>EXAMINATIONS-</strong><br/><div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;margin-top:6px"><div><strong>BP= </strong>${eBP}</div><div><strong>Chest: </strong>${eChest}</div><div><strong>PR= </strong>${ePR}</div><div><strong>CVS: </strong>${eCVS}</div><div><strong>SPO2= </strong>${eSPO2}</div><div><strong>CNS: </strong>${eCNS}</div><div><strong>TEMP= </strong>${eTemp}</div><div><strong>P/A: </strong>${ePA}</div></div></td><td><strong>PROVISIONAL DIAGNOSIS-</strong><div class="pre">${eDiagnosis}</div></td></tr></table><div style="display:flex;justify-content:space-between;margin-top:50px"><div style="text-align:center;min-width:160px"><div style="border-top:1px solid #000;padding-top:6px;font-weight:700">Adv.</div><div style="color:#555;margin-top:4px">${eDoctor}</div></div><div style="text-align:center;min-width:160px"><div style="border-top:1px solid #000;padding-top:6px;font-weight:700">Consultant</div></div><div style="text-align:center;min-width:160px"><div style="border-top:1px solid #000;padding-top:6px;font-weight:700">DOCTOR SIGNATURE</div></div></div><script>window.onload=()=>{window.print();}<\/script></body></html>`);
   printWindow.document.close();
 }
 
@@ -561,7 +510,6 @@ export default function MedicalHistoryPage({ data, setData, onSave, onSkip, pati
   }, [data?.treatingDoctor, data?.doctorQual, setData, resolveDoctorQualification]);
   const isFilled = data.presentComplaints || data.previousDiagnosis || data.provisionalDiagnosis;
 
-  // Doctor groups for dropdown
   const doctorGroups = [{ group:"👨‍⚕️ Doctors", color:"#0369a1", items: doctorOptions }];
   const qualGroups   = [{ group:"🎓 Qualifications", color:"#7c3aed", items: qualificationOptions }];
   const [medicineMaster, setMedicineMaster] = useState([]);
@@ -571,7 +519,6 @@ export default function MedicalHistoryPage({ data, setData, onSave, onSkip, pati
       .catch(() => setMedicineMaster([]));
   }, []);
 
-  // Merge hardcoded groups + backend medicine master
   const masterItems = medicineMaster.map(m => m.name || m.medicine_name || "").filter(Boolean);
   const medGroups = [
     ...MEDICATION_GROUPS.map(g => ({ group: g.group, color:"#059669", items: g.items })),
@@ -587,7 +534,6 @@ export default function MedicalHistoryPage({ data, setData, onSave, onSkip, pati
   return (
     <div style={{ padding:"32px 44px 80px", animation:"fadeUp .3s ease both", fontFamily:"DM Sans,sans-serif" }}>
 
-      {/* Page header */}
       <div style={{ marginBottom:28 }}>
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:12 }}>
           <div>
@@ -600,7 +546,6 @@ export default function MedicalHistoryPage({ data, setData, onSave, onSkip, pati
         </div>
       </div>
 
-      {/* Present Complaints */}
       <Section title="Present Complaints" subtitle="Chief complaints and presenting symptoms" icon={IC.pulse}>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:20 }}>
           <Txta label="Present Complaints" req placeholder="Patient presented in Department of Emergency Medicine..." value={data.presentComplaints||""} onChange={setE("presentComplaints")} rows={4}/>
@@ -608,7 +553,6 @@ export default function MedicalHistoryPage({ data, setData, onSave, onSkip, pati
         </div>
       </Section>
 
-      {/* Examinations */}
       <Section title="Examinations" subtitle="Vitals and clinical examination findings" icon={IC.pulse}>
         <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:16, marginBottom:16 }}>
           <InpWithUnit fieldName="bp" label="BP (mmHg)"  placeholder="e.g. 120/80mmHg" value={data.bp||""}    onChange={setE("bp")}/>
@@ -624,7 +568,6 @@ export default function MedicalHistoryPage({ data, setData, onSave, onSkip, pati
         </div>
       </Section>
 
-      {/* Investigations & Diagnosis */}
       <Section title="Investigations & Diagnosis" subtitle="Tests ordered and provisional diagnosis" icon={IC.file}>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:20 }}>
           <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
@@ -637,7 +580,6 @@ export default function MedicalHistoryPage({ data, setData, onSave, onSkip, pati
         </div>
       </Section>
 
-      {/* Treatment & Past History */}
       <Section title="Treatment & Past History" subtitle="Treatment advised and past medical history" icon={IC.wallet}>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:20, marginBottom:20 }}>
           <Field label="Current Medications">
@@ -665,7 +607,6 @@ export default function MedicalHistoryPage({ data, setData, onSave, onSkip, pati
         </Field>
       </Section>
 
-      {/* Treating Doctor */}
       <Section title="Treating Doctor & Notes" subtitle="Doctor details and additional clinical notes" icon={IC.doctor}>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:20, marginBottom:20 }}>
           <Field label="Treating Doctor" req>
@@ -698,7 +639,6 @@ export default function MedicalHistoryPage({ data, setData, onSave, onSkip, pati
         <Txta label="Additional Notes / Remarks" placeholder="Any other relevant clinical information..." value={data.notes||""} onChange={setE("notes")} rows={2}/>
       </Section>
 
-      {/* Action buttons */}
       <div style={{ display:"flex", alignItems:"center", gap:12, marginTop:8, justifyContent:"space-between" }}>
         <button onClick={onSkip} style={{ padding:"11px 26px", borderRadius:10, border:`1.5px solid ${T.border}`, background:T.white, color:T.textMid, fontFamily:"DM Sans,sans-serif", fontSize:14, fontWeight:600, cursor:"pointer" }}>Skip for now →</button>
         <div style={{ display:"flex", gap:10 }}>

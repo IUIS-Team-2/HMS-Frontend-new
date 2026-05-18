@@ -83,7 +83,10 @@ export default function SuperAdminDoctorsTab({ branches = [], T, bColor, bName, 
             background: T.card, color: T.white, fontSize: 12, fontWeight: 600, cursor: "pointer",
             outline: "none", appearance: "none" }}>
           <option value="all">All Branches</option>
-          {branches.map(b => {
+          {branches.filter((b, i, arr) => {
+            const code = b.code || b.branch || b.slug || "";
+            return arr.findIndex(x => (x.code || x.branch || x.slug || "") === code) === i;
+          }).map(b => {
             const code = b.code || b.branch || b.slug || "";
             return <option key={code} value={code}>{b.name}</option>;
           })}
@@ -176,7 +179,10 @@ export default function SuperAdminDoctorsTab({ branches = [], T, bColor, bName, 
                 <label style={labelSt}>Assign to Branch <span style={{ color: T.red }}>*</span></label>
                 <select value={selBranch} onChange={e => setSelBranch(e.target.value)}
                   style={{ ...fi, cursor: "pointer" }}>
-                  {branches.map(b => {
+                  {branches.filter((b, i, arr) => {
+                    const code = b.code || b.branch || b.slug || "";
+                    return arr.findIndex(x => (x.code || x.branch || x.slug || "") === code) === i;
+                  }).map(b => {
                     const code = b.code || b.branch || b.slug || "";
                     return <option key={code} value={code}>{b.name}</option>;
                   })}

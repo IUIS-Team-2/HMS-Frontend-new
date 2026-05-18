@@ -35,9 +35,6 @@ const useT = () => useContext(TC);
 const SD = "0 4px 32px rgba(0,0,0,.5)";
 const cardStyle = (t) => ({ background: t.card, borderRadius: 14, padding: 20, boxShadow: SD });
 const ALL_HOSPITALS_LABEL = "All Hospitals";
-// Back-office roles mirror CENTRAL_STAFF_ROLES on the backend (users/views.py):
-// these accounts serve every hospital, so their branch is always "ALL".
-// Only 'admin' and 'receptionist' are per-branch.
 const BACK_OFFICE_ROLES = new Set([
   "hod","billing","opd","intimation","query","uploading",
   "nursing","notes","medical_officer","quality_analyst","doctor"
@@ -60,6 +57,17 @@ const bName = (loc) => getBranchMeta(loc).name;
 const branchFilterOptions = () => [["all", ALL_HOSPITALS_LABEL], ...BRANCH_REGISTRY.map((branch) => [branch.slug, branch.name])];
 const fmt = d => { try { const dt = new Date(d); return isNaN(dt) ? "--" : dt.toLocaleDateString("en-IN"); } catch { return "--"; } };
 const inr = v => "Rs." + Number(v || 0).toLocaleString("en-IN");
+
+// ── XSS FIX: escape all user-supplied values before inserting into document.write HTML ──
+// This is the single source of truth used by openPrintWindow, BillPrintModal, and LabReportsTab.
+function escapeHtml(value) {
+  return String(value == null ? "" : value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
 
 const ROLE_LABELS = { office_admin: "Office Admin", branch_admin: "Branch Admin", superadmin: "Super Admin" };
 const roleColor = (role, t) => {
@@ -181,6 +189,7 @@ function StarRating({ rating, max = 5, size = 16 }) {
 
 /* ══════════════════════════════════════════════════════════════
    SHARED PRINT HELPER
+   FIX: title is now escaped before being written into <title> tag
 ══════════════════════════════════════════════════════════════ */
 function openPrintWindow(title, htmlBody, cssExtra = "") {
   const win = window.open("", "_blank", "width=900,height=700");
@@ -188,7 +197,7 @@ function openPrintWindow(title, htmlBody, cssExtra = "") {
   const fullHtml = `<!DOCTYPE html>
 <html>
 <head>
-  <title>${title}</title>
+  <title>${escapeHtml(title)}</title>
   <style>
     body { font-family: Arial, sans-serif; font-size: 12px; color: #000; padding: 20px; margin: 0; }
     table { width: 100%; border-collapse: collapse; }
@@ -213,6 +222,7 @@ function openPrintWindow(title, htmlBody, cssExtra = "") {
 
 /* ══════════════════════════════════════════════════════════════
    BILL PRINT MODAL
+   FIX: all p.* and sv.* user values escaped before HTML insertion
 ══════════════════════════════════════════════════════════════ */
 function BillPrintModal({ p, onClose }) {
   const T = useT();
@@ -225,108 +235,19 @@ function BillPrintModal({ p, onClose }) {
     phone: branchMeta.phone || "—",
     email: branchMeta.email || "info@sangihospital.com",
   };
-  const billDate = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" })
-    + " " + new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: false }) + " HRS";
   const today  = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" });
+  const billDate = today + " " + new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: false }) + " HRS";
   const svcs   = p.services || [];
   const subtotal = p.subtotal ?? svcs.reduce((s, sv) => s + (parseFloat(sv.rate)||0) * (parseFloat(sv.qty)||1), 0);
   const discount = p.discount ?? (parseFloat(p.billingObj?.discount) || 0);
   const grand    = p.grand   ?? (subtotal - discount);
 
   const handlePrint = () => {
-    const svcRows = svcs.length === 0
-      ? `<tr><td colspan="7" style="padding:20px;text-align:center;color:#999">No services recorded</td></tr>`
-      : svcs.map((sv, i) => {
-          const amount = (parseFloat(sv.rate)||0) * (parseFloat(sv.qty)||1);
-          return `<tr>
-            <td style="padding:5px 8px">${i+1}</td>
-            <td style="padding:5px 8px">${fmt(p.admDate)}</td>
-            <td style="padding:5px 8px">${sv.cghs || sv.type || "--"}</td>
-            <td style="padding:5px 8px">${sv.title || sv.type}</td>
-            <td style="padding:5px 8px;text-align:center">${sv.qty || 1}</td>
-            <td style="padding:5px 8px;text-align:right">${parseFloat(sv.rate||0).toFixed(2)}</td>
-            <td style="padding:5px 8px;text-align:right">${amount.toFixed(2)}</td>
-          </tr>`;
-        }).join("");
-
-    const html = `
-<div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #000;padding-bottom:10px;margin-bottom:10px">
-  <div>
-    <div style="font-size:12px;color:#555;margin-bottom:4px">${today}</div>
-    <div style="font-size:16px;font-weight:900">FINAL BILL</div>
-  </div>
-  <div style="text-align:center">
-    <div style="font-size:28px;font-weight:900;color:#1a5b8c;letter-spacing:2px;line-height:1">SANGi</div>
-    <div style="font-size:13px;font-weight:700;color:#d93838;letter-spacing:4px">HOSPITAL</div>
-    <div style="font-size:11px;color:#555;margin-top:4px">${branch.name}</div>
-  </div>
-  <div style="text-align:right;font-size:11px;color:#444;line-height:1.8">
-    <div>${branch.address}</div>
-    <div>Ph.: ${branch.phone}</div>
-    <div>Email: ${branch.email}</div>
-    <div>Web.: www.sangihospital.com</div>
-  </div>
-</div>
-<table style="margin-bottom:12px;font-size:11px">
-  <tbody>
-    <tr>
-      <td style="border:1px solid #ccc;padding:5px 10px;width:25%"><strong>IPD No. :</strong> ${p.admNo||"--"}</td>
-      <td style="border:1px solid #ccc;padding:5px 10px;width:25%"><strong>Bill No. :</strong> ${p.admNo||"--"}/26</td>
-      <td style="border:1px solid #ccc;padding:5px 10px;width:25%"><strong>Patient Name :</strong> ${(p.name||"").toUpperCase()}</td>
-      <td style="border:1px solid #ccc;padding:5px 10px;width:25%"><strong>Bill Date :</strong> ${billDate}</td>
-    </tr>
-    <tr>
-      <td style="border:1px solid #ccc;padding:5px 10px"><strong>Guardian Name :</strong> ${p.guardianName !== "--" ? p.guardianName : "--"}</td>
-      <td style="border:1px solid #ccc;padding:5px 10px"><strong>Age/Sex :</strong> ${p.age} / ${p.gender?.toUpperCase()}</td>
-      <td style="border:1px solid #ccc;padding:5px 10px"><strong>Address :</strong> ${p.address !== "--" ? p.address : "--"}</td>
-      <td style="border:1px solid #ccc;padding:5px 10px"><strong>Card No. :</strong> ${p.tpaCard !== "--" ? p.tpaCard : "--"}</td>
-    </tr>
-    <tr>
-      <td style="border:1px solid #ccc;padding:5px 10px"><strong>Consultant :</strong> ${p.doctor !== "--" ? p.doctor : "—"}</td>
-      <td style="border:1px solid #ccc;padding:5px 10px"><strong>Room :</strong> ${p.room !== "--" ? p.room : "—"} / ${p.bed !== "--" ? p.bed : "—"}</td>
-      <td style="border:1px solid #ccc;padding:5px 10px"><strong>Claim ID :</strong> ${p.claimId !== "--" ? p.claimId : "—"}</td>
-      <td style="border:1px solid #ccc;padding:5px 10px"><strong>Panel :</strong> ${p.admType === "Cashless" ? (p.tpa !== "--" ? p.tpa : "CASHLESS") : "CASH"}</td>
-    </tr>
-    <tr>
-      <td style="border:1px solid #ccc;padding:5px 10px"><strong>DOA &amp; Time :</strong> ${p.admDate ? fmt(p.admDate) : "—"}</td>
-      <td style="border:1px solid #ccc;padding:5px 10px"><strong>Contact No. :</strong> ${p.phone !== "--" ? p.phone : "—"}</td>
-      <td style="border:1px solid #ccc;padding:5px 10px"><strong>DOD &amp; Time :</strong> ${p.dischargeDate ? fmt(p.dischargeDate) : "—"}</td>
-      <td style="border:1px solid #ccc;padding:5px 10px"><strong>Status on Discharge :</strong> ${p.dischargeStatus}</td>
-    </tr>
-  </tbody>
-</table>
-<table style="margin-bottom:12px">
-  <thead>
-    <tr style="background:#f0f0f0">
-      <th style="border:1px solid #000;padding:6px 8px;text-align:left">Sr No.</th>
-      <th style="border:1px solid #000;padding:6px 8px;text-align:left">Date</th>
-      <th style="border:1px solid #000;padding:6px 8px;text-align:left">CGHS Code</th>
-      <th style="border:1px solid #000;padding:6px 8px;text-align:left">Description</th>
-      <th style="border:1px solid #000;padding:6px 8px;text-align:center">Quantity</th>
-      <th style="border:1px solid #000;padding:6px 8px;text-align:right">Rate</th>
-      <th style="border:1px solid #000;padding:6px 8px;text-align:right">Amount</th>
-    </tr>
-  </thead>
-  <tbody>${svcRows}</tbody>
-</table>
-<table style="margin-bottom:20px">
-  <tbody>
-    <tr><td style="border:none;padding:3px 8px;text-align:right;font-weight:700">Gross Total:</td><td style="border:1px solid #ccc;padding:3px 10px;text-align:right;width:120px;font-weight:700">${subtotal.toFixed(2)}</td></tr>
-    <tr><td style="border:none;padding:3px 8px;text-align:right;font-weight:700">Discount:</td><td style="border:1px solid #ccc;padding:3px 10px;text-align:right;font-weight:700">- ${discount.toFixed(2)}</td></tr>
-    <tr><td style="border:none;padding:3px 8px;text-align:right;font-weight:700">Advance:</td><td style="border:1px solid #ccc;padding:3px 10px;text-align:right;font-weight:700">${(parseFloat(p.billingObj?.advance)||0).toFixed(2)}</td></tr>
-    <tr><td style="border:none;padding:3px 8px;text-align:right;font-size:13px;font-weight:900">Net Payable Amount:</td><td style="border:1px solid #ccc;padding:3px 10px;text-align:right;font-size:13px;font-weight:900">${grand.toFixed(2)}</td></tr>
-  </tbody>
-</table>
-<div style="display:flex;justify-content:space-between;margin-top:40px">
-  <div style="text-align:center;min-width:160px">
-    <div style="border-top:1px solid #000;padding-top:6px;font-weight:700">Cashier Signature</div>
-  </div>
-  <div style="text-align:center;min-width:160px">
-    <div style="border-top:1px solid #000;padding-top:6px;font-weight:700">Patient / Attendant Signature</div>
-  </div>
-</div>`;
-
-    openPrintWindow(`Bill - ${p.name}`, html);
+    const url = `${BASE_URL}/patients/${encodeURIComponent(p.uhid)}/admissions/${encodeURIComponent(p.admNo)}/bill/print/`;
+    const win = window.open(url, "_blank", "width=900,height=700");
+    if (!win) {
+      alert("Pop-up blocked. Please allow pop-ups for this site.");
+    }
   };
 
   return (
@@ -360,79 +281,12 @@ function BillPrintModal({ p, onClose }) {
                 <div>Web.: www.sangihospital.com</div>
               </div>
             </div>
-            <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 12, fontSize: 11 }}>
-              <tbody>
-                <tr>
-                  <td style={{ border: "1px solid #ccc", padding: "5px 10px", width: "25%" }}><strong>IPD No. :</strong> {p.admNo||"--"}</td>
-                  <td style={{ border: "1px solid #ccc", padding: "5px 10px", width: "25%" }}><strong>Bill No. :</strong> {p.admNo||"--"}/26</td>
-                  <td style={{ border: "1px solid #ccc", padding: "5px 10px", width: "25%" }}><strong>Patient Name :</strong> {(p.name||"").toUpperCase()}</td>
-                  <td style={{ border: "1px solid #ccc", padding: "5px 10px", width: "25%" }}><strong>Bill Date :</strong> {billDate}</td>
-                </tr>
-                <tr>
-                  <td style={{ border: "1px solid #ccc", padding: "5px 10px" }}><strong>Guardian Name :</strong> {p.guardianName !== "--" ? p.guardianName : "--"}</td>
-                  <td style={{ border: "1px solid #ccc", padding: "5px 10px" }}><strong>Age/Sex :</strong> {p.age} / {p.gender?.toUpperCase()}</td>
-                  <td style={{ border: "1px solid #ccc", padding: "5px 10px" }}><strong>Address :</strong> {p.address !== "--" ? p.address : "--"}</td>
-                  <td style={{ border: "1px solid #ccc", padding: "5px 10px" }}><strong>Card No. :</strong> {p.tpaCard !== "--" ? p.tpaCard : "--"}</td>
-                </tr>
-                <tr>
-                  <td style={{ border: "1px solid #ccc", padding: "5px 10px" }}><strong>Consultant :</strong> {p.doctor !== "--" ? p.doctor : "—"}</td>
-                  <td style={{ border: "1px solid #ccc", padding: "5px 10px" }}><strong>Room :</strong> {p.room !== "--" ? p.room : "—"} / {p.bed !== "--" ? p.bed : "—"}</td>
-                  <td style={{ border: "1px solid #ccc", padding: "5px 10px" }}><strong>Claim ID :</strong> {p.claimId !== "--" ? p.claimId : "—"}</td>
-                  <td style={{ border: "1px solid #ccc", padding: "5px 10px" }}><strong>Panel :</strong> {p.admType === "Cashless" ? (p.tpa !== "--" ? p.tpa : "CASHLESS") : "CASH"}</td>
-                </tr>
-                <tr>
-                  <td style={{ border: "1px solid #ccc", padding: "5px 10px" }}><strong>DOA &amp; Time :</strong> {p.admDate ? fmt(p.admDate) : "—"}</td>
-                  <td style={{ border: "1px solid #ccc", padding: "5px 10px" }}><strong>Contact No. :</strong> {p.phone !== "--" ? p.phone : "—"}</td>
-                  <td style={{ border: "1px solid #ccc", padding: "5px 10px" }}><strong>DOD &amp; Time :</strong> {p.dischargeDate ? fmt(p.dischargeDate) : "—"}</td>
-                  <td style={{ border: "1px solid #ccc", padding: "5px 10px" }}><strong>Status on Discharge :</strong> {p.dischargeStatus}</td>
-                </tr>
-              </tbody>
-            </table>
-            <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 12 }}>
-              <thead>
-                <tr style={{ background: "#f0f0f0" }}>
-                  {["Sr No.", "Date", "CGHS Code", "Description", "Quantity", "Rate", "Amount"].map(h => (
-                    <th key={h} style={{ border: "1px solid #000", padding: "6px 8px", fontSize: 11, textAlign: h === "Amount" || h === "Rate" ? "right" : "left" }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {svcs.length === 0 ? (
-                  <tr><td colSpan={7} style={{ border: "1px solid #ccc", padding: 20, textAlign: "center", color: "#999" }}>No services recorded</td></tr>
-                ) : svcs.map((sv, i) => {
-                  const amount = (parseFloat(sv.rate)||0) * (parseFloat(sv.qty)||1);
-                  return (
-                    <tr key={i}>
-                      <td style={{ border: "1px solid #ccc", padding: "5px 8px" }}>{i+1}</td>
-                      <td style={{ border: "1px solid #ccc", padding: "5px 8px" }}>{fmt(p.admDate)}</td>
-                      <td style={{ border: "1px solid #ccc", padding: "5px 8px" }}>{sv.cghs||sv.type||"--"}</td>
-                      <td style={{ border: "1px solid #ccc", padding: "5px 8px" }}>{sv.title||sv.type}</td>
-                      <td style={{ border: "1px solid #ccc", padding: "5px 8px", textAlign: "center" }}>{sv.qty||1}</td>
-                      <td style={{ border: "1px solid #ccc", padding: "5px 8px", textAlign: "right" }}>{parseFloat(sv.rate||0).toFixed(2)}</td>
-                      <td style={{ border: "1px solid #ccc", padding: "5px 8px", textAlign: "right" }}>{amount.toFixed(2)}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-            <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 20 }}>
-              <tbody>
-                {[["Gross Total:", subtotal.toFixed(2)], ["Discount:", "- " + discount.toFixed(2)],
-                  ["Advance:", (parseFloat(p.billingObj?.advance)||0).toFixed(2)],
-                  ["Net Payable Amount:", grand.toFixed(2)]].map(([k, v]) => (
-                  <tr key={k}>
-                    <td style={{ border: "none", padding: "3px 8px", textAlign: "right", fontWeight: k.includes("Net") ? 900 : 700, fontSize: k.includes("Net") ? 13 : 11 }}>{k}</td>
-                    <td style={{ border: "1px solid #ccc", padding: "3px 10px", textAlign: "right", fontWeight: k.includes("Net") ? 900 : 700, width: 120, fontSize: k.includes("Net") ? 13 : 11 }}>{v}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 40 }}>
-              <div style={{ textAlign: "center", minWidth: 160 }}>
-                <div style={{ borderTop: "1px solid #000", paddingTop: 6, fontWeight: 700 }}>Cashier Signature</div>
-              </div>
-              <div style={{ textAlign: "center", minWidth: 160 }}>
-                <div style={{ borderTop: "1px solid #000", paddingTop: 6, fontWeight: 700 }}>Patient / Attendant Signature</div>
+            <div style={{ textAlign: "center", padding: 40, color: "#666", fontSize: 14 }}>
+              <div style={{ fontSize: 32, marginBottom: 12 }}>🖨️</div>
+              <div style={{ fontWeight: 700, marginBottom: 8 }}>Click "Print Bill" to open the official bill</div>
+              <div style={{ fontSize: 12 }}>The official bill will open in a new tab using the hospital template.</div>
+              <div style={{ marginTop: 16, fontSize: 12, color: "#999" }}>
+                Patient: <strong>{p.name}</strong> · Adm No: <strong>{p.admNo}</strong> · Grand Total: <strong>Rs.{grand.toFixed(2)}</strong>
               </div>
             </div>
           </div>
@@ -607,7 +461,7 @@ export function DischargeSummaryPrintModal({ p, branchKey, onClose }) {
 }
 
 /* ══════════════════════════════════════════════════════════════
-   PATIENT DETAIL MODAL  ← Official Discharge section REMOVED
+   PATIENT DETAIL MODAL
 ══════════════════════════════════════════════════════════════ */
 function PatientModal({ p, onClose }) {
   const T = useT();
@@ -639,8 +493,6 @@ function PatientModal({ p, onClose }) {
     <>
       <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.8)", zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
         <div style={{ background: T.surface, borderRadius: 20, width: "100%", maxWidth: 860, maxHeight: "92vh", overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 32px 100px rgba(0,0,0,.7)", border: `1px solid ${T.border}` }}>
-
-          {/* ── Header ── */}
           <div style={{ padding: "18px 24px", borderBottom: `1px solid ${T.border}`, background: T.card, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <div style={{ width: 40, height: 40, borderRadius: 10, background: col+"20", border: `1.5px solid ${col}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>🧑</div>
@@ -668,7 +520,6 @@ function PatientModal({ p, onClose }) {
           </div>
 
           <div style={{ overflowY: "auto", padding: 24 }}>
-            {/* Patient detail grid */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8, marginBottom: 20 }}>
               {[["Gender", p.gender], ["Age", p.age], ["Blood Group", p.bloodGroup], ["Phone", p.phone],
                 ["Ward", p.ward], ["Bed / Room", p.bed + " / " + p.room], ["Department", p.department], ["Doctor", p.doctor],
@@ -683,7 +534,6 @@ function PatientModal({ p, onClose }) {
               ))}
             </div>
 
-            {/* Medical history (read-only summary) */}
             {p.medHistory && Object.values(p.medHistory).some(v => v) && (
               <div style={{ ...cardStyle(T), marginBottom: 18 }}>
                 <STitle>Medical History</STitle>
@@ -698,7 +548,6 @@ function PatientModal({ p, onClose }) {
               </div>
             )}
 
-            {/* Services / bill section */}
             <div style={{ ...cardStyle(T), marginBottom: 18 }}>
               <STitle action={
                 <div style={{ display: "flex", gap: 8 }}>
@@ -901,9 +750,6 @@ function DashboardTab({ all, branchRows }) {
   );
 }
 
-/* ══════════════════════════════════════════════════════════════
-   BRANCH TAB
-══════════════════════════════════════════════════════════════ */
 function BranchTab({ pts, branch }) {
   const T = useT();
   const col = bColor(branch, T);
@@ -922,9 +768,6 @@ function BranchTab({ pts, branch }) {
   );
 }
 
-/* ══════════════════════════════════════════════════════════════
-   ALL PATIENTS TAB
-══════════════════════════════════════════════════════════════ */
 function AllPatientsTab({ all }) {
   const T = useT();
   const [branch, setBranch] = useState("all");
@@ -944,9 +787,6 @@ function AllPatientsTab({ all }) {
   );
 }
 
-/* ══════════════════════════════════════════════════════════════
-   BILLING TAB
-══════════════════════════════════════════════════════════════ */
 function BillingTab({ all }) {
   const T = useT();
   const [branch, setBranch] = useState("all");
@@ -1021,9 +861,6 @@ function BillingTab({ all }) {
   );
 }
 
-/* ══════════════════════════════════════════════════════════════
-   MEDICAL HISTORY TAB
-══════════════════════════════════════════════════════════════ */
 function MedicalTab({ all }) {
   const T = useT();
   const [selectedPatient, setSelectedPatient] = useState(null);
@@ -1109,9 +946,6 @@ function MedicalTab({ all }) {
   );
 }
 
-/* ══════════════════════════════════════════════════════════════
-   DISCHARGE TAB
-══════════════════════════════════════════════════════════════ */
 function DischargeTab({ all }) {
   const T = useT();
   const disch = all.filter(p => p.dischargeDate);
@@ -1178,6 +1012,7 @@ function DischargeTab({ all }) {
 
 /* ══════════════════════════════════════════════════════════════
    LAB REPORTS TAB
+   FIX: all user values escaped in handlePrintReport html string
 ══════════════════════════════════════════════════════════════ */
 const LAB_TEST_COLORS = {
   HAEMATOLOGY: { color: "#dc2626", bg: "#fef2f2" },
@@ -1274,6 +1109,20 @@ function LabReportsTab({ all }) {
     const dept = report.department || "PATHOLOGY";
     const deptStyle = LAB_TEST_COLORS[dept] || { color: "#333", bg: "#f9f9f9" };
 
+    // ── Pre-escape all user-supplied values ──
+    const ePtName   = escapeHtml(selectedPatient?.name || "--");
+    const ePtAge    = escapeHtml(selectedPatient?.age || "--");
+    const ePtGender = escapeHtml(selectedPatient?.gender?.toUpperCase() || "--");
+    const ePtUhid   = escapeHtml(selectedPatient?.uhid || "--");
+    const eBiName   = escapeHtml(bi.name);
+    const eBiAddr   = escapeHtml(bi.address);
+    const eBiPhone  = escapeHtml(bi.phone);
+    const eRptDate  = escapeHtml(report.date || fmt(new Date()));
+    const eRptSrNo  = escapeHtml(report.srNo || "--");
+    const eDept     = escapeHtml(dept);
+    const eTitle    = escapeHtml(report.title || report.type || "");
+    const eDeptColor = escapeHtml(deptStyle.color);
+
     const mappedTests = Array.isArray(report.tests)
       ? report.tests.map((test) => ({
           name: test.name || test.test_name || test.parameter || "Test",
@@ -1284,13 +1133,17 @@ function LabReportsTab({ all }) {
         }))
       : [];
     const detailFields = Array.isArray(report.fields) && report.fields.length > 0 ? report.fields : mappedTests;
-    const fieldsHtml = Array.isArray(detailFields) && detailFields.length > 0 ? detailFields.map(f => `
+
+    // Escape every field in the rows
+    const fieldsHtml = Array.isArray(detailFields) && detailFields.length > 0
+      ? detailFields.map(f => `
       <tr>
-        <td style="padding:6px 10px;border:1px solid #ccc;font-size:12px">${f.name||f.label}</td>
-        <td style="padding:6px 10px;border:1px solid #ccc;font-size:12px;font-weight:bold;color:${f.isAbnormal?"red":"#000"}">${f.value||"--"}</td>
-        <td style="padding:6px 10px;border:1px solid #ccc;font-size:12px;color:#555">${f.unit||""}</td>
-        <td style="padding:6px 10px;border:1px solid #ccc;font-size:12px;color:#555">${f.normal||""}</td>
-      </tr>`).join("") : `<tr><td colspan="4" style="padding:10px;text-align:center;color:#999">No fields</td></tr>`;
+        <td style="padding:6px 10px;border:1px solid #ccc;font-size:12px">${escapeHtml(f.name||f.label)}</td>
+        <td style="padding:6px 10px;border:1px solid #ccc;font-size:12px;font-weight:bold;color:${f.isAbnormal?"red":"#000"}">${escapeHtml(f.value||"--")}</td>
+        <td style="padding:6px 10px;border:1px solid #ccc;font-size:12px;color:#555">${escapeHtml(f.unit||"")}</td>
+        <td style="padding:6px 10px;border:1px solid #ccc;font-size:12px;color:#555">${escapeHtml(f.normal||"")}</td>
+      </tr>`).join("")
+      : `<tr><td colspan="4" style="padding:10px;text-align:center;color:#999">No fields</td></tr>`;
 
     const html = `
 <div style="display:flex;justify-content:space-between;border-bottom:2px solid #000;padding-bottom:10px;margin-bottom:12px">
@@ -1299,24 +1152,24 @@ function LabReportsTab({ all }) {
     <div style="font-size:13px;font-weight:700;color:#d93838;letter-spacing:4px">HOSPITAL</div>
   </div>
   <div style="text-align:right;font-size:11px;color:#555">
-    <div>${bi.name}</div><div>${bi.address}</div><div>Ph: ${bi.phone}</div>
+    <div>${eBiName}</div><div>${eBiAddr}</div><div>Ph: ${eBiPhone}</div>
   </div>
 </div>
 <div style="text-align:center;font-size:14px;font-weight:900;letter-spacing:1px;margin-bottom:10px">Department of Pathology</div>
 <table style="margin-bottom:10px;font-size:11px">
-  <tr><td style="padding:4px 8px;border:1px solid #ccc"><strong>Patient's Name:</strong> ${selectedPatient?.name||"--"}</td><td style="padding:4px 8px;border:1px solid #ccc"><strong>Referred by:</strong> SANGI HOSPITAL</td></tr>
-  <tr><td style="padding:4px 8px;border:1px solid #ccc"><strong>Age/Sex:</strong> ${selectedPatient?.age||"--"} / ${selectedPatient?.gender?.toUpperCase()||"--"}</td><td style="padding:4px 8px;border:1px solid #ccc"><strong>Date:</strong> ${report.date||fmt(new Date())}</td></tr>
-  <tr><td style="padding:4px 8px;border:1px solid #ccc"><strong>Patient ID:</strong> ${selectedPatient?.uhid||"--"}</td><td style="padding:4px 8px;border:1px solid #ccc"><strong>Sr. No.:</strong> ${report.srNo||"--"}</td></tr>
+  <tr><td style="padding:4px 8px;border:1px solid #ccc"><strong>Patient's Name:</strong> ${ePtName}</td><td style="padding:4px 8px;border:1px solid #ccc"><strong>Referred by:</strong> SANGI HOSPITAL</td></tr>
+  <tr><td style="padding:4px 8px;border:1px solid #ccc"><strong>Age/Sex:</strong> ${ePtAge} / ${ePtGender}</td><td style="padding:4px 8px;border:1px solid #ccc"><strong>Date:</strong> ${eRptDate}</td></tr>
+  <tr><td style="padding:4px 8px;border:1px solid #ccc"><strong>Patient ID:</strong> ${ePtUhid}</td><td style="padding:4px 8px;border:1px solid #ccc"><strong>Sr. No.:</strong> ${eRptSrNo}</td></tr>
 </table>
-<div style="text-align:center;font-size:13px;font-weight:900;text-transform:uppercase;margin:10px 0;color:${deptStyle.color}">${dept}</div>
-<div style="text-align:center;font-size:12px;font-weight:700;text-decoration:underline;margin-bottom:8px">${report.title||report.type||""}</div>
+<div style="text-align:center;font-size:13px;font-weight:900;text-transform:uppercase;margin:10px 0;color:${eDeptColor}">${eDept}</div>
+<div style="text-align:center;font-size:12px;font-weight:700;text-decoration:underline;margin-bottom:8px">${eTitle}</div>
 <table><thead><tr><th>Test Name</th><th>Value</th><th>Unit</th><th>Normal Value</th></tr></thead><tbody>${fieldsHtml}</tbody></table>
 <div style="text-align:center;margin:20px 0;font-size:12px">***End Of The Report***</div>
 <div style="display:flex;justify-content:space-between;margin-top:40px">
   <div><div style="border-top:1px solid #000;padding-top:5px;font-weight:700">TECHNOLOGIST</div></div>
   <div style="text-align:right"><div style="font-weight:700">Dr. Rakesh Koul</div><div style="font-size:11px;color:#555">(M.B.B.S. DCP)</div><div style="font-weight:700;border-top:1px solid #000;padding-top:5px;margin-top:30px">PATHOLOGIST</div></div>
 </div>`;
-    openPrintWindow(`Lab Report - ${selectedPatient?.name}`, html);
+    openPrintWindow(`Lab Report - ${escapeHtml(selectedPatient?.name)}`, html);
   };
 
   if (selectedPatient) {
@@ -1474,9 +1327,6 @@ function LabReportsTab({ all }) {
   );
 }
 
-/* ══════════════════════════════════════════════════════════════
-   REPORTS TAB
-══════════════════════════════════════════════════════════════ */
 function ReportsTab({ all }) {
   const T = useT();
   const [branch, setBranch] = useState("all");
@@ -1526,19 +1376,13 @@ function ReportsTab({ all }) {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span style={{ fontSize: 13, fontWeight: 700, color: T.amber }}>{r.rows.length} records</span>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <button
-                  onClick={() => setOpenReport(r.title)}
-                  style={{ padding: "7px 12px", borderRadius: 8, border: `1px solid ${T.border2}`, background: T.card2, color: T.white, fontSize: 12, fontWeight: 700, cursor: "pointer" }}
-                >
-                  View Format
-                </button>
+                <button onClick={() => setOpenReport(r.title)} style={{ padding: "7px 12px", borderRadius: 8, border: `1px solid ${T.border2}`, background: T.card2, color: T.white, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>View Format</button>
                 <XlsBtn onClick={() => exportXLSX(r.rows, r.cols, r.file)} />
               </div>
             </div>
           </div>
         ))}
       </div>
-
       {(() => {
         const selected = REPORTS.find((r) => r.title === openReport) || REPORTS[0];
         const previewRows = (selected?.rows || []).slice(0, 8);
@@ -1554,9 +1398,7 @@ function ReportsTab({ all }) {
             </div>
             <div style={{ overflowX: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                <thead>
-                  <tr>{previewCols.map((col) => <TH key={col.label} h={col.label} />)}</tr>
-                </thead>
+                <thead><tr>{previewCols.map((col) => <TH key={col.label} h={col.label} />)}</tr></thead>
                 <tbody>
                   {!previewRows.length ? (
                     <tr><td colSpan={Math.max(previewCols.length, 1)} style={{ padding: 40, textAlign: "center", color: T.dim }}>No data available for this report.</td></tr>
@@ -1582,17 +1424,7 @@ function ReportsTab({ all }) {
 
 function HospitalBranchesTab({ branches = [], onChanged }) {
   const T = useT();
-  const EMPTY_FORM = {
-    branch: "",
-    slug: "",
-    uhid_prefix: "",
-    hospital_name: "SANGI HOSPITAL",
-    branch_name: "",
-    address: "",
-    phone: "",
-    email: "",
-    website: "https://www.sangihospital.com",
-  };
+  const EMPTY_FORM = { branch: "", slug: "", uhid_prefix: "", hospital_name: "SANGI HOSPITAL", branch_name: "", address: "", phone: "", email: "", website: "https://www.sangihospital.com" };
   const [form, setForm] = useState(EMPTY_FORM);
   const [editId, setEditId] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -1601,33 +1433,22 @@ function HospitalBranchesTab({ branches = [], onChanged }) {
   const reset = () => { setForm(EMPTY_FORM); setEditId(null); };
 
   const submit = async () => {
-    if (!form.branch || !form.slug || !form.uhid_prefix || !form.branch_name) {
-      toast.error("Branch code, slug, UHID prefix, and branch name are required.");
-      return;
-    }
+    if (!form.branch || !form.slug || !form.uhid_prefix || !form.branch_name) { toast.error("Branch code, slug, UHID prefix, and branch name are required."); return; }
     setLoading(true);
     try {
       if (editId) await apiService.updateHospitalBranch(editId, form);
       else await apiService.createHospitalBranch(form);
       toast.success(editId ? "Hospital branch updated." : "Hospital branch created.");
-      reset();
-      onChanged?.();
+      reset(); onChanged?.();
     } catch (error) {
       toast.error(error.response?.data?.branch?.[0] || error.response?.data?.slug?.[0] || "Failed to save hospital branch.");
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
   const removeBranch = async (branch) => {
     if (!window.confirm(`Delete ${branch.branch_name}?`)) return;
-    try {
-      await apiService.deleteHospitalBranch(branch.id);
-      toast.success("Hospital branch deleted.");
-      onChanged?.();
-    } catch (error) {
-      toast.error(error.response?.data?.branch?.[0] || "Failed to delete branch.");
-    }
+    try { await apiService.deleteHospitalBranch(branch.id); toast.success("Hospital branch deleted."); onChanged?.(); }
+    catch (error) { toast.error(error.response?.data?.branch?.[0] || "Failed to delete branch."); }
   };
 
   const inputSt = { width: "100%", padding: "9px 13px", borderRadius: 8, border: `1px solid ${T.border2}`, background: T.card, color: T.white, fontSize: 13, outline: "none", boxSizing: "border-box" };
@@ -1643,10 +1464,7 @@ function HospitalBranchesTab({ branches = [], onChanged }) {
         <div style={{ fontSize: 15, fontWeight: 800, color: T.white, marginBottom: 14 }}>{editId ? "Edit Hospital Branch" : "Create Hospital Branch"}</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 12 }}>
           {[["Branch Code","branch"],["Slug","slug"],["UHID Prefix","uhid_prefix"],["Branch Name","branch_name"],["Hospital Name","hospital_name"],["Phone","phone"],["Email","email"],["Website","website"]].map(([label, key]) => (
-            <div key={key}>
-              <label style={labelSt}>{label}</label>
-              <input value={form[key]} onChange={updateField(key)} style={inputSt} />
-            </div>
+            <div key={key}><label style={labelSt}>{label}</label><input value={form[key]} onChange={updateField(key)} style={inputSt} /></div>
           ))}
           <div style={{ gridColumn: "1 / -1" }}>
             <label style={labelSt}>Address</label>
@@ -1671,20 +1489,7 @@ function HospitalBranchesTab({ branches = [], onChanged }) {
                 <td style={{ padding: "10px 12px", color: T.dim }}>{branch.phone || "—"}</td>
                 <td style={{ padding: "10px 12px" }}>
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                    <button onClick={() => {
-                      setForm({
-                        branch: branch.code || branch.branch || "",
-                        slug: branch.slug || "",
-                        uhid_prefix: branch.uhidPrefix || branch.uhid_prefix || "",
-                        hospital_name: branch.hospitalName || branch.hospital_name || "SANGI HOSPITAL",
-                        branch_name: branch.name || branch.branch_name || "",
-                        address: branch.address || "",
-                        phone: branch.phone || "",
-                        email: branch.email || "",
-                        website: branch.website || "https://www.sangihospital.com",
-                      });
-                      setEditId(branch.id);
-                    }} style={{ padding: "5px 12px", borderRadius: 7, background: T.laxmi+"20", color: T.laxmi, border: `1px solid ${T.laxmi}44`, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>✏ Edit</button>
+                    <button onClick={() => { setForm({ branch: branch.code || branch.branch || "", slug: branch.slug || "", uhid_prefix: branch.uhidPrefix || branch.uhid_prefix || "", hospital_name: branch.hospitalName || branch.hospital_name || "SANGI HOSPITAL", branch_name: branch.name || branch.branch_name || "", address: branch.address || "", phone: branch.phone || "", email: branch.email || "", website: branch.website || "https://www.sangihospital.com" }); setEditId(branch.id); }} style={{ padding: "5px 12px", borderRadius: 7, background: T.laxmi+"20", color: T.laxmi, border: `1px solid ${T.laxmi}44`, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>✏ Edit</button>
                     <button onClick={() => removeBranch(branch)} style={{ padding: "5px 12px", borderRadius: 7, background: T.red+"15", color: T.red, border: `1px solid ${T.red}44`, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>🗑 Delete</button>
                   </div>
                 </td>
@@ -1698,9 +1503,6 @@ function HospitalBranchesTab({ branches = [], onChanged }) {
   );
 }
 
-/* ══════════════════════════════════════════════════════════════
-   ADMIN MANAGEMENT TAB
-══════════════════════════════════════════════════════════════ */
 function AdminsTab({ branches = [] }) {
   const T = useT();
   const [users, setUsers] = useState([]);
@@ -1758,9 +1560,7 @@ function AdminsTab({ branches = [] }) {
     if (!form.id||!form.name||!form.password) { toast.error("Fill all required fields"); return; }
     if (form.password !== form.confirmPassword) { setPassErr("Passwords do not match"); return; }
     const backendRole = form.role === "branch_admin" ? "admin" : form.role;
-    const branchCode = roleUsesAllBranch(form.role)
-      ? "ALL"
-      : (branches.find((branch) => branch.slug === form.branch)?.code || defaultBranchSlug.toUpperCase());
+    const branchCode = roleUsesAllBranch(form.role) ? "ALL" : (branches.find((branch) => branch.slug === form.branch)?.code || defaultBranchSlug.toUpperCase());
     const nameParts = form.name.split(" ");
     const payload = { username: form.id, first_name: nameParts[0], last_name: nameParts.length>1 ? nameParts.slice(1).join(" ") : ".", password: form.password, confirm_password: form.password, role: backendRole, branch: branchCode, email: `${form.id}@sangihospital.com` };
     try {
@@ -1783,9 +1583,7 @@ function AdminsTab({ branches = [] }) {
     setLoading(true);
     const nameParts = editForm.name.split(" ");
     const backendRole = editForm.role === "branch_admin" ? "admin" : editForm.role;
-    const branchCode = roleUsesAllBranch(editForm.role)
-      ? "ALL"
-      : (branches.find((branch) => branch.slug === editForm.branch)?.code || defaultBranchSlug.toUpperCase());
+    const branchCode = roleUsesAllBranch(editForm.role) ? "ALL" : (branches.find((branch) => branch.slug === editForm.branch)?.code || defaultBranchSlug.toUpperCase());
     const payload = { first_name: nameParts[0], last_name: nameParts.length>1 ? nameParts.slice(1).join(" ") : ".", role: backendRole, branch: branchCode, ...(editForm.newPass ? { password: editForm.newPass, confirm_password: editForm.newPass } : {}) };
     try {
       await apiService.updateUser(editModal.id, payload);
@@ -1881,7 +1679,6 @@ function AdminsTab({ branches = [] }) {
         </table>
       </div>
 
-      {/* CREATE MODAL */}
       {createModal && (
         <div style={{ position:"fixed",inset:0,background:"rgba(0,0,0,.78)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center" }}>
           <div style={{ background:T.surface,borderRadius:16,padding:30,width:460,border:`1px solid ${T.border}`,boxShadow:SD,maxHeight:"90vh",overflowY:"auto" }}>
@@ -1924,7 +1721,6 @@ function AdminsTab({ branches = [] }) {
         </div>
       )}
 
-      {/* EDIT MODAL */}
       {editModal && (
         <div style={{ position:"fixed",inset:0,background:"rgba(0,0,0,.78)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center" }}>
           <div style={{ background:T.surface,borderRadius:16,padding:30,width:460,border:`1px solid ${T.border}`,boxShadow:SD,maxHeight:"90vh",overflowY:"auto" }}>
@@ -1970,7 +1766,6 @@ function AdminsTab({ branches = [] }) {
         </div>
       )}
 
-      {/* CONFIRM MODAL */}
       {confirmModal && (
         <div style={{ position:"fixed",inset:0,background:"rgba(0,0,0,.82)",zIndex:2100,display:"flex",alignItems:"center",justifyContent:"center" }}>
           <div style={{ background:T.surface,borderRadius:16,padding:28,width:400,border:`1px solid ${confirmModal.type==="delete"?T.red:confirmModal.type==="deactivate"?T.amber:T.green}44`,boxShadow:SD }}>
@@ -1998,9 +1793,6 @@ function AdminsTab({ branches = [] }) {
   );
 }
 
-/* ══════════════════════════════════════════════════════════════
-   DEPARTMENTS TAB
-══════════════════════════════════════════════════════════════ */
 function DepartmentsTab({ all }) {
   const T = useT();
   const map = {};
@@ -2047,9 +1839,6 @@ function DepartmentsTab({ all }) {
   );
 }
 
-/* ══════════════════════════════════════════════════════════════
-   TASK PERFORMANCE TAB
-══════════════════════════════════════════════════════════════ */
 const DEPARTMENTS_PERF = ["Billing","Uploading","OPD","Query","Intimation"];
 const DEPT_META = {
   Billing: { icon:CreditCard, color:"#FBBF24", desc:"Invoice generation, payment collection" },
@@ -2219,7 +2008,6 @@ export default function SuperAdminDashboard({ db = {}, branches = [], onBranches
   return (
     <TC.Provider value={T}>
       <div style={{ height:"100vh", background:T.bg, fontFamily:"'Segoe UI',system-ui,sans-serif", overflow:"hidden", display:"flex" }}>
-        {/* SIDEBAR */}
         <div style={{ width:228, height:"100vh", background:T.sidebar, display:"flex", flexDirection:"column", position:"fixed", top:0, left:0, zIndex:50, borderRight:`1px solid ${T.border}`, overflow:"hidden" }}>
           <div style={{ padding:"18px 14px 14px", borderBottom:`1px solid ${T.border}` }}>
             <div style={{ display:"flex", alignItems:"center", gap:10 }}>
@@ -2254,7 +2042,6 @@ export default function SuperAdminDashboard({ db = {}, branches = [], onBranches
           </div>
         </div>
 
-        {/* MAIN CONTENT */}
         <div style={{ marginLeft:228, flex:1, height:"100vh", overflow:"hidden", display:"flex", flexDirection:"column", minWidth:0 }}>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 28px", borderBottom:`1px solid ${T.border}`, background:T.sidebar, position:"sticky", top:0, zIndex:40, flexShrink:0 }}>
             <div style={{ fontSize:13, fontWeight:700, color:T.white, display:"inline-flex", alignItems:"center", gap:8 }}>
@@ -2279,20 +2066,20 @@ export default function SuperAdminDashboard({ db = {}, branches = [], onBranches
               </div>
             </div>
             <div style={{ padding:"16px 28px 28px" }}>
-              {tab==="dashboard"   && <DashboardTab all={all} branchRows={branchRows}/>} 
+              {tab==="dashboard"        && <DashboardTab all={all} branchRows={branchRows}/>}
               {tab==="hospitalbranches" && <HospitalBranchesTab branches={branches} onChanged={onBranchesChanged} />}
               {branchTabs.some((branch) => branch.id === tab) && <BranchTab pts={branchRows[tab] || []} branch={tab}/>}
-              {tab==="allpatients" && <AllPatientsTab all={all}/>}
-              {tab==="billing"     && <BillingTab all={all}/>}
-              {tab==="medical"     && <MedicalTab all={all}/>}
-              {tab==="discharge"   && <DischargeTab all={all}/>}
-              {tab==="labreports"  && <LabReportsTab all={all}/>}
-              {tab==="reports"     && <ReportsTab all={all}/>}
-              {tab==="records"     && <UpdateRecordsPanel roleLabel="Super Admin"/>}
-              {tab==="admins"      && <AdminsTab branches={branches}/>}
-              {tab==="departments" && <DepartmentsTab all={all}/>}
-              {tab==="performance" && <TaskPerformanceTab/>}
-              {tab==="doctors"     && (
+              {tab==="allpatients"      && <AllPatientsTab all={all}/>}
+              {tab==="billing"          && <BillingTab all={all}/>}
+              {tab==="medical"          && <MedicalTab all={all}/>}
+              {tab==="discharge"        && <DischargeTab all={all}/>}
+              {tab==="labreports"       && <LabReportsTab all={all}/>}
+              {tab==="reports"          && <ReportsTab all={all}/>}
+              {tab==="records"          && <UpdateRecordsPanel roleLabel="Super Admin"/>}
+              {tab==="admins"           && <AdminsTab branches={branches}/>}
+              {tab==="departments"      && <DepartmentsTab all={all}/>}
+              {tab==="performance"      && <TaskPerformanceTab/>}
+              {tab==="doctors"          && (
                 <SuperAdminDoctorsTab
                   branches={branches}
                   T={T}

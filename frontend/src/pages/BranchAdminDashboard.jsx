@@ -673,6 +673,7 @@ export default function BranchAdminDashboard({
 
   // ─── Doctors registry ────────────────────────────────────────────────────
   const { doctors, addDoctor, removeDoctor } = useDoctors(resolvedBranchCode);
+  const [serviceMaster, setServiceMaster] = useState([]);
 
   // Fetch medicine master on mount
   useEffect(() => {
@@ -806,10 +807,10 @@ export default function BranchAdminDashboard({
           medicine_name: s.svcName || s.description || s.title || "",
           date_given:    (s.svcDate || String(admission?.dateTime || "").slice(0, 10)),
           quantity:      Number(s.svcQty  || s.qty  || 1),
-          rate:          Number(s.svcRate || s.rate || 0),
+          rate: Number(s.rate || s.svcRate || s.unit_price || s.price || 0),
           batch_no:      s.svcCode || s.code || s.cghs || "",
           expiry_date:   "",
-          amount:        Number(s.svcTot || s.total || (Number(s.svcRate||0) * Number(s.svcQty||1))),
+          amount: Number(s.svcTot || s.total || s.amount || (Number(s.rate||s.svcRate||0) * Number(s.svcQty||s.qty||1))),
         }));
       })(),
       // reports and medicines are loaded by the dedicated API fetch effect below
@@ -872,7 +873,7 @@ export default function BranchAdminDashboard({
             medicine_name: s.svcName || s.title || "Service",
             date_given:    (s.svcDate || admission?.dateTime || "").slice(0, 10),
             quantity:      Number(s.svcQty  || s.qty  || 1),
-            rate:          Number(s.svcRate || s.rate || 0),
+            rate: Number(s.rate || s.svcRate || s.unit_price || s.price || 0),
             batch_no:      s.svcCode || s.code || "",
             expiry_date:   "",
             amount:        Number(s.svcTot  || s.total || (Number(s.svcRate||0) * Number(s.svcQty||1))),
@@ -914,20 +915,55 @@ export default function BranchAdminDashboard({
       const svcList = Array.isArray(admObj?.services) ? admObj.services : [];
       // Only reload from API if we don't have persisted edits for this patient
       if (persistedSvcRows.length === 0) {
-        const mapped = svcList.map((s, i) => ({
-          _localId:      s.id ? `svc-${s.id}` : `svc-seed-${i}`,
-          isSvc:         true,
-          medicine_name: s.svcName || s.description || s.title || "",
-          date_given:    (s.svcDate || admDate),
-          quantity:      Number(s.svcQty  || s.qty  || 1),
-          rate:          Number(s.svcRate || s.rate || 0),
-          batch_no:      s.svcCode || s.code || s.cghs || "",
-          expiry_date:   "",
-          amount:        Number(s.svcTot || s.total || (Number(s.svcRate||0) * Number(s.svcQty||1))),
-        }));
-        isRecordDirtyRef.current = false;
-        setEditableRows(mapped);
-        setPersistedSvcRows(mapped);
+        // Fetch service master to look up rates by CGHS code
+        fetch("http://127.0.0.1:8000/api/service-master/", {
+          headers: { Authorization: "Bearer " + (sessionStorage.getItem("hms_token") || "") }
+        }).then(r=>r.json()).then(master=>{
+          if (!active) return;
+          const ml = Array.isArray(master) ? master : master?.results || [];
+          const lr = (code, name) => {
+            const c = (code||"").toUpperCase().trim();
+            const n = (name||"").toLowerCase().trim();
+            const hit = ml.find(s=>s.code===c)
+              || ml.find(s=>(s.description||"").toLowerCase()===n)
+              || ml.find(s=>n.length>4&&(s.description||"").toLowerCase().includes(n.slice(0,6)));
+            return Number(hit?.rate || 0);
+          };
+          const mapped = svcList.map((s,i)=>{
+            const rate = Number(s.rate||s.svcRate||s.unit_price||s.price||0) || lr(s.svcCode||s.code, s.svcName||s.title||s.description);
+            const qty  = Number(s.svcQty||s.qty||1);
+            return {
+              _localId:      s.id ? "svc-"+s.id : "svc-seed-"+i,
+              isSvc:         true,
+              medicine_name: s.svcName||s.description||s.title||"",
+              date_given:    s.svcDate||admDate,
+              quantity:      qty,
+              rate,
+              batch_no:      s.svcCode||s.code||s.cghs||"",
+              expiry_date:   "",
+              amount:        rate*qty,
+            };
+          });
+          isRecordDirtyRef.current = false;
+          setEditableRows(mapped);
+          setPersistedSvcRows(mapped);
+        }).catch(()=>{
+          if (!active) return;
+          const mapped = svcList.map((s,i)=>({
+            _localId:      s.id ? "svc-"+s.id : "svc-seed-"+i,
+            isSvc:         true,
+            medicine_name: s.svcName||s.description||s.title||"",
+            date_given:    s.svcDate||admDate,
+            quantity:      Number(s.svcQty||s.qty||1),
+            rate:          0,
+            batch_no:      s.svcCode||s.code||s.cghs||"",
+            expiry_date:   "",
+            amount:        0,
+          }));
+          isRecordDirtyRef.current = false;
+          setEditableRows(mapped);
+          setPersistedSvcRows(mapped);
+        });
       } else {
         // Restore persisted edits
         isRecordDirtyRef.current = false;
@@ -958,10 +994,10 @@ export default function BranchAdminDashboard({
               medicine_name: s.svcName || s.title || "Service",
               date_given:    (s.svcDate || admDate),
               quantity:      Number(s.svcQty  || s.qty  || 1),
-              rate:          Number(s.svcRate || s.rate || 0),
+              rate: Number(s.rate || s.svcRate || s.unit_price || s.price || 0),
               batch_no:      s.svcCode || s.code || "",
               expiry_date:   "",
-              amount:        Number(s.svcTot || s.total || (Number(s.svcRate||0)*Number(s.svcQty||1))),
+              amount: Number(s.svcTot || s.total || s.amount || (Number(s.rate||s.svcRate||0) * Number(s.svcQty||s.qty||1))),
             }));
 
           if (items.length) {
@@ -1165,7 +1201,7 @@ export default function BranchAdminDashboard({
                 reportType: s.svcCat  || "Haematology",
                 date:       String(s.svcDate || admDate).slice(0, 10),
                 orderedBy:  doctor,
-                amount:     Number(s.svcTot || s.total || (Number(s.svcRate||0) * Number(s.svcQty||1))),
+                amount: Number(s.svcTot || s.total || s.amount || (Number(s.rate||s.svcRate||0) * Number(s.svcQty||s.qty||1))),
                 remarks: "", impression: "",
                 tests: getDefaultTests(normalizeReportName(s.svcName || "")),
               };
@@ -1231,7 +1267,7 @@ export default function BranchAdminDashboard({
               reportType: s.svcCat || "Haematology",
               date: (s.svcDate || admDateFb).slice(0, 10),
               orderedBy: docFb,
-              amount: Number(s.svcTot || s.total || (Number(s.svcRate||0) * Number(s.svcQty||1))),
+              amount: Number(s.svcTot || s.total || s.amount || (Number(s.rate||s.svcRate||0) * Number(s.svcQty||s.qty||1))),
               remarks: "", impression: "", tests: [],
             })));
         }
@@ -1835,7 +1871,7 @@ export default function BranchAdminDashboard({
           cghs:        s.cghs || s.cghs_code || "—",
           medicine_name: s.svcName || s.description || "Service",
           quantity:    Number(s.svcQty  || s.qty  || 1),
-          rate:        Number(s.svcRate || s.rate || 0),
+          rate: Number(s.rate || s.svcRate || s.unit_price || s.price || 0),
           amount:      Number(s.svcTot  || s.total || (Number(s.svcRate||0) * Number(s.svcQty||1))),
         }));
 

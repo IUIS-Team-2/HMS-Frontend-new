@@ -151,8 +151,16 @@ export default function App() {
   const loadBranches = useCallback(async () => {
     try {
       const branchesResponse = await apiService.getHospitalBranches();
-      const normalizedBranches = normalizeBranches(branchesResponse);
-      if (!normalizedBranches.length) return;
+      const rawBranches = normalizeBranches(branchesResponse);
+      if (!rawBranches.length) return;
+      // Deduplicate: keep only one entry per base slug (strips suffixes like -branch)
+      const seenSlugs = new Set();
+      const normalizedBranches = rawBranches.filter(b => {
+        const slug = (b.slug || b.branch || b.code || "").replace(/-branch$/, "");
+        if (seenSlugs.has(slug)) return false;
+        seenSlugs.add(slug);
+        return true;
+      });
 
       setBranchSettings((prev) => {
         const prevSerialized = JSON.stringify(prev);

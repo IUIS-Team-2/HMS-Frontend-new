@@ -707,6 +707,32 @@ function ManualReportAdder({ isDark, accent, onAdd }) {
   );
 }
 
+
+const MGMT_SERVICE_MASTER = [
+  { name:"General Ward",            code:"RM01",  cat:"ROOM CHARGES",     rate:1500 },
+  { name:"Semi-Private Ward",       code:"RM02",  cat:"ROOM CHARGES",     rate:2500 },
+  { name:"Private Room",            code:"RM03",  cat:"ROOM CHARGES",     rate:4000 },
+  { name:"ICU",                     code:"CC001", cat:"CRITICAL CARE",    rate:5400 },
+  { name:"NICU",                    code:"CC002", cat:"CRITICAL CARE",    rate:6000 },
+  { name:"HDU",                     code:"CC003", cat:"CRITICAL CARE",    rate:4500 },
+  { name:"Ventilator Charges",      code:"CC004", cat:"CRITICAL CARE",    rate:3000 },
+  { name:"Oxygen Charges",          code:"OX001", cat:"GENERAL SERVICES", rate:500  },
+  { name:"Consultant Visit",        code:"CN001", cat:"CONSULTATION",     rate:700  },
+  { name:"Specialist Consultation", code:"CN002", cat:"CONSULTATION",     rate:1000 },
+  { name:"Operation Theatre (OT)",  code:"OT001", cat:"SURGICAL",         rate:8000 },
+  { name:"Minor OT",                code:"OT002", cat:"SURGICAL",         rate:2000 },
+  { name:"Dressing",                code:"DR001", cat:"PROCEDURE",        rate:300  },
+  { name:"IV Cannula Insertion",    code:"PR001", cat:"PROCEDURE",        rate:150  },
+  { name:"Catheterisation",         code:"PR002", cat:"PROCEDURE",        rate:400  },
+  { name:"Nebulization",            code:"PR003", cat:"PROCEDURE",        rate:200  },
+  { name:"ECG",                     code:"EC001", cat:"DIAGNOSTICS",      rate:350  },
+  { name:"Blood Transfusion",       code:"BT001", cat:"PROCEDURE",        rate:800  },
+  { name:"Physiotherapy",           code:"PT001", cat:"GENERAL SERVICES", rate:600  },
+  { name:"Diet Charges",            code:"DT001", cat:"GENERAL SERVICES", rate:250  },
+  { name:"Ambulance",               code:"AM001", cat:"GENERAL SERVICES", rate:1200 },
+  { name:"Registration Fee",        code:"RF001", cat:"GENERAL SERVICES", rate:100  },
+];
+
 // ── MAIN COMPONENT ─────────────────────────────────────────────────────────────
 export default function ManagementAdminDashboard({ currentUser, db, locId, onLogout }) {
   const { isDark } = useTheme();
@@ -762,6 +788,9 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
   const [billData,   setBillData]   = useState({});
   const [billServices, setBillServices] = useState({});
   const [newSvcRow,  setNewSvcRow]  = useState({date:"",cghs:"",desc:"",qty:1,rate:0});
+  const [svcSearch,  setSvcSearch]  = useState("");
+  const [svcSearchOpen, setSvcSearchOpen] = useState(false);
+  const svcSearchRef = useRef(null);
   const billPrintRef = useRef(null);
 
   // ── REPORTS STATE (card-based) ────────────────────────────────────────────
@@ -774,6 +803,7 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
 
   // ── DISCHARGE SUMMARY STATE (flat-fields, billing-dashboard style) ─────────
   const [showSummaryModal, setShowSummaryModal] = useState(false);
+  const [summaryTypeCache, setSummaryTypeCache] = useState({});
   const [editSumPt,        setEditSumPt]        = useState(null);
   const [summaryType,      setSummaryType]      = useState("NORMAL");
   const [summaryAdmNo,     setSummaryAdmNo]     = useState(null);
@@ -834,6 +864,33 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
     const interval = setInterval(loadTasks, 60000);
     return () => clearInterval(interval);
   }, [loadTasks]);
+
+  // Pre-fetch summary types
+  useEffect(() => {
+    const run = async () => {
+      const token = sessionStorage.getItem("hms_token") || "";
+      const pts = [...(allPatients.laxmi||[]), ...(allPatients.raya||[])];
+      const updates = {};
+      await Promise.all(pts.map(async (p) => {
+        try {
+          const admNo = String(p.admissions?.[0]?.admNo || 1).replace(/\D/g, "") || "1";
+          const res = await fetch(BASE_URL + "/patients/" + p.uhid + "/admissions/" + admNo + "/dynamic-summary/", {
+            headers: { Authorization: "Bearer " + token }
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data.summary_type) {
+              updates[p.uhid] = normalizeSummaryType(
+                data.summary_type === "REFERRED" ? "REFER" : data.summary_type
+              );
+            }
+          }
+        } catch(_) {}
+      }));
+      if (Object.keys(updates).length) setSummaryTypeCache(prev => ({ ...prev, ...updates }));
+    };
+    if (Object.keys(allPatients).some(k => (allPatients[k]||[]).length > 0)) run();
+  }, [allPatients]);
 
   useEffect(() => {
     apiService.getMedicineMaster()
@@ -938,7 +995,7 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
       });
       if (res.ok) {
         const data = await res.json();
-        if (data.is_existing && data.summary_type) initialType = normalizeSummaryType(data.summary_type === "REFERRED" ? "REFER" : data.summary_type);
+        if (data.summary_type) initialType = normalizeSummaryType(data.summary_type === "REFERRED" ? "REFER" : data.summary_type);
         if (data.content?.sections) {
           const sec = {};
           data.content.sections.forEach(s => {
@@ -986,6 +1043,7 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
       pa:    d.pa   ||mh.pa   ||"",
     });
     setSummaryType(initialType);
+    setSummaryTypeCache(prev => ({ ...prev, [p.uhid]: initialType }));
 
     setShowSummaryModal(true);
   };
@@ -1014,6 +1072,7 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
           notes:editDisFields.notes, doctorName:editDisFields.doctor,
         }
       }));
+      setSummaryTypeCache(prev => ({ ...prev, [editSumPt.uhid]: summaryType }));
       toast("Discharge summary saved"); setShowSummaryModal(false); setEditSumPt(null);
     } catch { toast("Failed to save discharge summary","err"); }
     finally { setSummarySaving(false); }
@@ -1332,7 +1391,7 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
   // ── RENDER HELPERS ────────────────────────────────────────────────────────
   const Badge        = ({col,children})=>(<span className="hms-badge" style={{background:`${col}20`,color:col,borderColor:`${col}40`}}>{children}</span>);
   const Pill         = ({col,bg,children,small})=>(<span className={small?"hms-pill-sm":"hms-pill"} style={{background:bg||`${col}20`,color:col,borderColor:`${col}40`}}>{children}</span>);
-  const SummaryPill  = ({type,p})=>{ const raw=type||(p?.admissions?.[0]?.discharge?.dischargeStatus)||"NORMAL"; const key=normalizeSummaryType(raw); const m=SUMMARY_META[key]||{color:"#6b7280",bg:"#6b728018"}; return <Pill col={m.color} bg={m.bg}><span className="hms-pill-dot" style={{background:m.color}}/>{SUMMARY_LABELS[key]||"Normal"}</Pill>; };
+  const SummaryPill  = ({type,p})=>{ const cached=p?.uhid?summaryTypeCache[p.uhid]:null; const raw=cached||type||(p?.admissions?.[0]?.discharge?.dischargeStatus)||"NORMAL"; const key=normalizeSummaryType(raw); const m=SUMMARY_META[key]||{color:"#6b7280",bg:"#6b728018"}; return <Pill col={m.color} bg={m.bg}><span className="hms-pill-dot" style={{background:m.color}}/>{SUMMARY_LABELS[key]||"Normal"}</Pill>; };
   const StatusPill   = ({s})=>{ const m=TASK_STATUS_META[s]||{color:"#6b7280",bg:"#6b728018"}; return <Pill col={m.color} bg={m.bg}>{s}</Pill>; };
   const PriorityPill = ({p})=>{ const m=TASK_PRIORITY_META[p]||{color:"#6b7280",bg:"#6b728018"}; return <Pill small col={m.color} bg={m.bg}>{p}</Pill>; };
   const ActionBtn    = ({col,onClick,children})=><button className="hms-action-btn" style={{borderColor:`${col}40`,color:col}} onClick={onClick}>{children}</button>;
@@ -1763,7 +1822,47 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
                       {Array.from({length:Math.max(0,6-services.length)}).map((_,i)=><tr key={`e-${i}`}><td>&nbsp;</td><td/><td/><td/><td/><td/><td/></tr>)}
                     </tbody>
                   </table>
-                  {/* Add service row */}
+                  {/* Service master search */}
+                  <div ref={svcSearchRef} style={{position:"relative",marginBottom:8}} className="no-print">
+                    <input
+                      value={svcSearch}
+                      placeholder="🔍 Search service master (ICU, OT, General Ward…) or fill manually below"
+                      onChange={e=>{setSvcSearch(e.target.value);setSvcSearchOpen(true);}}
+                      onFocus={()=>setSvcSearchOpen(true)}
+                      style={{width:"100%",boxSizing:"border-box",padding:"8px 12px",borderRadius:7,border:`1px solid ${isDark?"#1a2540":"#c7d5eb"}`,fontSize:12,outline:"none",background:isDark?"#080c18":"#f8faff",color:isDark?"#e2e8f0":"#0f172a",fontFamily:"inherit"}}
+                    />
+                    {svcSearchOpen&&(()=>{
+                      const q=svcSearch.trim().toLowerCase();
+                      const filtered=q?MGMT_SERVICE_MASTER.filter(s=>s.name.toLowerCase().includes(q)||s.code.toLowerCase().includes(q)).slice(0,20):MGMT_SERVICE_MASTER.slice(0,20);
+                      return (
+                        <div style={{position:"absolute",top:"calc(100% + 4px)",left:0,right:0,zIndex:9999,maxHeight:260,overflowY:"auto",background:isDark?"#0f172a":"#fff",border:`1px solid ${isDark?"#1e293b":"#c7d5eb"}`,borderRadius:10,boxShadow:"0 12px 32px rgba(0,0,0,0.2)"}}>
+                          {filtered.map((svc,si)=>(
+                            <div key={si}
+                              onClick={()=>{
+                                const key=getBillKey(p.uhid,adm.admNo);
+                                setBillServices(prev=>({...prev,[key]:[...(prev[key]||[]),{id:Date.now(),date:new Date().toISOString().slice(0,10),cghs:svc.code,desc:svc.name,qty:1,rate:svc.rate}]}));
+                                setSvcSearch("");setSvcSearchOpen(false);
+                              }}
+                              style={{padding:"9px 14px",cursor:"pointer",borderBottom:`1px solid ${isDark?"#1e293b":"#f1f5f9"}`,fontSize:13,display:"flex",justifyContent:"space-between",alignItems:"center"}}
+                              onMouseEnter={e=>e.currentTarget.style.background=isDark?"#1e293b":"#f0f9ff"}
+                              onMouseLeave={e=>e.currentTarget.style.background=""}>
+                              <span><strong>{svc.name}</strong> <span style={{fontSize:11,color:"#94a3b8"}}>({svc.code}) · {svc.cat}</span></span>
+                              <span style={{fontSize:12,color:"#059669",fontWeight:700}}>₹{svc.rate}</span>
+                            </div>
+                          ))}
+                          {svcSearch.trim()&&!MGMT_SERVICE_MASTER.some(s=>s.name.toLowerCase()===svcSearch.trim().toLowerCase())&&(
+                            <div onClick={()=>{setNewSvcRow(f=>({...f,desc:svcSearch.trim()}));setSvcSearch("");setSvcSearchOpen(false);}}
+                              style={{padding:"9px 14px",cursor:"pointer",fontSize:13,fontWeight:700,color:"#3b82f6",background:"#eff6ff",borderTop:"1px solid #bfdbfe"}}
+                              onMouseEnter={e=>e.currentTarget.style.background="#dbeafe"}
+                              onMouseLeave={e=>e.currentTarget.style.background="#eff6ff"}>
+                              + Use "{svcSearch.trim()}" as custom description
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                  {/* Add service row — manual */}
                   <div className="bill-add-svc-row no-print">
                     <input placeholder="Description *" value={newSvcRow.desc||""} onChange={e=>setNewSvcRow(f=>({...f,desc:e.target.value}))} style={{flex:2}}/>
                     <input type="date" value={newSvcRow.date||""} onChange={e=>setNewSvcRow(f=>({...f,date:e.target.value}))} style={{flex:1}}/>
