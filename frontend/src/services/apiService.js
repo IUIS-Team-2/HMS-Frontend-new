@@ -262,7 +262,13 @@ export const apiService = {
 
     getLabReports: async (uhid, admNo) => {
         const response = await axios.get(`${BASE_URL}/patients/${uhid}/admissions/${admNo}/lab-reports/`);
-        return response.data;
+        const data = response.data;
+        // Handle both array and paginated object responses
+        if (Array.isArray(data)) return data;
+        if (data?.results) return data.results;
+        if (data?.reports) return data.reports;
+        if (data?.lab_reports) return data.lab_reports;
+        return [];
     },
 
     getLabReportTemplates: async (uhid, admNo) => {

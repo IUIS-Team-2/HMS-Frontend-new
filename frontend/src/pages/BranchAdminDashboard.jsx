@@ -1646,23 +1646,7 @@ export default function BranchAdminDashboard({
     const selectedDischarge = selectedAdmission.discharge || {};
     const selectedMedical = selectedAdmission.medicalHistory || {};
 
-    const canEditRecords = (() => {
-      const raw = String(
-        selectedAdmission?.billing?.paymentMode ||
-        selectedAdmission?.billing?.payment_mode ||
-        selectedAdmission?.billing?.bill_type ||
-        selPatient?.paymentMode ||
-        selPatient?.patientObj?.payMode ||
-        selPatient?.patientObj?.pay_mode ||
-        ""
-      ).toLowerCase().trim();
-      const isCashless =
-        raw.includes("cashless") ||
-        raw.includes("tpa") ||
-        raw.includes("card") ||
-        raw.includes("insurance");
-      return !isCashless;
-    })();
+    const canEditRecords = selPatient?.paymentMode === "cash";
 
     const updateEditableField = (rowIdx, field, value) => {
       setIsRecordDirty(true);

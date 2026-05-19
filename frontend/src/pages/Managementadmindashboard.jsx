@@ -865,32 +865,6 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
     return () => clearInterval(interval);
   }, [loadTasks]);
 
-  // Pre-fetch summary types
-  useEffect(() => {
-    const run = async () => {
-      const token = sessionStorage.getItem("hms_token") || "";
-      const pts = [...(allPatients.laxmi||[]), ...(allPatients.raya||[])];
-      const updates = {};
-      await Promise.all(pts.map(async (p) => {
-        try {
-          const admNo = String(p.admissions?.[0]?.admNo || 1).replace(/\D/g, "") || "1";
-          const res = await fetch(BASE_URL + "/patients/" + p.uhid + "/admissions/" + admNo + "/dynamic-summary/", {
-            headers: { Authorization: "Bearer " + token }
-          });
-          if (res.ok) {
-            const data = await res.json();
-            if (data.summary_type) {
-              updates[p.uhid] = normalizeSummaryType(
-                data.summary_type === "REFERRED" ? "REFER" : data.summary_type
-              );
-            }
-          }
-        } catch(_) {}
-      }));
-      if (Object.keys(updates).length) setSummaryTypeCache(prev => ({ ...prev, ...updates }));
-    };
-    if (Object.keys(allPatients).some(k => (allPatients[k]||[]).length > 0)) run();
-  }, [allPatients]);
 
   useEffect(() => {
     apiService.getMedicineMaster()
