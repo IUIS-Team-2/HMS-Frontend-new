@@ -145,6 +145,10 @@ export const apiService = {
         return response.data;
     },
 
+    printMedicalHistory: (uhid, admNo) => {
+        window.open(`${BASE_URL}/patients/${uhid}/admissions/${admNo}/medical-history/print/`, "_blank");
+    },
+
     updateMedicalHistory: async (uhid, admNo, medicalData) => {
     const response = await axios.patch(
         `${BASE_URL}/patients/${uhid}/update_medical/`,

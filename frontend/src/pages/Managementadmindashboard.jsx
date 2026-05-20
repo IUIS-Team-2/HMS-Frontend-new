@@ -5,6 +5,7 @@ import { apiService, BASE_URL } from "../services/apiService";
 import { useTheme } from "../context/ThemeContext";
 import ThemeModeDock from "../components/ui/ThemeModeDock";
 import UpdateRecordsPanel from "../components/admin/UpdateRecordsPanel";
+import MedicalHistoryPage from "./MedicalHistoryPage";
 import {
   Home, Users, DoorOpen, Pill, ClipboardList, CreditCard,
   CheckSquare, BarChart3, Building2, UserRound, Hospital,
@@ -239,6 +240,7 @@ const NAV = [
   { id:"billing",     label:"Billing",        icon:CreditCard },
   { id:"tasks",       label:"Task Manager",   icon:CheckSquare },
   { id:"taskreport",  label:"Task Report",    icon:BarChart3 },
+  { id:"medhistory",  label:"Medical History", icon:Hospital },
   { id:"records",     label:"Update Records", icon:AlertTriangle },
   { id:"departments", label:"Departments",    icon:Building2 },
   { id:"employees",   label:"Employees",      icon:Users },
@@ -824,6 +826,8 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
   const [medSearch,      setMedSearch]      = useState("");
   const [medicineMaster, setMedicineMaster] = useState([]);
   const [showMedModal,   setShowMedModal]   = useState(false);
+  const [selectedMedPt,  setSelectedMedPt]  = useState(null);
+  const [medHistData,    setMedHistData]     = useState({});
   const [editMedPt,      setEditMedPt]      = useState(null);
 
   const toast = (msg,type="ok") => { setNotif({msg,type}); setTimeout(()=>setNotif(null),3200); };
@@ -1575,6 +1579,116 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
     );
   };
 
+  // ── PAGE: MEDICAL HISTORY ───────────────────────────────────────────────────
+  const renderMedHistory = () => {
+    const handleOpenMedPt = (p) => {
+      const adm = p.admissions?.[0] || {};
+      setMedHistData(adm.medicalHistory || p.medicalHistory || {});
+      setSelectedMedPt(p);
+    };
+
+    const handleSaveMed = async () => {
+      if (!selectedMedPt) return;
+      const admNo = String(resolveAdmNo(selectedMedPt));
+      try {
+        await apiService.updateMedicalHistory(selectedMedPt.uhid, admNo, medHistData);
+        const branchKey = selectedMedPt._branch || viewBranch;
+        updatePatient(branchKey, selectedMedPt.uhid, p => ({
+          ...p,
+          admissions: (p.admissions || []).map((a, i) =>
+            i === 0 ? { ...a, medicalHistory: medHistData } : a
+          ),
+        }));
+        toast("Medical history saved");
+        setSelectedMedPt(null);
+      } catch { toast("Failed to save", "err"); }
+    };
+
+    if (selectedMedPt) {
+      return (
+        <div>
+          <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:16 }}>
+            <button onClick={() => setSelectedMedPt(null)}
+              style={{ padding:"7px 16px", borderRadius:8, border:"1px solid #1e2a3a", background:"transparent", color:"#64748b", cursor:"pointer", fontSize:13, fontWeight:600 }}>
+              Back to List
+            </button>
+            <div style={{ fontSize:14, fontWeight:700 }}>{selectedMedPt.patientName || selectedMedPt.name}</div>
+            <span className="hms-role-badge">{selectedMedPt.uhid}</span>
+            <button
+              onClick={() => apiService.printMedicalHistory(selectedMedPt.uhid, String(resolveAdmNo(selectedMedPt)))}
+              style={{ marginLeft:"auto", padding:"7px 16px", borderRadius:8, background:`linear-gradient(135deg,${accent},${accent}cc)`, color:"#fff", border:"none", cursor:"pointer", fontSize:12, fontWeight:700, display:"flex", alignItems:"center", gap:6 }}>
+              <Printer size={13}/> Print Medical History
+            </button>
+          </div>
+          <MedicalHistoryPage
+            data={medHistData}
+            setData={setMedHistData}
+            onSave={handleSaveMed}
+            onSkip={() => setSelectedMedPt(null)}
+            patient={selectedMedPt}
+            discharge={selectedMedPt.admissions?.[0]?.discharge}
+            locId={selectedMedPt._branch || viewBranch}
+          />
+        </div>
+      );
+    }
+
+    const withMed = locationPatients.filter(p => {
+      const mh = p.admissions?.[0]?.medicalHistory || p.medicalHistory || {};
+      return Object.values(mh).some(v => v);
+    });
+
+    return (
+      <div>
+        <BranchHeader title="Medical History" />
+        <div style={{ display:"flex", gap:10, flexWrap:"wrap", marginBottom:16 }}>
+          {[
+            { label:"With History",   val:withMed.length,                           col:"#34d399" },
+            { label:"Total Patients", val:locationPatients.length,                  col:accent },
+            { label:"Pending Fill",   val:locationPatients.length - withMed.length, col:"#f59e0b" },
+          ].map((s, i) => (
+            <div key={i} className="hms-stat-card" style={{ padding:"10px 14px", border:"1px solid " + s.col + "18" }}>
+              <div className="hms-stat-num" style={{ fontSize:18, color:s.col }}>{s.val}</div>
+              <div className="hms-stat-label">{s.label}</div>
+            </div>
+          ))}
+        </div>
+        <div className="hms-card">
+          <TableWrap heads={["Patient","UHID","Age/Gender","Doctor","Adm Date","Diagnosis","History Status","Action"]}>
+            {locationPatients.length === 0
+              ? <tr><td colSpan={8}><div className="hms-empty">No patients for {bc.label}.</div></td></tr>
+              : locationPatients.map((p, i) => {
+                  const adm    = p.admissions?.[0] || {};
+                  const mh     = adm.medicalHistory || p.medicalHistory || {};
+                  const hasMed = Object.values(mh).some(v => v);
+                  return (
+                    <tr key={i}>
+                      <Td hi>{p.patientName || p.name}</Td>
+                      <Td mono>{p.uhid}</Td>
+                      <Td sm>{p.ageYY || p.age}y / {p.gender}</Td>
+                      <Td sm>{adm.discharge?.doctorName || "—"}</Td>
+                      <Td sm>{fmtDt(adm.dateTime)}</Td>
+                      <Td>{adm.discharge?.diagnosis || p.dischargeSummary?.diagnosis || "—"}</Td>
+                      <Td>
+                        <Badge col={hasMed ? "#34d399" : "#f59e0b"}>
+                          {hasMed ? "Filled" : "Not Filled"}
+                        </Badge>
+                      </Td>
+                      <Td>
+                        <ActionBtn col={accent} onClick={() => handleOpenMedPt(p)}>
+                          {hasMed ? "Edit" : "Add"} History
+                        </ActionBtn>
+                      </Td>
+                    </tr>
+                  );
+                })
+            }
+          </TableWrap>
+        </div>
+      </div>
+    );
+  };
+
   // ── PAGE: REPORTS (billing-dashboard card style) ──────────────────────────
   const renderReports = () => (
     <div>
@@ -2140,6 +2254,7 @@ export default function ManagementAdminDashboard({ currentUser, db, locId, onLog
       case "billing":     return renderBilling();
       case "tasks":       return renderTasks();
       case "taskreport":  return renderTaskReport();
+      case "medhistory":  return renderMedHistory();
       case "records":     return <UpdateRecordsPanel roleLabel="Office Admin"/>;
       case "departments": return renderDepartments();
       case "employees":   return renderEmployees();

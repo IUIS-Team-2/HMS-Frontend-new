@@ -452,7 +452,17 @@ if (doctorsResult.status === "fulfilled") {
     const { admissions, ...pd } = existing;
     const resolvedType = admissionType || admissions?.[admissions.length - 1]?.admissionType || "IPD";
     setSelectedAdmissionType(resolvedType);
-    setPatient(pd);
+    setPatient({
+      ...pd,
+      payMode: existing.payMode || "",
+      cashlessType: existing.cashlessType || "",
+      tpa: existing.tpa || "",
+      tpaCard: existing.tpaCard || "",
+      tpaValidity: existing.tpaValidity || "",
+      tpaCardType: existing.tpaCardType || "",
+      tpaPanelCardNo: existing.tpaPanelCardNo || "",
+      tpaPanelValidity: existing.tpaPanelValidity || "",
+    });
     setUhid(existing.uhid);
     setAdmNo(admissions?.length ? admissions.length + 1 : 2);
     setIsReturning(true);
@@ -463,7 +473,17 @@ if (doctorsResult.status === "fulfilled") {
   const handleDischargeFromHistory = (patientObj, admObj) => {
     const { admissions, ...pd } = patientObj;
     setSelectedAdmissionType(admObj.admissionType || "IPD");
-    setPatient(pd);
+    setPatient({
+      ...pd,
+      payMode: patientObj.payMode || "",
+      cashlessType: patientObj.cashlessType || "",
+      tpa: patientObj.tpa || "",
+      tpaCard: patientObj.tpaCard || "",
+      tpaValidity: patientObj.tpaValidity || "",
+      tpaCardType: patientObj.tpaCardType || "",
+      tpaPanelCardNo: patientObj.tpaPanelCardNo || "",
+      tpaPanelValidity: patientObj.tpaPanelValidity || "",
+    });
     setUhid(patientObj.uhid);
     setAdmNo(admObj.admNo);
     setIsReturning(true);
@@ -482,7 +502,17 @@ if (doctorsResult.status === "fulfilled") {
   const handleMedicalFromHistory = (patientObj, admObj) => {
     const { admissions, ...pd } = patientObj;
     setSelectedAdmissionType(admObj.admissionType || "IPD");
-    setPatient(pd);
+    setPatient({
+      ...pd,
+      payMode: patientObj.payMode || "",
+      cashlessType: patientObj.cashlessType || "",
+      tpa: patientObj.tpa || "",
+      tpaCard: patientObj.tpaCard || "",
+      tpaValidity: patientObj.tpaValidity || "",
+      tpaCardType: patientObj.tpaCardType || "",
+      tpaPanelCardNo: patientObj.tpaPanelCardNo || "",
+      tpaPanelValidity: patientObj.tpaPanelValidity || "",
+    });
     setUhid(patientObj.uhid);
     setAdmNo(admObj.admNo);
     setIsReturning(true);
@@ -500,7 +530,17 @@ if (doctorsResult.status === "fulfilled") {
   const handleGenerateBillFromHistory = (patientObj, admObj) => {
     const { admissions, ...pd } = patientObj;
     setSelectedAdmissionType(admObj.admissionType || "IPD");
-    setPatient(pd);
+    setPatient({
+      ...pd,
+      payMode: patientObj.payMode || "",
+      cashlessType: patientObj.cashlessType || "",
+      tpa: patientObj.tpa || "",
+      tpaCard: patientObj.tpaCard || "",
+      tpaValidity: patientObj.tpaValidity || "",
+      tpaCardType: patientObj.tpaCardType || "",
+      tpaPanelCardNo: patientObj.tpaPanelCardNo || "",
+      tpaPanelValidity: patientObj.tpaPanelValidity || "",
+    });
     setUhid(patientObj.uhid);
     setAdmNo(admObj.admNo);
     setIsReturning(true);
@@ -1048,6 +1088,7 @@ if (doctorsResult.status === "fulfilled") {
                 onSubmit={handleRegister}
                 errs={errs}
                 onBack={() => setSubPage("search")}
+                isReturning={isReturning}
               />
             )}
             {page === "patient" && showUHID && (

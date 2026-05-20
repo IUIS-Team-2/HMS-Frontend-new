@@ -2,7 +2,7 @@ import { T, GENDERS, MARITAL, BLOOD_GRP, TPA_LIST, TPA_CARD_TYPES } from "../dat
 import { Ico, IC } from "../components/ui/Icons";
 import { Card, Inp, Sel, Txta, Field } from "../components/ui/SharedUI";
 
-export default function PatientFormPage({data, setData, onSubmit, errs, onBack}) {
+export default function PatientFormPage({data, setData, onSubmit, errs, onBack, isReturning}) {
   const set = k => e => setData(p => ({ ...p, [k]: e.target.value }));
   const setVal = k => v => setData(p => ({ ...p, [k]: v }));
   const setAadhaar = (e) => {
@@ -65,7 +65,14 @@ export default function PatientFormPage({data, setData, onSubmit, errs, onBack})
       </Card>
 
       <Card icon={IC.shield} title="Payment Panel" subtitle="Select payment mode for this admission" delay={0.12}>
-        <div style={{ display: "flex", gap: 12, marginBottom: 24 }}>
+        
+<div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 24 }}>
+  {isReturning && payMode && (
+    <div style={{ background: "#f0f9ff", border: "1.5px solid #bae6fd", borderRadius: 10, padding: "10px 14px", fontSize: 12, color: "#0369a1", fontWeight: 600 }}>
+      ℹ️ Previous admission was <strong>{payMode === "cash" ? "💵 Cash" : "🏥 Cashless"}</strong> — you can change it for this admission
+    </div>
+  )}
+  <div style={{ display: "flex", gap: 12 }}>
           <button onClick={() => { setVal("payMode")("cash"); setData(p => ({ ...p, payMode: "cash", cashlessType: "", tpa: "", tpaCard: "", tpaValidity: "", tpaCardType: "", tpaPanelCardNo: "", tpaPanelValidity: "" })); }}
             style={{ flex: 1, padding: "14px 12px", borderRadius: 12, border: `2px solid ${payMode === "cash" ? T.green : T.border}`, background: payMode === "cash" ? T.greenTint : T.white, cursor: "pointer", transition: "all .15s" }}>
             <div style={{ fontSize: 22, marginBottom: 6 }}>💵</div>
@@ -78,6 +85,7 @@ export default function PatientFormPage({data, setData, onSubmit, errs, onBack})
             <div style={{ fontWeight: 700, fontSize: 14, color: payMode === "cashless" ? T.accentDeep : T.text }}>Cashless</div>
             <div style={{ fontSize: 12, color: T.textMuted, marginTop: 2 }}>Insurance / Panel card</div>
           </button>
+  </div>
         </div>
 
         {payMode === "cash" && (

@@ -398,7 +398,7 @@ const PDF_DOC_TYPES = [
   { key:"final_bill",        label:"Final Bill",        icon:"🧾" },
 ];
 
-const isRadiologyType = (rt = "", billCat = "") => RADIOLOGY_REPORT_TYPES.includes(rt) || String(billCat).toUpperCase() === "RADIOLOGY";
+const isRadiologyType = (rt = "") => RADIOLOGY_REPORT_TYPES.includes(rt);
 const fmtRs = n => "₹" + Number(n || 0).toLocaleString("en-IN");
 const fmtDt = d => d ? new Date(d).toLocaleDateString("en-IN", { day:"2-digit", month:"short", year:"numeric" }) : "—";
 const initials = name => (name || "?").trim().split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
@@ -501,7 +501,9 @@ function PathologyReportCard({ rep, ri, patientName, updRep, updTest, addTest, d
             style={{ background:"transparent", border:"none", borderBottom:`1.5px solid ${readOnly?"transparent":"rgba(255,255,255,.3)"}`, outline:"none", color:"#fff", fontFamily:"inherit", fontSize:17, fontWeight:700, width:"100%", paddingBottom:3 }}/>
           <div style={{ display:"flex", gap:18, flexWrap:"wrap", marginTop:10, fontSize:12, color:"rgba(255,255,255,.7)", alignItems:"center" }}>
             <span>👤 <strong style={{ color:"#fff" }}>{patientName||"—"}</strong></span>
-            <span>Dept:&nbsp;<select value={rep.reportType} onChange={e => updRep(ri,"reportType",e.target.value)} disabled={readOnly} style={{ background:"transparent", border:"none", borderBottom:"1px solid rgba(255,255,255,.3)", outline:"none", color:"rgba(255,255,255,.85)", fontFamily:"inherit", fontSize:12 }}>{PATHOLOGY_REPORT_TYPES.map(t => <option key={t} value={t} style={{ background:"#0f172a" }}>{t}</option>)}</select></span>
+            <span>Dept:&nbsp;
+              
+            </span>
             <span>Date:&nbsp;<input type="date" value={rep.date} onChange={e => updRep(ri,"date",e.target.value)} disabled={readOnly} style={{ background:"transparent", border:"none", borderBottom:"1px solid rgba(255,255,255,.3)", outline:"none", color:"rgba(255,255,255,.7)", fontFamily:"inherit", fontSize:12 }}/></span>
             <span>Ref.by:&nbsp;<input value={rep.orderedBy} placeholder="Doctor" onChange={e => updRep(ri,"orderedBy",e.target.value)} disabled={readOnly} style={{ background:"transparent", border:"none", borderBottom:"1px solid rgba(255,255,255,.3)", outline:"none", color:"rgba(255,255,255,.7)", fontFamily:"inherit", fontSize:12, width:140 }}/></span>
           </div>
@@ -599,17 +601,44 @@ function RadiologyReportCard({ rep, ri, patientName, updRep, onRemove, readOnly 
 
 // ─── AdmissionNoteForm ────────────────────────────────────────────────────────
 function AdmissionNoteForm({ eMed, setEMed, readOnly }) {
-  const setE = k => e => !readOnly && setEMed(p => ({ ...p, [k]: e.target.value }));
+  const refs = React.useRef({});
+
+  // On mount only — set defaultValues via refs, no state = no re-renders
+  const collectAndFlush = React.useCallback(() => {
+    const out = {};
+    Object.entries(refs.current).forEach(([k, el]) => {
+      if (el) out[k] = el.value;
+    });
+    setEMed(prev => ({ ...prev, ...out }));
+  }, [setEMed]);
+
+  // Expose flush so parent Save button can call it
+  React.useEffect(() => {
+    setEMed._flush = collectAndFlush;
+  });
+
   const inp = (label, key, placeholder) => (
     <div>
       <label style={{ fontSize:10, fontWeight:700, color:"var(--text-muted)", textTransform:"uppercase", letterSpacing:".06em", display:"block", marginBottom:5 }}>{label}</label>
-      <input placeholder={placeholder} value={eMed?.[key]||""} onChange={setE(key)} disabled={readOnly} style={{ fontFamily:"inherit", fontSize:13, color:"var(--text)", background:readOnly?"transparent":"var(--surface-2)", border:readOnly?"1px solid var(--border)":"1.5px solid var(--border)", borderRadius:8, padding:"9px 12px", width:"100%", outline:"none", boxSizing:"border-box" }}/>
+      <input
+        placeholder={placeholder}
+        defaultValue={eMed?.[key]||""}
+        disabled={readOnly}
+        ref={el => { refs.current[key] = el; }}
+        onChange={() => {}}
+        style={{ fontFamily:"inherit", fontSize:13, color:"var(--text)", background:readOnly?"transparent":"var(--surface-2)", border:readOnly?"1px solid var(--border)":"1.5px solid var(--border)", borderRadius:8, padding:"9px 12px", width:"100%", outline:"none", boxSizing:"border-box" }}/>
     </div>
   );
   const txa = (label, key, placeholder, rows=3) => (
     <div>
       <label style={{ fontSize:10, fontWeight:700, color:"var(--text-muted)", textTransform:"uppercase", letterSpacing:".06em", display:"block", marginBottom:5 }}>{label}</label>
-      <textarea placeholder={placeholder} value={eMed?.[key]||""} onChange={setE(key)} disabled={readOnly} rows={rows} style={{ fontFamily:"inherit", fontSize:13, color:"var(--text)", background:readOnly?"transparent":"var(--surface-2)", border:"1.5px solid var(--border)", borderRadius:8, padding:"9px 12px", width:"100%", outline:"none", resize:"vertical", boxSizing:"border-box" }}/>
+      <textarea
+        placeholder={placeholder}
+        defaultValue={eMed?.[key]||""}
+        disabled={readOnly}
+        ref={el => { refs.current[key] = el; }}
+        rows={rows}
+        style={{ fontFamily:"inherit", fontSize:13, color:"var(--text)", background:readOnly?"transparent":"var(--surface-2)", border:"1.5px solid var(--border)", borderRadius:8, padding:"9px 12px", width:"100%", outline:"none", resize:"vertical", boxSizing:"border-box" }}/>
     </div>
   );
   const SBlock = ({ icon, title, children, cols = 2 }) => (
@@ -1028,7 +1057,7 @@ const CSS = `
   .hod-dept-icon-wrap { width:36px; height:36px; border-radius:9px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
 
   .hod-work-root { flex:1; display:flex; flex-direction:column; overflow:hidden; min-width:0; min-height:0; }
-  .hod-work-content { flex:1; overflow-y:auto; min-width:0; min-height:0; overscroll-behavior:contain; padding:22px 26px; }
+  .hod-work-content { flex:1; overflow-y:auto; min-width:0; min-height:0; overscroll-behavior:contain; padding:22px 26px; overflow-anchor:auto; }
   .hod-checklist { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:18px 20px; margin-bottom:16px; }
   .hod-checklist-steps { display:flex; align-items:center; margin-bottom:16px; }
   .hod-step { display:flex; align-items:center; gap:8px; flex:1; min-width:0; padding:9px 10px; border-radius:9px; cursor:pointer; transition:.13s; }
@@ -1183,6 +1212,9 @@ const [medicineMaster, setMedicineMaster] = useState([]);
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [submitTarget,    setSubmitTarget]    = useState(null);
   const [submitNote,      setSubmitNote]      = useState("");
+  const [showEditModal,   setShowEditModal]   = useState(false);
+  const [editTask,        setEditTask]        = useState(null);
+  const [editForm,        setEditForm]        = useState({ priority:"Medium", due_date:"", notes:"" });
 
   // Filters
   const [filterStatus,   setFilterStatus]   = useState("");
@@ -1380,11 +1412,7 @@ const [medicineMaster, setMedicineMaster] = useState([]);
     setReviewRating(5);
     setReviewOverallNote("");
     setReviewEditMode({});
-    setReviewSectionOpen({ discharge:true, admission:true, reports:true, medicines:true, billing:true });
-    setTimeout(() => {
-      const modal = document.querySelector('.hod-modal-xl');
-      if (modal) modal.scrollTop = 0;
-    }, 100);
+    setReviewSectionOpen({ discharge:true, admission:false, reports:false, medicines:false, billing:false });
 
     const uhid   = task.patient_uhid  || task.patientId || "";
     let admNo    = Number(task.adm_no || task.admNo) || null;
@@ -1398,14 +1426,6 @@ const [medicineMaster, setMedicineMaster] = useState([]);
     if (admNo == null || !Number.isFinite(admNo) || admNo <= 0) {
       admNo = resolveAdmissionNoFromPatient(fullPatient);
     }
-
-    // Pre-fetch canonical data early so all prefills are complete
-    let earlyCanonical = {};
-    try {
-      if (admNo) earlyCanonical = await apiService.getCanonicalRecords(uhid, admNo);
-    } catch {}
-    if (earlyCanonical?.discharge) fullPatient = { ...fullPatient, discharge: { ...(fullPatient.discharge||{}), ...earlyCanonical.discharge } };
-    if (earlyCanonical?.medical)   fullPatient = { ...fullPatient, medicalHistory: { ...(fullPatient.medicalHistory||{}), ...earlyCanonical.medical } };
     const admission = pickAdmissionRecord(fullPatient, admNo);
     const nestedMed = admission?.medicalHistory || {};
     const nestedDis = admission?.discharge || {};
@@ -1417,7 +1437,6 @@ const [medicineMaster, setMedicineMaster] = useState([]);
     try {
       const admForApi = admNo != null && admNo > 0 ? admNo : null;
       const summType = String(nestedDis?.dischargeStatus || "NORMAL").toUpperCase();
-      console.log("🔍 HOD Review — uhid:", uhid, "admNo:", admForApi);
       const [labRes, pharRes, summRes] = await Promise.allSettled([
         admForApi ? apiService.getLabReports(uhid, admForApi).catch(() => []) : Promise.resolve([]),
         admForApi ? apiService.getPharmacyRecords(uhid, admForApi).catch(() => []) : Promise.resolve([]),
@@ -1429,73 +1448,26 @@ const [medicineMaster, setMedicineMaster] = useState([]);
         try { canonicalData = await apiService.getCanonicalRecords(uhid, admForApi); } catch { canonicalData = {}; }
       }
 
-      const dis  = { ...nestedDis, ...(earlyCanonical?.discharge || {}), ...(canonicalData?.discharge || {}) };
-      const med  = { ...nestedMed, ...(earlyCanonical?.medical || {}), ...(canonicalData?.medical || {}) };
+      const dis  = { ...nestedDis, ...(canonicalData?.discharge || {}) };
+      const med  = { ...nestedMed, ...(canonicalData?.medical || {}) };
       const labs = Array.isArray(labRes.value)  ? labRes.value  : [];
       const phar = Array.isArray(pharRes.value) ? pharRes.value : [];
-      console.log("🔍 labRes.status:", labRes.status, "labRes.value RAW:", JSON.stringify(labRes.value));
-      console.log("🔍 labs:", labs, "length:", labs.length);
-      console.log("🔍 fullPatient keys:", Object.keys(fullPatient||{}));
-      console.log("🔍 admission FULL:", JSON.stringify(admission||{}));
-      console.log("🔍 fullPatient FULL:", JSON.stringify(fullPatient||{}));
+      const bill = { ...nestedBill, ...(canonicalData?.billing || {}) };
       const summ = summRes.value;
 
-      // Normalize a single raw lab report row from any source
-      const normalizeLabRow = (r) => {
-        const rawName = r.reportName||r.report_name||r.name||r.test_name||"Report";
-        const _billCat = String(r.billCategory||r.bill_category||r.billcategory||"").toUpperCase();
-        const _repType = r.reportType||r.report_type||r.category||r.type||"Haematology";
-        const _isRad   = _billCat==="RADIOLOGY" || RADIOLOGY_REPORT_TYPES.includes(_repType);
-        const rawTests = r.tests||r.table_data||r.test_rows||[];
-        return {
-          id: r.id||Date.now()+Math.random(),
-          reportName: rawName,
-          reportType: _repType,
-          billCategory: _isRad ? "RADIOLOGY" : "PATHOLOGY",
-          date: r.date||r.report_date||r.test_date||new Date().toISOString().slice(0,10),
-          orderedBy: r.orderedBy||r.ordered_by||r.doctor_name||"",
-          amount: Number(r.amount||r.rate||r.price||0),
-          remarks: r.remarks||r.interpretation||r.finding||r.observation||"",
-          findings: r.findings||"",
-          impression: r.impression||r.conclusion||"",
-          tests: Array.isArray(rawTests) && rawTests.length
-            ? rawTests.map(t => ({ id:t.id||Date.now()+Math.random(), name:t.name||t.test_name||"", value:t.value||t.result||"", unit:t.unit||"", refRange:t.refRange||t.normal||t.reference_range||"", status:t.status||"Normal" }))
-            : [{ id:Date.now()+Math.random(), name:"", value:"", unit:"", refRange:"", status:"Normal" }],
-        };
-      };
-
-      // Source 1: API lab-reports endpoint
-      const fromApi = labs.map(normalizeLabRow);
-
-      // Source 2: Services with lab/radiology category (same as BranchAdmin)
-      const labCategories = ['path','lab','bio','haem','micro','sero','histo','radiology','x-ray','xray','scan','echo','usg','mri','ct','ecg'];
-      const existingNames = new Set(fromApi.map(r => (r.reportName||"").toLowerCase().trim()));
-      const fromSvc = nestedSvc
-        .filter(s => {
-          const cat = (s.category||s.svcCat||s.type||"").toLowerCase();
-          return labCategories.some(k => cat.includes(k));
-        })
-        .filter(s => s.name && !existingNames.has((s.name||"").toLowerCase().trim()))
-        .map(s => normalizeLabRow({
-          reportName: s.name,
-          reportType: s.category||s.svcCat||"Haematology",
-          date: s.date||new Date().toISOString().slice(0,10),
-          amount: Number(s.amount||s.rate||0),
-        }));
-
-      // Source 3: Nested admission labReports
-      const admLabReports = (() => {
-        for (const key of ['labReports','lab_reports','reports','pathology']) {
-          if (Array.isArray(admission?.[key]) && admission[key].length) return admission[key];
-        }
-        return [];
-      })();
-      const fromNested = admLabReports
-        .filter(r => !existingNames.has((r.reportName||r.report_name||r.name||"").toLowerCase().trim()))
-        .map(normalizeLabRow);
-
-      const labNorm = [...fromApi, ...fromSvc, ...fromNested];
-      console.log("🔍 labNorm sources — api:", fromApi.length, "svc:", fromSvc.length, "nested:", fromNested.length, "total:", labNorm.length);
+      const labNorm = labs.map(r => ({
+        id: r.id || Date.now()+Math.random(),
+        reportName: r.reportName||r.report_name||"",
+        reportType: r.reportType||r.report_type||"Haematology",
+        billCategory: r.billCategory||"PATHOLOGY",
+        date: r.date||r.report_date||new Date().toISOString().slice(0,10),
+        orderedBy: r.orderedBy||r.ordered_by||"",
+        amount: Number(r.amount||0),
+        remarks: r.remarks||"",
+        findings: r.findings||"",
+        impression: r.impression||"",
+        tests: Array.isArray(r.tests||r.table_data) ? (r.tests||r.table_data).map(t => ({ id:t.id||Date.now()+Math.random(), name:t.name||"", value:t.value||"", unit:t.unit||"", refRange:t.refRange||t.normal||"", status:t.status||"Normal" })) : [],
+      }));
       const pharNorm = phar.map(r => ({
         id: r.id||Date.now()+Math.random(),
         item: r.name||r.medicine_name||"",
@@ -1509,51 +1481,43 @@ const [medicineMaster, setMedicineMaster] = useState([]);
 
       const disData = dis?.dischargeData || dis || {};
       const medData = med?.medicalData   || med || {};
-      const billData= nestedBill?.billingData  || nestedBill || {};
+      const billData= bill?.billingData  || bill|| {};
 
       setReviewWorkData({ discharge:disData, admission:medData, labReports:labNorm, medBill:pharNorm, services:nestedSvc, billing:billData, dischargeSummary:summ?.content||null });
       setRvEDis({
-        doa:          admission?.dateTime || disData.doa || disData.doa_date || nestedDis.doa || "",
-        dod:          disData.dod || disData.dod_date || nestedDis.dod || "",
-        ward:         admission?.wardName || admission?.ward || disData.wardName || disData.ward || disData.ward_name || nestedDis.wardName || "",
-        bed:          admission?.bedNo || admission?.bed || disData.bedNo || disData.bed || disData.bed_no || nestedDis.bedNo || "",
-        doctor:       disData.doctorName || disData.doctor || disData.doctor_name || medData.treatingDoctor || medData.treating_doctor || nestedDis.doctorName || "",
-        diagnosis:    disData.diagnosis || disData.final_diagnosis || medData.provisionalDiagnosis || medData.provisional_diagnosis || nestedDis.diagnosis || "",
-        condition:    disData.dischargeStatus || disData.conditionAtDischarge || disData.condition || disData.status || nestedDis.dischargeStatus || "",
-        instructions: disData.instructions || disData.adviceOnDischarge || disData.discharge_instructions || nestedDis.instructions || "",
-        notes:        disData.notes || nestedDis.notes || "",
-        expectedDod:  disData.expectedDod || nestedDis.expectedDod || "",
-        bp:           disData.bp || medData.bp || "",
-        pr:           disData.pr || medData.pr || medData.pulse || "",
-        spo2:         disData.spo2 || medData.spo2 || "",
-        temp:         disData.temp || medData.temp || "",
-        chest:        disData.chest || medData.chest || "",
-        cvs:          disData.cvs || medData.cvs || "",
-        cns:          disData.cns || medData.cns || "",
-        pa:           disData.pa || medData.pa || "",
-      });
+      doa:          disData.doa         || disData.doa_date         || nestedDis.doa      || admission?.dateTime || "",
+      dod:          disData.dod         || disData.dod_date         || nestedDis.dod      || "",
+      ward:         disData.wardName    || disData.ward             || disData.ward_name  || nestedDis.wardName  || "",
+      bed:          disData.bedNo       || disData.bed              || disData.bed_no     || nestedDis.bedNo     || "",
+      doctor:       disData.doctorName  || disData.doctor           || disData.doctor_name|| nestedDis.doctorName|| medData.treatingDoctor || "",
+      diagnosis:    disData.diagnosis   || disData.final_diagnosis  || nestedDis.diagnosis|| medData.provisionalDiagnosis || "",
+      condition:    disData.dischargeStatus || disData.condition    || disData.status     || nestedDis.dischargeStatus || "",
+      instructions: disData.instructions|| disData.discharge_instructions || nestedDis.instructions || "",
+      notes:        disData.notes       || nestedDis.notes          || "",
+      expectedDod:  disData.expectedDod || nestedDis.expectedDod    || "",
+    });
       setRvEMed({
-        presentComplaints:    medData.presentComplaints || medData.present_complaints || disData.presentComplaints || "",
-        chiefComplaints:      medData.chiefComplaints || medData.chief_complaints || disData.chiefComplaints || disData.complaints || "",
-        bp:                   medData.bp || disData.bp || "",
-        pr:                   medData.pr || medData.pulse || disData.pr || "",
-        spo2:                 medData.spo2 || disData.spo2 || "",
-        temp:                 medData.temp || disData.temp || "",
-        chest:                medData.chest || disData.chest || "",
-        cvs:                  medData.cvs || disData.cvs || "",
-        cns:                  medData.cns || disData.cns || "",
-        pa:                   medData.pa || disData.pa || "",
-        investigations:       medData.investigations || medData.investigation || medData.tests_ordered || disData.investigations || "",
-        provisionalDiagnosis: medData.provisionalDiagnosis || medData.provisional_diagnosis || disData.diagnosis || disData.final_diagnosis || "",
-        treatmentAdvised:     medData.treatmentAdvised || medData.treatment_advised || medData.treatmentGiven || disData.treatmentGiven || disData.treatment || "",
-        previousDiagnosis:    medData.previousDiagnosis || medData.previous_diagnosis || medData.pastHistory || medData.past_history || "",
-        pastSurgeries:        medData.pastSurgeries || medData.past_surgeries || "",
-        currentMedications:   medData.currentMedications || medData.current_medications || medData.medications || "",
-        treatingDoctor:       medData.treatingDoctor || medData.treating_doctor || disData.doctorName || disData.doctor || "",
-        doctorQual:           medData.doctorQual || medData.doctor_qualification || "",
-        knownAllergies:       medData.knownAllergies || medData.known_allergies || medData.allergies || "",
-        notes:                medData.notes || medData.remarks || "",
-      });
+      presentComplaints:    medData.presentComplaints   || medData.present_complaints    || "",
+      chiefComplaints:      medData.chiefComplaints     || medData.chief_complaints      || "",
+      bp:                   medData.bp                  || disData.bp                    || "",
+      pr:                   medData.pr                  || medData.pulse                 || disData.pr   || "",
+      spo2:                 medData.spo2                || disData.spo2                  || "",
+      temp:                 medData.temp                || disData.temp                  || "",
+      chest:                medData.chest               || disData.chest                 || "",
+      cvs:                  medData.cvs                 || disData.cvs                   || "",
+      cns:                  medData.cns                 || disData.cns                   || "",
+      pa:                   medData.pa                  || disData.pa                    || "",
+      investigations:       medData.investigations      || medData.investigation         || medData.tests_ordered || "",
+      provisionalDiagnosis: medData.provisionalDiagnosis|| medData.provisional_diagnosis || disData.diagnosis || "",
+      treatmentAdvised:     medData.treatmentAdvised    || medData.treatment_advised     || medData.treatmentGiven || "",
+      previousDiagnosis:    medData.previousDiagnosis   || medData.previous_diagnosis    || medData.pastHistory || medData.past_history || "",
+      pastSurgeries:        medData.pastSurgeries       || medData.past_surgeries        || "",
+      currentMedications:   medData.currentMedications  || medData.current_medications   || medData.medications || "",
+      treatingDoctor:       medData.treatingDoctor      || medData.treating_doctor       || disData.doctorName || "",
+      doctorQual:           medData.doctorQual          || medData.doctor_qualification  || "",
+      knownAllergies:       medData.knownAllergies      || medData.known_allergies       || medData.allergies || "",
+      notes:                medData.notes               || medData.remarks               || "",
+    });
       setRvELabRep(JSON.parse(JSON.stringify(labNorm)));
       setRvEMedBill(JSON.parse(JSON.stringify(pharNorm)));
       setRvESvc(JSON.parse(JSON.stringify(nestedSvc)));
@@ -1947,7 +1911,7 @@ const [medicineMaster, setMedicineMaster] = useState([]);
     try {
       const admNo = myWorkSel.admNo||myWorkSel.id;
       if (myActiveTab === "discharge")       await apiService.dischargePatient(myWorkSel.uhid, admNo, myEDis);
-      else if (myActiveTab === "medical")    await apiService.updateMedicalHistory(myWorkSel.uhid, admNo, myEMed);
+      else if (myActiveTab === "medical") { if (typeof setMyEMed._flush === 'function') setMyEMed._flush(); await new Promise(r => setTimeout(r, 0)); await apiService.updateMedicalHistory(myWorkSel.uhid, admNo, myEMed); }
       else if (myActiveTab === "reports")    await apiService.saveLabReportsBulk(myWorkSel.uhid, admNo, myELabRep.filter(r => (r.reportName||r.reportType||r.findings||"").trim()||(Array.isArray(r.tests)&&r.tests.length)));
       else if (myActiveTab === "med_bill") {
         await apiService.savePharmacyRecordsBulk(myWorkSel.uhid, admNo, myEMedBill.filter(r=>String(r.item||"").trim()).map(r => ({ medicine_name:r.item||"", date_given:r.date||new Date().toISOString().slice(0,10), quantity:Number(r.quantity||1), rate:Number(r.rate||0), batch_no:r.batchNo||"", expiry_date:r.expiryDate||"" })));
@@ -1996,7 +1960,33 @@ const [medicineMaster, setMedicineMaster] = useState([]);
       setShowSubmitModal(false); setSubmitTarget(null); loadTasks(); loadHodOwnTasks();
     } catch { toast("Failed to submit", "e"); }
   };
-  const updateTaskStatus = async (id, uiStatus) => {
+  const openEditTask = (task) => {
+    setEditTask(task);
+    setEditForm({ priority: task.priority||"Medium", due_date: task.due_date||task.dueDate||"", notes: task.notes||"" });
+    setShowEditModal(true);
+  };
+
+  const saveEditTask = async () => {
+    if (!editTask) return;
+    try {
+      const payload = { priority: editForm.priority, notes: editForm.notes };
+      if (editForm.due_date) payload.due_date = editForm.due_date;
+      if (editForm.assigned_to) payload.assign_to = Number(editForm.assigned_to);
+      if (editForm.status) payload.status = backendStatusFromUi(editForm.status);
+      await apiFetch(`/tasks/${editTask.id}/`, { method:"PATCH", body:JSON.stringify(payload) });
+      toast("Task updated ✓");
+      setShowEditModal(false);
+      loadTasks();
+    } catch { toast("Could not update task", "e"); }
+  };
+
+  const removeTask = async (id) => {
+    if (!window.confirm("Remove this task?")) return;
+    try { await apiFetch(`/tasks/${id}/`, { method:"DELETE" }); toast("Task removed ✓"); loadTasks(); }
+    catch { toast("Could not remove task", "e"); }
+  };
+
+    const updateTaskStatus = async (id, uiStatus) => {
     try { await patchTaskUpdateStatus(id, { status:backendStatusFromUi(uiStatus) }); toast(`Status → ${uiStatus}`); loadTasks(); loadHodOwnTasks(); }
     catch { toast("Could not update task status", "e"); }
   };
@@ -2025,8 +2015,8 @@ const [medicineMaster, setMedicineMaster] = useState([]);
     const admNo = pat?.admNo || pat?.adm_no || "";
     const patName = pat?.patientName || "";
 
-    const pathReps = rvELabRep.filter(r => !isRadiologyType(r.reportType, r.billCategory));
-    const radReps  = rvELabRep.filter(r =>  isRadiologyType(r.reportType, r.billCategory));
+    const pathReps = rvELabRep.filter(r => !isRadiologyType(r.reportType));
+    const radReps  = rvELabRep.filter(r =>  isRadiologyType(r.reportType));
     const totals   = calcTotals(rvESvc, rvELabRep, rvEMedBill, rvEBilling);
 
     const SectionAccordion = ({ sKey, icon, title, children }) => {
@@ -2173,7 +2163,7 @@ const [medicineMaster, setMedicineMaster] = useState([]);
                 {rvELabRep.length === 0
                   ? <div style={{ color:"var(--text-muted)", fontStyle:"italic", fontSize:13 }}>No lab reports found for this admission.</div>
                   : rvELabRep.map((rep, ri) => {
-                    if (isRadiologyType(rep.reportType, rep.billCategory)) return <RadiologyReportCard key={rep.id} rep={rep} ri={ri} patientName={patName} updRep={updRvRep} onRemove={()=>setRvELabRep(p=>p.filter(r=>r.id!==rep.id))} readOnly={!reviewEditMode.reports}/>;
+                    if (isRadiologyType(rep.reportType)) return <RadiologyReportCard key={rep.id} rep={rep} ri={ri} patientName={patName} updRep={updRvRep} onRemove={()=>setRvELabRep(p=>p.filter(r=>r.id!==rep.id))} readOnly={!reviewEditMode.reports}/>;
                     return <PathologyReportCard key={rep.id} rep={rep} ri={ri} patientName={patName} updRep={updRvRep} updTest={updRvTest} addTest={addRvTest} delTest={delRvTest} onRemove={()=>setRvELabRep(p=>p.filter(r=>r.id!==rep.id))} readOnly={!reviewEditMode.reports}/>;
                   })
                 }
@@ -3297,6 +3287,7 @@ const [medicineMaster, setMedicineMaster] = useState([]);
                         {isHodTaskCompleted(task)&&!task.submitted_at&&(
                           <button className="hod-btn" style={{ padding:"3px 9px", fontSize:"10px", background:"rgba(99,102,241,0.1)", borderColor:"rgba(99,102,241,0.3)", color:"#6366f1" }} onClick={()=>openSubmitToAdmin({ id:task.id, type:"task", name:task.taskType||task.title })}><Send size={10}/> Submit</button>
                         )}
+                        <button className="hod-btn hod-btn-danger" style={{ padding:"3px 9px", fontSize:"10px" }} onClick={()=>removeTask(task.id)}>✕ Remove</button>
                       </div>
                     </td>
                   </tr>
@@ -3526,6 +3517,62 @@ const [medicineMaster, setMedicineMaster] = useState([]);
         {showAssignModal   && renderAssignModal()}
         {showReviewModal   && renderReviewModal()}
         {showSubmitModal   && renderSubmitModal()}
+        {showEditModal && editTask && (
+          <div className="hod-overlay" onClick={()=>setShowEditModal(false)}>
+            <div className="hod-modal" onClick={e=>e.stopPropagation()}>
+              <button className="hod-modal-close" onClick={()=>setShowEditModal(false)}>✕</button>
+              <div className="hod-modal-title"><Edit3 size={16}/> Edit Task</div>
+              <div style={{ fontSize:13, color:"var(--text-muted)", marginBottom:16 }}>
+                {editTask.taskType||editTask.title}
+              </div>
+              <div className="hod-form-grid" style={{ marginBottom:14 }}>
+                <div className="hod-form-row">
+                  <label className="hod-lbl">Reassign To</label>
+                  <select className="hod-sel" value={editForm.assigned_to||editTask.assigned_to||""} onChange={e=>setEditForm(p=>({...p,assigned_to:e.target.value}))}>
+                    <option value="">Keep Current ({editTask.employeeName||editTask.assigned_to_name||"—"})</option>
+                    {deptEmployees.map(e=><option key={e.id} value={e.id}>{e.name} ({e.employee_code||e.employeeCode})</option>)}
+                  </select>
+                </div>
+                <div className="hod-form-row">
+                  <label className="hod-lbl">Priority</label>
+                  <select className="hod-sel" value={editForm.priority} onChange={e=>setEditForm(p=>({...p,priority:e.target.value}))}>
+                    {["Low","Medium","High","Urgent"].map(p=><option key={p}>{p}</option>)}
+                  </select>
+                </div>
+                <div className="hod-form-row">
+                  <label className="hod-lbl">Due Date</label>
+                  <input type="date" className="hod-inp" value={editForm.due_date} onChange={e=>setEditForm(p=>({...p,due_date:e.target.value}))}/>
+                </div>
+                <div className="hod-form-row">
+                  <label className="hod-lbl">Status</label>
+                  <select className="hod-sel" value={editForm.status||hodTaskRowStatus(editTask)} onChange={e=>setEditForm(p=>({...p,status:e.target.value}))}>
+                    {Object.entries(STATUS_META).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div className="hod-form-row">
+                <label className="hod-lbl">Notes / Instructions</label>
+                <textarea className="hod-textarea" value={editForm.notes} placeholder="Update instructions..." onChange={e=>setEditForm(p=>({...p,notes:e.target.value}))}/>
+              </div>
+              <div style={{ background:"var(--surface-2)", border:"1px solid var(--border)", borderRadius:10, padding:"12px 14px", marginBottom:14 }}>
+                <div style={{ fontSize:11, fontWeight:700, color:"var(--text-muted)", textTransform:"uppercase", letterSpacing:".07em", marginBottom:8 }}>Current Patients</div>
+                {(editTask.patient_uhids||(editTask.patient_uhid?[editTask.patient_uhid]:[])).map((u,i)=>(
+                  <div key={u} style={{ display:"flex", alignItems:"center", gap:8, padding:"5px 0", borderBottom:"1px solid var(--border)", fontSize:12 }}>
+                    <span style={{ color:"#06b6d4", fontFamily:"monospace" }}>{u}</span>
+                    <span style={{ color:"var(--text-muted)" }}>{(editTask.patient_names||[])[i]||""}</span>
+                  </div>
+                ))}
+                {editTask.patientId && (
+                  <div style={{ fontSize:12, color:"#06b6d4", fontFamily:"monospace" }}>{editTask.patientId}</div>
+                )}
+              </div>
+              <div className="hod-modal-foot">
+                <button className="hod-btn hod-btn-ghost" onClick={()=>setShowEditModal(false)}>Cancel</button>
+                <button className="hod-btn hod-btn-primary" onClick={saveEditTask}>Save Changes</button>
+              </div>
+            </div>
+          </div>
+        )}
         {showLogoutConfirm && renderLogoutConfirm()}
         {renderReviewWorkModal()}
 

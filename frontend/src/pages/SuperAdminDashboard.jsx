@@ -902,6 +902,11 @@ function MedicalTab({ all }) {
           <button onClick={() => setSelectedPatient(null)} style={{ padding: "7px 16px", borderRadius: 8, background: T.bg, border: `1px solid ${T.border2}`, color: T.dim, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>← Back to List</button>
           <div style={{ fontSize: 14, fontWeight: 700, color: T.white }}>{selectedPatient.name} — {selectedPatient.uhid}</div>
           <Pill color={bColor(selectedPatient._branch, T)}>{bName(selectedPatient._branch)}</Pill>
+          <button
+            onClick={() => apiService.printMedicalHistory(selectedPatient.uhid, selectedPatient.admNo)}
+            style={{ marginLeft:"auto", padding:"7px 16px", borderRadius:8, background:T.laxmi, color:"#000", border:"none", cursor:"pointer", fontSize:12, fontWeight:800, display:"flex", alignItems:"center", gap:6 }}>
+            <Printer size={13}/> Print Medical History
+          </button>
         </div>
         <MedicalHistoryPage data={medData} setData={setMedData} onSave={handleSaveMedData} onSkip={() => setSelectedPatient(null)} patient={selectedPatient._patient} discharge={selectedPatient._admission?.discharge} locId={selectedPatient._branch} />
       </div>
