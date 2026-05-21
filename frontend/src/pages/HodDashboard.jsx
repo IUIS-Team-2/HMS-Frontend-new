@@ -491,7 +491,7 @@ function isHodTaskCompleted(t) { return hodTaskRowStatus(t) === "completed"; }
 function isTaskRowCompleted(t) { return String(t?.status || "").toLowerCase() === "completed"; }
 
 // ─── PathologyReportCard ──────────────────────────────────────────────────────
-function PathologyReportCard({ rep, ri, patientName, updRep, updTest, addTest, delTest, onRemove, readOnly }) {
+function PathologyReportCard({ rep, ri, patientName, updRep, updTest, addTest, delTest, onRemove, readOnly, onSave, onPrint }) {
   return (
     <div style={{ background:"var(--surface)", border:"1px solid var(--border)", borderRadius:14, marginBottom:18, overflow:"hidden", boxShadow:"0 2px 12px rgba(0,0,0,0.08)" }}>
       <div style={{ background:"linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%)", color:"#fff", padding:"16px 22px", display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:12 }}>
@@ -554,12 +554,18 @@ function PathologyReportCard({ rep, ri, patientName, updRep, updTest, addTest, d
           <input type="number" value={rep.amount} onChange={e => updRep(ri,"amount",Number(e.target.value))} disabled={readOnly} style={{ width:110, background:readOnly?"transparent":"var(--surface)", border:readOnly?"none":"1.5px solid var(--border)", borderRadius:8, padding:"8px 10px", color:"var(--text)", fontSize:13, fontFamily:"inherit", fontWeight:700, outline:"none" }}/>
         </div>
       </div>
+      {onSave && (
+        <div style={{ padding:"10px 22px", borderTop:"1px solid var(--border)", display:"flex", gap:10, justifyContent:"flex-end", background:"var(--surface)" }}>
+          {onPrint && <button onClick={onPrint} style={{ display:"inline-flex", alignItems:"center", gap:6, padding:"7px 14px", background:"rgba(16,185,129,0.1)", border:"1.5px solid rgba(16,185,129,0.35)", color:"#10b981", borderRadius:8, cursor:"pointer", fontSize:12, fontFamily:"inherit", fontWeight:600 }}><Printer size={12}/> Print Report</button>}
+          <button onClick={onSave} style={{ display:"inline-flex", alignItems:"center", gap:6, padding:"7px 14px", background:"#0f172a", border:"none", color:"#fff", borderRadius:8, cursor:"pointer", fontSize:12, fontFamily:"inherit", fontWeight:700 }}>💾 Save Report</button>
+        </div>
+      )}
     </div>
   );
 }
 
 // ─── RadiologyReportCard ──────────────────────────────────────────────────────
-function RadiologyReportCard({ rep, ri, patientName, updRep, onRemove, readOnly }) {
+function RadiologyReportCard({ rep, ri, patientName, updRep, onRemove, readOnly, onSave, onPrint }) {
   return (
     <div style={{ background:"var(--surface)", border:"1px solid var(--border)", borderRadius:14, marginBottom:18, overflow:"hidden", boxShadow:"0 2px 12px rgba(0,0,0,0.08)" }}>
       <div style={{ background:"linear-gradient(135deg,#064e3b 0%,#065f46 100%)", color:"#fff", padding:"16px 22px", display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:12 }}>
@@ -595,6 +601,12 @@ function RadiologyReportCard({ rep, ri, patientName, updRep, onRemove, readOnly 
           <input type="number" value={rep.amount} onChange={e => updRep(ri,"amount",Number(e.target.value))} disabled={readOnly} style={{ width:110, background:readOnly?"transparent":"var(--surface)", border:readOnly?"none":"1.5px solid var(--border)", borderRadius:8, padding:"8px 10px", color:"var(--text)", fontSize:13, fontFamily:"inherit", fontWeight:700, outline:"none" }}/>
         </div>
       </div>
+      {onSave && (
+        <div style={{ padding:"10px 22px", borderTop:"1px solid var(--border)", display:"flex", gap:10, justifyContent:"flex-end", background:"var(--surface)" }}>
+          {onPrint && <button onClick={onPrint} style={{ display:"inline-flex", alignItems:"center", gap:6, padding:"7px 14px", background:"rgba(16,185,129,0.1)", border:"1.5px solid rgba(16,185,129,0.35)", color:"#10b981", borderRadius:8, cursor:"pointer", fontSize:12, fontFamily:"inherit", fontWeight:600 }}><Printer size={12}/> Print Report</button>}
+          <button onClick={onSave} style={{ display:"inline-flex", alignItems:"center", gap:6, padding:"7px 14px", background:"#0f172a", border:"none", color:"#fff", borderRadius:8, cursor:"pointer", fontSize:12, fontFamily:"inherit", fontWeight:700 }}>💾 Save Report</button>
+        </div>
+      )}
     </div>
   );
 }
@@ -3001,6 +3013,8 @@ const [medicineMaster, setMedicineMaster] = useState([]);
             updRep={updMyRep}
             onRemove={()=>setMyELabRep(p=>p.filter(r=>r.id!==rep.id))}
             readOnly={false}
+            onSave={async()=>{ try { await apiService.saveLabReportsBulk(myWorkSel.uhid, myWorkSel.admNo||myWorkSel.id, [rep]); toast(`${rep.reportName||"Report"} saved ✓`); } catch { toast("Failed to save report","e"); } }}
+            onPrint={()=>{ if(myWorkSel?.uhid&&(myWorkSel?.admNo||myWorkSel?.id)){ const blob_url=`${API_BASE}/patients/${myWorkSel.uhid}/admissions/${myWorkSel.admNo||myWorkSel.id}/lab-reports/print/`; window.open(blob_url,"_blank"); } }}
           />
         );
 
@@ -3016,6 +3030,8 @@ const [medicineMaster, setMedicineMaster] = useState([]);
           delTest={delMyTest}
           onRemove={()=>setMyELabRep(p=>p.filter(r=>r.id!==rep.id))}
           readOnly={false}
+          onSave={async()=>{ try { await apiService.saveLabReportsBulk(myWorkSel.uhid, myWorkSel.admNo||myWorkSel.id, [rep]); toast(`${rep.reportName||"Report"} saved ✓`); } catch { toast("Failed to save report","e"); } }}
+          onPrint={()=>{ if(myWorkSel?.uhid&&(myWorkSel?.admNo||myWorkSel?.id)){ window.open(`${API_BASE}/patients/${myWorkSel.uhid}/admissions/${myWorkSel.admNo||myWorkSel.id}/lab-reports/print/`,"_blank"); } }}
         />
       );
     })}

@@ -862,7 +862,7 @@ function AdmissionNoteForm({
 }
 
 // ─── PathologyReportCard ──────────────────────────────────────────────────────
-function PathologyReportCard({ rep, ri, patientName, updRep, updTest, addTest, delTest, onRemove }) {
+function PathologyReportCard({ rep, ri, patientName, updRep, updTest, addTest, delTest, onRemove, onSave }) {
   const fileName = buildFileName(patientName, rep.reportType, rep.date);
   return (
     <div style={{ background:"var(--white,#fff)", border:"1px solid var(--border,#e2e8f0)", borderRadius:14, marginBottom:18, overflow:"hidden", boxShadow:"0 2px 12px rgba(11,37,69,.08)" }}>
@@ -953,6 +953,9 @@ function PathologyReportCard({ rep, ri, patientName, updRep, updTest, addTest, d
           + Add Row
         </button>
       </div>
+      <div style={{ padding:"8px 16px 14px" }}>
+        <button onClick={onSave} style={{ display:"inline-flex", alignItems:"center", gap:6, padding:"9px 18px", background:"#0d9488", color:"#fff", border:"none", borderRadius:8, cursor:"pointer", fontSize:13, fontFamily:"inherit", fontWeight:700, boxShadow:"0 2px 8px rgba(13,148,136,.25)" }}>💾 Save This Report</button>
+      </div>
 
       <div style={{ padding:"12px 22px", borderTop:"1px solid var(--border,#e2e8f0)", background:"var(--bg,#f8fafc)", display:"flex", alignItems:"flex-end", gap:16, flexWrap:"wrap" }}>
         <div style={{ flex:1 }}>
@@ -971,7 +974,7 @@ function PathologyReportCard({ rep, ri, patientName, updRep, updTest, addTest, d
 }
 
 // ─── RadiologyReportCard ──────────────────────────────────────────────────────
-function RadiologyReportCard({ rep, ri, patientName, updRep, onRemove }) {
+function RadiologyReportCard({ rep, ri, patientName, updRep, onRemove, onSave }) {
   const fileName = buildFileName(patientName, rep.reportType, rep.date);
   return (
     <div style={{ background:"var(--white,#fff)", border:"1px solid var(--border,#e2e8f0)", borderRadius:14, marginBottom:18, overflow:"hidden", boxShadow:"0 2px 12px rgba(11,37,69,.08)" }}>
@@ -1032,6 +1035,7 @@ function RadiologyReportCard({ rep, ri, patientName, updRep, onRemove }) {
           <input type="number" value={rep.amount} onChange={e=>updRep(ri,"amount",Number(e.target.value))}
             style={{ width:110, background:"#fff", border:"1.5px solid var(--border,#e2e8f0)", borderRadius:8, padding:"8px 10px", color:"var(--navy,#0f172a)", fontSize:13, fontFamily:"inherit", fontWeight:700, outline:"none" }}/>
         </div>
+        <button onClick={onSave} style={{ display:"inline-flex", alignItems:"center", gap:6, padding:"9px 18px", background:"#0d9488", color:"#fff", border:"none", borderRadius:8, cursor:"pointer", fontSize:13, fontFamily:"inherit", fontWeight:700, flexShrink:0, boxShadow:"0 2px 8px rgba(13,148,136,.25)" }}>💾 Save This Report</button>
       </div>
     </div>
   );
@@ -2727,9 +2731,9 @@ useEffect(() => {
                     {visibleReps.map(rep => {
                       const ri = eLabRep.findIndex(r => r.id===rep.id);
                       if (isRadiologyType(rep.reportType)) {
-                        return (<RadiologyReportCard key={rep.id} rep={rep} ri={ri} patientName={patientName} updRep={updRep} onRemove={() => setELabRep(p=>p.filter(r=>r.id!==rep.id))}/>);
+                        return (<RadiologyReportCard key={rep.id} rep={rep} ri={ri} patientName={patientName} updRep={updRep} onRemove={() => setELabRep(p=>p.filter(r=>r.id!==rep.id))} onSave={async () => { try { await apiService.saveLabReportsBulk(sel.uhid, sel.admNo, [buildLabReportPayload(rep)]); toast("Report saved ✓"); } catch(e) { toast("Failed to save report", "e"); } }}/>);
                       }
-                      return (<PathologyReportCard key={rep.id} rep={rep} ri={ri} patientName={patientName} updRep={updRep} updTest={updTest} addTest={addTest} delTest={delTest} onRemove={() => setELabRep(p=>p.filter(r=>r.id!==rep.id))}/>);
+                      return (<PathologyReportCard key={rep.id} rep={rep} ri={ri} patientName={patientName} updRep={updRep} updTest={updTest} addTest={addTest} delTest={delTest} onRemove={() => setELabRep(p=>p.filter(r=>r.id!==rep.id))} onSave={async () => { try { await apiService.saveLabReportsBulk(sel.uhid, sel.admNo, [buildLabReportPayload(rep)]); toast("Report saved ✓"); } catch(e) { toast("Failed to save report", "e"); } }}/>);
                     })}
 
                     <div style={{ display:"flex", gap:12, alignItems:"center", flexWrap:"wrap", marginBottom:16, marginTop:4 }}>

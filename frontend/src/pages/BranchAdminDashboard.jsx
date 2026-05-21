@@ -2495,6 +2495,48 @@ const renderDischarge = () => {
                   + Add Test Row
                 </button>
               )}
+              <div style={{ display:"flex", gap:8, marginTop:10, flexWrap:"wrap" }}>
+                {canEditRecords && (
+                  <button
+                    style={{ ...mkBtn("primary", theme), padding:"7px 16px", fontSize:12 }}
+                    onClick={async () => {
+                      try {
+                        await apiService.saveLabReportsBulk(
+                          selPatient.uhid,
+                          selectedAdmission.admNo,
+                          [{
+                            reportName: rep.reportName || 'Report',
+                            reportType: rep.reportType || 'Haematology',
+                            date: rep.date || new Date().toISOString().slice(0,10),
+                            orderedBy: rep.orderedBy || '',
+                            remarks: rep.remarks || '',
+                            impression: rep.impression || '',
+                            amount: Number(rep.amount || 0),
+                            tests: (rep.tests || []).filter(t => t.name),
+                          }]
+                        );
+                        window.alert('Saved: ' + (rep.reportName || 'Report'));
+                      } catch(e) {
+                        window.alert('Failed to save report.');
+                      }
+                    }}>
+                    💾 Save This Report
+                  </button>
+                )}
+                <button
+                  style={{ ...mkBtn("dim", theme), padding:"7px 16px", fontSize:12 }}
+                  onClick={() => {
+                    const uhid = selPatient && selPatient.uhid;
+                    const admNo = selectedAdmission && selectedAdmission.admNo;
+                    if (!uhid || !admNo) { window.alert('Patient info missing.'); return; }
+                    window.open(
+                      (apiService.BASE_URL || 'http://127.0.0.1:8000/api') + '/patients/' + uhid + '/admissions/' + admNo + '/lab-reports/print/',
+                      '_blank'
+                    );
+                  }}>
+                  🖨 Print This Report
+                </button>
+              </div>
             </div>
           </div>
         ))}
