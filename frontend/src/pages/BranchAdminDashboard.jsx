@@ -1067,14 +1067,19 @@ export default function BranchAdminDashboard({
               console.log("[BranchAdmin] medHistory fallback string:", medStr);
               if (medStr) {
                 // fetch medicine master to cross-ref rates/batch/expiry
-                let master = [];
-                try { master = await apiService.getMedicineMaster(); } catch(_) {}
+                let master = medicineMaster;
+                if (!master.length) {
+                  try { master = await apiService.getMedicineMaster(); } catch(_) {}
+                }
                 // Normalize: uppercase, strip dots, strip common prefixes, collapse spaces
                 const normalizeMedName = (s) => String(s || "")
                   .toUpperCase()
                   .replace(/\./g, "")
                   .replace(/\b(INJ|CAP|TAB|SYP|SYRUP|OINT|NEB|AMP|VIAL|SACHET|GEL|CREAM|DROP|EYE|EAR)\b/gi, "")
-                  .replace(/[^A-Z0-9%\/]/g, " ")
+                  .replace(/\d+\.?\d*\s*(MG|MCG|ML|GM|G|IU|MEQ|%)\b/gi, "")
+                  .replace(/\b(BD|TDS|OD|QID|SOS|HS|AC|PC|STAT|PRN|TID|BID|QD|NS)\b/gi, "")
+                  .replace(/\(.*?\)/g, "")
+                  .replace(/[^A-Z0-9\/]/g, " ")
                   .replace(/\s+/g, " ")
                   .trim();
                 const masterMap = {};
@@ -1088,9 +1093,9 @@ export default function BranchAdminDashboard({
                   // Try exact normalized match first, then partial
                   const masterKey = masterMap[normName]
                     ? normName
-                    : Object.keys(masterMap).find(k =>
-                        k.includes(normName) || normName.includes(k)
-                      );
+                    : Object.keys(masterMap)
+                        .filter(k => k.length >= 4 && normName.length >= 4 && (k.includes(normName) || normName.includes(k)))
+                        .sort((a, b) => b.length - a.length)[0];
                   const masterEntry = masterKey ? masterMap[masterKey] : null;
                   const rate = Number(masterEntry?.rate || masterEntry?.price || 0);
                   return {

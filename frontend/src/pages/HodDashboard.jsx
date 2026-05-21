@@ -451,7 +451,11 @@ async function apiFetch(path, options = {}) {
     if (res.status === 400) throw new Error(backendMessage || "Request could not be processed.");
     throw new Error(backendMessage || "Request failed.");
   }
-  return res.json();
+  if (res.status === 204) {
+  return null;
+}
+
+return res.json();
 }
 
 async function apiFetchBlob(path, options = {}) {
@@ -727,6 +731,16 @@ function HodMedSearchDropdown({ medicineMaster, existingItems, onSelect }) {
   const handleSelect = (med) => {
     const name = med.name || med.medicine_name || "";
     if (isAlready(name)) return;
+    const expRaw = med.expiry_date || "";
+    const normExp = (e) => {
+      if (!e) return "";
+      if (/^\d{4}-\d{2}$/.test(e)) return e + "-01";
+      if (/^\d{2}\/\d{4}$/.test(e)) { const [m,y]=e.split("/"); return `${y}-${m}-01`; }
+      // MM/YY -> 20YY-MM-01
+      if (/^\d{2}\/\d{2}$/.test(e)) { const [m,y]=e.split("/"); return `20${y}-${m}-01`; }
+      if (/^\d{4}-\d{2}-\d{2}$/.test(e)) return e;
+      return "";
+    };
     onSelect({
       id: Date.now(),
       item: name,
@@ -735,7 +749,7 @@ function HodMedSearchDropdown({ medicineMaster, existingItems, onSelect }) {
       rate: Number(med.rate ?? med.price ?? 0),
       amount: Number(med.rate ?? med.price ?? 0),
       batchNo: med.batch_no || "",
-      expiryDate: med.expiry_date || "",
+      expiryDate: normExp(expRaw),
     });
     setQuery(""); setOpen(false);
   };
@@ -1457,13 +1471,23 @@ const [medicineMaster, setMedicineMaster] = useState([]);
 
       let canonicalData = {};
       if (admForApi) {
-        try { canonicalData = await apiService.getCanonicalRecords(uhid, admForApi); } catch { canonicalData = {}; }
+        try {
+          canonicalData = await apiService.getCanonicalRecords(uhid, admForApi);
+          console.log('[HOD Review] canonical:', canonicalData);
+        } catch(e) {
+          console.warn('[HOD Review] canonical failed (non-fatal):', e.message);
+          canonicalData = {};
+        }
       }
 
       const dis  = { ...nestedDis, ...(canonicalData?.discharge || {}) };
       const med  = { ...nestedMed, ...(canonicalData?.medical || {}) };
-      const labs = Array.isArray(labRes.value)  ? labRes.value  : [];
-      const phar = Array.isArray(pharRes.value) ? pharRes.value : [];
+      const labs = Array.isArray(labRes.value)  ? labRes.value  : (Array.isArray(labRes.value?.results) ? labRes.value.results : []);
+      const phar = Array.isArray(pharRes.value) ? pharRes.value : (Array.isArray(pharRes.value?.results) ? pharRes.value.results : []);
+      console.log('[HOD Review] lab reports raw:', labs.length, labs[0]);
+      console.log('[HOD Review] labRes status:', labRes.status, 'pharRes status:', pharRes.status);
+      if (labRes.status === 'rejected') console.error('[HOD Review] lab error:', labRes.reason);
+      if (pharRes.status === 'rejected') console.error('[HOD Review] pharma error:', pharRes.reason);
       const bill = { ...nestedBill, ...(canonicalData?.billing || {}) };
       const summ = summRes.value;
 
@@ -1718,7 +1742,16 @@ const [medicineMaster, setMedicineMaster] = useState([]);
   const addMedFromPicker = (medName) => {
     const master = findMedMaster(medName);
     const quantity = 1; const rate = Number(master?.rate ?? master?.price ?? 0);
-    setMyEMedBill(p => [...p, { id:Date.now(), item:master?.name||master?.medicine_name||medName, date:new Date().toISOString().slice(0,10), quantity, rate, amount:quantity*rate, batchNo:master?.batch_no||"", expiryDate:master?.expiry_date||"", availableQty:Number(master?.quantity||0) }]);
+    const normExp = (e) => {
+      if (!e) return "";
+      if (/^\d{4}-\d{2}$/.test(e)) return e + "-01";
+      if (/^\d{2}\/\d{4}$/.test(e)) { const [m,y]=e.split("/"); return `${y}-${m}-01`; }
+      // MM/YY -> 20YY-MM-01
+      if (/^\d{2}\/\d{2}$/.test(e)) { const [m,y]=e.split("/"); return `20${y}-${m}-01`; }
+      if (/^\d{4}-\d{2}-\d{2}$/.test(e)) return e;
+      return "";
+    };
+    setMyEMedBill(p => [...p, { id:Date.now(), item:master?.name||master?.medicine_name||medName, date:new Date().toISOString().slice(0,10), quantity, rate, amount:quantity*rate, batchNo:master?.batch_no||"", expiryDate:normExp(master?.expiry_date||""), availableQty:Number(master?.quantity||0) }]);
     toast(`Added: ${medName.slice(0,40)}`);
   };
 
@@ -1910,7 +1943,7 @@ const [medicineMaster, setMedicineMaster] = useState([]);
                 || (medicineMaster||[]).find(m=>norm(m.name).includes(norm(name).slice(0,8)))
                 || (medicineMaster||[]).find(m=>norm(name).includes(norm(m.name).slice(0,8)));
               const rate = Number(master?.rate??master?.price??0);
-              return { id:Date.now()+Math.random(), item:name, date:new Date().toISOString().slice(0,10), quantity:1, rate, amount:rate, batchNo:master?.batch_no||"", expiryDate:master?.expiry_date||"" };
+              return { id:Date.now()+Math.random(), item:name, date:new Date().toISOString().slice(0,10), quantity:1, rate, amount:rate, batchNo:master?.batch_no||"", expiryDate:(() => { const e=master?.expiry_date||""; if(/^\d{4}-\d{2}$/.test(e)) return e+"-01"; if(/^\d{2}\/\d{4}$/.test(e)){ const[m,y]=e.split("/");return`${y}-${m}-01`;} return e; })() };
             }));
           }
         }
@@ -1993,11 +2026,25 @@ const [medicineMaster, setMedicineMaster] = useState([]);
   };
 
   const removeTask = async (id) => {
-    if (!window.confirm("Remove this task?")) return;
-    try { await apiFetch(`/tasks/${id}/`, { method:"DELETE" }); toast("Task removed ✓"); loadTasks(); }
-    catch { toast("Could not remove task", "e"); }
-  };
+  if (!window.confirm("Remove this task?")) return;
 
+  try {
+    const response = await apiFetch(`/tasks/${id}/`, {
+      method: "DELETE",
+    });
+
+    // remove instantly from UI
+    setTasks((prev) => prev.filter((task) => task.id !== id));
+
+    // optional refetch for sync
+    loadTasks();
+
+    toast("Task removed ✓");
+  } catch (error) {
+    console.error(error);
+    toast("Could not remove task", "e");
+  }
+};
     const updateTaskStatus = async (id, uiStatus) => {
     try { await patchTaskUpdateStatus(id, { status:backendStatusFromUi(uiStatus) }); toast(`Status → ${uiStatus}`); loadTasks(); loadHodOwnTasks(); }
     catch { toast("Could not update task status", "e"); }
