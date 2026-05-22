@@ -414,11 +414,28 @@ const INVESTIGATION_GROUPS = [
   { group:"🦠 Microbiology",         color:"#065f46", items:["MALARIA","VIRAL","URINE_RM","URINE_CS","BLOOD_CS","STOOL","BODY_FLUID"] },
 ];
 
+const SANGI_MEDICINE_MASTER = [
+  {"name":"Inj. Normal Saline (NS) 500ml","rate":100.23,"batch_no":"N1SC663","expiry_date":"06/28"},
+  {"name":"Inj. Ringer Lactate (RL) 500ml","rate":74.02,"batch_no":"R1SC334","expiry_date":"06/28"},
+  {"name":"Inj. DNS 500ml","rate":97.45,"batch_no":"S1SC392","expiry_date":"06/28"},
+  {"name":"Dressing BD","rate":50.00,"batch_no":"","expiry_date":""},
+  {"name":"Steam Inhalation BD","rate":30.00,"batch_no":"","expiry_date":""},
+  {"name":"Physiotherapy","rate":200.00,"batch_no":"","expiry_date":""},
+  {"name":"ICU Monitoring","rate":500.00,"batch_no":"","expiry_date":""},
+  {"name":"Vital Monitoring 4th Hourly","rate":100.00,"batch_no":"","expiry_date":""},
+  {"name":"O2 Inhalation 2–4 L/min","rate":150.00,"batch_no":"","expiry_date":""},
+  {"name":"Ryle's Tube Feed","rate":100.00,"batch_no":"","expiry_date":""},
+  {"name":"IV Fluids NS/RL @ 100ml/hr","rate":100.23,"batch_no":"","expiry_date":""},
+  {"name":"IV Fluids DNS @ 80ml/hr","rate":97.45,"batch_no":"","expiry_date":""},
+  {"name":"Urinary Catheterisation","rate":824.00,"batch_no":"","expiry_date":""},
+{"name": "ACCU-STRIPS", "rate": 19.62, "batch_no": "ACC2563", "expiry_date": "05/27"}, {"name": "AERO MIST (NEB.MASK)", "rate": 403.0, "batch_no": "84886472", "expiry_date": "05/27"}, {"name": "B.T. SET", "rate": 194.0, "batch_no": "G230320628", "expiry_date": "02/28"}, {"name": "CANNULA FIXATOR", "rate": 89.0, "batch_no": "CF31B", "expiry_date": "03/28"}, {"name": "CAP REDOTIL 100MG", "rate": 3132.0, "batch_no": "RTL6648", "expiry_date": "02/27"}, {"name": "CAP UPRISE D3 60K", "rate": 265.13, "batch_no": "DU-88642", "expiry_date": "08/28"}, {"name": "CAP URIMAX 0.4", "rate": 16.22, "batch_no": "US165772", "expiry_date": "08/29"}, {"name": "CENTRAL VENOUS CATH. KIT", "rate": 4300.0, "batch_no": "23124506", "expiry_date": "11/26"}, {"name": "COTTON 500GM", "rate": 337.5, "batch_no": "207", "expiry_date": "09/28"}, {"name": "CVP MANOMETER", "rate": 419.0, "batch_no": "V6615542", "expiry_date": "04/27"}, {"name": "DIALAFLOW REGULATER", "rate": 685.31, "batch_no": "4660012", "expiry_date": "05/30"}, {"name": "DNS 500ML", "rate": 97.45, "batch_no": "S1SC392", "expiry_date": "06/28"}, {"name": "E.T. TUBE 7.5", "rate": 403.13, "batch_no": "G25SE010786", "expiry_date": "04/30"}, {"name": "FOLEY CATHETER 14", "rate": 824.0, "batch_no": "SL475221", "expiry_date": "10/28"}, {"name": "HAEMACCEL", "rate": 579.5, "batch_no": "994752", "expiry_date": "09/28"}, {"name": "HI-MASK (ADULT)", "rate": 687.0, "batch_no": "G230440525", "expiry_date": "03/28"}, {"name": "HME FILTER", "rate": 413.0, "batch_no": "G230540735", "expiry_date": "04/28"}, {"name": "HYAICARE EYE DROP", "rate": 302.0, "batch_no": "OLD25003ES", "expiry_date": "06/27"}, {"name": "INJ ACIVIR 500", "rate": 564.5, "batch_no": "84007CA", "expiry_date": "06/28"}, {"name": "INJ ALBUCEL 20%", "rate": 3500.0, "batch_no": "LA-99476", "expiry_date": "10/27"}, {"name": "INJ AMIKACIN 250MG", "rate": 38.7, "batch_no": "AL0411M", "expiry_date": "05/27"}, {"name": "INJ AVICREST 2.5", "rate": 4699.0, "batch_no": "8014002A", "expiry_date": "11/26"}, {"name": "INJ CEFTAZIN AV 1.25GM", "rate": 3984.38, "batch_no": "TL-554G8", "expiry_date": "12/27"}, {"name": "INJ CLARIMIN 500MG", "rate": 1278.0, "batch_no": "BL135004", "expiry_date": "05/27"}, {"name": "INJ COL 3MIU", "rate": 4678.13, "batch_no": "AB240406E", "expiry_date": "08/27"}, {"name": "INJ CRESP 25MG", "rate": 2182.03, "batch_no": "PR9047", "expiry_date": "06/27"}, {"name": "INJ FERIUM 500", "rate": 3562.0, "batch_no": "M-00764", "expiry_date": "06/28"}, {"name": "INJ FONDAZEST 2.5", "rate": 1449.3, "batch_no": "66472VD", "expiry_date": "08/27"}, {"name": "INJ FOSFOFIC", "rate": 2263.13, "batch_no": "FR-026C4", "expiry_date": "05/27"}, {"name": "INJ GLUTA VEN 600MG", "rate": 1968.75, "batch_no": "TG-88022", "expiry_date": "09/28"}, {"name": "INJ KEFUZID AV", "rate": 4999.0, "batch_no": "AB905002B", "expiry_date": "05/27"}, {"name": "INJ LANTUS", "rate": 2173.29, "batch_no": "DL44577", "expiry_date": "08/27"}, {"name": "INJ LINID IV 600MG", "rate": 838.04, "batch_no": "D-9947R", "expiry_date": "02/29"}, {"name": "INJ MERANO-TZ 1.125GM", "rate": 4583.44, "batch_no": "MR-60027", "expiry_date": "01/27"}, {"name": "INJ MEROMET-TZ 1.125GM", "rate": 4307.81, "batch_no": "M49699-E4", "expiry_date": "11/27"}, {"name": "INJ NEXIMOL 100ML", "rate": 950.0, "batch_no": "2455H36", "expiry_date": "08/27"}, {"name": "INJ NS-MERO TZ", "rate": 4654.69, "batch_no": "MD-0467L5", "expiry_date": "08/28"}, {"name": "INJ SOLUMEDROL 125MG", "rate": 662.4, "batch_no": "SF55869", "expiry_date": "09/27"}, {"name": "INJ TERLISTAT 1MG", "rate": 2515.0, "batch_no": "TR-5576", "expiry_date": "12/28"}, {"name": "INJ WEZOX 1.5GM", "rate": 2158.0, "batch_no": "HIZS25001A", "expiry_date": "12/26"}, {"name": "IV CANNULA 20", "rate": 265.7, "batch_no": "C-664", "expiry_date": "12/28"}, {"name": "MONUROL GRANULES", "rate": 626.25, "batch_no": "FF-884214", "expiry_date": "09/28"}, {"name": "NORMAL SALINE 500ML", "rate": 100.23, "batch_no": "N1SC663", "expiry_date": "06/28"}, {"name": "RL 500ML", "rate": 74.02, "batch_no": "R1SC334", "expiry_date": "06/28"}, {"name": "TRIPLE LUMEN CVC LA-MED", "rate": 4987.0, "batch_no": "2503309", "expiry_date": "02/30"}, {"name": "UROMETER", "rate": 609.38, "batch_no": "2660", "expiry_date": "12/29"}, {"name": "VACCU SUCTION SET", "rate": 702.19, "batch_no": "2524001", "expiry_date": "03/30"}, {"name": "VENTILATOR CIRCUIT", "rate": 3656.25, "batch_no": "25F090", "expiry_date": "05/30"}, {"name": "TAB TENVIR-AF", "rate": 1397.0, "batch_no": "AT-008L1", "expiry_date": "08/27"}, {"name": "CAP ECOSPRIN GOLD 20", "rate": 12.16, "batch_no": "LC-443188", "expiry_date": "05/28"}, {"name": "TAB NEO-MERCAZOLE", "rate": 591.04, "batch_no": "RL-004628", "expiry_date": "08/27"}, {"name": "TAB CCM", "rate": 561.5, "batch_no": "SH-7732132", "expiry_date": "05/28"}, {"name": "TAB ELTROXIN 100MCG", "rate": 168.8, "batch_no": "LE16511", "expiry_date": "09/27"}, {"name": "TAB HEPTRAL 400MG", "rate": 145.7, "batch_no": "HL86422", "expiry_date": "11/27"}, {"name": "SYP NEERI KFT", "rate": 625.0, "batch_no": "NL131119", "expiry_date": "08/27"}, {"name": "TAB NATRISE", "rate": 137.58, "batch_no": "TR-006452", "expiry_date": "04/27"}];
+
 const MEDICATION_GROUPS = [
   { group:"💉 IV / Injections", items:["Inj. Normal Saline (NS) 500ml","Inj. Ringer Lactate (RL) 500ml","Inj. DNS 500ml","Inj. Pantoprazole 40mg IV BD","Inj. Esomeprazole 40mg IV BD","Inj. Ondansetron 4mg IV TDS","Inj. Tramadol 50mg IV TDS","Inj. Diclofenac 75mg IM BD","Inj. Ceftriaxone 1g IV BD","Inj. Amikacin 500mg IV OD","Inj. Metronidazole 500mg IV TDS","Inj. Furosemide 40mg IV OD","Inj. Dexamethasone 8mg IV OD","Inj. Hydrocortisone 100mg IV TDS","Inj. Heparin 5000 IU SC BD","Inj. Enoxaparin 40mg SC OD","Inj. Insulin Regular SC TDS","Inj. Atropine 0.6mg IV","Inj. Adrenaline 1mg IV"] },
   { group:"💊 Oral Tablets / Capsules", items:["Tab. Paracetamol 500mg TDS","Tab. Paracetamol 650mg TDS","Tab. Ibuprofen 400mg TDS","Tab. Diclofenac 50mg BD","Tab. Pantoprazole 40mg OD","Tab. Rabeprazole 20mg OD","Tab. Ondansetron 4mg TDS","Tab. Metformin 500mg BD","Tab. Metformin 1000mg BD","Tab. Amlodipine 5mg OD","Tab. Amlodipine 10mg OD","Tab. Atenolol 50mg OD","Tab. Ramipril 5mg OD","Tab. Losartan 50mg OD","Tab. Telmisartan 40mg OD","Tab. Atorvastatin 20mg HS","Tab. Atorvastatin 40mg HS","Tab. Clopidogrel 75mg OD","Tab. Aspirin 75mg OD","Tab. Aspirin 150mg OD","Tab. Azithromycin 500mg OD","Tab. Amoxicillin 500mg TDS","Tab. Ciprofloxacin 500mg BD","Tab. Metronidazole 400mg TDS","Tab. Doxycycline 100mg BD","Tab. Prednisolone 10mg OD","Tab. Prednisolone 40mg OD","Tab. Levothyroxine 50mcg OD","Tab. Folic Acid 5mg OD","Tab. Ferrous Sulphate 200mg BD","Cap. Amoxicillin + Clavulanate 625mg BD","Cap. Omeprazole 20mg BD"] },
   { group:"🩹 Topical / Local", items:["Syrup Paracetamol 125mg/5ml","Syrup Amoxicillin 125mg/5ml","Nebulisation Salbutamol 2.5mg","Nebulisation Ipratropium 0.5mg","Inhalation Budesonide 200mcg BD"] },
   { group:"🔧 Supportive / Others", items:["O2 Inhalation 2–4 L/min","Ryle's Tube Feed","IV Fluids NS/RL @ 100ml/hr","IV Fluids DNS @ 80ml/hr","Urinary Catheterisation","Dressing BD","Steam Inhalation BD","Physiotherapy","ICU Monitoring","Vital Monitoring 4th Hourly"] },
+  { group:"🏥 Sangi Hospital Master", items:["ACCU-STRIPS","AERO MIST (NEB.MASK)","B.T. SET","CANNULA FIXATOR","CAP ECOPSRIN AV 75/10","CAP ECOSPRIN AV 75/20","CAP ECOSPRIN GOLD 20","CAP REDOTIL 100MG","CAP UPRISE D3 60K","CAP URIMAX 0.4","CAP VIZYLAC","CENTRAL VENOUS CATH. KIT","CLOCIP POWDER","COTTON 500GM","CVP MANOMETER","DIALAFLOW REGULATER","DISP. NEEDLE 18","DNS 500ML","DYNAPAR QPS","E.T. TUBE 7.5","ECG ELECTRODES","EXTEENA TRIO","EXTENSION LINE","FEEDING BAG 1200ML","FOLEY CATHETER 14","FOURDERM CREAM","GLUVES 7","HAEMACCEL","HEXIDENE GARGEL 160ML","HI-MASK (ADULT)","HME FILTER","HYAICARE EYE DROP","I.V.SET","INJ ACIVIR 500","INJ ALBUCEL 20%","INJ AMIKACIN 250MG","INJ AVICREST 2.5","INJ AXCOBIX 1.5","INJ BUSCOPAN","INJ CEFTAZIN AV 1.25GM","INJ CLARIMIN 500MG","INJ COL 3MIU","INJ CRESP 25MG","INJ DERIPHYLLIN","INJ DEXTROSE 25% 100ML","INJ DOMIN","INJ DOXYCIL 100MG","INJ DROTIN","INJ ETERNA 2ML","INJ FERIUM 500","INJ FONDAZEST 2.5","INJ FOSFOFIC","INJ GLUTA VEN 600MG","INJ GLUTAPEP 100ML IV","INJ HEPAMERZ","INJ HUMAN ACTRAPID 40 I.U/ML","INJ HYDROCORT 100MG","INJ INCLAN 4ML","INJ INJEK 10MG","INJ KABILYTE 500ML","INJ KEFUZID AV","INJ KEFZONE S PLUS 1.5GM","INJ LANTUS","INJ LASIX","INJ LESURIDE","INJ LEVIPIL 5ML","INJ LINID IV 600MG","INJ LINOX 600","INJ LOX 2% 30ML","INJ MANNITOL 20%","INJ MERANO-TZ 1.125GM","INJ MEROMET-TZ 1.125GM","INJ METROGYL 500MG","INJ MONOCEF 1GM","INJ MUCINAC","INJ NEO-DROL 125MG","INJ NEO-DROL 40MG","INJ NEOMOL 100ML","INJ NEXIMOL 100ML","INJ NOOTROPIL","INJ NORAD 4MG","INJ NS-MERO TZ","INJ ORNICRIT","INJ POTLYTE 15%","INJ REJUNURON FORTE","INJ RIBZIFF 20MG","INJ SAMVEC 10MG","INJ SODA BI CARB 25ML","INJ SOLUMEDROL 125MG","INJ STROCIT","INJ TAZACT 4.5GM","INJ TERLISTAT 1MG","INJ THIAMINE 100","INJ TRENAXA","INJ UPRISE-D3 6L","INJ WEZOX 1.5GM","INSULIN SYRING 1ML","IV CANNULA 20","K-BIND SHACHET","LOCAM JELLY","MEDIFIX CANNULA","MONUROL GRANULES","NEB BUDECORT","NEB DUOLIN","NORMAL SALINE (0.45% W/V) 500","NORMAL SALINE 500ML","NS 100ML","NS 500 ML","OINT GANCIGEL","ORS LIQUID","P.M. LINE 200","PMO LINE","POP BANDAGE","RES ENTEROGERMINA","RL 500ML","RYLES TUBE 16","SILK 2-0 NW5036","SUCTION CATHETER 14","SUCTION CATHETER 16","SYP ALKASOL","SYP APTIVATE","SYP ASTHAKIND DX","SYP ASTHAKIND LS","SYP CREMAFFIN PLUS","SYP LIV 52","SYP LUPIZYME PLUS","SYP M2-TONE","SYP MONTAIR KID","SYP NEERI","SYP NEERI KFT","SYP POTKLOR 200ML","SYP SPARACID DS","SYP SUCRAL-O","SYP TUSQ-DX SF","SYP VENTRYL-D","SYRING 50ML","SYRINGE 10 ML","SYRINGE 3ML","SYRINGE 5 ML","SYRINGE 50 ML","TAB ACICLOVIR 800MG","TAB AKT 3","TAB AKT 4","TAB ALLEGRA 120MG","TAB ALLEGRA 180MG","TAB AMARYL M1","TAB AMARYL M2","TAB AMLONG 5MG","TAB AMLOPRES 5","TAB ATORVA 10MG","TAB ATORVA 20MG","TAB ATORVA 40MG","TAB ATORVA F","TAB AUGMENTIN 375","TAB AUGMENTIN 625","TAB AZEE 250MG","TAB AZEE 500MG","TAB BENADON","TAB BRILINTA 90MG","TAB CARDIVAS 3.125","TAB CARIPILL","TAB CCM","TAB CEFTUM 500","TAB CHYMORAL FORTE","TAB CLARIBID 250MG","TAB CLARIBID 500MG","TAB CLONAFIT 0.25 MG","TAB CLONAFIT 0.5 MD","TAB CLOPITAB 75","TAB COMBUTOL 800MG","TAB CONCOR 5","TAB DAPA 10MG","TAB DAROLAC","TAB DEFCORT 6 MG","TAB DEPLATT 75","TAB DOLO 500","TAB DOLO 650","TAB DOXOLIN 200MG","TAB DOXOLIN 400MG","TAB DULCOLAX","TAB DYTOR 10","TAB DYTOR PLUS","TAB ECOSPRIN 150","TAB ECOSPRIN 75","TAB ELTROXIN 100MCG","TAB ELTROXIN 25MCG","TAB ELTROXIN 50MCG","TAB EXTRAMAX","TAB FARONEM 200MG","TAB FARONEM ER 300MG","TAB FEBUGET 40","TAB FEBUSTAT 40MG","TAB FLAVEDON MR","TAB FLEXON MR","TAB FOLITRAX 15","TAB GABAPIN NT","TAB GLIMISAVE M 1","TAB GLIMISAVE M 2","TAB GLUCONORM G 0.5/500","TAB GLYIPY MET 500/50","TAB HCQS 200MG","TAB HEPAMERZ","TAB HEPTRAL 400MG","TAB ISTAMET 50/500","TAB JANUMET 50/500","TAB LESURIDE 25MG","TAB LEVIPILL","TAB LEVOFLOX 500MG","TAB LIBRIUM 10MG","TAB LINAPIL 5MG","TAB LINID 600MG","TAB MARTIFUR MR","TAB MARTIFUR MR 50MG","TAB MEDROL 16MG","TAB MEDROL 8MG","TAB MET XL 50","TAB METFOR 500MG","TAB METROGYL 200MG","TAB METROGYL 400MG","TAB METROGYL ER 600","TAB MIDORA","TAB MIGON","TAB MINIPRESS XL 2.5","TAB MONTAIR FX","TAB MONTAIR LC KID","TAB MUCINAC 600MG","TAB NATRISE","TAB NAXDOM 250MG","TAB NAXDOM 500MG","TAB NEFROSAVE","TAB NEFROSOL","TAB NEO-MERCAZOLE","TAB NEUROBION FORTE","TAB NEXITO PLUS","TAB NUCOXIA MR","TAB OFLOX OZ","TAB OROFER XT","TAB PAN 20","TAB PAN-D","TAB PREGABA NT","TAB PULMOCLEAR","TAB REHEPTIN","TAB RENOLIFE","TAB RIFAGUT 550MG","TAB ROSUVAS 20","TAB SHELCAL XT","TAB SIGNOFLAM","TAB SITAPRIDE-M 50/500","TAB SORBITRATE 5","TAB TELMA 40MG","TAB TELMA AM","TAB TELMA-AM H","TAB TENVIR-AF","TAB THYROX 100MCG","TAB THYROX 150MCG","TAB THYROX 25MCG","TAB THYROX 50MCG","TAB THYROX 75MCG","TAB TRENAXA 500MG","TAB TRYPTOMER 10MG","TAB TRYPTOMER 25MG","TAB UDILIV 150MG","TAB UDILIV 300MG","TAB ULTRACET","TAB URIMAX D","TAB URISPAS","TAB VERTIN 16MG","TAB VERTIN 8MG","TAB ZERODOL-SP","TAB ZINCOVIT","TAB ZYLORIC 100MG","TAB ZYLORIC 300MG","TRIPLE LUMEN CVC LA-MED","UROMETER","VACCU SUCTION SET","VENTILATOR CIRCUIT","VIGGO 20","VIGGO 22"] },
 ];
 
 const PATHOLOGY_REPORT_TYPES = [
@@ -487,10 +504,18 @@ function SearchMultiDropdown({ value, onChange, groups, placeholder, chipColor="
   const [open, setOpen]     = useState(false);
   const [search, setSearch] = useState("");
   const [panelStyle, setPanelStyle] = useState({});
+
   const triggerRef = useRef(null);
   const panelRef   = useRef(null);
-  const selected   = value ? value.split(", ").filter(Boolean) : [];
 
+  const selected = Array.isArray(value)
+    ? value
+    : value
+      ? value.split(",").map(v => v.trim()).filter(Boolean)
+      : [];
+  console.log("Dropdown Value:", value);
+console.log("Selected Services:", selected);
+console.log("Groups:", groups);
   const calcPosition = () => {
     if (!triggerRef.current) return;
     const rect = triggerRef.current.getBoundingClientRect();
@@ -1619,11 +1644,15 @@ useEffect(() => {
     apiService.getMedicineMaster()
       .then(list => {
         console.log("[MedMaster] loaded:", list?.length, "items | sample:", list?.[0]);
-        setMedicineMaster(Array.isArray(list) ? list : []);
+        const backendList = Array.isArray(list) ? list : [];
+        const merged = [...SANGI_MEDICINE_MASTER, ...backendList.filter(b =>
+          !SANGI_MEDICINE_MASTER.some(s => s.name.toLowerCase() === (b.name||b.medicine_name||"").toLowerCase())
+        )];
+        setMedicineMaster(merged);
       })
       .catch(err => {
         console.error("[MedMaster] failed:", err?.response?.status, err?.message);
-        setMedicineMaster([]);
+        setMedicineMaster(SANGI_MEDICINE_MASTER);
       });
   }, []);
 
@@ -1813,7 +1842,7 @@ useEffect(() => {
           apiService.getLabReports(p.uhid, admNo).catch(() => []),
           apiService.getLabReportTemplates(p.uhid, admNo).catch(() => ({ suggested_reports:[] })),
           apiService.getPharmacyRecords(p.uhid, admNo).catch(() => []),
-          apiService.getCanonicalRecords(p.uhid, admNo).catch(() => ({})),
+          apiService.getCanonicalRecords(p.uhid, admNo).catch((err) => { console.log("canonicalRecords error:", err); return {}; }),
           fetch(`${apiService.BASE_URL||"http://127.0.0.1:8000/api"}/service-master/`, {
             headers:{ Authorization:`Bearer ${sessionStorage.getItem("hms_token")||""}` }
           }).then(r=>r.json()).catch(()=>[]),
@@ -1923,7 +1952,12 @@ useEffect(() => {
               const rate = matchSvcRate(r.name, r.category);
               return { id: Date.now()+idx, name:r.name||"", category:r.category||"GENERAL SERVICES", qty:1, rate, amount:rate };
             });
-          if (svcFromReports.length > 0) setESvc(svcFromReports);
+          console.log("P SERVICES:", p.services);
+console.log("SVC FROM REPORTS:", svcFromReports);
+
+const existingNames = new Set((p.services || []).map(s => s.name?.toLowerCase()));
+const newSvcs = svcFromReports.filter(s => !existingNames.has(s.name?.toLowerCase()));
+setESvc([...(p.services || []), ...newSvcs]);
         }
 
       } catch (err) {
@@ -2223,7 +2257,7 @@ useEffect(() => {
           style={{ width:"100%", boxSizing:"border-box", padding:"10px 14px", borderRadius:9, border:"1.5px solid var(--border)", background:"var(--bg)", color:"var(--navy)", fontSize:13, fontFamily:"inherit", outline:"none" }}
         />
         {open && rect && (
-          <div style={{ position:"fixed", top: rect.bottom + 4, left: rect.left, width: rect.width, zIndex:99999, maxHeight:300, overflowY:"auto", borderRadius:10, boxShadow:"0 12px 32px rgba(0,0,0,0.25)", background:"var(--white,#fff)", border:"1.5px solid var(--border)" }}>
+          <div style={{ position:"fixed", top: rect.bottom + 4, left: rect.left, width: rect.width, zIndex:99999, maxHeight: Math.min(300, window.innerHeight - rect.bottom - 10), overflowY:"auto", borderRadius:10, boxShadow:"0 12px 32px rgba(0,0,0,0.25)", background:"var(--white,#fff)", border:"1.5px solid var(--border)" }}>
             {filtered.length === 0 && (
               <div onClick={handleManual} style={{ padding:"10px 14px", cursor:"pointer", color:"#10b981", fontSize:13, fontWeight:600 }}>
                 + Add "{query.trim()}" manually
@@ -2270,47 +2304,28 @@ useEffect(() => {
           ""
         );
 
-  console.log("MED MASTER SAMPLE", medicineMaster?.[0]);
+  const normalize = (s) => String(s||"").toLowerCase().replace(/[^a-z0-9]/g," ").replace(/\s+/g," ").trim();
+  const needle = normalize(medName);
 
   const found =
-    medicineMaster.find(m =>
-      (m.name || m.itemDescription || "")
-        .toLowerCase()
-        .includes(medName.toLowerCase())
-    ) || {};
+    medicineMaster.find(m => normalize(m.name || m.medicine_name || "") === needle) ||
+    medicineMaster.find(m => normalize(m.name || m.medicine_name || "").includes(needle)) ||
+    medicineMaster.find(m => needle.includes(normalize(m.name || m.medicine_name || ""))) ||
+    {};
+
+  const rate = Number(found.rate || found.mrp || found.price || 0);
 
   setEMedBill((prev) => [
     ...prev,
     {
+      id: Date.now() + Math.random(),
       item: medName,
-
       date: new Date().toISOString().slice(0,10),
-
-      qty: 1,
-
-      rate: Number(
-        found.rate ||
-        found.mrp ||
-        found.price ||
-        0
-      ),
-
-      batchNo:
-        found.batch_no || found.batchNo ||
-        found.batch ||
-        "",
-
-      expiryDate:
-        found.expiry_date || found.expiryDate ||
-        found.expiry ||
-        "",
-
-      amount: Number(
-        found.rate ||
-        found.mrp ||
-        found.price ||
-        0
-      ),
+      quantity: 1,
+      rate,
+      batchNo: found.batch_no || found.batchNo || found.batch || "",
+      expiryDate: found.expiry_date || found.expiryDate || found.expiry || "",
+      amount: rate,
     }
   ]);
 }} />

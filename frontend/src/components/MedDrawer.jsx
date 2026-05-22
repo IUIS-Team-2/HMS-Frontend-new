@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
 
+
 const dr = {
   overlay: { position:"fixed", inset:0, background:"rgba(0,0,0,0.55)", zIndex:1000, display:"flex", justifyContent:"flex-end" },
   drawer: { width:440, background:"#0f1117", borderLeft:"1px solid #1e2330", height:"100%", display:"flex", flexDirection:"column", fontFamily:"inherit" },
@@ -36,8 +37,9 @@ function DrawerMedSearch({ medicineMaster, existingMeds, onAdd }) {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return (medicineMaster || []).slice(0, 30);
-    return (medicineMaster || []).filter(m => (m.name || "").toLowerCase().includes(q)).slice(0, 30);
+    const merged = medicineMaster || [];
+    if (!q) return merged.slice(0, 30);
+    return merged.filter(m => (m.name || "").toLowerCase().includes(q)).slice(0, 30);
   }, [query, medicineMaster]);
 
   useEffect(() => {

@@ -110,27 +110,28 @@ export default function LoginPage({ onLogin }) {
       }
       const data = await apiService.login(normalizedUsername, normalizedPassword);
       sessionStorage.setItem('hms_token', data.access);
-      const payload = JSON.parse(atob(data.access.split('.')[1]));
+      // fetch verified user info from server — never trust JWT payload
+      const profile = await apiService.getMyProfile();
 
-      let frontendBranch = payload.branch;
+      let frontendBranch = profile.branch;
       if (frontendBranch && frontendBranch !== "ALL") {
         frontendBranch = branches.find((branch) => branch.code === frontendBranch)?.slug || String(frontendBranch).toLowerCase();
       }
       if (frontendBranch === "ALL") frontendBranch = "all";
 
       const isGlobalUser =
-        payload.access_scope === "all_hospitals" ||
+        profile.access_scope === "all_hospitals" ||
         frontendBranch === "all" ||
-        ["superadmin", "office_admin"].includes(payload.role);
+        ["superadmin", "office_admin"].includes(profile.role);
       const allBranchSlugs = branches.map((branch) => branch.slug);
       const userLocations = isGlobalUser ? (allBranchSlugs.length ? allBranchSlugs : ["laxmi", "raya"]) : [frontendBranch];
 
       const loggedInUser = {
-        id: payload.username,
-        username: payload.username,
-        name: payload.name,
-        role: payload.role,
-        branchCode: payload.branch,
+        id: profile.username,
+        username: profile.username,
+        name: profile.name,
+        role: profile.role,
+        branchCode: profile.branch,
         branch: isGlobalUser ? null : frontendBranch,
         accessScope: isGlobalUser ? "all_hospitals" : "single_hospital",
         locations: userLocations,

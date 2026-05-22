@@ -1,3 +1,4 @@
+import { SANGI_MEDICINE_MASTER } from "../data/medicineMaster";
 import * as XLSX from "xlsx";
 import MedDrawer from "../components/MedDrawer";
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
@@ -477,8 +478,11 @@ function MedSearchDropdown({ medicineMaster, existingMedicines, onSelect, isDark
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return (medicineMaster || []).slice(0, 30); // show all on focus
-    return (medicineMaster || []).filter(m => ((m.name || m.medicine_name || "").toLowerCase().includes(q))).slice(0, 30);
+    const merged1 = [...SANGI_MEDICINE_MASTER, ...(medicineMaster || []).filter(b =>
+      !SANGI_MEDICINE_MASTER.some(s => s.name.toLowerCase() === (b.name||b.medicine_name||"").toLowerCase())
+    )];
+    if (!q) return merged1.slice(0, 30);
+    return merged1.filter(m => ((m.name || m.medicine_name || "").toLowerCase().includes(q))).slice(0, 30);
   }, [query, medicineMaster]);
 
   useEffect(() => {

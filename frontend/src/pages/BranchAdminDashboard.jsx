@@ -1,3 +1,4 @@
+import { SANGI_MEDICINE_MASTER } from "../data/medicineMaster";
 import React from 'react';
 import { useState, useEffect, useRef } from "react";
 import { apiService, BASE_URL } from "../services/apiService";
@@ -2573,8 +2574,11 @@ const renderDischarge = () => {
               },[]);
               const filtered = React.useMemo(()=>{
                 const lq=q.trim().toLowerCase();
-                if(!lq) return medicineMaster.slice(0,30);
-                return medicineMaster.filter(m=>(m.name||"").toLowerCase().includes(lq)).slice(0,30);
+                const merged2 = [...SANGI_MEDICINE_MASTER, ...(medicineMaster||[]).filter(b =>
+                  !SANGI_MEDICINE_MASTER.some(s => s.name.toLowerCase() === (b.name||b.medicine_name||"").toLowerCase())
+                )];
+                if(!lq) return merged2.slice(0,30);
+                return merged2.filter(m=>(m.name||"").toLowerCase().includes(lq)).slice(0,30);
               },[q]);
               return (
                 <div ref={wRef} style={{position:"relative",marginBottom:12}}>
