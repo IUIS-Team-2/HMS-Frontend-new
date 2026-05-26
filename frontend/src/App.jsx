@@ -40,8 +40,10 @@ const [doctors, setDoctors] = useState([]);
   } = state;
 
   // ── Effects ──────────────────────────────────────────────────────────
-  useEffect(() => { if (loggedIn && currentUser) loadBranches(); }, [loggedIn, currentUser, loadBranches]);
-  useEffect(() => { if (loggedIn && currentUser) loadDashboardData(currentUser.role); }, [loggedIn, currentUser, loadDashboardData]);
+  useEffect(() => {
+    if (!loggedIn || !currentUser) return;
+    loadBranches().then(() => loadDashboardData(currentUser.role));
+  }, [loggedIn, currentUser, loadBranches, loadDashboardData]);
   useEffect(() => { try { sessionStorage.setItem("hms_locId", locId); } catch {} }, [locId]);
   useEffect(() => {
     if (!loggedIn || !currentUser) return;

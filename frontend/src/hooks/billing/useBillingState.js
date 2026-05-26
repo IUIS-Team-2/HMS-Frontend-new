@@ -115,8 +115,8 @@ export function useBillingState({ db, currentUser, locId }) {
   // ── Load assigned tasks ───────────────────────────────────────────────────
   useEffect(() => {
     apiService.getMyTasks()
-      .then(tasks => setAssignedTasks(Array.isArray(tasks) ? tasks : []))
-      .catch(() => { toastLib.error("Failed to load tasks"); setAssignedTasks([]); });
+      .then(tasks => setAssignedTasks(Array.isArray(tasks) ? tasks : (tasks?.results ? tasks.results : [])))
+      .catch(() => { setAssignedTasks([]); });
   }, []);
 
   // ── Load medicine master ──────────────────────────────────────────────────
@@ -478,20 +478,20 @@ export function useBillingState({ db, currentUser, locId }) {
 
       if (sel.taskId) {
         try { await apiService.updateTask(sel.taskId, { status:"Completed", description: buildSubmissionNotes(sel) }); } catch {}
-        try { await apiService.requestPrint(sel.uhid, sel.admNo); } catch {}
-
-        setPatients(prev => prev.map(p =>
-          p.uhid === sel.uhid && p.admNo === sel.admNo
-            ? { ...p, taskStatus:"completed", billing:{ ...p.billing, printStatus:"PENDING" } }
-            : p
-        ));
-        setSel(prev => prev
-          ? { ...prev, taskStatus:"completed", billing:{ ...prev.billing, printStatus:"PENDING" } }
-          : prev
-        );
-        setShowConfirm(false);
-        toast("Submitted to HOD and Admin ✓");
       }
+      try { await apiService.requestPrint(sel.uhid, sel.admNo); } catch {}
+
+      setPatients(prev => prev.map(p =>
+        p.uhid === sel.uhid && p.admNo === sel.admNo
+          ? { ...p, taskStatus:"completed", billing:{ ...p.billing, printStatus:"PENDING" } }
+          : p
+      ));
+      setSel(prev => prev
+        ? { ...prev, taskStatus:"completed", billing:{ ...prev.billing, printStatus:"PENDING" } }
+        : prev
+      );
+      setShowConfirm(false);
+      toast("Submitted to HOD and Admin ✓");
     } catch {
       toastLib.error("Task submission failed");
     } finally {

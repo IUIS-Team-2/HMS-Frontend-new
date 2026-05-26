@@ -164,24 +164,16 @@ export default function DischargeTab({ selPatient, selectedAdmission, canEditRec
   const dtCfg = DISCHARGE_TYPES[sumType] || DISCHARGE_TYPES.NORMAL;
 
   // ── Discharge type selector pill row ──────────────────────────────────
-  const TYPE_OPTIONS = ["NORMAL","RECOVERED","LAMA","REFER","DEATH","DOPR","DISCHARGE"];
+  const TYPE_OPTIONS = ["NORMAL","RECOVERED","LAMA","REFER","DEATH","DOPR"];
 
   return (
     <div>
-      {/* ── Type selector ── */}
-      <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, padding: "14px 18px", marginBottom: 16 }}>
-        <div style={{ fontSize: 10, letterSpacing: "2px", color: T.textMuted, textTransform: "uppercase", marginBottom: 10, fontWeight: 700 }}>Discharge Type</div>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          {TYPE_OPTIONS.map(t => {
-            const cfg = DISCHARGE_TYPES[t] || DISCHARGE_TYPES.NORMAL;
-            const active = sumType === t;
-            return (
-              <button key={t} onClick={() => canEditRecords && setSumType(t)} style={{ padding: "6px 14px", borderRadius: 20, fontSize: 11, fontWeight: 700, cursor: canEditRecords ? "pointer" : "default", border: `1px solid ${active ? cfg.color : T.border}`, background: active ? cfg.bg : "transparent", color: active ? cfg.color : T.textMuted, transition: "all 0.15s" }}>
-                {cfg.icon} {cfg.label}
-              </button>
-            );
-          })}
-        </div>
+      {/* ── Discharge type label (read from fetched data) ── */}
+      <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, padding: "12px 18px", marginBottom: 16, display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ fontSize: 10, letterSpacing: "2px", color: T.textMuted, textTransform: "uppercase", fontWeight: 700 }}>Discharge Type</div>
+        <span style={{ padding: "5px 14px", borderRadius: 20, fontSize: 12, fontWeight: 700, border: `1px solid ${dtCfg.color}`, background: dtCfg.bg, color: dtCfg.color }}>
+          {dtCfg.icon} {dtCfg.label}
+        </span>
       </div>
 
       {/* ── Status banner ── */}

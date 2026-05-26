@@ -87,7 +87,7 @@ export default function BranchAdminDashboard({
         (resolvedBranchCode === "LNM" && (Array.isArray(db?.laxmi) ? db.laxmi : [])) ||
         (resolvedBranchCode === "RYM" && (Array.isArray(db?.raya) ? db.raya : [])) || []
       );
-      let safe = branchPatients.length ? branchPatients : Object.values(db || {}).find(r => Array.isArray(r) && r.length) || [];
+      let safe = branchPatients;
       if (!safe.length) {
         try {
           const apiPatients = await apiService.getPatients();
@@ -180,17 +180,14 @@ export default function BranchAdminDashboard({
           const data = await apiService.getPharmacyRecords(uhid, admNo);
           if (!active) return;
           let items = Array.isArray(data) ? data : Array.isArray(data?.results) ? data.results : Array.isArray(data?.data) ? data.data : (data&&typeof data==="object"?Object.values(data).find(v=>Array.isArray(v)):[]) || [];
-            if (!items.length && admObj?.medicalHistory?.treatmentAdvised) {
-              items = String(admObj.medicalHistory.treatmentAdvised)
-                .split(/,|\n/)
-                .map((m, i) => ({
-                  medicine_name: m.trim(),
-                  quantity: 1,
-                  rate: 0,
-                  date_given: admDate,
-                  id: `fallback-med-${i}`
-                }))
-                .filter(m => m.medicine_name);
+            if (!items.length) {
+              const medSrc = admObj?.medicalHistory?.currentMedications || admObj?.medicalHistory?.treatmentAdvised || "";
+              if (medSrc) {
+                items = String(medSrc).split(/,|\n/).map((m, i) => ({
+                  medicine_name: m.trim(), quantity: 1, rate: 0,
+                  date_given: admDate, id: `fallback-med-${i}`
+                })).filter(m => m.medicine_name);
+              }
             }
 
 
@@ -204,7 +201,7 @@ export default function BranchAdminDashboard({
           } else {
             if (recTab === "final_bill") { isRecordDirtyRef.current=false; setEditableRows(svcRowsForBill); return; }
             const svcMeds = services.filter(s=>["med","medicine","medicines","pharma","drug","pharmacy","tablet","capsule","injection","iv fluid","consumable","rx"].some(k=>(s.svcCat||s.type||"").toLowerCase().includes(k))).map((s,i)=>({_localId:s.id||`m-svc-${i}`,medicine_name:s.svcName||s.name||"",date_given:String(s.svcDate||admDate).slice(0,10),quantity:Number(s.svcQty||1),rate:Number(s.svcRate||0),batch_no:"",expiry_date:"",amount:Number(s.svcTot||s.total||0)}));
-            setEditableRows(svcMeds.length?svcMeds:[{_localId:`m-blank-0`,medicine_name:"",date_given:admDate,quantity:1,rate:0,batch_no:"",expiry_date:"",amount:0}]);
+            setEditableRows(svcMeds.length ? svcMeds : []);
           }
         } catch { if (!active) return; setEditableRows([]); }
       };
@@ -231,17 +228,14 @@ export default function BranchAdminDashboard({
             }
 
 
-            if (!items.length && admObj?.medicalHistory?.treatmentAdvised) {
-              items = String(admObj.medicalHistory.treatmentAdvised)
-                .split(/,|\n/)
-                .map((m, i) => ({
-                  medicine_name: m.trim(),
-                  quantity: 1,
-                  rate: 0,
-                  date_given: admDate,
-                  id: `fallback-med-${i}`
-                }))
-                .filter(m => m.medicine_name);
+            if (!items.length) {
+              const medSrc = admObj?.medicalHistory?.currentMedications || admObj?.medicalHistory?.treatmentAdvised || "";
+              if (medSrc) {
+                items = String(medSrc).split(/,|\n/).map((m, i) => ({
+                  medicine_name: m.trim(), quantity: 1, rate: 0,
+                  date_given: admDate, id: `fallback-med-${i}`
+                })).filter(m => m.medicine_name);
+              }
             }
 
 
