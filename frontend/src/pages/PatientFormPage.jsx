@@ -30,7 +30,7 @@ export default function PatientFormPage({data, setData, onSubmit, errs, onBack, 
   };
 
   return (
-    <div className="form-page">
+<div className="form-page" style={{height:"calc(100vh - 80px)",overflowY:"auto",paddingBottom:"120px"}}>
       <div className="page-hd"><div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}><div><h1>New Patient Registration</h1><p>Fill in all details to register and generate a UHID</p></div><button className="btn btn-ghost btn-sm" onClick={onBack}>← Back to Search</button></div></div>
       <Card icon={IC.person} title="Personal Details" subtitle="Core identity and demographic information" delay={0}>
         <div className="g2">
@@ -73,7 +73,7 @@ export default function PatientFormPage({data, setData, onSubmit, errs, onBack, 
     </div>
   )}
   <div style={{ display: "flex", gap: 12 }}>
-          <button onClick={() => { setVal("payMode")("cash"); setData(p => ({ ...p, payMode: "cash", cashlessType: "", tpa: "", tpaCard: "", tpaValidity: "", tpaCardType: "", tpaPanelCardNo: "", tpaPanelValidity: "" })); }}
+          <button onClick={() => { setData(p => ({ ...p, payMode: "cash", cashlessType: "", tpa: "", tpaCard: "", tpaValidity: "", tpaCardType: "", tpaPanelCardNo: "", tpaPanelValidity: "" })); }}
             style={{ flex: 1, padding: "14px 12px", borderRadius: 12, border: `2px solid ${payMode === "cash" ? T.green : T.border}`, background: payMode === "cash" ? T.greenTint : T.white, cursor: "pointer", transition: "all .15s" }}>
             <div style={{ fontSize: 22, marginBottom: 6 }}>💵</div>
             <div style={{ fontWeight: 700, fontSize: 14, color: payMode === "cash" ? T.green : T.text }}>Cash</div>

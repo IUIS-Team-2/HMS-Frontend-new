@@ -51,7 +51,14 @@ export default function DischargePage({ data, setData, onSave, admissionRecord, 
   }, [admissionRecord, data?.billDate, data?.doa, data?.dod, data?.doctorName, setData]);
   
   return(
-    <div className="form-page">
+   <div
+  className="form-page"
+  style={{
+    height: "calc(100vh - 80px)",
+    overflowY: "auto",
+    paddingBottom: "120px"
+  }}
+>
       <div className="page-hd">
         <h1>Discharge Details</h1>
         <p>Room allocation, dates, department and treating doctor</p>

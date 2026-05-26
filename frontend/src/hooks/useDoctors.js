@@ -6,12 +6,12 @@ export function useDoctors(branchCode = "default") {
   const key = `${BASE_KEY}_${branchCode}`;
 
   const [doctors, setDoctors] = useState(() => {
-    try { return JSON.parse(localStorage.getItem(key) || "[]"); }
+    try { return JSON.parse(sessionStorage.getItem(key) || "[]"); }
     catch { return []; }
   });
 
   useEffect(() => {
-    try { localStorage.setItem(key, JSON.stringify(doctors)); }
+    try { sessionStorage.setItem(key, JSON.stringify(doctors)); }
     catch {}
   }, [doctors, key]);
 

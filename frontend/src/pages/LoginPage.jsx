@@ -71,6 +71,8 @@ export default function LoginPage({ onLogin }) {
   const [newPassword, setNewPassword] = useState('');
   const [forgotError, setForgotError] = useState('');
   const [forgotLoading, setForgotLoading] = useState(false);
+  const [otpAttempts, setOtpAttempts] = useState(0);
+  const MAX_OTP_ATTEMPTS = 5;
 
   useEffect(() => {
     let ignore = false;
@@ -114,10 +116,11 @@ export default function LoginPage({ onLogin }) {
       const profile = await apiService.getMyProfile();
 
       let frontendBranch = profile.branch;
-      if (frontendBranch && frontendBranch !== "ALL") {
+      if (frontendBranch === "ALL") {
+        frontendBranch = "all";
+      } else if (frontendBranch) {
         frontendBranch = branches.find((branch) => branch.code === frontendBranch)?.slug || String(frontendBranch).toLowerCase();
       }
-      if (frontendBranch === "ALL") frontendBranch = "all";
 
       const isGlobalUser =
         profile.access_scope === "all_hospitals" ||
@@ -161,16 +164,11 @@ export default function LoginPage({ onLogin }) {
     setForgotLoading(true);
 
     try {
-      const res = await fetch(`${BASE_URL}/users/request-reset-otp/`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: forgotEmail }),
-      });
-      if (res.ok) {
+      const result = await apiService.requestResetOtp(forgotEmail);
+      if (result !== undefined) {
         setResetStep(2);
       } else {
-        const errData = await res.json();
-        setForgotError(errData.error || 'Email not found. Please try again.');
+        setForgotError('Email not found. Please try again.');
       }
     } catch {
       setForgotError('Server error. Please check your connection.');
@@ -181,21 +179,13 @@ export default function LoginPage({ onLogin }) {
   const handleResetPassword = async (e) => {
     e.preventDefault();
     setForgotError('');
-    if (!otp || !newPassword) return setForgotError('Please fill all fields.');
+    if (otpAttempts >= MAX_OTP_ATTEMPTS) return setForgotError("Too many attempts. Please request a new OTP.");
+    if (!otp || !newPassword) return setForgotError("Please fill all fields.");
     setForgotLoading(true);
 
     try {
-      const res = await fetch(`${BASE_URL}/users/verify-reset-otp/`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: forgotEmail, otp: otp, new_password: newPassword }),
-      });
-      if (res.ok) {
-        setResetStep(3);
-      } else {
-        const errData = await res.json();
-        setForgotError(errData.error || 'Invalid OTP. Please try again.');
-      }
+      await apiService.verifyResetOtp(forgotEmail, otp, newPassword);
+      setResetStep(3);
     } catch {
       setForgotError('Server error. Please check your connection.');
     }
@@ -207,7 +197,8 @@ export default function LoginPage({ onLogin }) {
     setResetStep(1);
     setForgotEmail('');
     setOtp('');
-    setNewPassword('');
+    setNewPassword("");
+    setOtpAttempts(0);
     setForgotError('');
   };
 

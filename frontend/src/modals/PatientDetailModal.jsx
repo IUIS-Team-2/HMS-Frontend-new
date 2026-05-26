@@ -1,3 +1,4 @@
+import { maskAadhaar } from "../utils/helpers";
 import { useState } from "react";
 import { T } from "../data/constants";
 import { initials, fmtDate, fmtDT, admTotal } from "../utils/helpers";
@@ -94,7 +95,7 @@ export default function PatientDetailModal({patient,onClose,onDischarge,onSaved,
                   {l:"Age",v:patient.ageYY?`${patient.ageYY}y ${patient.ageMM||0}m ${patient.ageDD||0}d`:""},
                   {l:"Blood Group",v:patient.bloodGroup},
                   {l:"Marital Status",v:patient.maritalStatus},
-                  {l:"National ID",v:patient.nationalId,hi:true}
+                  {l:"National ID",v:maskAadhaar(patient.nationalId),hi:true}
                 ].map(({l,v,hi})=>(<div key={l} className={`pdm-item${hi?" hi":""}`}><div className="pdm-lbl">{l}</div><div className="pdm-val">{v||"—"}</div></div>))
               )}
             </div>
@@ -141,7 +142,7 @@ export default function PatientDetailModal({patient,onClose,onDischarge,onSaved,
               {billMade&&(<div className="pdm-adm-body">
                 <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:12}}>{[["Gross Total",`₹${tot.toFixed(2)}`],["Discount",`₹${disc.toFixed(2)}`],["Advance",`₹${adv.toFixed(2)}`],["Net Payable",`₹${net.toFixed(2)}`]].map(([l,v])=>(<div key={l} className={`pdm-item${l==="Net Payable"?" hi":""}`}><div className="pdm-lbl">{l}</div><div className="pdm-val">{v}</div></div>))}</div>
                 {adm.billing?.paymentMode && String(patient?.payMode || "").toLowerCase() !== "cashless" && <div style={{fontSize:13,color:T.textMid}}><strong>Payment Mode:</strong> {adm.billing.paymentMode}</div>}
-                {(adm.services||[]).length>0&&<><div style={{fontSize:11,fontWeight:700,color:T.textLight,textTransform:"uppercase",letterSpacing:".07em",margin:"14px 0 8px"}}>Services</div>{adm.services.map((s,si)=>(<div key={si} style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"5px 0",borderBottom:`1px solid ${T.border}`,color:T.textMid}}><span>{s.title||s.type} {s.code?`(${s.code})`:""} × {s.qty}</span><span style={{fontWeight:600}}>₹{((parseFloat(s.rate)||0)*(parseInt(s.qty)||0)).toFixed(2)}</span></div>))}</>}
+                {(adm.services||[]).length>0&&<><div style={{fontSize:11,fontWeight:700,color:T.textLight,textTransform:"uppercase",letterSpacing:".07em",margin:"14px 0 8px"}}>Services</div>{adm.services.map((s,si)=>(<div key={si} style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"5px 0",borderBottom:`1px solid ${T.border}`,color:T.textMid}}><span>{s.title||s.type} {s.code?`(${s.code})`:""} × {s.qty}</span><span style={{fontWeight:600}}>₹{((parseFloat(s.rate)||0)*parseFloat(s.qty)||0).toFixed(2)}</span></div>))}</>}
               </div>)}
             </div>);
           }))}

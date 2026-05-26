@@ -118,7 +118,14 @@ export default function PatientsHistoryPage({ db, locId, onBack, onDischarge, on
   };
 
   return (
-    <div className="hist-page">
+<div
+  className="hist-page"
+  style={{
+    height: "calc(100vh - 80px)",
+    overflowY: "auto",
+    paddingBottom: "120px"
+  }}
+>
 
       {/* ── Header ── */}
       <div className="hist-page-hd">

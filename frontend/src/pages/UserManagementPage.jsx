@@ -8,7 +8,7 @@ const DEFAULT_USERS = [
 ];
 
 function getUsers(){
-  try { const u = localStorage.getItem("sangi_users"); return u ? JSON.parse(u) : DEFAULT_USERS; }
+  try { const u = sessionStorage.getItem("sangi_users"); return u ? JSON.parse(u) : DEFAULT_USERS; }
   catch { return DEFAULT_USERS; }
 }
 
@@ -145,13 +145,13 @@ export default function UserManagementPage() {
   const handleSave = (originalId, form) => {
     setUsers(prev => {
       const updated = prev.map(u => u.id===originalId ? {...u,...form} : u);
-      localStorage.setItem("sangi_users", JSON.stringify(updated));
+      sessionStorage.setItem("sangi_users", JSON.stringify(updated));
       return updated;
     });
   };
   const handleReset = () => {
     if (!window.confirm("Reset all users to default credentials?")) return;
-    localStorage.removeItem("sangi_users"); setUsers(DEFAULT_USERS);
+    sessionStorage.removeItem("sangi_users"); setUsers(DEFAULT_USERS);
   };
 
   return (

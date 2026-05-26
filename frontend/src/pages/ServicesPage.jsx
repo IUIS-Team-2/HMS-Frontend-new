@@ -130,7 +130,14 @@ export default function ServicesPage({ svcs, billing, onSave, patientPayMode = "
   );
 
   return (
-    <div className="form-page">
+   <div
+  className="form-page"
+  style={{
+    height: "calc(100vh - 80px)",
+    overflowY: "auto",
+    paddingBottom: "120px"
+  }}
+>
       <div className="page-hd"><h1>Service Charges</h1><p>Master Tariff: Auto-filling codes and rates for accurate billing</p></div>
       <div className="stat-grid">
         {[

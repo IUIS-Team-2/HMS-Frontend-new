@@ -4,13 +4,13 @@ const BASE_KEY = "medcore_doctors";
 
 /** Read doctors for one branch from localStorage */
 function readBranch(branchCode) {
-  try { return JSON.parse(localStorage.getItem(`${BASE_KEY}_${branchCode}`) || "[]"); }
+  try { return JSON.parse(sessionStorage.getItem(`${BASE_KEY}_${branchCode}`) || "[]"); }
   catch { return []; }
 }
 
 /** Write doctors for one branch back to localStorage */
 function writeBranch(branchCode, list) {
-  try { localStorage.setItem(`${BASE_KEY}_${branchCode}`, JSON.stringify(list)); }
+  try { sessionStorage.setItem(`${BASE_KEY}_${branchCode}`, JSON.stringify(list)); }
   catch {}
 }
 

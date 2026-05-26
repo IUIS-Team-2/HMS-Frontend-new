@@ -77,10 +77,10 @@ function DrawerMedSearch({ medicineMaster, existingMeds, onAdd }) {
       {open && filtered.length > 0 && (
         <div style={{ position:"absolute", top:"calc(100% + 4px)", left:0, right:0, maxHeight:220, overflowY:"auto", background:"#0a0c12", border:"1px solid #2d3748", borderRadius:8, zIndex:200, boxShadow:"0 8px 24px rgba(0,0,0,0.4)" }}>
           {filtered.length === 0 && (
-            <div onClick={handleManual} style={{ padding:"10px 12px", cursor:"pointer", borderBottom:"1px solid #1e2330", color:"#10b981", fontSize:12 }}>
+            <button type="button" onClick={handleManual} style={{ padding:"10px 12px", cursor:"pointer", borderBottom:"1px solid #1e2330", color:"#10b981", fontSize:12 }}>
               <div style={{ fontWeight:600 }}>+ Add "{query.trim()}" manually</div>
               <div style={{ fontSize:10, color:"#4a5568", marginTop:2 }}>Custom entry — rate: ₹0</div>
-            </div>
+            </button>
           )}
           {filtered.map((m, i) => {
             const already = isAlready(m.name);

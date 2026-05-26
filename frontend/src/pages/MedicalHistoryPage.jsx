@@ -533,7 +533,13 @@ export default function MedicalHistoryPage({ data, setData, onSave, onSkip, pati
   ];
 
   return (
-    <div style={{ padding:"32px 44px 80px", animation:"fadeUp .3s ease both", fontFamily:"DM Sans,sans-serif" }}>
+    <div style={{ 
+  padding:"32px 44px 120px",
+  animation:"fadeUp .3s ease both",
+  fontFamily:"DM Sans,sans-serif",
+  height:"calc(100vh - 80px)",
+  overflowY:"auto"
+}}>
 
       <div style={{ marginBottom:28 }}>
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:12 }}>

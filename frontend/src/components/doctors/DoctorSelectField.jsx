@@ -15,7 +15,6 @@ export default function DoctorSelectField({
   placeholder = "Select or type doctor name…",
   colSpan = 1,
 }) {
-  console.log("DOCTORS RECEIVED:", doctors);
   const [open, setOpen] = useState(false);
   const wRef = useRef(null);
 

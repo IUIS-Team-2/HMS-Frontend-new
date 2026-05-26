@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-export const API_ORIGIN = process.env.REACT_APP_API_ORIGIN || 'http://127.0.0.1:8000';
+export const API_ORIGIN = process.env.REACT_APP_API_ORIGIN;
 export const BASE_URL = `${API_ORIGIN}/api`;
 
 // 🌟 Automatically attach the JWT token to EVERY request
@@ -92,7 +92,6 @@ export const apiService = {
             const response = await axios.get(`${BASE_URL}/patients/`);
             return response.data;
         } catch (error) {
-            console.error("Error fetching patient records:", error);
             throw error;
         }
     },
@@ -103,9 +102,7 @@ export const apiService = {
             return response.data;
         } catch (error) {
             if (error.response && error.response.data) {
-                console.error("Django rejected the data because:", error.response.data);
             } else {
-                console.error("Error registering new patient:", error);
             }
             throw error;
         }
@@ -305,8 +302,30 @@ export const apiService = {
         return response.data;
     },
 
+    requestResetOtp: async (email) => {
+        const response = await axios.post(`${BASE_URL}/users/request-reset-otp/`, { email });
+        return response.data;
+    },
+
+    verifyResetOtp: async (email, otp, newPassword) => {
+        const response = await axios.post(`${BASE_URL}/users/verify-reset-otp/`, { email, otp, new_password: newPassword });
+        return response.data;
+    },
+
+    printBill: (uhid, admNo) => {
+        window.open(`${BASE_URL}/patients/${uhid}/admissions/${admNo}/bill/print/`, "_blank");
+    },
+
     savePharmacyRecordsBulk: async (uhid, admNo, records) => {
         const response = await axios.post(`${BASE_URL}/patients/${uhid}/admissions/${admNo}/pharmacy-records/bulk-save/`, { records });
         return response.data;
     },
 };
+
+// Safety check — fail loudly if origin is not configured or not HTTPS in production
+if (!API_ORIGIN) {
+  throw new Error("REACT_APP_API_ORIGIN is not set. Check your .env file.");
+}
+if (process.env.NODE_ENV === "production" && !API_ORIGIN.startsWith("https://")) {
+  throw new Error("REACT_APP_API_ORIGIN must use HTTPS in production.");
+}

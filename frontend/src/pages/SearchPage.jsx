@@ -1,3 +1,4 @@
+import { maskAadhaar } from "../utils/helpers";
 import { toast } from "../components/ui/Toast";
 import { useState } from "react";
 import { T } from "../data/constants";
@@ -176,7 +177,7 @@ export default function SearchPage({db,locId,onNewAdmission,onNewPatient,branch}
             </div>
           </div>
           <div style={{padding:"16px 24px",background:T.white,display:"flex",gap:10,flexWrap:"wrap"}}>
-            {[["Phone",result.phone],["National ID",result.nationalId],["Card Number",result.tpaCard||result.tpaPanelCardNo||result.card_number],["Address",result.address],["Allergies",result.allergies||"None"]].map(([l,v])=>(
+            {[["Phone",result.phone],["National ID", maskAadhaar(result.nationalId)],["Card Number",result.tpaCard||result.tpaPanelCardNo||result.card_number],["Address",result.address],["Allergies",result.allergies||"None"]].map(([l,v])=>(
               <div key={l} style={{background:T.offwhite,border:`1px solid ${T.border}`,borderRadius:9,padding:"9px 13px",minWidth:140}}>
                 <div style={{fontSize:10,fontWeight:700,color:T.textLight,textTransform:"uppercase",letterSpacing:".07em",marginBottom:2}}>{l}</div>
                 <div style={{fontSize:13,fontWeight:500,color:T.text}}>{v||"—"}</div>
