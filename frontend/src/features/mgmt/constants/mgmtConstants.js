@@ -1,3 +1,4 @@
+import { REPORT_TEMPLATES } from "../../../constants/billing/reportTemplates";
 import {
   Home, Users, DoorOpen, Pill, ClipboardList, CreditCard,
   CheckSquare, BarChart3, Building2, UserRound, Hospital,
@@ -164,95 +165,12 @@ export const MGMT_SERVICE_MASTER = [
   { name:"Registration Fee",        code:"RF001", cat:"GENERAL SERVICES", rate:100  },
 ];
 
-export const LAB_TEMPLATES = {
-  "Complete Blood Count (CBC)": {
-    tests: [
-      { name:"HAEMOGLOBIN",              unit:"gm/dl",      refRange:"12–16" },
-      { name:"TLC (Total Leucocyte Count)", unit:"/cumm",   refRange:"4000–11000" },
-      { name:"POLYMORPHS",               unit:"%",          refRange:"40-75" },
-      { name:"LYMPHOCYTE",               unit:"%",          refRange:"20-40" },
-      { name:"EOSINOPHIL",               unit:"%",          refRange:"01-06" },
-      { name:"MONOCYTE",                 unit:"%",          refRange:"00-08" },
-      { name:"BASOPHIL",                 unit:"%",          refRange:"00-00" },
-      { name:"PCV",                      unit:"%",          refRange:"34-45" },
-      { name:"M C V",                    unit:"Fl/dl",      refRange:"76-96" },
-      { name:"M C H",                    unit:"Pg/dl",      refRange:"27-32" },
-      { name:"M C H C",                  unit:"gm/dl",      refRange:"31-38" },
-      { name:"R B C",                    unit:"mill/cumm",  refRange:"3.5-5.5" },
-      { name:"PLATELET COUNT",           unit:"Lacs/cumm",  refRange:"1.5-4.5" },
-      { name:"ESR (Wintrobe)",           unit:"mm",         refRange:"M(0-10), F(0-20)" },
-    ],
-    defaultRemarks:"***End Of The Report***",
-  },
-  "Kidney Function Test (KFT)": {
-    tests: [
-      { name:"BLOOD UREA",       unit:"mg/dl",  refRange:"13-45"  },
-      { name:"SERUM CREATININE", unit:"mg/dl",  refRange:"0.7-1.4" },
-      { name:"S.URIC ACID",      unit:"mg/dl",  refRange:"3.2-7.2" },
-      { name:"SODIUM",           unit:"mmol/L", refRange:"135-145" },
-      { name:"POTASSIUM",        unit:"mmol/L", refRange:"3.6-5.0" },
-      { name:"CALCIUM",          unit:"mg/dl",  refRange:"8.2-10.5" },
-    ],
-    defaultRemarks:"***End Of The Report***",
-  },
-  "Liver Function Test (LFT)": {
-    tests: [
-      { name:"SERUM BILIRUBIN (TOTAL)",   unit:"mg/dl", refRange:"0.2-1.3" },
-      { name:"CONJUGATED (D BILIRUBIN)",  unit:"mg/dl", refRange:"0.0-0.3" },
-      { name:"UNCONJUGATED (I.D BILIRUBIN)", unit:"mg/dl", refRange:"0.2-1.1" },
-      { name:"SGOT/AST",                  unit:"U/L",   refRange:"00-55" },
-      { name:"SGPT/ALT",                  unit:"U/L",   refRange:"00-40" },
-      { name:"TOTAL PROTEIN",             unit:"gm/dl", refRange:"6.3-8.2" },
-      { name:"ALBUMIN",                   unit:"gm/dl", refRange:"3.5-5.0" },
-      { name:"GLOBULINE",                 unit:"gm/dl", refRange:"2.5-5.6" },
-      { name:"ALKALINE PHOSPHATASE",      unit:"IU/L",  refRange:"20-130" },
-    ],
-    defaultRemarks:"***End Of The Report***",
-  },
-  "Lipid Profile": {
-    tests: [
-      { name:"CHOLESTEROL TOTAL", unit:"mg/dl", refRange:"125-200" },
-      { name:"TRIGLYCERIDE",      unit:"mg/dl", refRange:"25-200"  },
-      { name:"CHOLESTEROL HDL",   unit:"mg/dl", refRange:"35-80"   },
-      { name:"CHOLESTEROL VLDL",  unit:"mg/dl", refRange:"5-40"    },
-      { name:"CHOLESTEROL LDL",   unit:"mg/dl", refRange:"85-130"  },
-      { name:"LDL. / HDL RATIO",  unit:"mg/dl", refRange:"1.5-3.5" },
-    ],
-    defaultRemarks:"***End Of The Report***",
-  },
-  "Urine Examination (Routine)": {
-    tests: [
-      { name:"COLOUR",    unit:"",    refRange:"Pale Yellow" },
-      { name:"ALBUMIN",   unit:"",    refRange:"NIL" },
-      { name:"SUGAR",     unit:"",    refRange:"NIL" },
-      { name:"PH",        unit:"",    refRange:"4.5-8.0" },
-      { name:"PUS CELLS", unit:"/HPF",refRange:"0-5" },
-      { name:"RBC'S",     unit:"/HPF",refRange:"NIL" },
-      { name:"BACTERIA",  unit:"",    refRange:"NIL" },
-    ],
-    defaultRemarks:"***End Of The Report***",
-  },
-  "Widal Test (Slide Method)": {
-    tests: [
-      { name:"Antigen TO (1:20 to 1:320)", unit:"", refRange:"Negative" },
-      { name:"Antigen TH (1:20 to 1:320)", unit:"", refRange:"Negative" },
-      { name:"RESULT",                     unit:"", refRange:"POSITIVE / NEGATIVE" },
-    ],
-    defaultRemarks:"INTERPRETATION: Antibody titer of 1:80 or higher suggests infection.",
-  },
-  "Viral Markers (HIV, HBsAg, HCV)": {
-    tests: [
-      { name:"HIV I & II",          unit:"", refRange:"NEGATIVE" },
-      { name:"HEPATITIS B (HbsAg)", unit:"", refRange:"NEGATIVE" },
-      { name:"HCV",                 unit:"", refRange:"NEGATIVE" },
-    ],
-    defaultRemarks:"***End Of The Report***",
-  },
-  "HbA1c":        { tests:[{ name:"HBA1C", unit:"%", refRange:"4.30-6.40" },{ name:"MEAN PLASMA GLUCOSE", unit:"mg/dl", refRange:"70-140" }], defaultRemarks:"METHOD: HPLC" },
-  "D-Dimer":      { tests:[{ name:"D-DIMER", unit:"µgFEU/mL", refRange:"<0.5" }], defaultRemarks:"***End Of The Report***" },
-  "Blood Group & Rh Factor": { tests:[{ name:"Blood Group", unit:"", refRange:"" },{ name:"Rh Factor", unit:"", refRange:"" }], defaultRemarks:"***End Of The Report***" },
-  "CRP (Qualitative)":       { tests:[{ name:"CRP (Qualitative)", unit:"", refRange:"NON-REACTIVE" }], defaultRemarks:"***End Of The Report***" },
-  "Blood Glucose (Random)":  { tests:[{ name:"BLOOD GLUCOSE RANDOM",  unit:"mg/dl", refRange:"100-150" }], defaultRemarks:"***End Of The Report***" },
-  "Blood Glucose (Fasting)": { tests:[{ name:"BLOOD GLUCOSE FASTING", unit:"mg/dl", refRange:"70-110"  }], defaultRemarks:"***End Of The Report***" },
-  "Dengue NS1 Antigen Test": { tests:[{ name:"DENGUE NS1 ANTIGEN", unit:"", refRange:"NON-REACTIVE" }], defaultRemarks:"***End Of The Report***" },
-};
+
+export const LAB_TEMPLATES = Object.fromEntries(
+  Object.values(REPORT_TEMPLATES)
+    .filter(t => Array.isArray(t.tests) && t.tests.length > 0 && t.label)
+    .map(t => [t.label, {
+      tests: t.tests.map(row => ({ name: row.name, unit: row.unit || "", refRange: row.refRange || "", value: row.value || "" })),
+      defaultRemarks: t.remarks || "",
+    }])
+);

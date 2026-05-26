@@ -1,3 +1,4 @@
+import { REPORT_TEMPLATES } from "../../../constants/billing/reportTemplates";
 import { SUMMARY_TYPES, RADIOLOGY_REPORT_TYPES_LIST } from "../constants/mgmtConstants";
 import * as XLSX from "xlsx";
 
@@ -84,3 +85,13 @@ export function exportCSV(filename, rows, headers) {
   a.href = URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
   a.download = filename; a.click();
 }
+
+
+export const LAB_TEMPLATES = Object.fromEntries(
+  Object.values(REPORT_TEMPLATES)
+    .filter(t => Array.isArray(t.tests) && t.tests.length > 0 && t.label)
+    .map(t => [t.label, {
+      tests: t.tests.map(row => ({ name: row.name, unit: row.unit || "", refRange: row.refRange || "", value: row.value || "" })),
+      defaultRemarks: t.remarks || "",
+    }])
+);

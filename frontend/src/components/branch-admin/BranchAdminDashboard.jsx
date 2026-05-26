@@ -87,7 +87,18 @@ export default function BranchAdminDashboard({
         (resolvedBranchCode === "LNM" && (Array.isArray(db?.laxmi) ? db.laxmi : [])) ||
         (resolvedBranchCode === "RYM" && (Array.isArray(db?.raya) ? db.raya : [])) || []
       );
-      const safe = branchPatients.length ? branchPatients : Object.values(db || {}).find(r => Array.isArray(r) && r.length) || [];
+      let safe = branchPatients.length ? branchPatients : Object.values(db || {}).find(r => Array.isArray(r) && r.length) || [];
+      if (!safe.length) {
+        try {
+          const apiPatients = await apiService.getPatients();
+          const list = Array.isArray(apiPatients) ? apiPatients : (apiPatients?.results || []);
+          safe = list.filter(p => {
+            const bl = String(p.branch_location || '').toUpperCase();
+            const bs = String(p.branch_location || '').toLowerCase();
+            return bl === resolvedBranchCode || bs === resolvedBranchKey || bs === resolvedBranchRaw;
+          });
+        } catch { safe = []; }
+      }
       const mapped = mapLiveBranchPatients(safe);
       if (!active) return;
       setPatients(mapped);

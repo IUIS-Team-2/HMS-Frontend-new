@@ -1,3 +1,4 @@
+import { REPORT_TEMPLATES } from "../../../../constants/billing/reportTemplates";
 export const DEFAULT_TESTS = {
   CBC: [
     {id:1,name:"Haemoglobin",value:"",unit:"g/dL",refRange:"13.0-17.0",status:"Normal"},
@@ -83,14 +84,6 @@ export const DEFAULT_TESTS = {
   ],
 };
 
-export function getDefaultTests(name) {
-  const key = Object.keys(DEFAULT_TESTS).find(k =>
-    name.toLowerCase().includes(k.toLowerCase()) || k.toLowerCase().includes(name.toLowerCase())
-  );
-  return key
-    ? DEFAULT_TESTS[key].map(t => ({ ...t, id: Date.now() + Math.random() }))
-    : [{ id: Date.now(), name: "", value: "", unit: "", refRange: "", status: "Normal" }];
-}
 
 export const REPORT_MASTER = [
   "Complete Blood Count (CBC)","Kidney Function Test (KFT)","Liver Function Test (LFT)",
@@ -138,3 +131,23 @@ export const SERVICE_MASTER = [
   { name: "Ambulance",               code: "AM001", rate: 1200 },
   { name: "Registration Fee",        code: "RF001", rate:  100 },
 ];
+
+// ── Override getDefaultTests to use central REPORT_TEMPLATES ─────────────────
+
+export function getDefaultTests(name) {
+  const n = (name || "").toLowerCase();
+  const tmpl = Object.values(REPORT_TEMPLATES).find(t =>
+    n.includes((t.label || "").toLowerCase()) ||
+    (t.label || "").toLowerCase().includes(n) ||
+    n.includes((t.key || "").toLowerCase())
+  );
+  if (tmpl?.tests?.length) {
+    return tmpl.tests.map(t => ({ ...t, id: Date.now() + Math.random() }));
+  }
+  const legacy = Object.keys(DEFAULT_TESTS).find(k =>
+    n.includes(k.toLowerCase()) || k.toLowerCase().includes(n)
+  );
+  return legacy
+    ? DEFAULT_TESTS[legacy].map(t => ({ ...t, id: Date.now() + Math.random() }))
+    : [{ id: Date.now(), name: "", value: "", unit: "", refRange: "", status: "Normal" }];
+}

@@ -1,3 +1,4 @@
+import { REPORT_TEMPLATES } from "../constants/billing/reportTemplates";
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { toast } from "react-toastify";
 import { apiService, BASE_URL } from "../services/apiService";
@@ -56,17 +57,6 @@ const API_BASE = BASE_URL;
 async function patchTaskUpdateStatus(taskId, body) {
   return apiFetch(`/tasks/${taskId}/update-status/`, { method:"PATCH", body:JSON.stringify(body) });
 }
-
-const REPORT_TEMPLATES = {
-  CBC:{ key:"CBC", label:"Complete Blood Count", dept:"HAEMATOLOGY", tests:[{id:1,name:"Hemoglobin",value:"",unit:"",refRange:"",status:"Normal"},{id:2,name:"Total WBC Count",value:"",unit:"",refRange:"",status:"Normal"},{id:3,name:"Platelet Count",value:"",unit:"",refRange:"",status:"Normal"},{id:4,name:"RBC Count",value:"",unit:"",refRange:"",status:"Normal"}]},
-  KFT:{ key:"KFT", label:"Kidney Function Test", dept:"BIOCHEMISTRY", tests:[{id:1,name:"Urea",value:"",unit:"",refRange:"",status:"Normal"},{id:2,name:"Creatinine",value:"",unit:"",refRange:"",status:"Normal"},{id:3,name:"Uric Acid",value:"",unit:"",refRange:"",status:"Normal"},{id:4,name:"Sodium",value:"",unit:"",refRange:"",status:"Normal"},{id:5,name:"Potassium",value:"",unit:"",refRange:"",status:"Normal"}]},
-  LFT:{ key:"LFT", label:"Liver Function Test", dept:"BIOCHEMISTRY", tests:[{id:1,name:"Total Bilirubin",value:"",unit:"mg/dL",refRange:"0.2–1.2",status:"Normal"},{id:2,name:"Direct Bilirubin",value:"",unit:"mg/dL",refRange:"0–0.3",status:"Normal"},{id:3,name:"SGOT (AST)",value:"",unit:"U/L",refRange:"5–40",status:"Normal"},{id:4,name:"SGPT (ALT)",value:"",unit:"U/L",refRange:"5–41",status:"Normal"},{id:5,name:"Albumin",value:"",unit:"g/dL",refRange:"3.5–5.0",status:"Normal"}]},
-  DENGUE:{ key:"DENGUE", label:"Dengue Panel", dept:"IMMUNOLOGY – SEROLOGY", tests:[{id:1,name:"IgG",value:"",unit:"",refRange:"Negative",status:"Normal"},{id:2,name:"IgM",value:"",unit:"",refRange:"Negative",status:"Normal"}]},
-  MALARIA:{ key:"MALARIA", label:"Malaria Antigen Test", dept:"MICROBIOLOGY", tests:[{id:1,name:"Malaria Antigen",value:"",unit:"",refRange:"Negative",status:"Normal"}]},
-  WIDAL:{ key:"WIDAL", label:"Widal Test", dept:"MICROBIOLOGY", tests:[{id:1,name:"S. Typhi O",value:"",unit:"",refRange:"Negative",status:"Normal"},{id:2,name:"S. Typhi H",value:"",unit:"",refRange:"Negative",status:"Normal"}]},
-  CARDIAC_MARKERS:{ key:"CARDIAC_MARKERS", label:"Cardiac Markers", dept:"BIOCHEMISTRY", tests:[{id:1,name:"Troponin-T",value:"",unit:"",refRange:"Negative",status:"Normal"},{id:2,name:"Troponin-I",value:"",unit:"",refRange:"Negative",status:"Normal"},{id:3,name:"CPK",value:"",unit:"U/L",refRange:"22–198",status:"Normal"}]},
-  TOTAL_THYROID_PROFILE:{ key:"TOTAL_THYROID_PROFILE", label:"Total Thyroid Profile", dept:"ENDOCRINOLOGY", tests:[{id:1,name:"T3",value:"",unit:"ng/dL",refRange:"80–200",status:"Normal"},{id:2,name:"T4",value:"",unit:"µg/dL",refRange:"5–12",status:"Normal"},{id:3,name:"TSH",value:"",unit:"µIU/mL",refRange:"0.4–4.5",status:"Normal"}]},
-};
 
 export default function HodDashboard({ currentUser, onLogout }) {
   const { toast, toasts } = useHodToast();

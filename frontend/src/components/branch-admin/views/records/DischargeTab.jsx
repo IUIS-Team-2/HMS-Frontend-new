@@ -147,9 +147,18 @@ export default function DischargeTab({ selPatient, selectedAdmission, canEditRec
     setSaving(false);
   };
 
-  const handlePrint = () => {
-    if (!uhid || !admNo) return;
-    window.open(`${BASE_URL}/patients/${uhid}/admissions/${admNo}/dynamic-summary/print/?type=${encodeURIComponent(sumType)}`, "_blank");
+  const handlePrint = async () => {
+    if (!uhid || !admNo) { toast.error("Patient/Admission info missing."); return; }
+    const url = `${BASE_URL}/patients/${uhid}/admissions/${admNo}/dynamic-summary/print/?type=${encodeURIComponent(sumType)}`;
+    try {
+      const res = await fetch(url, {
+        headers: { Authorization: "Bearer " + (sessionStorage.getItem("hms_token") || "") },
+      });
+      if (!res.ok) { toast.error(`Print failed (${res.status})`); return; }
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      window.open(blobUrl, "_blank");
+    } catch { toast.error("Print request failed."); }
   };
 
   const dtCfg = DISCHARGE_TYPES[sumType] || DISCHARGE_TYPES.NORMAL;
