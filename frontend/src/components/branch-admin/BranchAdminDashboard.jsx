@@ -135,13 +135,82 @@ export default function BranchAdminDashboard({
     const discharge  = admission.discharge || {};
     const medical    = admission.medicalHistory || {};
     const admDate    = (admission.dateTime || discharge.doa || "").slice(0, 10);
+    // ── Pre-seed medicines from admObj pharmacy records ──────────────────
+    const pharmaLocal = Array.isArray(admission?.pharmacyRecords)  ? admission.pharmacyRecords
+                      : Array.isArray(admission?.pharmacy_records) ? admission.pharmacy_records : [];
+    const medSeedRows = pharmaLocal.map((r,i) => ({
+      _localId:      r.id || `m-local-${i}`,
+      isSvc:         false,
+      medicine_name: r.medicine_name || r.item || r.name || r.drug_name || "",
+      date_given:    String(r.date_given || r.date || admDate).slice(0,10),
+      quantity:      Number(r.quantity  || r.qty  || 1),
+      rate:          Number(r.rate      || r.unit_price || r.price || 0),
+      batch_no:      r.batch_no || r.batch || "",
+      expiry_date:   String(r.expiry_date || r.expiry || "").slice(0,10),
+      amount:        Number(r.amount || (Number(r.quantity||1) * Number(r.rate||0))),
+    }));
+
+    // ── Pre-seed reports from admObj lab reports ───────────────────────
+    const labLocal = Array.isArray(admission?.labReports)   ? admission.labReports
+                   : Array.isArray(admission?.lab_reports)  ? admission.lab_reports : [];
+    const repSeedRows = labLocal.map((r,i) => ({
+      _localId:   r.id || `r-local-${i}`,
+      reportName: r.report_name || r.reportName || r.name || "Report",
+      reportType: r.report_type || r.reportType || r.category || "Haematology",
+      date:       String(r.report_date || r.date || admDate).slice(0,10),
+      orderedBy:  r.ordered_by || r.orderedBy || discharge.doctorName || medical.treatingDoctor || "",
+      amount:     Number(r.amount || r.rate || 0),
+      remarks:    r.remarks || r.interpretation || "",
+      impression: r.impression || "",
+      tests:      Array.isArray(r.tests) ? r.tests : [],
+    }));
+
     const rowsByTab  = {
       discharge_summary: [], // DischargeTab fetches from API itself via getDynamicSummary
-      admission_note: [{ treatingDoctor: medical.treatingDoctor||discharge.doctorName||"", doctorQual: medical.doctorQual||"", presentComplaints: medical.presentComplaints||"", chiefComplaints: medical.chiefComplaints||"", bp: medical.bp||"", pulse: medical.pulse||"", spo2: medical.spo2||"", temp: medical.temp||"", chest: medical.chest||"", cvs: medical.cvs||"", cns: medical.cns||"", pa: medical.pa||"", investigations: medical.investigations||"", provisionalDiagnosis: medical.provisionalDiagnosis||"", treatmentAdvised: medical.treatmentAdvised||"", notes: medical.notes||"" }],
-      medical_history: [{ previousDiagnosis: medical.previousDiagnosis||medical.past_history||"", pastSurgeries: medical.pastSurgeries||"", currentMedications: medical.currentMedications||"", knownAllergies: medical.knownAllergies||"", chronicConditions: medical.chronicConditions||"", familyHistory: medical.familyHistory||"", smokingStatus: medical.smokingStatus||"", alcoholUse: medical.alcoholUse||"", treatingDoctor: medical.treatingDoctor||"", notes: medical.notes||"" }],
-      services: (Array.isArray(admission?.services) ? admission.services : []).map((s,i)=>({ _localId: s.id?`svc-${s.id}`:`svc-seed-${i}`, isSvc:true, medicine_name:s.svcName||s.description||s.title||"", date_given:s.svcDate||admDate, quantity:Number(s.svcQty||s.qty||1), rate:Number(s.rate||s.svcRate||0), batch_no:s.svcCode||s.code||s.cghs||"", expiry_date:"", amount:Number(s.svcTot||s.total||(Number(s.svcRate||0)*Number(s.svcQty||1))) })),
-      reports: [],
-      medicines: [],
+      admission_note: [{
+        treatingDoctor:       medical.treatingDoctor       || medical.treating_doctor      || discharge.doctorName || "",
+        doctorQual:           medical.doctorQual           || medical.doctor_qualification  || "",
+        presentComplaints:    medical.presentComplaints    || medical.present_complaints    || medical.complaints   || "",
+        chiefComplaints:      medical.chiefComplaints      || medical.chief_complaints      || medical.complaints   || "",
+        bp:                   medical.bp                   || discharge.bp    || "",
+        pulse:                medical.pulse                || medical.pr      || discharge.pulse || "",
+        spo2:                 medical.spo2                 || discharge.spo2  || "",
+        temp:                 medical.temp                 || discharge.temp  || "",
+        chest:                medical.chest                || discharge.chest || "",
+        cvs:                  medical.cvs                  || discharge.cvs   || "",
+        cns:                  medical.cns                  || discharge.cns   || "",
+        pa:                   medical.pa                   || discharge.pa    || "",
+        investigations:       medical.investigations       || medical.investigation          || "",
+        provisionalDiagnosis: medical.provisionalDiagnosis || medical.provisional_diagnosis || discharge.diagnosis || "",
+        treatmentAdvised:     medical.treatmentAdvised     || medical.treatment_advised      || medical.treatment   || "",
+        notes:                medical.notes                || medical.other_notes            || "",
+      }],
+      medical_history: [{
+        previousDiagnosis:  medical.previousDiagnosis  || medical.previous_diagnosis  || medical.past_history    || medical.pastHistory   || "",
+        pastSurgeries:      medical.pastSurgeries      || medical.past_surgeries       || medical.surgeries       || "",
+        currentMedications: medical.currentMedications || medical.current_medications  || medical.medications     || medical.on_medications|| "",
+        knownAllergies:     medical.knownAllergies     || medical.known_allergies      || medical.allergies       || medical.drug_allergy  || "",
+        chronicConditions:  medical.chronicConditions  || medical.chronic_conditions   || medical.comorbidities   || "",
+        familyHistory:      medical.familyHistory      || medical.family_history       || "",
+        smokingStatus:      medical.smokingStatus      || medical.smoking_status       || medical.smoking         || "",
+        alcoholUse:         medical.alcoholUse         || medical.alcohol_use          || medical.alcohol         || "",
+        treatingDoctor:     medical.treatingDoctor     || medical.treating_doctor      || discharge.doctorName    || "",
+        notes:              medical.notes              || medical.other_notes          || "",
+      }],
+      services: (Array.isArray(admission?.services) ? admission.services : []).map((s,i) => ({
+        _localId:      s.id ? `svc-${s.id}` : `svc-seed-${i}`,
+        isSvc:         true,
+        medicine_name: s.svcName || s.description || s.title || s.name || "",
+        date_given:    s.svcDate || admDate,
+        quantity:      Number(s.svcQty  || s.qty  || 1),
+        rate:          Number(s.rate    || s.svcRate || s.unit_price || s.price || 0),
+        batch_no:      s.svcCode || s.code || s.cghs || "",
+        expiry_date:   "",
+        amount:        Number(s.svcTot  || s.total || s.amount || (Number(s.rate||s.svcRate||0) * Number(s.svcQty||s.qty||1))),
+      })),
+      // Pre-seed from local admObj — API fetch will overlay if richer data exists
+      reports:    repSeedRows,
+      medicines:  medSeedRows,
       final_bill: [],
     };
     setEditableRows(rowsByTab[recTab] || []);
@@ -161,8 +230,8 @@ export default function BranchAdminDashboard({
     let active = true;
 
     if (recTab === "services" && persistedSvcRows.length === 0) {
-      fetch(`${process.env.REACT_APP_API_URL}/service-master/`, { headers: { Authorization: "Bearer " + (sessionStorage.getItem("hms_token") || "") } })
-        .then(r => r.json()).then(master => {
+      apiService.getServiceMaster()
+        .then(master => {
           if (!active) return;
           const ml = Array.isArray(master) ? master : master?.results || [];
           const lr = (code, name) => { const c=(code||"").toUpperCase().trim(),n=(name||"").toLowerCase().trim(); const hit=ml.find(s=>s.code===c)||ml.find(s=>(s.description||"").toLowerCase()===n); return Number(hit?.rate||0); };
@@ -177,31 +246,79 @@ export default function BranchAdminDashboard({
     if (recTab === "medicines" || recTab === "final_bill") {
       const load = async () => {
         try {
+          // ── Normalize a single pharmacy row from any shape ──────────────
+          const normRow = (r, i) => ({
+            _localId:      r.id           || `m-${i}`,
+            isSvc:         false,
+            medicine_name: r.medicine_name || r.item || r.name || r.drug_name || r.medicine || r.description || "",
+            date_given:    String(r.date_given || r.given_date || r.date || admDate).slice(0, 10),
+            quantity:      Number(r.quantity   || r.qty || r.units || 1),
+            rate:          Number(r.rate       || r.unit_price || r.price || r.cost || 0),
+            batch_no:      r.batch_no || r.batch_number || r.batch || "",
+            expiry_date:   String(r.expiry_date || r.expiry || r.exp_date || "").slice(0, 10),
+            amount:        Number(r.amount || r.total || (Number(r.quantity || 1) * Number(r.rate || 0))),
+          });
+
+          // ── Local admObj fallback chain ──────────────────────────────────
+          const localPharma = (() => {
+            const rows = Array.isArray(admObj?.pharmacyRecords)  ? admObj.pharmacyRecords
+                       : Array.isArray(admObj?.pharmacy_records) ? admObj.pharmacy_records : [];
+            if (rows.length) return rows.map(normRow);
+            // Try services filtered by medicine category
+            const MED_CATS = ["med","medicine","medicines","pharma","drug","pharmacy","tablet","capsule","injection","iv fluid","consumable","rx"];
+            const svcMeds = services.filter(s => MED_CATS.some(k => (s.svcCat||s.type||"").toLowerCase().includes(k)));
+            if (svcMeds.length) return svcMeds.map((s,i) => ({
+              _localId: s.id || `m-svc-${i}`, isSvc: false,
+              medicine_name: s.svcName || s.name || "",
+              date_given: String(s.svcDate || admDate).slice(0, 10),
+              quantity: Number(s.svcQty || 1), rate: Number(s.svcRate || 0),
+              batch_no: "", expiry_date: "", amount: Number(s.svcTot || s.total || 0),
+            }));
+            return [];
+          })();
+
+          // ── Non-medicine services for final_bill ────────────────────────
+          const PURE_MED = ["pharmacy","pharma","medicine","drug","tablet","capsule","injection","iv fluid","consumable"];
+          const svcRowsForBill = services
+            .filter(s => !PURE_MED.some(k => (s.svcCat||s.type||"").toLowerCase().includes(k)))
+            .map((s,i) => ({
+              _localId: s.id ? `svc-${s.id}` : `svc-${i}`, isSvc: true,
+              medicine_name: s.svcName || s.title || "Service",
+              date_given: s.svcDate || admDate,
+              quantity: Number(s.svcQty || s.qty || 1),
+              rate: Number(s.rate || s.svcRate || 0),
+              batch_no: s.svcCode || s.code || "",
+              expiry_date: "",
+              amount: Number(s.svcTot || s.total || (Number(s.rate||s.svcRate||0) * Number(s.svcQty||s.qty||1))),
+            }));
+
+          // ── Fetch from API ───────────────────────────────────────────────
           const data = await apiService.getPharmacyRecords(uhid, admNo);
           if (!active) return;
-          let items = Array.isArray(data) ? data : Array.isArray(data?.results) ? data.results : Array.isArray(data?.data) ? data.data : (data&&typeof data==="object"?Object.values(data).find(v=>Array.isArray(v)):[]) || [];
-            if (!items.length) {
-              const medSrc = admObj?.medicalHistory?.currentMedications || admObj?.medicalHistory?.treatmentAdvised || "";
-              if (medSrc) {
-                items = String(medSrc).split(/,|\n/).map((m, i) => ({
-                  medicine_name: m.trim(), quantity: 1, rate: 0,
-                  date_given: admDate, id: `fallback-med-${i}`
-                })).filter(m => m.medicine_name);
-              }
-            }
 
+          // getPharmacyRecords already normalizes to array
+          const apiItems = Array.isArray(data) ? data : [];
 
-          const PURE_MED = ["pharmacy","pharma","medicine","drug","tablet","capsule","injection","iv fluid","consumable"];
-          const svcRowsForBill = services.filter(s=>!PURE_MED.some(k=>(s.svcCat||s.type||"").toLowerCase().includes(k))).map((s,i)=>({ _localId:s.id?`svc-${s.id}`:`svc-${i}`, isSvc:true, medicine_name:s.svcName||s.title||"Service", date_given:s.svcDate||admDate, quantity:Number(s.svcQty||s.qty||1), rate:Number(s.rate||s.svcRate||0), batch_no:s.svcCode||s.code||"", expiry_date:"", amount:Number(s.svcTot||s.total||(Number(s.rate||s.svcRate||0)*Number(s.svcQty||s.qty||1))) }));
-          if (items.length) {
-            const medRows = items.map((r,i)=>({ _localId:r.id||`m-${i}`, isSvc:false, medicine_name:r.medicine_name||r.item||r.name||r.drug_name||r.medicine||r.description||"", date_given:String(r.date_given||r.given_date||r.date||admDate).slice(0,10), quantity:Number(r.quantity||r.qty||r.units||1), rate:Number(r.rate||r.unit_price||r.price||r.cost||0), batch_no:r.batch_no||r.batch_number||r.batch||"", expiry_date:String(r.expiry_date||r.expiry||r.exp_date||"").slice(0,10), amount:Number(r.amount||r.total||(Number(r.quantity||1)*Number(r.rate||0))) }));
-            isRecordDirtyRef.current = false;
-            if (recTab === "final_bill") { if(persistedMedRows.length===0) setPersistedMedRows(medRows); setEditableRows(persistedMedRows.length?persistedMedRows:medRows); }
-            else { if(persistedMedRows.length===0){setPersistedMedRows(medRows);setEditableRows(medRows);}else{setEditableRows(persistedMedRows);} }
+          // Use API rows if available; otherwise fall back to local
+          const sourceRows = apiItems.length ? apiItems.map(normRow) : localPharma;
+
+          // Enrich any rate=0 rows from local data
+          const enriched = sourceRows.map(row => {
+            if (row.rate > 0) return row;
+            const match = localPharma.find(lr =>
+              lr.medicine_name && row.medicine_name &&
+              lr.medicine_name.toLowerCase().trim() === row.medicine_name.toLowerCase().trim()
+            );
+            return match ? { ...row, rate: match.rate, batch_no: match.batch_no || row.batch_no, expiry_date: match.expiry_date || row.expiry_date, amount: Number(row.quantity || 1) * Number(match.rate || 0) } : row;
+          });
+
+          isRecordDirtyRef.current = false;
+          if (recTab === "final_bill") {
+            if (persistedMedRows.length === 0) setPersistedMedRows(enriched);
+            setEditableRows(persistedMedRows.length ? persistedMedRows : (enriched.length ? enriched : svcRowsForBill));
           } else {
-            if (recTab === "final_bill") { isRecordDirtyRef.current=false; setEditableRows(svcRowsForBill); return; }
-            const svcMeds = services.filter(s=>["med","medicine","medicines","pharma","drug","pharmacy","tablet","capsule","injection","iv fluid","consumable","rx"].some(k=>(s.svcCat||s.type||"").toLowerCase().includes(k))).map((s,i)=>({_localId:s.id||`m-svc-${i}`,medicine_name:s.svcName||s.name||"",date_given:String(s.svcDate||admDate).slice(0,10),quantity:Number(s.svcQty||1),rate:Number(s.svcRate||0),batch_no:"",expiry_date:"",amount:Number(s.svcTot||s.total||0)}));
-            setEditableRows(svcMeds.length ? svcMeds : []);
+            if (persistedMedRows.length === 0) { setPersistedMedRows(enriched); setEditableRows(enriched); }
+            else { setEditableRows(persistedMedRows); }
           }
         } catch { if (!active) return; setEditableRows([]); }
       };
@@ -215,34 +332,33 @@ export default function BranchAdminDashboard({
         try {
           const data = await apiService.getLabReports(uhid, admNo);
           if (!active) return;
-          let items = Array.isArray(data)?data:Array.isArray(data?.results)?data.results:Array.isArray(data?.data)?data.data:(data&&typeof data==="object"?Object.values(data).find(v=>Array.isArray(v)):[]) || [];
-            if (!items.length && admObj?.medicalHistory?.investigations) {
-              items = String(admObj.medicalHistory.investigations)
-                .split(/,|\n/)
-                .map((r, i) => ({
-                  report_name: r.trim(),
-                  report_date: admDate,
-                  id: `fallback-report-${i}`
-                }))
-                .filter(r => r.report_name);
-            }
-
-
-            if (!items.length) {
-              const medSrc = admObj?.medicalHistory?.currentMedications || admObj?.medicalHistory?.treatmentAdvised || "";
-              if (medSrc) {
-                items = String(medSrc).split(/,|\n/).map((m, i) => ({
-                  medicine_name: m.trim(), quantity: 1, rate: 0,
-                  date_given: admDate, id: `fallback-med-${i}`
-                })).filter(m => m.medicine_name);
-              }
-            }
+          // getLabReports already normalizes response to array
+          let items = Array.isArray(data) ? data : [];
 
 
           const fromLab = items.map((r,i)=>{ const rawName=r.report_name||r.reportName||r.name||r.test_name||"Report"; return { _localId:r.id||`r-lab-${i}`, reportName:rawName, reportType:r.report_type||r.reportType||r.category||r.type||"Haematology", date:String(r.report_date||r.date||r.test_date||admDate).slice(0,10), orderedBy:r.ordered_by||r.orderedBy||r.doctor_name||doctor, amount:Number(r.amount||r.rate||r.price||r.cost||0), remarks:r.remarks||r.interpretation||r.finding||r.observation||"", impression:r.impression||r.conclusion||"", tests:(()=>{const t=Array.isArray(r.tests)?r.tests:(Array.isArray(r.test_rows)?r.test_rows:[]);return t.length?t:getDefaultTests(normalizeReportName(rawName));})() }; });
           const labIds = new Set(fromLab.map(r=>String(r._localId)));
           const fromSvc = services.filter(s=>{const cat=(s.svcCat||s.type||"").toLowerCase();return ["path","lab","report","investigation","bio","haem","micro","sero","histo","radiology","x-ray","xray","scan","echo","usg","mri","ct","ecg"].some(k=>cat.includes(k));}).filter(s=>s.svcName&&!labIds.has(String(s.id))).map((s,i)=>{ const name=normalizeReportName(s.svcName||"Report"); return { _localId:s.id||`r-svc-${i}`, reportName:name, reportType:s.svcCat||"Haematology", date:String(s.svcDate||admDate).slice(0,10), orderedBy:doctor, amount:Number(s.svcTot||s.total||s.amount||(Number(s.rate||s.svcRate||0)*Number(s.svcQty||s.qty||1))), remarks:"", impression:"", tests:getDefaultTests(normalizeReportName(s.svcName||"")) }; });
-          setEditableRows([...fromLab,...fromSvc]);
+          // If API + services gave nothing, fall back to admObj.labReports local data
+          const allRows = [...fromLab, ...fromSvc];
+          if (allRows.length) {
+            setEditableRows(allRows);
+          } else {
+            const localLab = Array.isArray(admObj?.labReports) ? admObj.labReports
+                           : Array.isArray(admObj?.lab_reports) ? admObj.lab_reports : [];
+            const fallbackRows = localLab.map((r,i) => ({
+              _localId:   r.id || `r-local-${i}`,
+              reportName: r.report_name || r.reportName || r.name || "Report",
+              reportType: r.report_type || r.reportType || r.category || "Haematology",
+              date:       String(r.report_date || r.date || admDate).slice(0,10),
+              orderedBy:  r.ordered_by || r.orderedBy || doctor,
+              amount:     Number(r.amount || r.rate || 0),
+              remarks:    r.remarks || "",
+              impression: r.impression || "",
+              tests:      Array.isArray(r.tests) ? r.tests : [],
+            }));
+            setEditableRows(fallbackRows);
+          }
         } catch { if(!active)return; setEditableRows([]); }
       };
       load(); return () => { active = false; };

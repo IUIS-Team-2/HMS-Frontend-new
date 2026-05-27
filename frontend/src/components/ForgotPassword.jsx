@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { BASE_URL } from "../services/apiService";
+import { apiService } from "../services/apiService";
 
 export default function ForgotPassword({ onBack }) {
   const [email, setEmail] = useState("");
@@ -10,23 +10,11 @@ export default function ForgotPassword({ onBack }) {
     e.preventDefault();
     setError("");
     if (!email) return setError("Please enter your email.");
-    
     try {
-      // 🌟 FIXED: Pointing to your actual Django OTP endpoint
-      const res = await fetch(`${BASE_URL}/users/request-reset-otp/`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email }),
-      });
-      
-      if (res.ok) {
-        setSent(true);
-      } else {
-        const errorData = await res.json();
-        setError(errorData.error || "Email not found. Please try again.");
-      }
-    } catch {
-      setError("Something went wrong with the server. Please try again.");
+      await apiService.requestResetOtp(email);
+      setSent(true);
+    } catch (err) {
+      setError(err.response?.data?.error || "Email not found. Please try again.");
     }
   };
 
