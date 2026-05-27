@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { printWithAuth } from '../utils/printWithAuth';
 
 export const API_ORIGIN = process.env.REACT_APP_API_ORIGIN;
 export const BASE_URL = `${API_ORIGIN}/api`;
@@ -143,7 +144,7 @@ export const apiService = {
     },
 
     printMedicalHistory: (uhid, admNo) => {
-        window.open(`${BASE_URL}/patients/${uhid}/admissions/${admNo}/medical-history/print/`, "_blank");
+        printWithAuth(`${BASE_URL}/patients/${uhid}/admissions/${admNo}/medical-history/print/`).catch(() => {});
     },
 
     updateMedicalHistory: async (uhid, admNo, medicalData) => {
@@ -283,13 +284,19 @@ export const apiService = {
     },
 
     saveLabReportsBulk: async (uhid, admNo, reports) => {
+        // Backend accepts both "reports" and array directly — send as { reports }
         const response = await axios.post(`${BASE_URL}/patients/${uhid}/admissions/${admNo}/lab-reports/bulk-save/`, { reports });
         return response.data;
     },
 
     getPharmacyRecords: async (uhid, admNo) => {
         const response = await axios.get(`${BASE_URL}/patients/${uhid}/admissions/${admNo}/pharmacy-records/`);
-        return response.data;
+        const data = response.data;
+        if (Array.isArray(data))            return data;
+        if (Array.isArray(data?.results))   return data.results;
+        if (Array.isArray(data?.records))   return data.records;
+        if (Array.isArray(data?.data))      return data.data;
+        return [];
     },
 
     savePharmacyRecord: async (uhid, admNo, recordData) => {
@@ -313,7 +320,16 @@ export const apiService = {
     },
 
     printBill: (uhid, admNo) => {
-        window.open(`${BASE_URL}/patients/${uhid}/admissions/${admNo}/bill/print/`, "_blank");
+        printWithAuth(`${BASE_URL}/patients/${uhid}/admissions/${admNo}/bill/print/`).catch(() => {});
+    },
+    printPharmacyRecords: (uhid, admNo) => {
+        printWithAuth(`${BASE_URL}/patients/${uhid}/admissions/${admNo}/pharmacy-records/print/`).catch(() => {});
+    },
+    printLabReports: (uhid, admNo) => {
+        printWithAuth(`${BASE_URL}/patients/${uhid}/admissions/${admNo}/lab-reports/print/`).catch(() => {});
+    },
+    printAdmissionNote: (uhid, admNo) => {
+        printWithAuth(`${BASE_URL}/patients/${uhid}/admissions/${admNo}/admission-note/print/`).catch(() => {});
     },
 
     savePharmacyRecordsBulk: async (uhid, admNo, records) => {

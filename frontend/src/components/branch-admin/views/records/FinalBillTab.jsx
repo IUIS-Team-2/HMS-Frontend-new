@@ -1,4 +1,6 @@
 import React from "react";
+import { toast } from "react-toastify";
+import { printWithAuth } from "../../../../utils/printWithAuth";
 import { T, mkBtn } from "../../branchAdminConstants";
 import { BASE_URL } from "../../../../services/apiService";
 
@@ -162,7 +164,7 @@ export default function FinalBillTab({ selPatient, selectedAdmission, editableRo
 
       <div style={{display:"flex",gap:10,justifyContent:"flex-end",padding:"16px 28px",borderTop:"1px solid #e2e8f0",background:"#f8fafc",flexWrap:"wrap"}}>
         {canEditRecords && <button style={{...mkBtn("primary",theme),padding:"9px 18px",fontSize:12}} onClick={onSave} disabled={savingRecords}>{savingRecords?"Saving…":"💾 Save Bill"}</button>}
-        <button style={{...mkBtn("excel",theme),padding:"9px 18px",fontSize:12}} onClick={()=>{if(!uhid||!admNo)return;window.open(`${BASE_URL}/patients/${uhid}/admissions/${admNo}/bill/print/`,"_blank");}}>🖨 Print Final Bill</button>
+        <button style={{...mkBtn("excel",theme),padding:"9px 18px",fontSize:12}} onClick={async()=>{if(!uhid||!admNo)return;try{await printWithAuth(`${BASE_URL}/patients/${uhid}/admissions/${admNo}/bill/print/`);}catch(e){toast.error(e.message||"Print failed.");}}}>🖨 Print Final Bill</button>
       </div>
     </div>
   );

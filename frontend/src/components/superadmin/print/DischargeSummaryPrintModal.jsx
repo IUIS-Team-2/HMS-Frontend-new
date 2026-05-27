@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { printWithAuth } from "../../../utils/printWithAuth";
 import { useT, bColor, bName, cardStyle } from "../shared/tokens";
 import { Pill } from "../shared/MicroUI";
 import { apiService, BASE_URL } from "../../../services/apiService";
@@ -39,7 +40,7 @@ export function DischargeSummaryPrintModal({ p, branchKey, onClose }) {
       toast.success("Discharge summary saved!");
     } catch { toast.error("Failed to save."); }
   };
-  const handlePrint = () => window.open(`${BASE_URL}/patients/${p.uhid}/admissions/${p.admNo}/dynamic-summary/print/`, "_blank");
+  const handlePrint = async () => { try { await printWithAuth(`${BASE_URL}/patients/${p.uhid}/admissions/${p.admNo}/dynamic-summary/print/`); } catch(e) { toast.error(e.message||"Print failed."); } };
   const updateSection = (idx, val) => { const s=[...docTemplate.sections]; s[idx]={...s[idx],value:val}; setDocTemplate({...docTemplate,sections:s}); };
   const updateVital = (idx,vKey,val) => { const s=[...docTemplate.sections]; s[idx]={...s[idx],value:{...s[idx].value,[vKey]:val}}; setDocTemplate({...docTemplate,sections:s}); };
 

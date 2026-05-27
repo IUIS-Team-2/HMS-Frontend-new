@@ -12,7 +12,7 @@ export function ToastContainer() {
   const [toasts, setToasts] = useState([]);
 
   const add = useCallback((t) => {
-    const id = Date.now() + Math.random();
+    const id = crypto.randomUUID();
     setToasts(prev => [...prev, { ...t, id }]);
     setTimeout(() => setToasts(prev => prev.filter(x => x.id !== id)), 3500);
   }, []);

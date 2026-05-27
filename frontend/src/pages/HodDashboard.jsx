@@ -258,7 +258,7 @@ export default function HodDashboard({ currentUser, onLogout }) {
     }
 
     return {
-      id: s.id || Date.now() + Math.random(),
+      id: s.id || crypto.randomUUID(),
       name,
       category: s.svcCat || s.category || "",
       qty,
@@ -329,8 +329,8 @@ export default function HodDashboard({ currentUser, onLogout }) {
       const disData=dis?.dischargeData||dis||{};
       const medData=med?.medicalData||med||{};
       const billData=bill?.billingData||bill||{};
-      const labNorm=labs.map(r=>({id:r.id||Date.now()+Math.random(),reportName:r.reportName||r.report_name||"",reportType:r.reportType||r.report_type||"Haematology",billCategory:r.billCategory||"PATHOLOGY",date:r.date||r.report_date||new Date().toISOString().slice(0,10),orderedBy:r.orderedBy||r.ordered_by||"",amount:Number(r.amount||0),remarks:r.remarks||"",findings:r.findings||"",impression:r.impression||"",tests:Array.isArray(r.tests||r.table_data)?(r.tests||r.table_data).map(t=>({id:t.id||Date.now()+Math.random(),name:t.name||"",value:t.value||"",unit:t.unit||"",refRange:t.refRange||t.normal||"",status:t.status||"Normal"})):[]}));
-      const pharNorm=phar.map(r=>({id:r.id||Date.now()+Math.random(),item:r.name||r.medicine_name||"",date:r.date||r.date_given||new Date().toISOString().slice(0,10),quantity:Number(r.quantity||1),rate:Number(r.rate||0),amount:Number(r.rate||0)*Number(r.quantity||1),batchNo:r.batch||r.batch_no||"",expiryDate:r.expiry||r.expiry_date||""}));
+      const labNorm=labs.map(r=>({id:r.id||crypto.randomUUID(),reportName:r.reportName||r.report_name||"",reportType:r.reportType||r.report_type||"Haematology",billCategory:r.billCategory||"PATHOLOGY",date:r.date||r.report_date||new Date().toISOString().slice(0,10),orderedBy:r.orderedBy||r.ordered_by||"",amount:Number(r.amount||0),remarks:r.remarks||"",findings:r.findings||"",impression:r.impression||"",tests:Array.isArray(r.tests||r.table_data)?(r.tests||r.table_data).map(t=>({id:t.id||crypto.randomUUID(),name:t.name||"",value:t.value||"",unit:t.unit||"",refRange:t.refRange||t.normal||"",status:t.status||"Normal"})):[]}));
+      const pharNorm=phar.map(r=>({id:r.id||crypto.randomUUID(),item:r.name||r.medicine_name||"",date:r.date||r.date_given||new Date().toISOString().slice(0,10),quantity:Number(r.quantity||1),rate:Number(r.rate||0),amount:Number(r.rate||0)*Number(r.quantity||1),batchNo:r.batch||r.batch_no||"",expiryDate:r.expiry||r.expiry_date||""}));
       setReviewWorkData({discharge:disData,admission:medData,labReports:labNorm,medBill:pharNorm,services:nestedSvc,billing:billData,dischargeSummary:summRes.value?.content||null});
       setRvEDis({doa:(disData.doa||admission?.dateTime||"").slice(0,16),dod:disData.dod||"",ward:disData.wardName||disData.ward||"",bed:disData.bedNo||disData.bed||"",doctor:disData.doctorName||disData.doctor||medData.treatingDoctor||"",diagnosis:disData.diagnosis||medData.provisionalDiagnosis||"",condition:disData.dischargeStatus||disData.condition||"",instructions:disData.instructions||"",notes:disData.notes||"",expectedDod:disData.expectedDod||""});
       setRvEMed({presentComplaints:medData.presentComplaints||"",chiefComplaints:medData.chiefComplaints||"",bp:medData.bp||disData.bp||"",pr:medData.pr||medData.pulse||"",spo2:medData.spo2||"",temp:medData.temp||"",chest:medData.chest||"",cvs:medData.cvs||"",cns:medData.cns||"",pa:medData.pa||"",investigations:medData.investigations||"",provisionalDiagnosis:medData.provisionalDiagnosis||disData.diagnosis||"",treatmentAdvised:medData.treatmentAdvised||medData.treatmentGiven||"",previousDiagnosis:medData.previousDiagnosis||medData.pastHistory||"",pastSurgeries:medData.pastSurgeries||"",currentMedications:medData.currentMedications||"",treatingDoctor:medData.treatingDoctor||disData.doctorName||"",knownAllergies:medData.knownAllergies||"",notes:medData.notes||""});
@@ -438,8 +438,8 @@ const servicesUi=mapAdmissionServicesToUi(
       Promise.all([apiService.getLabReports(uhid,admNo).catch(()=>[]),apiService.getLabReportTemplates(uhid,admNo).catch(()=>({suggested_reports:[]}))]).then(([saved,tpl])=>{
         const existing=Array.isArray(saved)?saved:[];const suggested=Array.isArray(tpl?.suggested_reports)?tpl.suggested_reports:[];
         const keys=new Set(existing.map(r=>r.reportName||r.report_name||""));
-        const merged=[...existing.map(r=>({id:r.id||Date.now()+Math.random(),reportName:r.reportName||r.report_name||"",reportType:r.reportType||r.report_type||"Haematology",billCategory:r.billCategory||"PATHOLOGY",date:r.date||r.report_date||new Date().toISOString().slice(0,10),orderedBy:r.orderedBy||r.ordered_by||"",amount:Number(r.amount||0),remarks:r.remarks||"",findings:r.findings||"",impression:r.impression||"",tests:Array.isArray(r.tests||r.table_data)?(r.tests||r.table_data).map(t=>({id:t.id||Date.now()+Math.random(),name:t.name||"",value:t.value||"",unit:t.unit||"",refRange:t.refRange||t.normal||"",status:t.status||"Normal"})):[]}))];
-        suggested.forEach(s=>{const name=s.reportName||s.report_name||"";if(!keys.has(name))merged.push({id:Date.now()+Math.random(),reportName:name,reportType:s.reportType||"Haematology",billCategory:"PATHOLOGY",date:new Date().toISOString().slice(0,10),orderedBy:"",amount:0,remarks:"",tests:[],findings:"",impression:""});});
+        const merged=[...existing.map(r=>({id:r.id||crypto.randomUUID(),reportName:r.reportName||r.report_name||"",reportType:r.reportType||r.report_type||"Haematology",billCategory:r.billCategory||"PATHOLOGY",date:r.date||r.report_date||new Date().toISOString().slice(0,10),orderedBy:r.orderedBy||r.ordered_by||"",amount:Number(r.amount||0),remarks:r.remarks||"",findings:r.findings||"",impression:r.impression||"",tests:Array.isArray(r.tests||r.table_data)?(r.tests||r.table_data).map(t=>({id:t.id||crypto.randomUUID(),name:t.name||"",value:t.value||"",unit:t.unit||"",refRange:t.refRange||t.normal||"",status:t.status||"Normal"})):[]}))];
+        suggested.forEach(s=>{const name=s.reportName||s.report_name||"";if(!keys.has(name))merged.push({id:crypto.randomUUID(),reportName:name,reportType:s.reportType||"Haematology",billCategory:"PATHOLOGY",date:new Date().toISOString().slice(0,10),orderedBy:"",amount:0,remarks:"",tests:[],findings:"",impression:""});});
         if(merged.length)setMyELabRep(merged);
       }).catch(()=>{});
       apiService.getPharmacyRecords(uhid,admNo).then(records=>{
@@ -447,7 +447,7 @@ const servicesUi=mapAdmissionServicesToUi(
   
   if(arr.length){
     setMyEMedBill(arr.map(r=>({
-      id:r.id||Date.now()+Math.random(),
+      id:r.id||crypto.randomUUID(),
       item:r.name||r.medicine_name||"",
       date:r.date||r.date_given||new Date().toISOString().slice(0,10),
       quantity:Number(r.quantity||1),
@@ -464,7 +464,7 @@ const servicesUi=mapAdmissionServicesToUi(
 
     if(meds.length){
       setMyEMedBill(meds.map(med=>({
-        id:Date.now()+Math.random(),
+        id:crypto.randomUUID(),
         item:med,
         date:new Date().toISOString().slice(0,10),
         quantity:1,

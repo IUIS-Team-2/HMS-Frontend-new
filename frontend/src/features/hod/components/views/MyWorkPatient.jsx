@@ -1,3 +1,4 @@
+import { printWithAuth } from "../../../../utils/printWithAuth";
 import React, { useState } from "react";
 import { ArrowLeft, Printer, RefreshCw } from "lucide-react";
 import { SECTION_KEYS, SECTION_LABELS, SECTION_ICONS, TAB_MAP, INSURANCE_TYPES_LIST, TPA_DOCS, PDF_DOC_TYPES, RADIOLOGY_REPORT_TYPES } from "../../constants/hodConstants";
@@ -194,7 +195,7 @@ export default function MyWorkPatient({
                 if(!e.target.value) return;
                 const tmpl=Object.values(REPORT_TEMPLATES).find(t=>t.label===e.target.value);
                 const isRad=RADIOLOGY_REPORT_TYPES.includes(tmpl?.dept||"");
-                setMyELabRep(prev=>[...prev, isRad?{...emptyRadReport(),reportName:tmpl?.label||e.target.value,reportType:tmpl?.dept||"X-Ray"}:{...emptyPathReport(),reportName:tmpl?.label||e.target.value,reportType:tmpl?.dept||"Haematology",tests:Array.isArray(tmpl?.tests)&&tmpl.tests.length?tmpl.tests.map(t=>({...t,id:Date.now()+Math.random()})):[]}]);
+                setMyELabRep(prev=>[...prev, isRad?{...emptyRadReport(),reportName:tmpl?.label||e.target.value,reportType:tmpl?.dept||"X-Ray"}:{...emptyPathReport(),reportName:tmpl?.label||e.target.value,reportType:tmpl?.dept||"Haematology",tests:Array.isArray(tmpl?.tests)&&tmpl.tests.length?tmpl.tests.map(t=>({...t,id:crypto.randomUUID()})):[]}]);
                 e.target.value="";
               }}>
               <option value="">+ Add Report Template</option>
@@ -206,7 +207,7 @@ export default function MyWorkPatient({
               {reportSearch && (
                 <div style={{ position:"absolute", top:"105%", left:0, right:0, background:"var(--surface)", border:"1px solid var(--border)", borderRadius:10, maxHeight:260, overflowY:"auto", zIndex:50, boxShadow:"0 10px 24px rgba(0,0,0,0.08)" }}>
                   {Object.values(REPORT_TEMPLATES).filter(r=>(r.label||"").toLowerCase().includes(reportSearch.toLowerCase())).slice(0,20).map(r=>(
-                    <button key={r.key} type="button" onClick={()=>{ const isRad=RADIOLOGY_REPORT_TYPES.includes(r.dept||""); setMyELabRep(prev=>[...prev,isRad?{...emptyRadReport(),reportName:r.label,reportType:r.dept||"X-Ray"}:{...emptyPathReport(),reportName:r.label,reportType:r.dept||"Haematology",tests:Array.isArray(r.tests)&&r.tests.length?r.tests.map(t=>({...t,id:Date.now()+Math.random()})):[]}]); setReportSearch(""); }}
+                    <button key={r.key} type="button" onClick={()=>{ const isRad=RADIOLOGY_REPORT_TYPES.includes(r.dept||""); setMyELabRep(prev=>[...prev,isRad?{...emptyRadReport(),reportName:r.label,reportType:r.dept||"X-Ray"}:{...emptyPathReport(),reportName:r.label,reportType:r.dept||"Haematology",tests:Array.isArray(r.tests)&&r.tests.length?r.tests.map(t=>({...t,id:crypto.randomUUID()})):[]}]); setReportSearch(""); }}
                       style={{ width:"100%", textAlign:"left", padding:"10px 12px", border:"none", background:"transparent", cursor:"pointer", borderBottom:"1px solid var(--border)", fontSize:13, fontFamily:"inherit", color:"var(--text)" }}>
                       🧪 {r.label}
                     </button>
@@ -220,13 +221,13 @@ export default function MyWorkPatient({
                 <RadiologyReportCard key={rep.id} rep={rep} ri={ri} patientName={patientName} updRep={updMyRep}
                   onRemove={()=>setMyELabRep(pr=>pr.filter(r=>r.id!==rep.id))} readOnly={false}
                   onSave={async()=>{try{await apiService.saveLabReportsBulk(p.uhid,p.admNo||p.id,[rep]);toast(`${rep.reportName||"Report"} saved ✓`);}catch{toast("Failed to save report","e");}}}
-                  onPrint={()=>{if(p.uhid&&(p.admNo||p.id))window.open(`${API_BASE}/patients/${p.uhid}/admissions/${p.admNo||p.id}/lab-reports/print/`,"_blank");}}/>
+                  onPrint={()=>{if(p.uhid&&(p.admNo||p.id))printWithAuth(`${API_BASE}/patients/${p.uhid}/admissions/${p.admNo||p.id}/lab-reports/print/`).catch(e=>console.warn(e));}}/>
               );
               return (
                 <PathologyReportCard key={rep.id} rep={rep} ri={ri} patientName={patientName} updRep={updMyRep} updTest={updMyTest} addTest={addMyTest} delTest={delMyTest}
                   onRemove={()=>setMyELabRep(pr=>pr.filter(r=>r.id!==rep.id))} readOnly={false}
                   onSave={async()=>{try{await apiService.saveLabReportsBulk(p.uhid,p.admNo||p.id,[rep]);toast(`${rep.reportName||"Report"} saved ✓`);}catch{toast("Failed to save report","e");}}}
-                  onPrint={()=>{if(p.uhid&&(p.admNo||p.id))window.open(`${API_BASE}/patients/${p.uhid}/admissions/${p.admNo||p.id}/lab-reports/print/`,"_blank");}}/>
+                  onPrint={()=>{if(p.uhid&&(p.admNo||p.id))printWithAuth(`${API_BASE}/patients/${p.uhid}/admissions/${p.admNo||p.id}/lab-reports/print/`).catch(e=>console.warn(e));}}/>
               );
             })}
             <div style={{ display:"flex", gap:12, flexWrap:"wrap", marginTop:4 }}>

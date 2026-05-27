@@ -1,6 +1,7 @@
 import React from "react";
 import { toast } from "react-toastify";
-import { apiService } from "../../../../services/apiService";
+import { apiService, BASE_URL as REPORTS_BASE_URL } from "../../../../services/apiService";
+import { printWithAuth } from "../../../../utils/printWithAuth";
 import { T, mkBtn } from "../../branchAdminConstants";
 import { REPORT_MASTER, REPORT_TYPES, getDefaultTests } from "./recordsConstants";
 
@@ -134,7 +135,7 @@ export default function ReportsTab({ editableRows, setEditableRows, updateEditab
               <button style={{ ...mkBtn("dim", theme), padding: "7px 16px", fontSize: 12 }} onClick={() => {
                 const uhid = selPatient?.uhid; const admNo = selectedAdmission?.admNo;
                 if (!uhid || !admNo) { toast.error("Patient info missing."); return; }
-                window.open((apiService.BASE_URL || "http://127.0.0.1:8000/api") + "/patients/" + uhid + "/admissions/" + admNo + "/lab-reports/print/", "_blank");
+                printWithAuth(`${REPORTS_BASE_URL}/patients/${uhid}/admissions/${admNo}/lab-reports/print/`).catch(e => toast.error(e.message||"Print failed."));
               }}>🖨 Print This Report</button>
             </div>
           </div>

@@ -88,7 +88,7 @@ export default function LoginPage({ onLogin }) {
         setBranches(normalized);
         try { sessionStorage.setItem("hms_branches", JSON.stringify(normalized)); } catch {}
       })
-      .catch(() => {});
+      .catch((e) => console.warn("Branch fetch failed:", e?.message));
     return () => { ignore = true; };
   }, []);
 

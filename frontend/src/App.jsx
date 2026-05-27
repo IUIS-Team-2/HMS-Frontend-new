@@ -81,7 +81,7 @@ const [doctors, setDoctors] = useState([]);
     setLocId(nextLocId); setLoggedIn(true);
     const ROLE_MAP = { superadmin:"superadmin", admin:"branchadmin", branchadmin:"branchadmin", managementadmin:"managementadmin", office_admin:"managementadmin", hod:"hod", billing:"billing", opd:"opd", intimation:"intimation", query:"query", uploading:"uploading", doctor:"doctor", nursing:"nursing", notes:"notes" };
     const startingPage = ROLE_MAP[user.role] || (["ipd","pharmacy","lab","radiology","receptionist","employee"].includes(user.role) ? "employee" : "patient");
-    try { sessionStorage.setItem('hms_loggedIn','true'); const { nationalId: _omit, ...safeUser } = user; sessionStorage.setItem('hms_currentUser', JSON.stringify(safeUser)); sessionStorage.setItem('hms_page',startingPage); sessionStorage.setItem('hms_locId',nextLocId); } catch {}
+    try { sessionStorage.setItem('hms_loggedIn','true'); const { nationalId: _omit, phone: _p, alternatePhone: _ap, address: _addr, ...safeUser } = user; sessionStorage.setItem('hms_currentUser', JSON.stringify(safeUser)); sessionStorage.setItem('hms_page',startingPage); sessionStorage.setItem('hms_locId',nextLocId); } catch {}
     if (startingPage === "patient") { setPage("patient"); setSubPage("search"); } else setPage(startingPage);
   }, [defaultBranch.slug, resolveUserBranchSlug, setCurrentUser, setLocId, setLoggedIn, setPage, setSubPage]);
 
@@ -97,7 +97,7 @@ const [doctors, setDoctors] = useState([]);
     setSelectedAdmissionType(admissionType || admissions?.slice(-1)[0]?.admissionType || "IPD");
     setPatient({ ...pd, ...setPayload(existing) }); setUhid(existing.uhid);
     setAdmNo(admissions?.length ? admissions.length+1 : 2); setIsReturning(true);
-    setDischarge(prev => ({ ...prev, doa: (() => { const d = new Date(); d.setMinutes(d.getMinutes()-d.getTimezoneOffset()); return d.toISOString().slice(0,16); })() })); setSubPage("form");
+    setDischarge(prev => ({ ...prev, doa: (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; })() })); setSubPage("form");
   };
 
   const applyFromHistory = (patientObj, admObj) => {
@@ -152,7 +152,7 @@ const [doctors, setDoctors] = useState([]);
     if (!payload.tpaValidity) payload.tpaValidity = null;
     if (!payload.tpaPanelValidity) payload.tpaPanelValidity = null;
     try {
-      const doa = (() => { const d = new Date(); d.setMinutes(d.getMinutes()-d.getTimezoneOffset()); return d.toISOString().slice(0,16); })();
+      const doa = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; })();
       const currentBranch = getBranchBySlug(locId) || defaultBranch;
       if (isReturning && uhid) {
         const { payMode, cashlessType, tpa, tpaCard, tpaValidity, tpaCardType, tpaPanelCardNo, tpaPanelValidity, ...safe } = payload;

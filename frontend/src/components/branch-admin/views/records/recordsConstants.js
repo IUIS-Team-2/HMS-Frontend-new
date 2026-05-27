@@ -142,12 +142,12 @@ export function getDefaultTests(name) {
     n.includes((t.key || "").toLowerCase())
   );
   if (tmpl?.tests?.length) {
-    return tmpl.tests.map(t => ({ ...t, id: Date.now() + Math.random() }));
+    return tmpl.tests.map(t => ({ ...t, id: crypto.randomUUID() }));
   }
   const legacy = Object.keys(DEFAULT_TESTS).find(k =>
     n.includes(k.toLowerCase()) || k.toLowerCase().includes(n)
   );
   return legacy
-    ? DEFAULT_TESTS[legacy].map(t => ({ ...t, id: Date.now() + Math.random() }))
+    ? DEFAULT_TESTS[legacy].map(t => ({ ...t, id: crypto.randomUUID() }))
     : [{ id: Date.now(), name: "", value: "", unit: "", refRange: "", status: "Normal" }];
 }

@@ -35,13 +35,13 @@ export const isHodTaskCompleted  = t => hodTaskRowStatus(t) === "completed";
 export const isTaskRowCompleted  = t => String(t?.status || "").toLowerCase() === "completed";
 
 export const emptyPathReport = () => ({
-  id: Date.now() + Math.random(),
+  id: crypto.randomUUID(),
   reportName: "", reportType: "Haematology", billCategory: "PATHOLOGY",
   date: new Date().toISOString().slice(0,10), orderedBy: "", amount: 0, remarks: "",
   tests: [{ id: Date.now(), name:"", value:"", unit:"", refRange:"", status:"Normal" }],
 });
 export const emptyRadReport = () => ({
-  id: Date.now() + Math.random(),
+  id: crypto.randomUUID(),
   reportName: "", reportType: "X-Ray", billCategory: "RADIOLOGY",
   date: new Date().toISOString().slice(0,10), orderedBy: "", amount: 0, remarks: "",
   findings: "", impression: "", tests: [],

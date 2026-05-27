@@ -1,6 +1,7 @@
 import { useT } from "../shared/tokens";
 import { getBranchMeta } from "../shared/tokens";
 import { Printer } from "lucide-react";
+import { printWithAuth } from "../../../utils/printWithAuth";
 import { BASE_URL } from "../../../services/apiService";
 
 export default function BillPrintModal({ p, onClose }) {
@@ -13,10 +14,10 @@ export default function BillPrintModal({ p, onClose }) {
   const discount = p.discount ?? (parseFloat(p.billingObj?.discount)||0);
   const grand    = p.grand   ?? (subtotal - discount);
 
-  const handlePrint = () => {
-    const url = `${BASE_URL}/patients/${encodeURIComponent(p.uhid)}/admissions/${encodeURIComponent(p.admNo)}/bill/print/`;
-    const win = window.open(url,"_blank","width=900,height=700");
-    if (!win) alert("Pop-up blocked. Please allow pop-ups for this site.");
+  const handlePrint = async () => {
+    try {
+      await printWithAuth(`${BASE_URL}/patients/${encodeURIComponent(p.uhid)}/admissions/${encodeURIComponent(p.admNo)}/bill/print/`);
+    } catch (e) { alert(e.message || "Print failed."); }
   };
 
   return (

@@ -1,4 +1,5 @@
 import React from "react";
+import { printWithAuth } from "../../../utils/printWithAuth";
 import { toast } from "react-toastify";
 import { BASE_URL } from "../../../services/apiService";
 import { apiService } from "../../../services/apiService";
@@ -151,7 +152,7 @@ export default function RecordsView({
     // discharge_summary has its own print button inside DischargeTab
     if (recTab === "discharge_summary") return;
     const kind = PRINT_KIND_MAP[recTab];
-    if (kind) window.open(`${BASE_URL}/patients/${uhid}/admissions/${admNo}/${kind}/print/`, "_blank");
+    if (kind) { printWithAuth(`${BASE_URL}/patients/${uhid}/admissions/${admNo}/${kind}/print/`).catch(e => toast.error(e.message||"Print failed.")); }
   };
 
   const sharedTabProps = {
@@ -187,7 +188,7 @@ export default function RecordsView({
                 {key:"medicines",      label:"Medicines", kind:"pharmacy-records"},
               ].map(d => (
                 <button key={d.key} style={{ ...mkBtn("primary",theme), padding:"6px 10px", fontSize:10 }}
-                  onClick={() => { const uhid=selPatient?.uhid,admNo=selectedAdmission?.admNo; if(!uhid||!admNo)return; window.open(`${BASE_URL}/patients/${uhid}/admissions/${admNo}/${d.kind}/print/`,"_blank"); }}>
+                  onClick={async () => { const uhid=selPatient?.uhid,admNo=selectedAdmission?.admNo; if(!uhid||!admNo)return; try{await printWithAuth(`${BASE_URL}/patients/${uhid}/admissions/${admNo}/${d.kind}/print/`);}catch(e){toast.error(e.message||"Print failed.");} }}>
                   🖨 {d.label}
                 </button>
               ))}
