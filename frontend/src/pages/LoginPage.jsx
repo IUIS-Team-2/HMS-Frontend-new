@@ -49,6 +49,38 @@ const primaryBtnStyle = (disabled) => ({
   transition: 'background-color 0.15s ease',
 });
 
+// FIX: Detect network-level errors (ERR_CONNECTION_REFUSED, CORS, timeout, etc.)
+function isNetworkError(err) {
+  if (!err) return false;
+  const msg = (err.message || err.code || "").toLowerCase();
+  return (
+    err.code === "ERR_NETWORK" ||
+    err.code === "ECONNREFUSED" ||
+    msg.includes("network error") ||
+    msg.includes("err_connection_refused") ||
+    msg.includes("failed to fetch") ||
+    msg.includes("net::err")
+  );
+}
+
+// FIX: Friendly message for login errors
+function getLoginErrorMessage(err) {
+  const backendDetail = err?.response?.data?.detail;
+  if (backendDetail) return backendDetail;
+
+  if (err?.response?.status === 401) {
+    return "Invalid username or password. Please try again.";
+  }
+  if (err?.response?.status === 500) {
+    return "Server error. Please contact your administrator.";
+  }
+  if (isNetworkError(err)) {
+    return "Cannot reach the server. Please check your connection or try again later.";
+  }
+
+  return "Login failed. Please refresh and try again.";
+}
+
 export default function LoginPage({ onLogin }) {
   const [branches, setBranches] = useState(() => {
     try {
@@ -76,6 +108,10 @@ export default function LoginPage({ onLogin }) {
 
   useEffect(() => {
     let ignore = false;
+
+    // FIX: Only fetch branches if we don't already have them cached
+    if (branches.length > 0) return;
+
     apiService.getHospitalBranches()
       .then((rows) => {
         if (ignore) return;
@@ -88,9 +124,19 @@ export default function LoginPage({ onLogin }) {
         setBranches(normalized);
         try { sessionStorage.setItem("hms_branches", JSON.stringify(normalized)); } catch {}
       })
-      .catch((e) => console.warn("Branch fetch failed:", e?.message));
+      .catch((e) => {
+        if (ignore) return;
+        // FIX: Silently swallow network errors on the login page — branches are
+        // optional context and the server may not be ready yet. We already have
+        // a sessionStorage fallback above, so this is non-fatal.
+        if (!isNetworkError(e)) {
+          // Only warn for unexpected errors, not "server is down" noise
+          console.warn("Branch fetch failed:", e?.message);
+        }
+      });
+
     return () => { ignore = true; };
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -142,17 +188,8 @@ export default function LoginPage({ onLogin }) {
 
       onLogin(loggedInUser, isGlobalUser ? (userLocations[0] || "laxmi") : (frontendBranch || userLocations[0] || "laxmi"));
     } catch (err) {
-      const backendDetail = err.response?.data?.detail;
-      if (backendDetail) {
-        setError(backendDetail);
-      } else {
-        const msg = err.message || err.code || "";
-        setError(
-          msg
-            ? `Cannot reach API (${msg}). Check backend is running and CORS allows this origin.`
-            : "Login request failed before reaching server. Refresh and retry."
-        );
-      }
+      // FIX: Use unified friendly error messages instead of raw technical strings
+      setError(getLoginErrorMessage(err));
     }
     setLoading(false);
   };
@@ -170,8 +207,13 @@ export default function LoginPage({ onLogin }) {
       } else {
         setForgotError('Email not found. Please try again.');
       }
-    } catch {
-      setForgotError('Server error. Please check your connection.');
+    } catch (err) {
+      // FIX: Distinguish network errors from server errors
+      if (isNetworkError(err)) {
+        setForgotError('Cannot reach the server. Please check your connection.');
+      } else {
+        setForgotError('Server error. Please try again later.');
+      }
     }
     setForgotLoading(false);
   };
@@ -186,8 +228,16 @@ export default function LoginPage({ onLogin }) {
     try {
       await apiService.verifyResetOtp(forgotEmail, otp, newPassword);
       setResetStep(3);
-    } catch {
-      setForgotError('Server error. Please check your connection.');
+    } catch (err) {
+      // FIX: Track OTP failures and give specific feedback
+      setOtpAttempts((prev) => prev + 1);
+      if (isNetworkError(err)) {
+        setForgotError('Cannot reach the server. Please check your connection.');
+      } else if (err?.response?.status === 400) {
+        setForgotError(`Invalid OTP. ${MAX_OTP_ATTEMPTS - otpAttempts - 1} attempt(s) remaining.`);
+      } else {
+        setForgotError('Server error. Please try again later.');
+      }
     }
     setForgotLoading(false);
   };

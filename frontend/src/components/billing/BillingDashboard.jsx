@@ -185,7 +185,7 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
       date: new Date().toISOString().slice(0,10),
       orderedBy: "", amount: 0, remarks: "",
       findings: "", impression: "",
-      tests: Array.isArray(t.tests) ? t.tests.map((row, idx) => ({
+      tests: Array.isArray(t.tests) ? t.tests.map((row, idx) => ({ id: row.id ?? crypto.randomUUID(),
         id: row.id || idx+1,
         name: row.name || "", value: row.value || "",
         unit: row.unit || "", refRange: row.refRange || "", status: row.status || "Normal",
@@ -695,7 +695,7 @@ export default function BillingDashboard({ currentUser, onLogout, db, locId }) {
                           remarks:    tpl.remarks    || "",
                           findings:   tpl.findings   || "",
                           impression: tpl.impression || "",
-                          tests: Array.isArray(tpl.tests) ? tpl.tests.map((row,idx)=>({
+                          tests: Array.isArray(tpl.tests) ? tpl.tests.map((row,idx)=>({ id: row.id ?? crypto.randomUUID(),
                             id: row.id||idx+1,
                             name: row.name||"", value: row.value||"",
                             unit: row.unit||"", refRange: row.refRange||"", status: row.status||"Normal",

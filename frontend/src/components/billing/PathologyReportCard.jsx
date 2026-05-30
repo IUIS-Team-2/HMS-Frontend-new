@@ -134,7 +134,7 @@ export default function PathologyReportCard({
           </thead>
           <tbody>
             {rep.tests.map((t, ti) => (
-              <tr key={t.id} style={{ borderBottom:"1px solid var(--border,#e2e8f0)" }}>
+              <tr key={t.id ?? `test-${ri}-${ti}`} style={{ borderBottom:"1px solid var(--border,#e2e8f0)" }}>
                 <td style={{ padding:"8px 16px" }}>
                   <input value={t.name} placeholder="e.g. Haemoglobin"
                     onChange={e => updTest(ri, ti, "name", e.target.value)}

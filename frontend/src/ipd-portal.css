@@ -10,7 +10,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  min-height: 58px;
+  height: 58px;
+  overflow: hidden;
   padding: 0 22px;
   background: var(--hdr-bg);
   color: var(--hdr-text);
@@ -93,12 +94,15 @@
 }
 
 .layout {
+  contain: layout style;
   display: flex;
   min-height: calc(100vh - 58px);
   background: var(--bg);
 }
 
 .sidebar {
+  will-change: width;
+  transition: none !important;
   width: 268px;
   flex-shrink: 0;
   background: var(--sidebar);
@@ -272,6 +276,8 @@
 }
 
 .main {
+  contain: layout;
+  min-height: calc(100vh - 58px);
   flex: 1;
   overflow-x: hidden;
   overflow-y: auto;
@@ -296,7 +302,7 @@
   justify-content: space-between;
   align-items: flex-start;
   gap: 20px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   margin-bottom: 18px;
 }
 
@@ -331,6 +337,7 @@
 }
 
 .hero-stats {
+  min-height: 83px;
   display: flex;
   gap: 12px;
 }
@@ -510,6 +517,7 @@
 }
 
 .content-area {
+  min-height: 150px;
   margin-top: 4px;
 }
 
@@ -1683,10 +1691,13 @@
 
 @media (max-width: 900px) {
   .layout {
+  contain: layout style;
     flex-direction: column;
   }
 
   .sidebar {
+  will-change: width;
+  transition: none !important;
     width: 100%;
     border-right: none;
     border-bottom: 1px solid var(--sidebar-border);
